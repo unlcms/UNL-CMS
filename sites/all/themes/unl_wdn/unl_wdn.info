@@ -1,0 +1,13 @@
+name = UNL WDN
+description = UNL DWN theme for Drupal
+screenshot = screenshot.png
+core = 6.x
+engine = phptemplate
+regions[navlinks] = Navigation Links
+regions[maincontentprefix] = Before Main Content
+regions[maincontentpostfix] = After Main Content
+regions[leftcollinks] = Related Links
+regions[contactinfo] = Contact Us
+regions[optionalfooter] = Optional Footer
+regions[footercontent] = Footer Content
+plugins[panels][layouts] = layouts
