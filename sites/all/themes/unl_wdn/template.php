@@ -1,7 +1,5 @@
 <?php
 
-include dirname(__FILE__) . '/includes/form.inc';
-
 function unl_wdn_breadcrumb($breadcrumbs)
 {
 	if (count($breadcrumbs) == 0) {
