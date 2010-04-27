@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.maintenance.inc,v 1.55 2010/03/17 14:04:38 dries Exp $
+// $Id: theme.maintenance.inc,v 1.58 2010/04/20 08:19:01 webchick Exp $
 
 /**
  * @file
@@ -7,11 +7,12 @@
  */
 
 /**
- * Sets up the theming system for site installs, updates and when the site is
- * in maintenance mode. It also applies when the database is unavailable.
+ * Sets up the theming system for maintenance page.
  *
- * Seven is always used for the initial install and update operations. In
- * other cases, Garland is used, but this can be overridden by setting a
+ * Used for site installs, updates and when the site is in maintenance mode.
+ * It also applies when the database is unavailable or bootstrap was not
+ * complete. Seven is always used for the initial install and update operations.
+ * In other cases, Garland is used, but this can be overridden by setting a
  * "maintenance_theme" key in the $conf variable in settings.php.
  */
 function _drupal_maintenance_theme() {
@@ -35,10 +36,16 @@ function _drupal_maintenance_theme() {
     $custom_theme = (isset($conf['maintenance_theme']) ? $conf['maintenance_theme'] : 'seven');
   }
   else {
-    if (!db_is_active()) {
-      // Because we are operating in a crippled environment, we need to
-      // bootstrap just enough to allow hook invocations to work.
+    // The bootstrap was not complete. So we are operating in a crippled
+    // environment, we need to bootstrap just enough to allow hook invocations
+    // to work. See _drupal_log_error().
+    if (!class_exists('Database', FALSE)) {
       require_once DRUPAL_ROOT . '/includes/database/database.inc';
+      spl_autoload_register('db_autoload');
+    }
+
+    // Ensure that system.module is loaded.
+    if (!function_exists('_system_rebuild_theme_data')) {
       $module_list['system']['filename'] = 'modules/system/system.module';
       module_list(TRUE, FALSE, FALSE, $module_list);
       drupal_load('module', 'system');
@@ -86,7 +93,12 @@ function _theme_load_offline_registry($theme, $base_theme = NULL, $theme_engine 
 }
 
 /**
- * Return a themed list of maintenance tasks to perform.
+ * Returns HTML for a list of maintenance tasks to perform.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - items: An associative array of maintenance tasks.
+ *   - active: The key for the currently active maintenance task.
  *
  * @ingroup themeable
  */
@@ -119,7 +131,7 @@ function theme_task_list($variables) {
 }
 
 /**
- * Generate a themed installation page.
+ * Returns HTML for the installation page.
  *
  * Note: this function is not themeable.
  *
@@ -179,7 +191,7 @@ function theme_install_page($variables) {
 }
 
 /**
- * Generate a themed update page.
+ * Returns HTML for the update page.
  *
  * Note: this function is not themeable.
  *
@@ -225,10 +237,13 @@ function theme_update_page($variables) {
 }
 
 /**
- * Generate a report of the results from an operation run via authorize.php.
+ * Returns HTML for a report of the results from an operation run via authorize.php.
  *
- * @param array $variables
+ * @param $variables
+ *   An associative array containing:
  *   - messages: An array of result messages.
+ *
+ * @ingroup themeable
  */
 function theme_authorize_report($variables) {
   $messages = $variables['messages'];
@@ -250,11 +265,14 @@ function theme_authorize_report($variables) {
 }
 
 /**
- * Render a single log message from the authorize.php batch operation.
+ * Returns HTML for a single log message from the authorize.php batch operation.
  *
  * @param $variables
+ *   An associative array containing:
  *   - message: The log message.
  *   - success: A boolean indicating failure or success.
+ *
+ * @ingroup themeable
  */
 function theme_authorize_message($variables) {
   $output = '';

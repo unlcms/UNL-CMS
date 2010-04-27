@@ -1,5 +1,5 @@
 <?php
-// $Id: user.install,v 1.40 2010/03/01 07:39:12 dries Exp $
+// $Id: user.install,v 1.45 2010/04/13 15:15:07 dries Exp $
 
 /**
  * @file
@@ -97,12 +97,22 @@ function user_schema() {
         'not null' => TRUE,
         'default' => '',
         'description' => 'Unique role name.',
+        'translatable' => TRUE,
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The weight of this role in listings and the user interface.',
       ),
     ),
     'unique keys' => array(
       'name' => array('name'),
     ),
     'primary key' => array('rid'),
+    'indexes' => array(
+      'name_weight' => array('name', 'weight'),
+    ),
   );
 
   $schema['users'] = array(
@@ -192,7 +202,7 @@ function user_schema() {
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-        'description' => "Foreign key: {file}.fid of user's picture.",
+        'description' => "Foreign key: {file_managed}.fid of user's picture.",
       ),
       'init' => array(
         'type' => 'varchar',
@@ -274,16 +284,16 @@ function user_install() {
       'mail' => 'placeholder-for-uid-1',
       'created' => REQUEST_TIME,
       'status' => 1,
-      'data' => serialize(array()),
+      'data' => NULL,
     ))
     ->execute();
 
   // Built-in roles.
   $rid_anonymous = db_insert('role')
-    ->fields(array('name' => 'anonymous user'))
+    ->fields(array('name' => 'anonymous user', 'weight' => 0))
     ->execute();
   $rid_authenticated = db_insert('role')
-    ->fields(array('name' => 'authenticated user'))
+    ->fields(array('name' => 'authenticated user', 'weight' => 1))
     ->execute();
 
   // Sanity check to ensure the anonymous and authenticated role IDs are the
@@ -381,8 +391,8 @@ function user_update_7002(&$sandbox) {
     $timezones = system_time_zones();
     // Update this many per page load.
     $count = 10000;
-    $contributed_date_module = db_column_exists('users', 'timezone_name');
-    $contributed_event_module = db_column_exists('users', 'timezone_id');
+    $contributed_date_module = db_field_exists('users', 'timezone_name');
+    $contributed_event_module = db_field_exists('users', 'timezone_id');
 
     $results = db_query_range("SELECT uid FROM {users} ORDER BY uid", $sandbox['user_from'], $count);
     foreach ($results as $account) {
@@ -464,7 +474,8 @@ function user_update_7003() {
 }
 
 /**
- * Add the user's pictures to the {file} table and make them managed files.
+ * Add the user's pictures to the {file_managed} table and make them managed
+ * files.
  */
 function user_update_7004(&$sandbox) {
 
@@ -472,13 +483,13 @@ function user_update_7004(&$sandbox) {
     'type' => 'int',
     'not null' => TRUE,
     'default' => 0,
-    'description' => t("Foreign key: {file}.fid of user's picture."),
+    'description' => t("Foreign key: {file_managed}.fid of user's picture."),
   );
 
   if (!isset($sandbox['progress'])) {
     // Check that the field hasn't been updated in an aborted run of this
     // update.
-    if (!db_column_exists('users', 'picture_fid')) {
+    if (!db_field_exists('users', 'picture_fid')) {
       // Add a new field for the fid.
       db_add_field('users', 'picture_fid', $picture_field);
     }
@@ -489,8 +500,8 @@ function user_update_7004(&$sandbox) {
     $sandbox['max'] = db_query("SELECT COUNT(*) FROM {users} WHERE picture <> ''")->fetchField();
   }
 
-  // As a batch operation move the photos into the {file} table and update the
-  // {users} records.
+  // As a batch operation move the photos into the {file_managed} table and
+  // update the {users} records.
   $limit = 500;
   $result = db_query_range("SELECT uid, picture FROM {users} WHERE picture <> '' AND uid > :uid ORDER BY uid", 0, $limit, array(':uid' => $sandbox['last_user_processed']));
   foreach ($result as $user) {
@@ -545,11 +556,6 @@ function user_update_7005(&$sandbox) {
 }
 
 /**
- * @} End of "defgroup user-updates-6.x-to-7.x"
- * The next series of updates should start at 8000.
- */
-
-/**
  * Add module data to {role_permission}.
  */
 function user_update_7006(&$sandbox) {
@@ -562,7 +568,7 @@ function user_update_7006(&$sandbox) {
   );
   // Check that the field hasn't been updated in an aborted run of this
   // update.
-  if (!db_column_exists('role_permission', 'module')) {
+  if (!db_field_exists('role_permission', 'module')) {
     // Add a new field for the fid.
     db_add_field('role_permission', 'module', $module_field);
   }
@@ -574,3 +580,16 @@ function user_update_7006(&$sandbox) {
       ->execute();
   }
 }
+
+/**
+ * Add a weight column to user roles.
+ */
+function user_update_7007() {
+  db_add_field('role', 'weight', array('type' => 'int', 'not null' => TRUE, 'default' => 0));
+  db_add_index('role', 'name_weight', array('name', 'weight'));
+}
+
+/**
+ * @} End of "defgroup user-updates-6.x-to-7.x"
+ * The next series of updates should start at 8000.
+ */

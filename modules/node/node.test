@@ -1,5 +1,5 @@
 <?php
-// $Id: node.test,v 1.76 2010/03/06 06:39:00 dries Exp $
+// $Id: node.test,v 1.81 2010/04/20 09:48:06 webchick Exp $
 
 /**
  * Test the node_load_multiple() function.
@@ -427,7 +427,7 @@ class NodeCreationTestCase extends DrupalWebTestCase {
   }
 
   function setUp() {
-    // Enable dummy module that implements hook_node_post_save for exceptions.
+    // Enable dummy module that implements hook_node_insert for exceptions.
     parent::setUp('node_test_exception');
 
     $web_user = $this->drupalCreateUser(array('create page content', 'edit own page content'));
@@ -458,20 +458,30 @@ class NodeCreationTestCase extends DrupalWebTestCase {
    */
   function testFailedPageCreation() {
     // Create a node.
-    $edit = array();
-    $langcode = LANGUAGE_NONE;
-    $edit["title"] = 'testing_transaction_exception';
-    $edit["body[$langcode][0][value]"] = $this->randomName(16);
-    $this->drupalPost('node/add/page', $edit, t('Save'));
+    $edit = array(
+      'uid'      => $this->loggedInUser->uid,
+      'name'     => $this->loggedInUser->name,
+      'type'     => 'page',
+      'language' => LANGUAGE_NONE,
+      'title'    => 'testing_transaction_exception',
+    );
+
+    try {
+      node_save((object) $edit);
+      $this->fail(t('Expected exception has not been thrown.'));
+    }
+    catch (Exception $e) {
+      $this->pass(t('Expected exception has been thrown.'));
+    }
 
     if (Database::getConnection()->supportsTransactions()) {
       // Check that the node does not exist in the database.
-      $node = $this->drupalGetNodeByTitle($edit["title"]);
+      $node = $this->drupalGetNodeByTitle($edit['title']);
       $this->assertFalse($node, t('Transactions supported, and node not found in database.'));
     }
     else {
       // Check that the node exists in the database.
-      $node = $this->drupalGetNodeByTitle($edit["title"]);
+      $node = $this->drupalGetNodeByTitle($edit['title']);
       $this->assertTrue($node, t('Transactions not supported, and node found in database.'));
 
       // Check that the failed rollback was logged.
@@ -915,7 +925,7 @@ class NodeSaveTestCase extends DrupalWebTestCase {
   }
 
   function setUp() {
-    parent::setUp();
+    parent::setUp('node_test');
     // Create a user that is allowed to post; we'll use this to test the submission.
     $web_user = $this->drupalCreateUser(array('create article content'));
     $this->drupalLogin($web_user);
@@ -942,7 +952,7 @@ class NodeSaveTestCase extends DrupalWebTestCase {
       'nid' => $test_nid,
       'is_new' => TRUE,
     );
-    $node = node_submit((object)$node);
+    $node = node_submit((object) $node);
 
     // Verify that node_submit did not overwrite the user ID.
     $this->assertEqual($node->uid, $this->web_user->uid, t('Function node_submit() preserves user ID'));
@@ -954,6 +964,63 @@ class NodeSaveTestCase extends DrupalWebTestCase {
 
     $node_by_title = $this->drupalGetNodeByTitle($title);
     $this->assertTrue($node_by_title, t('Node load by node title.'));
+  }
+
+  /**
+   * Check that the "created" and "changed" timestamps are set correctly when
+   * saving a new node or updating an existing node.
+   */
+  function testTimestamps() {
+    // Use the default timestamps.
+    $edit = array(
+      'uid' => $this->web_user->uid,
+      'type' => 'article',
+      'title' => $this->randomName(8),
+    );
+
+    node_save((object) $edit);
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertEqual($node->created, REQUEST_TIME, t('Creating a node sets default "created" timestamp.'));
+    $this->assertEqual($node->changed, REQUEST_TIME, t('Creating a node sets default "changed" timestamp.'));
+
+    // Store the timestamps.
+    $created = $node->created;
+    $changed = $node->changed;
+
+    node_save($node);
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertEqual($node->created, $created, t('Updating a node preserves "created" timestamp.'));
+
+    // Programmatically set the timestamps using hook_node_presave.
+    $node->title = 'testing_node_presave';
+
+    node_save($node);
+    $node = $this->drupalGetNodeByTitle('testing_node_presave');
+    $this->assertEqual($node->created, 280299600, t('Saving a node uses "created" timestamp set in presave hook.'));
+    $this->assertEqual($node->changed, 979534800, t('Saving a node uses "changed" timestamp set in presave hook.'));
+
+    // Programmatically set the timestamps on the node.
+    $edit = array(
+      'uid' => $this->web_user->uid,
+      'type' => 'article',
+      'title' => $this->randomName(8),
+      'created' => 280299600, // Sun, 19 Nov 1978 05:00:00 GMT
+      'changed' => 979534800, // Drupal 1.0 release.
+    );
+
+    node_save((object) $edit);
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertEqual($node->created, 280299600, t('Creating a node uses user-set "created" timestamp.'));
+    $this->assertNotEqual($node->changed, 979534800, t('Creating a node doesn\'t use user-set "changed" timestamp.'));
+
+    // Update the timestamps.
+    $node->created = 979534800;
+    $node->changed = 280299600;
+
+    node_save($node);
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $this->assertEqual($node->created, 979534800, t('Updating a node uses user-set "created" timestamp.'));
+    $this->assertNotEqual($node->changed, 280299600, t('Updating a node doesn\'t use user-set "changed" timestamp.'));
   }
 }
 
@@ -1247,8 +1314,7 @@ class NodeTitleTestCase extends DrupalWebTestCase {
     $this->assertEqual(current($this->xpath($xpath)), $node->title, 'Node breadcrumb is equal to node title.', 'Node');
 
     // Test node title in comment preview.
-    $xpath = '//div[@id="node-'. $node->nid .'"]/h2/a';
-    $this->assertEqual(current($this->xpath($xpath)), $node->title, 'Node preview title is equal to node title.', 'Node');
+    $this->assertEqual(current($this->xpath('//div[@id=:id]/h2/a', array(':id' => 'node-' . $node->nid))), $node->title, 'Node preview title is equal to node title.', 'Node');
   }
 }
 
@@ -1289,7 +1355,7 @@ class NodeBlockFunctionalTest extends DrupalWebTestCase {
   }
 
   function setUp() {
-    parent::setUp('node');
+    parent::setUp('node', 'block');
 
     // Create users and test node.
     $this->admin_user = $this->drupalCreateUser(array('administer content types', 'administer nodes', 'administer blocks'));
@@ -1379,6 +1445,32 @@ class NodeBlockFunctionalTest extends DrupalWebTestCase {
     $this->assertText($node2->title, t('Node found in block.'));
     $this->assertText($node3->title, t('Node found in block.'));
     $this->assertText($node4->title, t('Node found in block.'));
+
+    // Create the custom block.
+    $custom_block = array();
+    $custom_block['info'] = $this->randomName();
+    $custom_block['title'] = $this->randomName();
+    $custom_block['types[article]'] = TRUE;
+    $custom_block['body[value]'] = $this->randomName(32);
+    $custom_block['regions[garland]'] = 'content';
+    $custom_block['regions[seven]'] = 'content';
+    $this->drupalPost('admin/structure/block/add', $custom_block, t('Save block'));
+
+    $bid = db_query("SELECT bid FROM {block_custom} WHERE info = :info", array(':info' => $custom_block['info']))->fetchField();
+    $this->assertTrue($bid, t('Custom block with visibility rule was created.'));
+
+    // Verify visibility rules.
+    $this->drupalGet('');
+    $this->assertNoText($custom_block['title'], t('Block was displayed on the front page.'));
+    $this->drupalGet('node/add/article');
+    $this->assertText($custom_block['title'], t('Block was displayed on the node/add/article page.'));
+    $this->drupalGet('node/' . $node1->nid);
+    $this->assertText($custom_block['title'], t('Block was displayed on the node/N.'));
+
+    // Delete the created custom block & verify that it's been deleted.
+    $this->drupalPost('admin/structure/block/manage/block/' . $bid . '/delete', array(), t('Delete'));
+    $bid = db_query("SELECT 1 FROM {block_node_type} WHERE module = 'block' AND delta = :delta", array(':delta' => $bid))->fetchField();
+    $this->assertFalse($bid, t('Custom block was deleted.'));
   }
 }
 /**
@@ -1571,6 +1663,82 @@ class NodeQueryAlter extends DrupalWebTestCase {
       $this->fail($e->getMessage());
       $this->fail((string)$query);
       $this->fail(t('Altered query is malformed'));
+    }
+  }
+}
+
+/**
+ * Test node token replacement in strings.
+ */
+class NodeTokenReplaceTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Node token replacement',
+      'description' => 'Generates text using placeholders for dummy content to check node token replacement.',
+      'group' => 'Node',
+    );
+  }
+
+  /**
+   * Creates a node, then tests the tokens generated from it.
+   */
+  function testNodeTokenReplacement() {
+    global $language;
+    $url_options = array(
+      'absolute' => TRUE,
+      'language' => $language,
+    );
+
+    // Create a user and a node.
+    $account = $this->drupalCreateUser();
+    $settings = array(
+      'type' => 'article',
+      'uid' => $account->uid,
+      'title' => '<blink>Blinking Text</blink>',
+      'body' => array(LANGUAGE_NONE => array(array('value' => $this->randomName(32), 'summary' => $this->randomName(16)))),
+    );
+    $node = $this->drupalCreateNode($settings);
+
+    // Load node so that the body and summary fields are structured properly. 
+    $node = node_load($node->nid);
+    $instance = field_info_instance('node', 'body', $node->type);
+
+    // Generate and test sanitized tokens.
+    $tests = array();
+    $tests['[node:nid]'] = $node->nid;
+    $tests['[node:vid]'] = $node->vid;
+    $tests['[node:tnid]'] = $node->tnid;
+    $tests['[node:uid]'] = $node->uid;
+    $tests['[node:type]'] = 'article';
+    $tests['[node:type-name]'] = 'Article';
+    $tests['[node:title]'] = check_plain($node->title);
+    $tests['[node:body]'] = _text_sanitize($instance, $node->language, $node->body[$node->language][0], 'value');
+    $tests['[node:summary]'] = _text_sanitize($instance, $node->language, $node->body[$node->language][0], 'summary');
+    $tests['[node:language]'] = check_plain($node->language);
+    $tests['[node:url]'] = url('node/' . $node->nid, $url_options);
+    $tests['[node:edit-url]'] = url('node/' . $node->nid . '/edit', $url_options);
+    $tests['[node:author:name]'] = check_plain($account->name);
+    $tests['[node:created:since]'] = format_interval(REQUEST_TIME - $node->created, 2, $language->language);
+    $tests['[node:changed:since]'] = format_interval(REQUEST_TIME - $node->changed, 2, $language->language);
+
+    // Test to make sure that we generated something for each token.
+    $this->assertFalse(in_array(0, array_map('strlen', $tests)), t('No empty tokens generated.'));
+
+    foreach ($tests as $input => $expected) {
+      $output = token_replace($input, array('node' => $node), array('language' => $language));
+      $this->assertFalse(strcmp($output, $expected), t('Sanitized node token %token replaced.', array('%token' => $input)));
+    }
+
+    // Generate and test unsanitized tokens.
+    $tests['[node:title]'] = $node->title;
+    $tests['[node:body]'] = $node->body[$node->language][0]['value'];
+    $tests['[node:summary]'] = $node->body[$node->language][0]['summary'];
+    $tests['[node:language]'] = $node->language;
+    $tests['[node:author:name]'] = $account->name;
+
+    foreach ($tests as $input => $expected) {
+      $output = token_replace($input, array('node' => $node), array('language' => $language, 'sanitize' => FALSE));
+      $this->assertFalse(strcmp($output, $expected), t('Unsanitized node token %token replaced.', array('%token' => $input)));
     }
   }
 }

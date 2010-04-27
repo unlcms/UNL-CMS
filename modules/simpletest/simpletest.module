@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.module,v 1.89 2010/01/15 04:16:57 dries Exp $
+// $Id: simpletest.module,v 1.91 2010/03/30 07:17:19 webchick Exp $
 
 /**
  * @file
@@ -36,6 +36,7 @@ function simpletest_menu() {
     'description' => 'Run tests against Drupal core and your active modules. These tests help assure that your site code is working as designed.',
     'access arguments' => array('administer unit tests'),
     'file' => 'simpletest.pages.inc',
+    'weight' => -5,
   );
   $items['admin/config/development/testing/list'] = array(
     'title' => 'List',
@@ -68,7 +69,7 @@ function simpletest_permission() {
   return array(
     'administer unit tests' => array(
       'title' => t('Administer tests'),
-      'description' => drupal_placeholder(array('text' => t('Warning: Give to trusted roles only; this permission has security implications.'))),
+      'restrict access' => TRUE,
     ),
   );
 }

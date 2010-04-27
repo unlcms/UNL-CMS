@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.33 2010/03/09 11:39:07 dries Exp $
+// $Id: schema.inc,v 1.36 2010/04/07 15:07:59 dries Exp $
 
 /**
  * @file
@@ -25,6 +25,26 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   const COMMENT_MAX_COLUMN = 255;
 
   /**
+   * Get information about the table and database name from the db_prefix.
+   *
+   * @return
+   *   A keyed array with information about the database, table name and prefix.
+   */
+  protected function getPrefixInfo($table = 'default') {
+    $info = array('prefix' => $this->connection->tablePrefix($table));
+    if (($pos = strpos($info['prefix'], '.')) !== FALSE) {
+      $info['database'] = substr($info['prefix'], 0, $pos);
+      $info['table'] = substr($info['prefix'], ++$pos) . $table;
+    }
+    else {
+      $db_info = Database::getConnectionInfo();
+      $info['database'] = $db_info['default']['database'];
+      $info['table'] = $info['prefix'] . $table;
+    }
+    return $info;
+  }
+
+  /**
    * Build a condition to match a table name against a standard information_schema.
    *
    * MySQL uses databases like schemas rather than catalogs so when we build
@@ -35,16 +55,11 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   protected function buildTableNameCondition($table_name, $operator = '=') {
     $info = $this->connection->getConnectionOptions();
 
-    if (strpos($table_name, '.')) {
-      list($schema, $table_name) = explode('.', $table_name);
-    }
-    else {
-      $schema = $info['database'];
-    }
+    $table_info = $this->getPrefixInfo($table_name);
 
     $condition = new DatabaseCondition('AND');
-    $condition->condition('table_schema', $schema);
-    $condition->condition('table_name', $table_name, $operator);
+    $condition->condition('table_schema', $table_info['database']);
+    $condition->condition('table_name', $table_info['table'], $operator);
     return $condition;
   }
 
@@ -273,7 +288,8 @@ class DatabaseSchema_mysql extends DatabaseSchema {
       throw new DatabaseSchemaObjectExistsException(t("Cannot rename %table to %table_new: table %table_new already exists.", array('%table' => $table, '%table_new' => $new_name)));
     }
 
-    $this->connection->query('ALTER TABLE {' . $table . '} RENAME TO {' . $new_name . '}');
+    $info = $this->getPrefixInfo($new_name);
+    return $this->connection->query('ALTER TABLE {' . $table . '} RENAME TO `' . $info['table'] . '`');
   }
 
   public function dropTable($table) {
@@ -289,7 +305,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     if (!$this->tableExists($table)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot add field %table.%field: table doesn't exist.", array('%field' => $field, '%table' => $table)));
     }
-    if ($this->columnExists($table, $field)) {
+    if ($this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectExistsException(t("Cannot add field %table.%field: field already exists.", array('%field' => $field, '%table' => $table)));
     }
 
@@ -316,7 +332,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   }
 
   public function dropField($table, $field) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       return FALSE;
     }
 
@@ -325,7 +341,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   }
 
   public function fieldSetDefault($table, $field, $default) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot set default value of field %table.%field: field doesn't exist.", array('%table' => $table, '%field' => $field)));
     }
 
@@ -340,7 +356,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   }
 
   public function fieldSetNoDefault($table, $field) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot remove default value of field %table.%field: field doesn't exist.", array('%table' => $table, '%field' => $field)));
     }
 
@@ -415,10 +431,10 @@ class DatabaseSchema_mysql extends DatabaseSchema {
   }
 
   public function changeField($table, $field, $field_new, $spec, $keys_new = array()) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot change the definition of field %table.%name: field doesn't exist.", array('%table' => $table, '%name' => $field)));
     }
-    if (($field != $field_new) && $this->columnExists($table, $field_new)) {
+    if (($field != $field_new) && $this->fieldExists($table, $field_new)) {
       throw new DatabaseSchemaObjectExistsException(t("Cannot rename field %table.%name to %name_new: target field already exists.", array('%table' => $table, '%name' => $field, '%name_new' => $field_new)));
     }
 
@@ -446,7 +462,7 @@ class DatabaseSchema_mysql extends DatabaseSchema {
    * Retrieve a table or column comment.
    */
   public function getComment($table, $column = NULL) {
-    $condition = $this->buildTableNameCondition($this->connection->prefixTables('{' . $table . '}'));
+    $condition = $this->buildTableNameCondition($table);
     if (isset($column)) {
       $condition->condition('column_name', $column);
       $condition->compile($this->connection, $this);
@@ -458,6 +474,40 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     $comment = $this->connection->query("SELECT table_comment FROM information_schema.tables WHERE " . (string) $condition, $condition->arguments())->fetchField();
     // Work-around for MySQL 5.0 bug http://bugs.mysql.com/bug.php?id=11379
     return preg_replace('/; InnoDB free:.*$/', '', $comment);
+  }
+
+  public function tableExists($table) {
+    // The information_schema table is very slow to query under MySQL 5.0.
+    // Instead, we try to select from the table in question.  If it fails,
+    // the most likely reason is that it does not exist. That is dramatically
+    // faster than using information_schema.
+    // @link http://bugs.mysql.com/bug.php?id=19588
+    // @todo: This override should be removed once we require a version of MySQL
+    // that has that bug fixed.
+    try {
+      $this->connection->queryRange("SELECT 1 FROM {" . $table . "}", 0, 1);
+      return TRUE;
+    }
+    catch (Exception $e) {
+      return FALSE;
+    }
+  }
+
+  public function fieldExists($table, $column) {
+    // The information_schema table is very slow to query under MySQL 5.0.
+    // Instead, we try to select from the table and field in question. If it
+    // fails, the most likely reason is that it does not exist. That is
+    // dramatically faster than using information_schema.
+    // @link http://bugs.mysql.com/bug.php?id=19588
+    // @todo: This override should be removed once we require a version of MySQL
+    // that has that bug fixed.
+    try {
+      $this->connection->queryRange("SELECT $column FROM {" . $table . "}", 0, 1);
+      return TRUE;
+    }
+    catch (Exception $e) {
+      return FALSE;
+    }
   }
 
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: template.php,v 1.14 2010/03/03 19:46:26 dries Exp $
+// $Id: template.php,v 1.16 2010/04/21 06:55:23 webchick Exp $
 
 /**
  * Override or insert variables into the html template.
@@ -52,7 +52,7 @@ function seven_admin_block_content($variables) {
       $output .= '<li class="leaf">';
       $output .= l($item['title'], $item['href'], $item['localized_options']);
       if (!system_admin_compact_mode()) {
-        $output .= '<div class="description">' . $item['description'] . '</div>';
+        $output .= '<div class="description">' . filter_xss_admin($item['description']) . '</div>';
       }
       $output .= '</li>';
     }
@@ -69,7 +69,7 @@ function seven_admin_block_content($variables) {
 function seven_tablesort_indicator($variables) {
   $style = $variables['style'];
   $theme_path = drupal_get_path('theme', 'seven');
-  if ($style == "asc") {
+  if ($style == 'asc') {
     return theme('image', array('path' => $theme_path . '/images/arrow-asc.png', 'alt' => t('sort ascending'), 'title' => t('sort ascending')));
   }
   else {

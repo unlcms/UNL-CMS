@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.test,v 1.71 2010/03/07 23:14:20 webchick Exp $
+// $Id: comment.test,v 1.77 2010/04/22 10:12:25 webchick Exp $
 
 class CommentHelperCase extends DrupalWebTestCase {
   protected $admin_user;
@@ -530,11 +530,18 @@ class CommentAnonymous extends CommentHelperCase {
     $this->assertFalse($this->commentExists($anonymous_comment3), t('Anonymous comment with contact info (required) not found.'));
 
     // Post comment with contact info (required).
-    $anonymous_comment3 = $this->postComment($this->node, $this->randomName(), $this->randomName(), array('mail' => 'tester@simpletest.org'));
+    $author_name = $this->randomName();
+    $author_mail = $this->randomName() . '@example.com';
+    $anonymous_comment3 = $this->postComment($this->node, $this->randomName(), $this->randomName(), array('name' => $author_name, 'mail' => $author_mail));
     $this->assertTrue($this->commentExists($anonymous_comment3), t('Anonymous comment with contact info (required) found.'));
 
-    // Unpublish comment.
+    // Make sure the user data appears correctly when editing the comment.
     $this->drupalLogin($this->admin_user);
+    $this->drupalGet('comment/' . $anonymous_comment3->id . '/edit');
+    $this->assertRaw($author_name, t("The anonymous user's name is correct when editing the comment."));
+    $this->assertRaw($author_mail, t("The anonymous user's e-mail address is correct when editing the comment."));
+
+    // Unpublish comment.
     $this->performCommentOperation($anonymous_comment3, 'unpublish');
 
     $this->drupalGet('admin/content/comment/approval');
@@ -762,7 +769,7 @@ class CommentPagerTest extends CommentHelperCase {
       $expected_cids[] = $comments[$key]->id;
     }
 
-    $comment_anchors = $this->xpath("//a[starts-with(@id,'comment-')]");
+    $comment_anchors = $this->xpath('//a[starts-with(@id,"comment-")]');
     $result_order = array();
     foreach ($comment_anchors as $anchor) {
       $result_order[] = substr($anchor['id'], 8);
@@ -954,6 +961,10 @@ class CommentApprovalTest extends CommentHelperCase {
 
     // Approve comment.
     $this->drupalLogin($this->admin_user);
+    $this->drupalGet('comment/1/approve');
+    $this->assertResponse(403, t('Forged comment approval was denied.'));
+    $this->drupalGet('comment/1/approve', array('query' => array('token' => 'forged')));
+    $this->assertResponse(403, t('Forged comment approval was denied.'));
     $this->drupalGet('node/' . $this->node->nid);
     $this->clickLink(t('approve'));
     $this->drupalLogout();
@@ -1130,13 +1141,13 @@ class CommentRdfaTestCase extends CommentHelperCase {
 
     // Tests number of comments in teaser view.
     $this->drupalGet('node');
-    $comment_count_teaser = $this->xpath("//div[contains(@typeof, 'sioc:Item')]//li[contains(@class, 'comment_comments')]/a[contains(@property, 'sioc:num_replies') and contains(@content, '2') and @datatype='xsd:integer']");
+    $comment_count_teaser = $this->xpath('//div[contains(@typeof, "sioc:Item")]//li[contains(@class, "comment_comments")]/a[contains(@property, "sioc:num_replies") and contains(@content, "2") and @datatype="xsd:integer"]');
     $this->assertTrue(!empty($comment_count_teaser), t('RDFa markup for the number of comments found on teaser view.'));
 
     // Tests number of comments in full node view.
     $this->drupalGet('node/' . $this->node1->nid);
     $node_url = url('node/' . $this->node1->nid);
-    $comment_count_teaser = $this->xpath("/html/head/meta[@about='$node_url' and @property='sioc:num_replies' and @content='2' and @datatype='xsd:integer']");
+    $comment_count_teaser = $this->xpath('/html/head/meta[@about=:node-url and @property="sioc:num_replies" and @content="2" and @datatype="xsd:integer"]', array(':node-url' => $node_url));
     $this->assertTrue(!empty($comment_count_teaser), t('RDFa markup for the number of comments found on full node view.'));
   }
 
@@ -1176,10 +1187,10 @@ class CommentRdfaTestCase extends CommentHelperCase {
     // Tests comment #2 as anonymous user.
     $this->_testBasicCommentRdfaMarkup($comment2, $anonymous_user);
     // Tests the RDFa markup for the homepage (specific to anonymous comments).
-    $comment_homepage = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//span[@rel='sioc:has_creator']/a[contains(@class, 'username') and @typeof='sioc:User' and @property='foaf:name' and @href='http://example.org/' and contains(@rel, 'foaf:page')]");
+    $comment_homepage = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//span[@rel="sioc:has_creator"]/a[contains(@class, "username") and @typeof="sioc:UserAccount" and @property="foaf:name" and @href="http://example.org/" and contains(@rel, "foaf:page")]');
     $this->assertTrue(!empty($comment_homepage), t('RDFa markup for the homepage of anonymous user found.'));
     // There should be no about attribute on anonymous comments.
-    $comment_homepage = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//span[@rel='sioc:has_creator']/a[@about]");
+    $comment_homepage = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//span[@rel="sioc:has_creator"]/a[@about]');
     $this->assertTrue(empty($comment_homepage), t('No about attribute is present on anonymous user comment.'));
 
     // Tests comment #2 as logged in user.
@@ -1187,13 +1198,37 @@ class CommentRdfaTestCase extends CommentHelperCase {
     $this->drupalGet('node/' . $this->node2->nid);
     $this->_testBasicCommentRdfaMarkup($comment2, $anonymous_user);
     // Tests the RDFa markup for the homepage (specific to anonymous comments).
-    $comment_homepage = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//span[@rel='sioc:has_creator']/a[contains(@class, 'username') and @typeof='sioc:User' and @property='foaf:name' and @href='http://example.org/' and contains(@rel, 'foaf:page')]");
-    $this->assertTrue(!empty($comment_homepage), t('RDFa markup for the homepage of anonymous user found.'));
+    $comment_homepage = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//span[@rel="sioc:has_creator"]/a[contains(@class, "username") and @typeof="sioc:UserAccount" and @property="foaf:name" and @href="http://example.org/" and contains(@rel, "foaf:page")]');
+    $this->assertTrue(!empty($comment_homepage), t("RDFa markup for the homepage of anonymous user found."));
     // There should be no about attribute on anonymous comments.
-    $comment_homepage = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//span[@rel='sioc:has_creator']/a[@about]");
-    $this->assertTrue(empty($comment_homepage), t('No about attribute is present on anonymous user comment.'));
+    $comment_homepage = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//span[@rel="sioc:has_creator"]/a[@about]');
+    $this->assertTrue(empty($comment_homepage), t("No about attribute is present on anonymous user comment."));
   }
 
+  /**
+   * Test RDF comment replies.
+   */
+  function testCommentReplyOfRdfaMarkup() {
+    // Posts comment #1 as a registered user.
+    $this->drupalLogin($this->web_user);
+    $comments[] = $this->postComment($this->node1, $this->randomName(), $this->randomName());
+
+    // Tests the reply_of relationship of a first level comment.
+    $result = $this->xpath("id('comments')//div[@class='comment' and position()=0]//span[@rel='sioc:reply_of' and @resource=:node]", array(':node' => url("node/{$this->node1->nid}")));
+    $this->assertEqual(1, count($result), t('RDFa markup referring to the node is present.'));
+    $result = $this->xpath("id('comments')//div[@class='comment' and position()=0]//span[@rel='sioc:reply_of' and @resource=:comment]", array(':comment' => url('comment/1#comment-1')));
+    $this->assertFalse($result, t('No RDFa markup referring to the comment itself is present.'));
+
+    // Posts a reply to the first comment.
+    $this->drupalGet('comment/reply/' . $this->node1->nid . '/' . $comments[0]->id);
+    $comments[] = $this->postComment(NULL, $this->randomName(), $this->randomName(), TRUE);
+
+    // Tests the reply_of relationship of a second level comment.
+    $result = $this->xpath("id('comments')//div[@class='comment' and position()=1]//span[@rel='sioc:reply_of' and @resource=:node]", array(':node' => url("node/{$this->node1->nid}")));
+    $this->assertEqual(1, count($result), t('RDFa markup referring to the node is present.'));
+    $result = $this->xpath("id('comments')//div[@class='comment' and position()=1]//span[@rel='sioc:reply_of' and @resource=:comment]", array(':comment' => url('comment/1#comment-1')));
+    $this->assertEqual(1, count($result), t('RDFa markup referring to the parent comment is present.'));
+  }
   /**
    * Helper function for testCommentRdfaMarkup().
    *
@@ -1205,18 +1240,18 @@ class CommentRdfaTestCase extends CommentHelperCase {
    *   An array containing information about an anonymous user.
    */
   function _testBasicCommentRdfaMarkup($comment, $account = array()) {
-    $comment_container = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]");
-    $this->assertTrue(!empty($comment_container), t('Comment RDF type for comment found.'));
-    $comment_title = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//h3[@property='dc:title']");
-    $this->assertEqual((string)$comment_title[0]->a, $comment->subject, t('RDFa markup for the comment title found.'));
-    $comment_date = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//*[contains(@property, 'dc:date') and contains(@property, 'dc:created')]");
-    $this->assertTrue(!empty($comment_date), t('RDFa markup for the date of the comment found.'));
+    $comment_container = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]');
+    $this->assertTrue(!empty($comment_container), t("Comment RDF type for comment found."));
+    $comment_title = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//h3[@property="dc:title"]');
+    $this->assertEqual((string)$comment_title[0]->a, $comment->subject, t("RDFa markup for the comment title found."));
+    $comment_date = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//*[contains(@property, "dc:date") and contains(@property, "dc:created")]');
+    $this->assertTrue(!empty($comment_date), t("RDFa markup for the date of the comment found."));
     // The author tag can be either a or span
-    $comment_author = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//span[@rel='sioc:has_creator']/*[contains(@class, 'username') and @typeof='sioc:User' and @property='foaf:name']");
-    $name = empty($account['name']) ? $this->web_user->name : $account['name'] . ' (not verified)';
-    $this->assertEqual((string)$comment_author[0], $name, t('RDFa markup for the comment author found.'));
-    $comment_body = $this->xpath("//div[contains(@class, 'comment') and contains(@typeof, 'sioct:Comment')]//div[@class='content']//div[contains(@class, 'comment-body')]//div[@property='content:encoded']");
-    $this->assertEqual((string)$comment_body[0]->p, $comment->comment, t('RDFa markup for the comment body found.'));
+    $comment_author = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//span[@rel="sioc:has_creator"]/*[contains(@class, "username") and @typeof="sioc:UserAccount" and @property="foaf:name"]');
+    $name = empty($account["name"]) ? $this->web_user->name : $account["name"] . " (not verified)";
+    $this->assertEqual((string)$comment_author[0], $name, t("RDFa markup for the comment author found."));
+    $comment_body = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//div[@class="content"]//div[contains(@class, "comment-body")]//div[@property="content:encoded"]');
+    $this->assertEqual((string)$comment_body[0]->p, $comment->comment, t("RDFa markup for the comment body found."));
   }
 }
 
@@ -1257,5 +1292,105 @@ class CommentContentRebuild extends CommentHelperCase {
 
     // This means that the content was rebuilt as the added test property no longer exists.
     $this->assertFalse(isset($built_content['test_property']), t('Comment content was emptied before being built.'));
+  }
+}
+
+/**
+ * Test comment token replacement in strings.
+ */
+class CommentTokenReplaceTestCase extends CommentHelperCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Comment token replacement',
+      'description' => 'Generates text using placeholders for dummy content to check comment token replacement.',
+      'group' => 'Comment',
+    );
+  }
+
+  /**
+   * Creates a comment, then tests the tokens generated from it.
+   */
+  function testCommentTokenReplacement() {
+    global $language;
+    $url_options = array(
+      'absolute' => TRUE,
+      'language' => $language,
+    );
+
+    $this->drupalLogin($this->admin_user);
+
+    // Set comment variables.
+    $this->setCommentSubject(TRUE);
+
+    // Create a node and a comment.
+    $node = $this->drupalCreateNode(array('type' => 'article'));
+    $parent_comment = $this->postComment($node, $this->randomName(), $this->randomName(), TRUE);
+
+    // Post a reply to the comment.
+    $this->drupalGet('comment/reply/' . $node->nid . '/' . $parent_comment->id);
+    $child_comment = $this->postComment(NULL, $this->randomName(), $this->randomName());
+    $comment = comment_load($child_comment->id);
+    $comment->homepage = 'http://example.org/';
+
+    // Add HTML to ensure that sanitation of some fields tested directly.
+    $comment->subject = '<blink>Blinking Comment</blink>';
+    $instance = field_info_instance('comment', 'body', 'comment_body');
+
+    // Generate and test sanitized tokens.
+    $tests = array();
+    $tests['[comment:cid]'] = $comment->cid;
+    $tests['[comment:pid]'] = $comment->pid;
+    $tests['[comment:nid]'] = $comment->nid;
+    $tests['[comment:uid]'] = $comment->uid;
+    $tests['[comment:hostname]'] = check_plain($comment->hostname);
+    $tests['[comment:name]'] = filter_xss($comment->name);
+    $tests['[comment:mail]'] = check_plain($this->admin_user->mail);
+    $tests['[comment:homepage]'] = filter_xss_bad_protocol($comment->homepage);
+    $tests['[comment:title]'] = filter_xss($comment->subject);
+    $tests['[comment:body]'] = _text_sanitize($instance, LANGUAGE_NONE, $comment->comment_body[LANGUAGE_NONE][0], 'value');
+    $tests['[comment:url]'] = url('comment/' . $comment->cid, $url_options + array('fragment' => 'comment-' . $comment->cid));
+    $tests['[comment:edit-url]'] = url('comment/' . $comment->cid . '/edit', $url_options);
+    $tests['[comment:created:since]'] = format_interval(REQUEST_TIME - $comment->created, 2, $language->language);
+    $tests['[comment:changed:since]'] = format_interval(REQUEST_TIME - $comment->changed, 2, $language->language);
+    $tests['[comment:parent:title]'] = check_plain($parent_comment->subject);
+    $tests['[comment:node:title]'] = check_plain($node->title);
+    $tests['[comment:author:name]'] = check_plain($this->admin_user->name);
+
+    // Test to make sure that we generated something for each token.
+    $this->assertFalse(in_array(0, array_map('strlen', $tests)), t('No empty tokens generated.'));
+
+    foreach ($tests as $input => $expected) {
+      $output = token_replace($input, array('comment' => $comment), array('language' => $language));
+      $this->assertFalse(strcmp($output, $expected), t('Sanitized comment token %token replaced.', array('%token' => $input)));
+    }
+
+    // Generate and test unsanitized tokens.
+    $tests['[comment:hostname]'] = $comment->hostname;
+    $tests['[comment:name]'] = $comment->name;
+    $tests['[comment:mail]'] = $this->admin_user->mail;
+    $tests['[comment:homepage]'] = $comment->homepage;
+    $tests['[comment:title]'] = $comment->subject;
+    $tests['[comment:body]'] = $comment->comment_body[LANGUAGE_NONE][0]['value'];
+    $tests['[comment:parent:title]'] = $parent_comment->subject;
+    $tests['[comment:node:title]'] = $node->title;
+    $tests['[comment:author:name]'] = $this->admin_user->name;
+
+    foreach ($tests as $input => $expected) {
+      $output = token_replace($input, array('comment' => $comment), array('language' => $language, 'sanitize' => FALSE));
+      $this->assertFalse(strcmp($output, $expected), t('Unsanitized comment token %token replaced.', array('%token' => $input)));
+    }
+
+    // Load node so comment_count gets computed.
+    $node = node_load($node->nid);
+
+    // Generate comment tokens for the node (it has 2 comments, both new).
+    $tests = array();
+    $tests['[node:comment-count]'] = 2;
+    $tests['[node:comment-count-new]'] = 2;
+
+    foreach ($tests as $input => $expected) {
+      $output = token_replace($input, array('node' => $node), array('language' => $language));
+      $this->assertFalse(strcmp($output, $expected), t('Node comment token %token replaced.', array('%token' => $input)));
+    }
   }
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: update.inc,v 1.40 2010/03/20 15:06:51 dries Exp $
+// $Id: update.inc,v 1.44 2010/04/21 07:05:44 webchick Exp $
 
 /**
  * @file
@@ -36,7 +36,10 @@ function update_check_incompatibility($name, $type = 'module') {
 
   // Store values of expensive functions for future use.
   if (empty($themes) || empty($modules)) {
-    $themes = _system_rebuild_theme_data();
+    // We need to do a full rebuild here to make sure the database reflects any
+    // code changes that were made in the filesystem before the update script
+    // was initiated.
+    $themes = system_rebuild_theme_data();
     $modules = system_rebuild_module_data();
   }
 
@@ -99,9 +102,35 @@ function update_prepare_d7_bootstrap() {
   // Allow the database system to work even if the registry has not been
   // created yet.
   drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
-  drupal_install_initialize_database();
-  spl_autoload_unregister('drupal_autoload_class');
-  spl_autoload_unregister('drupal_autoload_interface');
+
+  // Create the registry tables.
+  if (!db_table_exists('registry')) {
+    $schema['registry'] = array(
+      'fields' => array(
+        'name'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
+        'type'   => array('type' => 'varchar', 'length' => 9, 'not null' => TRUE, 'default' => ''),
+        'filename'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
+        'module'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
+        'weight'   => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      ),
+      'primary key' => array('name', 'type'),
+      'indexes' => array(
+        'hook' => array('type', 'weight', 'module'),
+      ),
+    );
+    db_create_table('registry', $schema['registry']);
+  }
+  if (!db_table_exists('registry_file')) {
+    $schema['registry_file'] = array(
+      'fields' => array(
+        'filename'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
+        'filectime'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+        'filemtime'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      ),
+      'primary key' => array('filename'),
+    );
+    db_create_table('registry_file', $schema['registry_file']);
+  }
 
   // The new cache_bootstrap bin is required to bootstrap to
   // DRUPAL_BOOTSTRAP_SESSION, so create it here rather than in
@@ -342,61 +371,9 @@ function update_fix_d7_requirements() {
     );
     db_create_table('role_permission', $schema['role_permission']);
 
-    // Add the {semaphore} table in case menu_rebuild() gets called during
-    // an update.
-    $schema['semaphore'] = array(
-      'description' => 'Table for holding semaphores, locks, flags, etc. that cannot be stored as Drupal variables since they must not be cached.',
-      'fields' => array(
-        'name' => array(
-          'description' => 'Primary Key: Unique name.',
-          'type' => 'varchar',
-          'length' => 255,
-          'not null' => TRUE,
-          'default' => ''
-        ),
-        'value' => array(
-          'description' => 'A value for the semaphore.',
-          'type' => 'varchar',
-          'length' => 255,
-          'not null' => TRUE,
-          'default' => ''
-        ),
-        'expire' => array(
-          'description' => 'A Unix timestamp with microseconds indicating when the semaphore should expire.',
-          'type' => 'float',
-          'size' => 'big',
-          'not null' => TRUE
-        ),
-      ),
-      'indexes' => array('value' => array('value')),
-      'primary key' => array('name'),
-    );
-    db_create_table('semaphore', $schema['semaphore']);
-
-    // Add registry tables since these are required during an update.
-    $schema['registry'] = array(
-      'fields' => array(
-        'name'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
-        'type'   => array('type' => 'varchar', 'length' => 9, 'not null' => TRUE, 'default' => ''),
-        'filename'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
-        'module'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
-        'weight'   => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
-      ),
-      'primary key' => array('name', 'type'),
-      'indexes' => array(
-        'hook' => array('type', 'weight', 'module'),
-      ),
-    );
-    $schema['registry_file'] = array(
-      'fields' => array(
-        'filename'   => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
-        'filectime'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
-        'filemtime'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
-      ),
-      'primary key' => array('filename'),
-    );
-    db_create_table('registry', $schema['registry']);
-    db_create_table('registry_file', $schema['registry_file']);
+    // Drops and recreates semaphore value index.
+    db_drop_index('semaphore', 'expire');
+    db_add_index('semaphore', 'value', array('value'));
 
     $schema['date_format_type'] = array(
       'description' => 'Stores configured date format types.',

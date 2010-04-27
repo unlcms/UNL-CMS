@@ -1,5 +1,5 @@
 <?php
-// $Id: profile.module,v 1.288 2010/03/12 15:56:29 dries Exp $
+// $Id: profile.module,v 1.290 2010/04/23 04:32:16 webchick Exp $
 
 /**
  * @file
@@ -273,8 +273,6 @@ function profile_save_profile(&$edit, $account, $category, $register = FALSE) {
       ))
       ->fields(array('value' => $edit[$field->name]))
       ->execute();
-    // Mark field as handled (prevents saving to user->data).
-    $edit[$field->name] = NULL;
   }
 }
 
@@ -362,7 +360,7 @@ function profile_user_view($account) {
 }
 
 function _profile_form_explanation($field) {
-  $output = $field->explanation;
+  $output = filter_xss_admin($field->explanation);
 
   if ($field->type == 'list') {
     $output .= ' ' . t('Put each item on a separate line or separate them by commas. No HTML allowed.');

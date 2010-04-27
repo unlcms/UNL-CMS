@@ -1,4 +1,4 @@
-// $Id: overlay-child.js,v 1.6 2010/03/09 20:52:27 webchick Exp $
+// $Id: overlay-child.js,v 1.8 2010/04/24 07:14:29 dries Exp $
 
 (function ($) {
 
@@ -31,13 +31,13 @@ Drupal.behaviors.overlayChild = {
     // may have decided to tell us the parent window to close the popup dialog.
     if (settings.closeOverlay) {
       parent.Drupal.overlay.bindChild(window, true);
-      // Close the child window from a separate thread because the current
-      // one is busy processing Drupal behaviors.
+      // Use setTimeout to close the child window from a separate thread,
+      // because the current one is busy processing Drupal behaviors.
       setTimeout(function () {
         // We need to store the parent variable locally because it will
         // disappear as soon as we close the iframe.
         var p = parent;
-        p.Drupal.overlay.close(settings.args, settings.statusMessages);
+        p.Drupal.overlay.close();
         if (typeof settings.redirect == 'string') {
           p.Drupal.overlay.redirect(settings.redirect);
         }

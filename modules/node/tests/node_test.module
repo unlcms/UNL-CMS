@@ -1,5 +1,5 @@
 <?php
-// $Id: node_test.module,v 1.9 2009/12/26 16:50:09 dries Exp $
+// $Id: node_test.module,v 1.11 2010/04/20 09:30:21 webchick Exp $
 
 /**
  * @file
@@ -40,7 +40,7 @@ function node_test_node_view($node, $view_mode) {
 function node_test_node_grants($account, $op) {
   // Give everyone full grants so we don't break other node tests.
   // Our node access tests asserts three realms of access.
-  // @see testGrantAlter()
+  // See testGrantAlter().
   return array(
     'test_article_realm' => array(1),
     'test_page_realm' => array(1),
@@ -99,4 +99,16 @@ function node_test_node_access_records_alter(&$grants, $node) {
 function node_test_node_grants_alter(&$grants, $account, $op) {
   // Return an empty array of grants to prove that we can alter by reference.
   $grants = array();
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function node_test_node_presave($node) {
+  if ($node->title == 'testing_node_presave') {
+    // Sun, 19 Nov 1978 05:00:00 GMT
+    $node->created = 280299600;
+    // Drupal 1.0 release.
+    $node->changed = 979534800;
+  }
 }

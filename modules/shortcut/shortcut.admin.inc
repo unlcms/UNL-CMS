@@ -1,5 +1,5 @@
 <?php
-// $Id: shortcut.admin.inc,v 1.11 2010/03/08 15:45:26 webchick Exp $
+// $Id: shortcut.admin.inc,v 1.13 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -85,7 +85,7 @@ function shortcut_set_switch($form, &$form_state, $account = NULL) {
       'js' => array(drupal_get_path('module', 'shortcut') . '/shortcut.admin.js'),
     );
 
-    $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+    $form['actions'] = array('#type' => 'actions');
     $form['actions']['submit'] = array(
       '#type' => 'submit',
       '#value' => t('Change set'),
@@ -193,7 +193,7 @@ function shortcut_set_add_form($form, &$form_state) {
     '#description' => t('The new set is created by copying items from your default shortcut set.'),
   );
 
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Create new set'),
@@ -269,7 +269,7 @@ function shortcut_set_customize($form, &$form_state, $shortcut_set) {
     'js' => array(drupal_get_path('module', 'shortcut') . '/shortcut.admin.js'),
   );
 
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save changes'),
@@ -294,17 +294,14 @@ function shortcut_set_customize_submit($form, &$form_state) {
 }
 
 /**
- * Themes the shortcut set customization form.
+ * Returns HTML for a shortcut set customization form.
  *
  * @param $variables
  *   An associative array containing:
- *   - form: An array representing the form.
+ *   - form: A render element representing the form.
  *
- * @return
- *   A themed HTML string representing the content of the form.
- *
- * @ingroup themeable
  * @see shortcut_set_customize()
+ * @ingroup themeable
  */
 function theme_shortcut_set_customize($variables) {
   $form = $variables['form'];
@@ -456,7 +453,7 @@ function _shortcut_link_form_elements($shortcut_link = NULL) {
 
   $form['#validate'][] = 'shortcut_link_edit_validate';
 
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),
@@ -565,11 +562,7 @@ function shortcut_set_edit_form($form, &$form_state, $shortcut_set) {
     '#required' => TRUE,
     '#weight' => -5,
   );
-  $form['actions'] = array(
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-actions')),
-    '#weight' => 100,
-  );
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),

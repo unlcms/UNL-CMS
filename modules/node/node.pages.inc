@@ -1,5 +1,5 @@
 <?php
-// $Id: node.pages.inc,v 1.118 2010/03/18 06:50:37 dries Exp $
+// $Id: node.pages.inc,v 1.123 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -28,7 +28,11 @@ function node_add_page() {
 }
 
 /**
- * Display the list of available node types for node creation.
+ * Returns HTML for a list of available node types for node creation.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - content: An array of content types.
  *
  * @ingroup themeable
  */
@@ -163,14 +167,18 @@ function node_form($form, &$form_state, $node) {
     '#type' => 'checkbox',
     '#title' => t('Create new revision'),
     '#default_value' => $node->revision,
-    '#states' => array(
-      // Check the revision log checkbox when the log textarea is filled in.
+    '#access' => user_access('administer nodes'),
+  );
+  // Check the revision log checkbox when the log textarea is filled in.
+  // This must not happen if "Create new revision" is enabled by default, since
+  // the state would auto-disable the checkbox otherwise.
+  if (!$node->revision) {
+    $form['revision_information']['revision']['#states'] = array(
       'checked' => array(
         'textarea[name="log"]' => array('empty' => FALSE),
       ),
-    ),
-    '#access' => user_access('administer nodes'),
-  );
+    );
+  }
   $form['revision_information']['log'] = array(
     '#type' => 'textarea',
     '#title' => t('Revision log message'),
@@ -239,11 +247,7 @@ function node_form($form, &$form_state, $node) {
   );
 
   // Add the buttons.
-  $form['actions'] = array(
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-actions')),
-    '#weight' => 100,
-  );
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#access' => variable_get('node_preview_' . $node->type, DRUPAL_OPTIONAL) != DRUPAL_REQUIRED || (!form_get_errors() && isset($form_state['node_preview'])),
@@ -336,7 +340,7 @@ function node_preview($node) {
 }
 
 /**
- * Display a node preview for display during node creation and editing.
+ * Returns HTML for a node preview for display during node creation and editing.
  *
  * @param $variables
  *   An associative array containing:
@@ -351,8 +355,10 @@ function theme_node_preview($variables) {
 
   $preview_trimmed_version = FALSE;
 
-  $trimmed = drupal_render(node_view(clone $node, 'teaser'));
-  $full = drupal_render(node_view($node, 'full'));
+  $elements = node_view(clone $node, 'teaser');
+  $trimmed = drupal_render($elements);
+  $elements = node_view($node, 'full');
+  $full = drupal_render($elements);
 
   // Do we need to preview trimmed version of post as well as full version?
   if ($trimmed != $full) {
@@ -397,6 +403,8 @@ function node_form_submit($form, &$form_state) {
     // rebuilt and node form redisplayed the same way as in preview.
     drupal_set_message(t('The post could not be saved.'), 'error');
   }
+  // Clear the page and block caches.
+  cache_clear_all();
 }
 
 /**

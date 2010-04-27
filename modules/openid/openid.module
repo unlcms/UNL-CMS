@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.module,v 1.75 2010/03/09 12:07:37 dries Exp $
+// $Id: openid.module,v 1.84 2010/04/07 16:35:03 dries Exp $
 
 /**
  * @file
@@ -65,13 +65,38 @@ function openid_help($path, $arg) {
  * Implements hook_user_insert().
  */
 function openid_user_insert(&$edit, $account, $category) {
-  if (isset($_SESSION['openid']['values'])) {
+  if (!empty($edit['openid_claimed_id'])) {
     // The user has registered after trying to log in via OpenID.
     if (variable_get('user_email_verification', TRUE)) {
       drupal_set_message(t('Once you have verified your e-mail address, you may log in via OpenID.'));
     }
-    user_set_authmaps($account, array('authname_openid' => $_SESSION['openid']['values']['response']['openid.claimed_id']));
+    user_set_authmaps($account, array('authname_openid' => $edit['openid_claimed_id']));
     unset($_SESSION['openid']);
+    unset($edit['openid_claimed_id']);
+  }
+}
+
+/**
+ * Implements hook_user_login().
+ *
+ * Save openid_identifier to visitor cookie.
+ */
+function openid_user_login(&$edit, $account) {
+  if (isset($_SESSION['openid'])) {
+    // The user has logged in via OpenID.
+    user_cookie_save(array_intersect_key($_SESSION['openid']['user_login_values'], array_flip(array('openid_identifier'))));
+    unset($_SESSION['openid']);
+  }
+}
+
+/**
+ * Implements hook_user_logout().
+ *
+ * Delete any openid_identifier in visitor cookie.
+ */
+function openid_user_logout($account) {
+  if (isset($_COOKIE['Drupal_visitor_openid_identifier'])) {
+    user_cookie_delete('openid_identifier');
   }
 }
 
@@ -90,8 +115,9 @@ function openid_form_user_login_alter(&$form, &$form_state) {
 }
 
 function _openid_user_login_form_alter(&$form, &$form_state) {
-  drupal_add_css(drupal_get_path('module', 'openid') . '/openid.css');
-  drupal_add_js(drupal_get_path('module', 'openid') . '/openid.js');
+  $form['#attached']['css'][] = drupal_get_path('module', 'openid') . '/openid.css';
+  $form['#attached']['js'][] = drupal_get_path('module', 'openid') . '/openid.js';
+  $form['#attached']['library'][] = array('system', 'cookie');
   if (!empty($form_state['input']['openid_identifier'])) {
     $form['name']['#required'] = FALSE;
     $form['pass']['#required'] = FALSE;
@@ -128,28 +154,58 @@ function _openid_user_login_form_alter(&$form, &$form_state) {
 }
 
 /**
- * Implements hook_form_alter().
+ * Implements hook_form_FORM_ID_alter().
  *
- * Adds OpenID login to the login forms.
+ * Prefills the login form with values acquired via OpenID.
  */
 function openid_form_user_register_form_alter(&$form, &$form_state) {
-  if (isset($_SESSION['openid']['values'])) {
-    // We were unable to auto-register a new user. Prefill the registration
-    // form with the values we have.
-    $form['account']['name']['#default_value'] = $_SESSION['openid']['values']['name'];
-    $form['account']['mail']['#default_value'] = $_SESSION['openid']['values']['mail'];
+  if (isset($_SESSION['openid']['response'])) {
+    module_load_include('inc', 'openid');
+
+    $response = $_SESSION['openid']['response'];
+
+    // Extract Simple Registration keys from the response.
+    $sreg_values = openid_extract_namespace($response, OPENID_NS_SREG, 'sreg');
+    // Extract Attribute Exchanges keys from the response.
+    $ax_values = openid_extract_namespace($response, OPENID_NS_AX, 'ax');
+
+    if (!empty($sreg_values['nickname'])) {
+      // Use the nickname returned by Simple Registration if available.
+      $form['account']['name']['#default_value'] = $sreg_values['nickname'];
+    }
+    elseif ($ax_name_values = openid_extract_ax_values($ax_values, array('name_ao', 'name_son'))) {
+      // Else, use the first nickname returned by AX if available.
+      $form['account']['name']['#default_value'] = current($ax_name_values);
+    }
+    else {
+      $form['account']['name']['#default_value'] = '';
+    }
+
+    if (!empty($sreg_values['email'])) {
+      // Use the email returned by Simple Registration if available.
+      $form['account']['mail']['#default_value'] = $sreg_values['email'];
+    }
+    elseif ($ax_mail_values = openid_extract_ax_values($ax_values, array('mail_ao', 'mail_son'))) {
+      // Else, use the first nickname returned by AX if available.
+      $form['account']['mail']['#default_value'] = current($ax_mail_values);
+    }
 
     // If user_email_verification is off, hide the password field and just fill
     // with random password to avoid confusion.
     if (!variable_get('user_email_verification', TRUE)) {
-      $form['pass']['#type'] = 'hidden';
-      $form['pass']['#value'] = user_password();
+      $form['account']['pass']['#type'] = 'hidden';
+      $form['account']['pass']['#value'] = user_password();
     }
+
+    $form['openid_claimed_id'] = array(
+      '#type' => 'value',
+      '#default_value' => $response['openid.claimed_id'],
+    );
     $form['openid_display'] = array(
       '#type' => 'item',
       '#title' => t('Your OpenID'),
       '#description' => t('This OpenID will be attached to your account after registration.'),
-      '#markup' => check_plain($_SESSION['openid']['values']['response']['openid.claimed_id']),
+      '#markup' => check_plain($response['openid.claimed_id']),
     );
   }
 }
@@ -208,16 +264,12 @@ function openid_begin($claimed_id, $return_to = '', $form_values = array()) {
     $claimed_id = $identity = 'http://specs.openid.net/auth/2.0/identifier_select';
   }
   else {
-    // Look for OP-Local Identifier.
-    if (!empty($service['localid'])) {
-      $identity = $service['localid'];
+    // Use Claimed ID and/or OP-Local Identifier from service description, if
+    // available.
+    if (!empty($service['claimed_id'])) {
+      $claimed_id = $service['claimed_id'];
     }
-    elseif (!empty($service['delegate'])) {
-      $identity = $service['delegate'];
-    }
-    else {
-      $identity = $claimed_id;
-    }
+    $identity = !empty($service['identity']) ? $service['identity'] : $claimed_id;
   }
   $request = openid_authentication_request($claimed_id, $identity, $return_to, $assoc_handle, $service);
 
@@ -258,21 +310,33 @@ function openid_complete($response = array()) {
       }
       else {
         if (openid_verify_assertion($service['uri'], $response)) {
-          // OpenID Authentication, section 11.2:
-          // If the returned Claimed Identifier is different from the one sent
-          // to the OpenID Provider, we need to do discovery on the returned
-          // identififer to make sure that the provider is authorized to respond
-          // on behalf of this.
-          if ($service['version'] == 2 && $response['openid.claimed_id'] != openid_normalize($claimed_id)) {
-            $services = openid_discovery($response['openid.claimed_id']);
-            $uris = array();
-            foreach ($services as $discovered_service) {
-              if (in_array('http://specs.openid.net/auth/2.0/server', $discovered_service['types']) || in_array('http://specs.openid.net/auth/2.0/signon', $discovered_service['types'])) {
-                $uris[] = $discovered_service['uri'];
+          // OpenID Authentication, section 7.3.2.3 and Appendix A.5:
+          // The CanonicalID specified in the XRDS document must be used as the
+          // account key. We rely on the XRI proxy resolver to verify that the
+          // provider is authorized to respond on behalf of the specified
+          // identifer (required per Extensible Resource Identifier (XRI)
+          // (XRI) Resolution Version 2.0, section 14.3):
+          if (!empty($service['claimed_id'])) {
+            $response['openid.claimed_id'] = $service['claimed_id'];
+          }
+          elseif ($service['version'] == 2) {
+            $response['openid.claimed_id'] = openid_normalize($response['openid.claimed_id']);
+            // OpenID Authentication, section 11.2:
+            // If the returned Claimed Identifier is different from the one sent
+            // to the OpenID Provider, we need to do discovery on the returned
+            // identififer to make sure that the provider is authorized to
+            // respond on behalf of this.
+            if ($response['openid.claimed_id'] != $claimed_id) {
+              $services = openid_discovery($response['openid.claimed_id']);
+              $uris = array();
+              foreach ($services as $discovered_service) {
+                if (in_array('http://specs.openid.net/auth/2.0/server', $discovered_service['types']) || in_array('http://specs.openid.net/auth/2.0/signon', $discovered_service['types'])) {
+                  $uris[] = $discovered_service['uri'];
+                }
               }
-            }
-            if (!in_array($service['uri'], $uris)) {
-              return $response;
+              if (!in_array($service['uri'], $uris)) {
+                return $response;
+              }
             }
           }
           else {
@@ -338,8 +402,21 @@ function openid_openid_discovery_method_info() {
  */
 function _openid_xri_discovery($claimed_id) {
   if (_openid_is_xri($claimed_id)) {
-    $xrds_url = 'http://xri.net/' . $claimed_id;
-    _openid_xrds_discovery($xrds_url);
+    // Resolve XRI using a proxy resolver (Extensible Resource Identifier (XRI)
+    // Resolution Version 2.0, section 11.2 and 14.3).
+    $xrds_url = variable_get('xri_proxy_resolver', 'http://xri.net/') . rawurlencode($claimed_id) . '?_xrd_r=application/xrds+xml';
+    $services = _openid_xrds_discovery($xrds_url);
+    foreach ($services as $i => &$service) {
+      $status = $service['xrd']->children(OPENID_NS_XRD)->Status;
+      if ($status && $status->attributes()->cid == 'verified') {
+        $service['claimed_id'] = openid_normalize((string)$service['xrd']->children(OPENID_NS_XRD)->CanonicalID);
+      }
+      else {
+        // Ignore service if CanonicalID could not be verified.
+        unset($services[$i]);
+      }
+    }
+    return $services;
   }
 }
 
@@ -362,7 +439,7 @@ function _openid_xrds_discovery($claimed_id) {
     if (!isset($result->error)) {
       if (isset($result->headers['Content-Type']) && preg_match("/application\/xrds\+xml/", $result->headers['Content-Type'])) {
         // Parse XML document to find URL
-        $services = xrds_parse($result->data);
+        $services = _openid_xrds_parse($result->data);
       }
       else {
         $xrds_url = NULL;
@@ -377,7 +454,7 @@ function _openid_xrds_discovery($claimed_id) {
           $headers = array('Accept' => 'application/xrds+xml');
           $xrds_result = drupal_http_request($xrds_url, array('headers' => $headers));
           if (!isset($xrds_result->error)) {
-            $services = xrds_parse($xrds_result->data);
+            $services = _openid_xrds_parse($xrds_result->data);
           }
         }
       }
@@ -386,19 +463,19 @@ function _openid_xrds_discovery($claimed_id) {
       if (count($services) == 0) {
         // Look for 2.0 links
         $uri = _openid_link_href('openid2.provider', $result->data);
-        $delegate = _openid_link_href('openid2.local_id', $result->data);
+        $identity = _openid_link_href('openid2.local_id', $result->data);
         $type = 'http://specs.openid.net/auth/2.0/signon';
 
         // 1.x links
         if (empty($uri)) {
           $uri = _openid_link_href('openid.server', $result->data);
-          $delegate = _openid_link_href('openid.delegate', $result->data);
+          $identity = _openid_link_href('openid.delegate', $result->data);
           $type = 'http://openid.net/signon/1.1';
         }
         if (!empty($uri)) {
           $services[] = array(
             'uri' => $uri,
-            'delegate' => $delegate,
+            'identity' => $identity,
             'types' => array($type),
           );
         }
@@ -432,9 +509,9 @@ function _openid_google_user_discovery($claimed_id) {
     $xrds_url = $matches[1];
     $services = _openid_xrds_discovery($xrds_url);
 
-    foreach ($services as $service) {
-      if (in_array('http://www.iana.org/assignments/relation/describedby', $service['types']) && !empty($service['additional']['URITEMPLATE'])) {
-        $template = $service['additional']['URITEMPLATE'];
+    foreach ($services as $i => $service) {
+      if (in_array('http://www.iana.org/assignments/relation/describedby', $service['types']) && $service['service']->children(OPENID_NS_GOOGLE)->URITemplate) {
+        $template = (string)$service['service']->children(OPENID_NS_GOOGLE)->URITemplate;
         $xrds_url = str_replace('{%uri}', rawurlencode($claimed_id), $template);
         return _openid_xrds_discovery($xrds_url);
       }
@@ -529,8 +606,6 @@ function openid_association($op_endpoint) {
  * @param $response Response values from the OpenID Provider.
  */
 function openid_authentication($response) {
-  module_load_include('inc', 'openid');
-
   $identity = $response['openid.claimed_id'];
 
   $account = user_external_load($identity);
@@ -548,92 +623,44 @@ function openid_authentication($response) {
       }
     }
     else {
-      drupal_set_message(t('You must validate your email address for this account before logging in via OpenID'));
+      drupal_set_message(t('You must validate your email address for this account before logging in via OpenID.'));
     }
   }
   elseif (variable_get('user_register', 1)) {
     // Register new user.
 
-    // Extract Simple Registration keys from the response.
-    $sreg_values = openid_extract_namespace($response, OPENID_NS_SREG, 'sreg');
-    // Extract Attribute Exchanges keys from the response.
-    $ax_values = openid_extract_namespace($response, OPENID_NS_AX, 'ax');
+    // Save response for use in openid_form_user_register_form_alter().
+    $_SESSION['openid']['response'] = $response;
 
-    $form_state['build_info']['args'] = array();
-    $form_state['redirect'] = NULL;
+    $form_state['values'] = array();
+    $form_state['values']['op'] = t('Create new account');
+    drupal_form_submit('user_register_form', $form_state);
 
-    if (!empty($sreg_values['nickname'])) {
-      // Use the nickname returned by Simple Registration if available.
-      $form_state['values']['name'] = $sreg_values['nickname'];
-    }
-    else if (!empty($ax_values['value.email'])) {
-      // Else, extract the name part of the email address returned by AX if available.
-      list ($name, $domain) = explode('@', $ax_values['value.email'], 2);
-      $form_state['values']['name'] = $name;
-    }
-    else {
-      $form_state['values']['name'] = '';
+    if (!empty($form_state['user'])) {
+      module_invoke_all('openid_response', $response, $form_state['user']);
+      drupal_goto();
     }
 
-    if (!empty($sreg_values['email'])) {
-      // Use the email returned by Simple Registration if available.
-      $form_state['values']['mail'] = $sreg_values['email'];
-    }
-    else if (!empty($ax_values['value.email'])) {
-      // Else, use the email returned by AX if available.
-      $form_state['values']['mail'] = $ax_values['value.email'];
-    }
-    else {
-      $form_state['values']['mail'] = '';
-    }
-
-    $form_state['values']['pass']  = user_password();
-    $form_state['values']['status'] = variable_get('user_register', 1) == 1;
-    $form_state['values']['response'] = $response;
-
+    $messages = drupal_get_messages('error');
     if (empty($form_state['values']['name']) || empty($form_state['values']['mail'])) {
+      // If the OpenID provider did not provide both a user name and an email
+      // address, ask the user to complete the registration manually instead of
+      // showing the error messages about the missing values generated by FAPI.
       drupal_set_message(t('Complete the registration by filling out the form below. If you already have an account, you can <a href="@login">log in</a> now and add your OpenID under "My account".', array('@login' => url('user/login'))), 'warning');
-      $success = FALSE;
     }
     else {
-      $form = drupal_retrieve_form('user_register_form', $form_state);
-      drupal_prepare_form('user_register_form', $form, $form_state);
-      drupal_validate_form('user_register_form', $form, $form_state);
-      $success = !form_get_errors();
-      if (!$success) {
-        drupal_set_message(t('Account registration using the information provided by your OpenID provider failed due to the reasons listed below. Complete the registration by filling out the form below. If you already have an account, you can <a href="@login">log in</a> now and add your OpenID under "My account".', array('@login' => url('user/login'))), 'warning');
-        // Append form validation errors below the above warning.
-        $messages = drupal_get_messages('error');
-        foreach ($messages['error'] as $message) {
-          drupal_set_message( $message, 'error');
-        }
+      drupal_set_message(t('Account registration using the information provided by your OpenID provider failed due to the reasons listed below. Complete the registration by filling out the form below. If you already have an account, you can <a href="@login">log in</a> now and add your OpenID under "My account".', array('@login' => url('user/login'))), 'warning');
+      // Append form validation errors below the above warning.
+      foreach ($messages['error'] as $message) {
+        drupal_set_message( $message, 'error');
       }
     }
-    if (!$success) {
-      // We were unable to register a valid new user, redirect to standard
-      // user/register and prefill with the values we received.
-      $_SESSION['openid']['values'] = $form_state['values'];
-      // We'll want to redirect back to the same place.
-      $destination = drupal_get_destination();
-      unset($_GET['destination']);
-      drupal_goto('user/register', array('query' => $destination));
-    }
-    else {
-      unset($form_state['values']['response']);
-      $account = user_save(drupal_anonymous_user(), $form_state['values']);
-      // Terminate if an error occurred during user_save().
-      if (!$account) {
-        drupal_set_message(t("Error saving user account."), 'error');
-        drupal_goto();
-      }
-      user_set_authmaps($account, array("authname_openid" => $identity));
-      // Load global $user and perform final login tasks.
-      $form_state['uid'] = $account->uid;
-      user_login_submit(array(), $form_state);
-      // Let other modules act on OpenID login
-      module_invoke_all('openid_response', $response, $account);
-    }
-    drupal_redirect_form($form_state);
+
+    // We were unable to register a valid new user. Redirect to the normal
+    // registration page and prefill with the values we received.
+    $destination = drupal_get_destination();
+    unset($_GET['destination']);
+    drupal_goto('user/register', array('query' => $destination));
   }
   else {
     drupal_set_message(t('Only site administrators can create new user accounts.'), 'error');
@@ -689,8 +716,20 @@ function openid_authentication_request($claimed_id, $identity, $return_to = '', 
   if (in_array(OPENID_NS_AX, $service['types'])) {
     $request['openid.ns.ax'] = OPENID_NS_AX;
     $request['openid.ax.mode'] = 'fetch_request';
-    $request['openid.ax.required'] = 'email';
-    $request['openid.ax.type.email'] = 'http://schema.openid.net/contact/email';
+    $request['openid.ax.required'] = 'mail_ao,name_ao,mail_son,name_son';
+
+    // Implementors disagree on which URIs to use, even for simple
+    // attributes like name and email (*sigh*). We ask for both axschema.org
+    // attributes (which are supposed to be newer), and schema.openid.net ones
+    // (which are supposed to be legacy).
+
+    // Attributes as defined by axschema.org.
+    $request['openid.ax.type.mail_ao'] = 'http://axschema.org/contact/email';
+    $request['openid.ax.type.name_ao'] = 'http://axschema.org/namePerson/friendly';
+
+    // Attributes as defined by schema.openid.net.
+    $request['openid.ax.type.mail_son'] = 'http://schema.openid.net/contact/email';
+    $request['openid.ax.type.name_son'] = 'http://schema.openid.net/namePerson/friendly';
   }
 
   $request = array_merge($request, module_invoke_all('openid', 'request', $request));

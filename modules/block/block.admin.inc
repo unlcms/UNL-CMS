@@ -1,5 +1,5 @@
 <?php
-// $Id: block.admin.inc,v 1.75 2010/03/09 12:09:52 dries Exp $
+// $Id: block.admin.inc,v 1.78 2010/04/24 14:49:13 dries Exp $
 
 /**
  * @file
@@ -104,8 +104,7 @@ function block_admin_display_form($form, &$form_state, $blocks, $theme) {
 
   $form['actions'] = array(
     '#tree' => FALSE,
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-actions')),
+    '#type' => 'actions',
   );
   $form['actions']['submit'] = array(
     '#type' => 'submit',
@@ -313,7 +312,7 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
     ':module' => $block->module,
     ':delta' => $block->delta,
   ))->fetchCol();
-  $role_options = db_query('SELECT rid, name FROM {role} ORDER BY name')->fetchAllKeyed();
+  $role_options = array_map('check_plain', user_roles());
   $form['visibility']['role'] = array(
     '#type' => 'fieldset',
     '#title' => t('Roles'),
@@ -351,7 +350,7 @@ function block_admin_configure($form, &$form_state, $module, $delta) {
     '#default_value' => isset($block->custom) ? $block->custom : 0,
   );
 
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save block'),
@@ -446,6 +445,8 @@ function block_add_block_form_submit($form, &$form_state) {
       'format' => $form_state['values']['format'],
     ))
     ->execute();
+  // Store block delta to allow other modules to work with new block.
+  $form_state['values']['delta'] = $delta;
 
   $query = db_insert('block')->fields(array('visibility', 'pages', 'custom', 'title', 'module', 'theme', 'status', 'weight', 'delta', 'cache'));
   foreach (list_themes() as $key => $theme) {

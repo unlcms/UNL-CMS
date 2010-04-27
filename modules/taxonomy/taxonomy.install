@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.install,v 1.37 2010/03/06 06:39:01 dries Exp $
+// $Id: taxonomy.install,v 1.41 2010/04/20 07:47:55 webchick Exp $
 
 /**
  * @file
@@ -159,6 +159,9 @@ function taxonomy_schema() {
     'indexes' => array(
       'list' => array('weight', 'name'),
     ),
+    'unique keys' => array(
+      'machine_name' => array('machine_name'),
+    ),
   );
 
   $schema['taxonomy_index'] = array(
@@ -195,6 +198,7 @@ function taxonomy_schema() {
     ),
     'indexes' => array(
       'term_node' => array('tid', 'sticky', 'created'),
+      'nid' => array('nid'),
     ),
     'foreign keys' => array(
       'node' => 'nid',
@@ -259,11 +263,15 @@ function taxonomy_update_7002() {
   foreach (taxonomy_get_vocabularies() as $vid => $vocabulary) {
     $machine_name = 'vocabulary_' . $vid;
     db_update('taxonomy_vocabulary')
-      ->fields(array('machine_name' => 'vocabulary_' . $vid))
+      ->fields(array('machine_name' => $machine_name))
       ->condition('vid', $vid)
       ->execute();
     field_attach_create_bundle('taxonomy_term', $machine_name);
   }
+
+  // The machine_name unique key can only be added after we ensure the
+  // machine_name column contains unique values.
+  db_add_unique_key('taxonomy_vocabulary', 'machine_name', array('machine_name'));
 }
 
 /**
@@ -314,6 +322,7 @@ function taxonomy_update_7004() {
     ),
     'indexes' => array(
       'term_node' => array('tid', 'sticky', 'created'),
+      'nid' => array('nid'),
     ),
     'foreign keys' => array(
       'node' => 'nid',
@@ -363,7 +372,7 @@ function taxonomy_update_7004() {
         'label' => $vocabulary->name,
         'field_name' => $field_name,
         'bundle' => $bundle,
-        'object_type' => 'node',
+        'entity_type' => 'node',
         'description' => $vocabulary->help,
         'widget' => array(
           'type' => $vocabulary->tags ? 'taxonomy_autocomplete' : 'select',

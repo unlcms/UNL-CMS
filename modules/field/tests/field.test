@@ -1,5 +1,5 @@
 <?php
-// $Id: field.test,v 1.21 2010/03/12 19:51:40 dries Exp $
+// $Id: field.test,v 1.27 2010/04/11 18:33:43 dries Exp $
 
 /**
  * @file
@@ -16,10 +16,14 @@ class FieldTestCase extends DrupalWebTestCase {
    * Set the default field storage backend for fields created during tests.
    */
   function setUp() {
-    // Call parent::setUp().
-    // @see http://www.php.net/manual/en/function.call-user-func-array.php#73105
-    $args = func_get_args();
-    call_user_func_array(array($this, 'parent::setUp'), $args);
+    // Since this is a base class for many test cases, support the same
+    // flexibility that DrupalWebTestCase::setUp() has for the modules to be
+    // passed in as either an array or a variable number of string arguments.
+    $modules = func_get_args();
+    if (isset($modules[0]) && is_array($modules[0])) {
+      $modules = $modules[0];
+    }
+    parent::setUp($modules);
     // Set default storage backend.
     variable_set('field_storage_default', $this->default_storage);
   }
@@ -69,8 +73,17 @@ class FieldTestCase extends DrupalWebTestCase {
 }
 
 class FieldAttachTestCase extends FieldTestCase {
-  function setUp() {
-    parent::setUp('field_test');
+  function setUp($modules = array()) {
+    // Since this is a base class for many test cases, support the same
+    // flexibility that DrupalWebTestCase::setUp() has for the modules to be
+    // passed in as either an array or a variable number of string arguments.
+    if (!is_array($modules)) {
+      $modules = func_get_args();
+    }
+    if (!in_array('field_test', $modules)) {
+      $modules[] = 'field_test';
+    }
+    parent::setUp($modules);
 
     $this->field_name = drupal_strtolower($this->randomName() . '_field_name');
     $this->field = array('field_name' => $this->field_name, 'type' => 'test_field', 'cardinality' => 4);
@@ -78,7 +91,7 @@ class FieldAttachTestCase extends FieldTestCase {
     $this->field_id = $this->field['id'];
     $this->instance = array(
       'field_name' => $this->field_name,
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
       'label' => $this->randomName() . '_label',
       'description' => $this->randomName() . '_description',
@@ -207,7 +220,7 @@ class FieldAttachStorageTestCase extends FieldAttachTestCase {
       foreach ($field_bundles_map[$i] as $bundle) {
         $instance = array(
           'field_name' => $field_names[$i],
-          'object_type' => 'test_entity',
+          'entity_type' => 'test_entity',
           'bundle' => $bundles[$bundle],
           'settings' => array(
             // Configure the instance so that we test hook_field_load()
@@ -278,7 +291,7 @@ class FieldAttachStorageTestCase extends FieldAttachTestCase {
       field_create_field($field);
       $instance = array(
         'field_name' => $field['field_name'],
-        'object_type' => 'test_entity',
+        'entity_type' => 'test_entity',
         'bundle' => 'test_bundle',
       );
       field_create_instance($instance);
@@ -319,13 +332,13 @@ class FieldAttachStorageTestCase extends FieldAttachTestCase {
     $field = field_create_field($field);
     $instance = array(
       'field_name' => $field_name,
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
     );
     field_create_instance($instance);
 
     $field = field_info_field($instance['field_name']);
-    $instance = field_info_instance($instance['object_type'], $instance['field_name'], $instance['bundle']);
+    $instance = field_info_instance($instance['entity_type'], $instance['field_name'], $instance['bundle']);
 
     // The storage details are indexed by a storage engine type.
     $this->assertTrue(array_key_exists('drupal_variables', $field['storage']['details']), t('The storage type is Drupal variables.'));
@@ -570,7 +583,7 @@ class FieldAttachStorageTestCase extends FieldAttachTestCase {
     field_create_field($field);
     $instance = array(
       'field_name' => $field_name,
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => $this->instance['bundle'],
       'label' => $this->randomName() . '_label',
       'description' => $this->randomName() . '_description',
@@ -626,10 +639,10 @@ class FieldAttachStorageTestCase extends FieldAttachTestCase {
 
     // Create instances of both fields on the second entity type.
     $instance = $this->instance;
-    $instance['object_type'] = 'test_cacheable_entity';
+    $instance['entity_type'] = 'test_cacheable_entity';
     field_create_instance($instance);
     $instance2 = $this->instance2;
-    $instance2['object_type'] = 'test_cacheable_entity';
+    $instance2['entity_type'] = 'test_cacheable_entity';
     field_create_instance($instance2);
 
     // Unconditional count query returns 0.
@@ -990,7 +1003,7 @@ class FieldAttachOtherTestCase extends FieldAttachTestCase {
     $entity_type = 'test_cacheable_entity';
     $cid = "field:$entity_type:{$entity_init->ftid}";
     $instance = $this->instance;
-    $instance['object_type'] = $entity_type;
+    $instance['entity_type'] = $entity_type;
     field_create_instance($instance);
 
     // Check that no initial cache entry is present.
@@ -1247,7 +1260,7 @@ class FieldInfoTestCase extends FieldTestCase {
     // Create an instance, verify that it shows up
     $instance = array(
       'field_name' => $field['field_name'],
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
       'label' => $this->randomName(),
       'description' => $this->randomName(),
@@ -1306,7 +1319,7 @@ class FieldInfoTestCase extends FieldTestCase {
     field_create_field($field_definition);
     $instance_definition = array(
       'field_name' => $field_definition['field_name'],
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
     );
     field_create_instance($instance_definition);
@@ -1330,7 +1343,7 @@ class FieldInfoTestCase extends FieldTestCase {
     field_cache_clear();
 
     // Read the instance back.
-    $instance = field_info_instance($instance_definition['object_type'], $instance_definition['field_name'], $instance_definition['bundle']);
+    $instance = field_info_instance($instance_definition['entity_type'], $instance_definition['field_name'], $instance_definition['bundle']);
 
     // Check that all expected instance settings are in place.
     $field_type = field_info_field_types($field_definition['type']);
@@ -1363,7 +1376,7 @@ class FieldInfoTestCase extends FieldTestCase {
     field_create_field($field_definition);
     $instance_definition = array(
       'field_name' => 'field',
-      'object_type' => 'comment',
+      'entity_type' => 'comment',
       'bundle' => 'comment_node_article',
     );
     field_create_instance($instance_definition);
@@ -1415,7 +1428,7 @@ class FieldFormTestCase extends FieldTestCase {
     $this->field_unlimited = array('field_name' => drupal_strtolower($this->randomName()), 'type' => 'test_field', 'cardinality' => FIELD_CARDINALITY_UNLIMITED);
 
     $this->instance = array(
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
       'label' => $this->randomName() . '_label',
       'description' => $this->randomName() . '_description',
@@ -1557,23 +1570,21 @@ class FieldFormTestCase extends FieldTestCase {
       do {
         $weight = mt_rand(-$delta_range, $delta_range);
       } while (in_array($weight, $weights));
-      $weights[] = $weight;
       $value = mt_rand(1, 127);
       $edit["$this->field_name[$langcode][$delta][value]"] = $value;
       $edit["$this->field_name[$langcode][$delta][_weight]"] = $weight;
       // We'll need three slightly different formats to check the values.
-      $values[$weight] = $value;
+      $values[$delta] = $value;
+      $weights[$delta] = $weight;
       $field_values[$weight]['value'] = (string)$value;
       $pattern[$weight] = "<input [^>]*value=\"$value\" [^>]*";
     }
 
     // Press 'add more' button -> 4 widgets
     $this->drupalPost(NULL, $edit, t('Add another item'));
-    ksort($values);
-    $values = array_values($values);
     for ($delta = 0; $delta <= $delta_range; $delta++) {
       $this->assertFieldByName("$this->field_name[$langcode][$delta][value]", $values[$delta], "Widget $delta is displayed and has the right value");
-      $this->assertFieldByName("$this->field_name[$langcode][$delta][_weight]", $delta, "Widget $delta has the right weight");
+      $this->assertFieldByName("$this->field_name[$langcode][$delta][_weight]", $weights[$delta], "Widget $delta has the right weight");
     }
     ksort($pattern);
     $pattern = implode('.*', array_values($pattern));
@@ -1627,12 +1638,12 @@ class FieldFormTestCase extends FieldTestCase {
       do {
         $weight = mt_rand(-$delta_range, $delta_range);
       } while (in_array($weight, $weights));
-      $weights[] = $weight;
       $value = mt_rand(1, 127);
       $edit["$this->field_name[$langcode][$delta][value]"] = $value;
       $edit["$this->field_name[$langcode][$delta][_weight]"] = $weight;
       // We'll need three slightly different formats to check the values.
-      $values[$weight] = $value;
+      $values[$delta] = $value;
+      $weights[$delta] = $weight;
       $field_values[$weight]['value'] = (string)$value;
       $pattern[$weight] = "<input [^>]*value=\"$value\" [^>]*";
     }
@@ -1641,11 +1652,9 @@ class FieldFormTestCase extends FieldTestCase {
     $commands = $this->drupalPostAJAX(NULL, $edit, $this->field_name . '_add_more');
     $this->content = $commands[1]['data'];
 
-    ksort($values);
-    $values = array_values($values);
     for ($delta = 0; $delta <= $delta_range; $delta++) {
       $this->assertFieldByName("$this->field_name[$langcode][$delta][value]", $values[$delta], "Widget $delta is displayed and has the right value");
-      $this->assertFieldByName("$this->field_name[$langcode][$delta][_weight]", $delta, "Widget $delta has the right weight");
+      $this->assertFieldByName("$this->field_name[$langcode][$delta][_weight]", $weights[$delta], "Widget $delta has the right weight");
     }
     ksort($pattern);
     $pattern = implode('.*', array_values($pattern));
@@ -1715,7 +1724,7 @@ class FieldFormTestCase extends FieldTestCase {
     $field_name_no_access = $field_no_access['field_name'];
     $instance_no_access = array(
       'field_name' => $field_name_no_access,
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
       'default_value' => array(0 => array('value' => 99)),
     );
@@ -1779,7 +1788,7 @@ class FieldDisplayAPITestCase extends FieldTestCase {
     );
     $this->instance = array(
       'field_name' => $this->field_name,
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
       'label' => $this->label,
       'display' => array(
@@ -2177,7 +2186,7 @@ class FieldCrudTestCase extends FieldTestCase {
     // Create instances for each.
     $this->instance_definition = array(
       'field_name' => $this->field['field_name'],
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
       'widget' => array(
         'type' => 'test_field_widget',
@@ -2275,7 +2284,7 @@ class FieldCrudTestCase extends FieldTestCase {
     // Create a decimal 5.2 field.
     $field = array('field_name' => 'decimal53', 'type' => 'number_decimal', 'cardinality' => 3, 'settings' => array('precision' => 5, 'scale' => 2));
     $field = field_create_field($field);
-    $instance = array('field_name' => 'decimal53', 'object_type' => 'test_entity', 'bundle' => 'test_bundle');
+    $instance = array('field_name' => 'decimal53', 'entity_type' => 'test_entity', 'bundle' => 'test_bundle');
     $instance = field_create_instance($instance);
 
     // Update it to a deciaml 5.3 field.
@@ -2406,7 +2415,7 @@ class FieldInstanceCrudTestCase extends FieldTestCase {
     field_create_field($this->field);
     $this->instance_definition = array(
       'field_name' => $this->field['field_name'],
-      'object_type' => 'test_entity',
+      'entity_type' => 'test_entity',
       'bundle' => 'test_bundle',
     );
   }
@@ -2468,7 +2477,7 @@ class FieldInstanceCrudTestCase extends FieldTestCase {
     $field_restricted = array(
       'field_name' => drupal_strtolower($this->randomName()),
       'type' => 'test_field',
-      'object_types' => array('test_cacheable_entity'),
+      'entity_types' => array('test_cacheable_entity'),
     );
     field_create_field($field_restricted);
 
@@ -2477,7 +2486,7 @@ class FieldInstanceCrudTestCase extends FieldTestCase {
     try {
       $instance = $this->instance_definition;
       $instance['field_name'] = $field_restricted['field_name'];
-      $instance['object_type'] = 'test_cacheable_entity';
+      $instance['entity_type'] = 'test_cacheable_entity';
       field_create_instance($instance);
       $this->pass(t('Can create an instance on an entity type allowed by the field.'));
     }
@@ -2608,8 +2617,7 @@ class FieldInstanceCrudTestCase extends FieldTestCase {
  * Unit test class for the multilanguage fields logic.
  *
  * The following tests will check the multilanguage logic of _field_invoke() and
- * that only the correct values are returned by
- * field_multilingual_available_languages().
+ * that only the correct values are returned by field_available_languages().
  */
 class FieldTranslationsTestCase extends FieldTestCase {
   public static function getInfo() {
@@ -2625,37 +2633,21 @@ class FieldTranslationsTestCase extends FieldTestCase {
 
     $this->field_name = drupal_strtolower($this->randomName() . '_field_name');
 
-    $this->obj_type = 'test_entity';
+    $this->entity_type = 'test_entity';
 
     $field = array(
       'field_name' => $this->field_name,
       'type' => 'test_field',
       'cardinality' => 4,
       'translatable' => TRUE,
-      'settings' => array(
-        'test_hook_in' => FALSE,
-      ),
     );
     field_create_field($field);
     $this->field = field_read_field($this->field_name);
 
     $instance = array(
       'field_name' => $this->field_name,
-      'object_type' => $this->obj_type,
+      'entity_type' => $this->entity_type,
       'bundle' => 'test_bundle',
-      'label' => $this->randomName() . '_label',
-      'description' => $this->randomName() . '_description',
-      'weight' => mt_rand(0, 127),
-      'settings' => array(
-        'test_instance_setting' => $this->randomName(),
-      ),
-      'widget' => array(
-        'type' => 'test_field_widget',
-        'label' => 'Test Field',
-        'settings' => array(
-          'test_widget_setting' => $this->randomName(),
-        ),
-      ),
     );
     field_create_instance($instance);
     $this->instance = field_read_instance('test_entity', $this->field_name, 'test_bundle');
@@ -2667,64 +2659,34 @@ class FieldTranslationsTestCase extends FieldTestCase {
   }
 
   /**
-   * Ensure that only valid values are returned by field_multilingual_available_languages().
+   * Ensures that only valid values are returned by field_available_languages().
    */
   function testFieldAvailableLanguages() {
     // Test 'translatable' fieldable info.
     field_test_entity_info_translatable('test_entity', FALSE);
     $field = $this->field;
     $field['field_name'] .= '_untranslatable';
-    $langcode = language_default();
-    $suggested_languages = array($langcode->language);
-    $available_languages = field_multilingual_available_languages($this->obj_type, $field, $suggested_languages);
-    $this->assertTrue(count($available_languages) == 1 && $available_languages[0] === LANGUAGE_NONE, t('Untranslatable entity: suggested language ignored.'));
 
     // Enable field translations for the entity.
     field_test_entity_info_translatable('test_entity', TRUE);
 
     // Test hook_field_languages() invocation on a translatable field.
-    $this->field['settings']['test_hook_in'] = TRUE;
-    $enabled_languages = array_keys(language_list());
-    $available_languages = field_multilingual_available_languages($this->obj_type, $this->field);
-    $this->assertTrue(in_array(LANGUAGE_NONE, $available_languages), t('%language is an available language.', array('%language' => LANGUAGE_NONE)));
+    variable_set('field_test_field_available_languages_alter', TRUE);
+    $enabled_languages = field_content_languages();
+    $available_languages = field_available_languages($this->entity_type, $this->field);
     foreach ($available_languages as $delta => $langcode) {
-      if ($langcode != LANGUAGE_NONE) {
+      if ($langcode != 'xx' && $langcode != 'en') {
         $this->assertTrue(in_array($langcode, $enabled_languages), t('%language is an enabled language.', array('%language' => $langcode)));
       }
     }
-    $this->assertFalse(in_array('xx', $available_languages), t('No invalid language was made available.'));
-    $this->assertTrue(count($available_languages) == count($enabled_languages), t('An enabled language was successfully made unavailable.'));
+    $this->assertTrue(in_array('xx', $available_languages), t('%language was made available.', array('%language' => 'xx')));
+    $this->assertFalse(in_array('en', $available_languages), t('%language was made unavailable.', array('%language' => 'en')));
 
-    // Test field_multilingual_available_languages() behavior for untranslatable fields.
+    // Test field_available_languages() behavior for untranslatable fields.
     $this->field['translatable'] = FALSE;
     $this->field_name = $this->field['field_name'] = $this->instance['field_name'] = drupal_strtolower($this->randomName() . '_field_name');
-    $available_languages = field_multilingual_available_languages($this->obj_type, $this->field);
-    $this->assertTrue(count($available_languages) == 1 && $available_languages[0] === LANGUAGE_NONE, t('For untranslatable fields only neutral language is available.'));
-
-    // Test language suggestions.
-    $this->field['settings']['test_hook_in'] = FALSE;
-    $this->field['translatable'] = TRUE;
-    $this->field_name = $this->field['field_name'] = $this->instance['field_name'] = drupal_strtolower($this->randomName() . '_field_name');
-    $suggested_languages = array();
-    $lang_count = mt_rand(1, count($enabled_languages) - 1);
-    for ($i = 0; $i < $lang_count; ++$i) {
-      do {
-        $langcode = $enabled_languages[mt_rand(0, $lang_count)];
-      }
-      while (in_array($langcode, $suggested_languages));
-      $suggested_languages[] = $langcode;
-    }
-
-    $available_languages = field_multilingual_available_languages($this->obj_type, $this->field, $suggested_languages);
-    $this->assertEqual(count($available_languages), count($suggested_languages), t('Suggested languages were successfully made available.'));
-    foreach ($available_languages as $langcode) {
-      $this->assertTrue(in_array($langcode, $available_languages), t('Suggested language %language is available.', array('%language' => $langcode)));
-    }
-
-    $this->field_name = $this->field['field_name'] = $this->instance['field_name'] = drupal_strtolower($this->randomName() . '_field_name');
-    $suggested_languages = array('xx');
-    $available_languages = field_multilingual_available_languages($this->obj_type, $this->field, $suggested_languages);
-    $this->assertTrue(empty($available_languages), t('An invalid suggested language was not made available.'));
+    $available_languages = field_available_languages($this->entity_type, $this->field);
+    $this->assertTrue(count($available_languages) == 1 && $available_languages[0] === LANGUAGE_NONE, t('For untranslatable fields only LANGUAGE_NONE is available.'));
   }
 
   /**
@@ -2735,10 +2697,10 @@ class FieldTranslationsTestCase extends FieldTestCase {
     $entity = field_test_create_stub_entity(0, 0, $this->instance['bundle']);
 
     // Populate some extra languages to check if _field_invoke() correctly uses
-    // the result of field_multilingual_available_languages().
+    // the result of field_available_languages().
     $values = array();
     $extra_languages = mt_rand(1, 4);
-    $languages = $available_languages = field_multilingual_available_languages($this->obj_type, $this->field);
+    $languages = $available_languages = field_available_languages($this->entity_type, $this->field);
     for ($i = 0; $i < $extra_languages; ++$i) {
       $languages[] = $this->randomString(2);
     }
@@ -2769,14 +2731,14 @@ class FieldTranslationsTestCase extends FieldTestCase {
     $entities = array();
     $entity_type = 'test_entity';
     $entity_count = mt_rand(1, 5);
-    $available_languages = field_multilingual_available_languages($this->obj_type, $this->field);
+    $available_languages = field_available_languages($this->entity_type, $this->field);
 
     for ($id = 1; $id <= $entity_count; ++$id) {
       $entity = field_test_create_stub_entity($id, $id, $this->instance['bundle']);
       $languages = $available_languages;
 
       // Populate some extra languages to check whether _field_invoke()
-      // correctly uses the result of field_multilingual_available_languages().
+      // correctly uses the result of field_available_languages().
       $extra_languages = mt_rand(1, 4);
       for ($i = 0; $i < $extra_languages; ++$i) {
         $languages[] = $this->randomString(2);
@@ -2819,7 +2781,7 @@ class FieldTranslationsTestCase extends FieldTestCase {
     $entity_type = 'test_entity';
     $entity = field_test_create_stub_entity($eid, $evid, $this->instance['bundle']);
     $field_translations = array();
-    $available_languages = field_multilingual_available_languages($entity_type, $this->field);
+    $available_languages = field_available_languages($entity_type, $this->field);
     $this->assertTrue(count($available_languages) > 1, t('Field is translatable.'));
     foreach ($available_languages as $langcode) {
       $field_translations[$langcode] = $this->_generateTestFieldValues($this->field['cardinality']);
@@ -2839,6 +2801,82 @@ class FieldTranslationsTestCase extends FieldTestCase {
       }
       $this->assertTrue($result, t('%language translation correctly handled.', array('%language' => $langcode)));
     }
+  }
+
+  /**
+   * Tests display language logic for translatable fields.
+   */
+  function testFieldDisplayLanguage() {
+    $field_name = drupal_strtolower($this->randomName() . '_field_name');
+    $entity_type = 'test_entity';
+
+    // We need an additional field here to properly test display language
+    // suggestions.
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'test_field',
+      'cardinality' => 2,
+      'translatable' => TRUE,
+    );
+    field_create_field($field);
+
+    $instance = array(
+      'field_name' => $field['field_name'],
+      'entity_type' => $entity_type,
+      'bundle' => 'test_bundle',
+    );
+    field_create_instance($instance);
+
+    $entity = field_test_create_stub_entity(1, 1, $this->instance['bundle']);
+    list(, , $bundle) = entity_extract_ids($entity_type, $entity);
+    $instances = field_info_instances($entity_type, $bundle);
+
+    $enabled_languages = field_content_languages();
+    $languages = array();
+
+    // Generate field translations for languages different from the first
+    // enabled.
+    foreach ($instances as $instance) {
+      $field_name = $instance['field_name'];
+      $field = field_info_field($field_name);
+      do {
+        // Index 0 is reserved for the requested language, this way we ensure
+        // that no field is actually populated with it.
+        $langcode = $enabled_languages[mt_rand(1, count($enabled_languages) - 1)];
+      }
+      while (isset($languages[$langcode]));
+      $languages[$langcode] = TRUE;
+      $entity->{$field_name}[$langcode] = $this->_generateTestFieldValues($field['cardinality']);
+    }
+
+    // Test multiple-fields display languages for untranslatable entities.
+    field_test_entity_info_translatable($entity_type, FALSE);
+    drupal_static_reset('field_language');
+    $requested_language = $enabled_languages[0];
+    $display_language = field_language($entity_type, $entity, NULL, $requested_language);
+    foreach ($instances as $instance) {
+      $field_name = $instance['field_name'];
+      $this->assertTrue($display_language[$field_name] == LANGUAGE_NONE, t('The display language for field %field_name is %language.', array('%field_name' => $field_name, '%language' => LANGUAGE_NONE)));
+    }
+
+    // Test multiple-fields display languages for translatable entities.
+    field_test_entity_info_translatable($entity_type, TRUE);
+    drupal_static_reset('field_language');
+    $display_language = field_language($entity_type, $entity, NULL, $requested_language);
+
+    foreach ($instances as $instance) {
+      $field_name = $instance['field_name'];
+      $langcode = $display_language[$field_name];
+      // As the requested language was not assinged to any field, if the
+      // returned language is defined for the current field, core fallback rules
+      // were successfully applied.
+      $this->assertTrue(isset($entity->{$field_name}[$langcode]) && $langcode != $requested_language, t('The display language for the field %field_name is %language.', array('%field_name' => $field_name, '%language' => $langcode)));
+    }
+
+    // Test single-field display language.
+    drupal_static_reset('field_language');
+    $langcode = field_language($entity_type, $entity, $this->field_name, $requested_language);
+    $this->assertTrue(isset($entity->{$this->field_name}[$langcode]) && $langcode != $requested_language, t('The display language for the (single) field %field_name is %language.', array('%field_name' => $field_name, '%language' => $langcode)));
   }
 }
 
@@ -2913,7 +2951,7 @@ class FieldBulkDeleteTestCase extends FieldTestCase {
       foreach ($this->fields as $field) {
         $instance = array(
           'field_name' => $field['field_name'],
-          'object_type' => $this->entity_type,
+          'entity_type' => $this->entity_type,
           'bundle' => $bundle,
           'widget' => array(
             'type' => 'test_field_widget',

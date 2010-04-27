@@ -1,5 +1,5 @@
 <?php
-// $Id: field_ui.module,v 1.26 2010/02/22 16:29:34 webchick Exp $
+// $Id: field_ui.module,v 1.29 2010/04/26 14:40:47 dries Exp $
 
 /**
  * @file
@@ -71,11 +71,28 @@ function field_ui_menu() {
     if ($info['fieldable']) {
       foreach ($info['bundles'] as $bundle_name => $bundle_info) {
         if (isset($bundle_info['admin'])) {
-          // Extract informations from the bundle description.
+          // Extract path information from the bundle.
           $path = $bundle_info['admin']['path'];
-          $bundle_arg = isset($bundle_info['admin']['bundle argument']) ? $bundle_info['admin']['bundle argument'] : $bundle_name;
-          $access = array_intersect_key($bundle_info['admin'], drupal_map_assoc(array('access callback', 'access arguments')));
+          // Different bundles can appear on the same path (e.g. %node_type and
+          // %comment_node_type). To allow field_ui_menu_load() to extract the
+          // actual bundle object from the translated menu router path
+          // arguments, we need to identify the argument position of the bundle
+          // name string ('bundle argument') and pass that position to the menu
+          // loader. The position needs to be casted into a string; otherwise it
+          // would be replaced with the bundle name string.
+          if (isset($bundle_info['admin']['bundle argument'])) {
+            $bundle_arg = $bundle_info['admin']['bundle argument'];
+            $bundle_pos = (string) $bundle_arg;
+          }
+          else {
+            $bundle_arg = $bundle_name;
+            $bundle_pos = '0';
+          }
+          // This is the position of the %field_ui_menu placeholder in the
+          // items below.
           $field_position = count(explode('/', $path)) + 1;
+
+          $access = array_intersect_key($bundle_info['admin'], drupal_map_assoc(array('access callback', 'access arguments')));
 
           $items["$path/fields"] = array(
             'title' => 'Manage fields',
@@ -86,33 +103,45 @@ function field_ui_menu() {
             'file' => 'field_ui.admin.inc',
           ) + $access;
           $items["$path/fields/%field_ui_menu"] = array(
+            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
+            'title callback' => 'field_ui_menu_title',
+            'title arguments' => array($field_position),
             'page callback' => 'drupal_get_form',
-            'page arguments' => array('field_ui_field_edit_form', $entity_type, $bundle_arg, $field_position),
+            'page arguments' => array('field_ui_field_edit_form', $field_position),
             'type' => MENU_LOCAL_TASK,
             'file' => 'field_ui.admin.inc',
           ) + $access;
           $items["$path/fields/%field_ui_menu/edit"] = array(
+            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
+            'title' => 'Edit',
             'page callback' => 'drupal_get_form',
-            'page arguments' => array('field_ui_field_edit_form', $entity_type, $bundle_arg, $field_position),
+            'page arguments' => array('field_ui_field_edit_form', $field_position),
             'type' => MENU_DEFAULT_LOCAL_TASK,
             'file' => 'field_ui.admin.inc',
           ) + $access;
           $items["$path/fields/%field_ui_menu/field-settings"] = array(
+            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
+            'title' => 'Field settings',
             'page callback' => 'drupal_get_form',
-            'page arguments' => array('field_ui_field_settings_form', $entity_type, $bundle_arg, $field_position),
+            'page arguments' => array('field_ui_field_settings_form', $field_position),
             'type' => MENU_LOCAL_TASK,
             'file' => 'field_ui.admin.inc',
           ) + $access;
           $items["$path/fields/%field_ui_menu/widget-type"] = array(
+            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
+            'title' => 'Widget type',
             'page callback' => 'drupal_get_form',
-            'page arguments' => array('field_ui_widget_type_form', $entity_type, $bundle_arg, $field_position),
+            'page arguments' => array('field_ui_widget_type_form', $field_position),
             'type' => MENU_LOCAL_TASK,
             'file' => 'field_ui.admin.inc',
           ) + $access;
           $items["$path/fields/%field_ui_menu/delete"] = array(
+            'load arguments' => array($entity_type, $bundle_arg, $bundle_pos, '%map'),
+            'title' => 'Delete',
             'page callback' => 'drupal_get_form',
-            'page arguments' => array('field_ui_field_delete_form', $entity_type, $bundle_arg, $field_position),
+            'page arguments' => array('field_ui_field_delete_form', $field_position),
             'type' => MENU_LOCAL_TASK,
+            'weight' => 10,
             'file' => 'field_ui.admin.inc',
           ) + $access;
 
@@ -143,13 +172,50 @@ function field_ui_menu() {
 }
 
 /**
- * Menu loader; Load a field based on its name.
+ * Menu loader; Load a field instance based on field and bundle name.
+ *
+ * @param $field_name
+ *   The name of the field, as contained in the path.
+ * @param $entity_type
+ *   The name of the entity.
+ * @param $bundle_name
+ *   The name of the bundle, as contained in the path.
+ * @param $bundle_pos
+ *   The position of $bundle_name in $map.
+ * @param $map
+ *   The translated menu router path argument map.
  */
-function field_ui_menu_load($field_name) {
+function field_ui_menu_load($field_name, $entity_type, $bundle_name, $bundle_pos, $map) {
+  // Extract the actual bundle name from the translated argument map.
+  // The menu router path to manage fields of an entity can be shared among
+  // multiple bundles. For example:
+  // - admin/structure/types/manage/%node_type/fields/%field_ui_menu
+  // - admin/structure/types/manage/%comment_node_type/fields/%field_ui_menu
+  // The menu system will automatically load the correct bundle depending on the
+  // actual path arguments, but this menu loader function only receives the node
+  // type string as $bundle_name, which is not the bundle name for comments.
+  // We therefore leverage the dynamically translated $map provided by the menu
+  // system to retrieve the actual bundle and bundle name for the current path.
+  if ($bundle_pos > 0) {
+    $bundle = $map[$bundle_pos];
+    $bundle_name = field_extract_bundle($entity_type, $bundle);
+  }
+  // Check whether the field exists at all.
   if ($field = field_info_field($field_name)) {
-    return $field;
+    // Only return the field if a field instance exists for the given entity
+    // type and bundle.
+    if ($instance = field_info_instance($entity_type, $field_name, $bundle_name)) {
+      return $instance;
+    }
   }
   return FALSE;
+}
+
+/**
+ * Menu title callback.
+ */
+function field_ui_menu_title($instance) {
+  return t($instance['label']);
 }
 
 /**
@@ -171,7 +237,28 @@ function field_ui_theme() {
 }
 
 /**
- * Group available view modes on tabs on the 'Manage display' page.
+ * Returns information about tab groups for view modes on an entity type.
+ *
+ * On the 'Manage display' page, an administrator can manage the display of
+ * fields for each view mode for an entity type. The view modes are organized
+ * into tabs. This function returns the list of entity types to display on
+ * each tab, as well as the titles of the tabs.
+ *
+ * @param $entity_type
+ *   The type of entity to return tab information for.
+ * @param $tab_selector
+ *   If not NULL, return only information for this particular tab; if NULL,
+ *   return all tab information.
+ *
+ * @return
+ *   Array of information about the tabs to display. The keys are internal-use
+ *   tab names and the values are arrays of tab information, with the following
+ *   elements:
+ *   - 'title': Human-readable title of the tab.
+ *   - 'view modes': Array of view modes for this entity type that should
+ *     be displayed on this tab.
+ *
+ * @see hook_field_ui_view_modes_tabs()
  *
  * @todo Remove this completely and use vertical tabs?
  */
@@ -205,23 +292,6 @@ function field_ui_view_modes_tabs($entity_type, $tab_selector = NULL) {
 
 /**
  * Implements hook_field_ui_view_modes_tabs() on behalf of other core modules.
- *
- * @return
- *   An array describing the view modes defined by the module, grouped by tabs.
- *
- * A module can add its render modes to a tab defined by another module.
- * Expected format:
- * @code
- *   array(
- *     'tab1' => array(
- *       'title' => t('The human-readable title of the tab'),
- *       'view modes' => array('mymodule_mode1', 'mymodule_mode2'),
- *     ),
- *     'tab2' => array(
- *       // ...
- *     ),
- *   );
- * @endcode
  */
 function field_ui_field_ui_view_modes_tabs() {
   $modes = array(
@@ -300,7 +370,7 @@ function field_ui_inactive_instances($entity_type, $bundle_name = NULL) {
     $inactive = array();
     $params = array();
   }
-  $params['object_type'] = $entity_type;
+  $params['entity_type'] = $entity_type;
 
   $active_instances = field_info_instances($entity_type);
   $all_instances = field_read_instances($params, array('include_inactive' => TRUE));

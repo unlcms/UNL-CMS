@@ -1,4 +1,4 @@
-// $Id: vertical-tabs.js,v 1.8 2010/03/05 13:32:09 dries Exp $
+// $Id: vertical-tabs.js,v 1.12 2010/04/09 12:24:53 dries Exp $
 
 (function ($) {
 
@@ -17,32 +17,42 @@ Drupal.behaviors.verticalTabs = {
   attach: function (context) {
     $('.vertical-tabs-panes', context).once('vertical-tabs', function () {
       var focusID = $(':hidden.vertical-tabs-active-tab', this).val();
-      var focus;
+      var tab_focus;
+
+      // Check if there are some fieldsets that can be converted to vertical-tabs
+      var $fieldsets = $('> fieldset', this);
+      if ($fieldsets.length == 0) {
+        return;
+      }
+
       // Create the tab column.
-      var list = $('<ul class="vertical-tabs-list"></ul>');
-      $(this).wrap('<div class="vertical-tabs clearfix"></div>').before(list);
+      var tab_list = $('<ul class="vertical-tabs-list"></ul>');
+      $(this).wrap('<div class="vertical-tabs clearfix"></div>').before(tab_list);
 
       // Transform each fieldset into a tab.
-      $('> fieldset', this).each(function () {
-        var tab = new Drupal.verticalTab({ title: $('> legend', this).text(), fieldset: $(this) });
-        list.append(tab.item);
+      $fieldsets.each(function () {
+        var vertical_tab = new Drupal.verticalTab({
+          title: $('> legend', this).text(),
+          fieldset: $(this)
+        });
+        tab_list.append(vertical_tab.item);
         $(this)
           .removeClass('collapsible collapsed')
           .addClass('vertical-tabs-pane')
-          .data('verticalTab', tab);
+          .data('verticalTab', vertical_tab);
         if (this.id == focusID) {
-          focus = $(this);
+          tab_focus = $(this);
         }
       });
 
-      $('> li:first', list).addClass('first');
-      $('> li:last', list).addClass('last');
+      $('> li:first', tab_list).addClass('first');
+      $('> li:last', tab_list).addClass('last');
 
-      if (!focus) {
-        focus = $('> .vertical-tabs-pane:first', this);
+      if (!tab_focus) {
+        tab_focus = $('> .vertical-tabs-pane:first', this);
       }
-      if (focus.length) {
-        focus.data('verticalTab').focus();
+      if (tab_focus.length) {
+        tab_focus.data('verticalTab').focus();
       }
     });
   }
@@ -65,6 +75,27 @@ Drupal.verticalTab = function (settings) {
     return false;
   });
 
+  // Keyboard events added:
+  // Pressing the Enter key will open the tab pane.
+  this.link.keydown(function(event) {
+    if (event.keyCode == 13) {
+      self.focus();
+      // Set focus on the first input field of the visible fieldset/tab pane.
+      $("fieldset.vertical-tabs-pane :input:visible:enabled:first").focus();
+      return false;
+    }
+  });
+
+  // Pressing the Enter key lets you leave the tab again.
+  this.fieldset.keydown(function(event) {
+    // Enter key should not trigger inside <textarea> to allow for multi-line entries.
+    if (event.keyCode == 13 && event.target.nodeName != "TEXTAREA") {
+      // Set focus on the selected tab button again.
+      $(".vertical-tab-button.selected a").focus();
+      return false;
+    }
+  });
+
   this.fieldset
     .bind('summaryUpdated', function () {
       self.updateSummary();
@@ -73,7 +104,9 @@ Drupal.verticalTab = function (settings) {
 };
 
 Drupal.verticalTab.prototype = {
-  // Displays the tab's content pane.
+  /**
+   * Displays the tab's content pane.
+   */
   focus: function () {
     this.fieldset
       .siblings('fieldset.vertical-tabs-pane')
@@ -87,11 +120,55 @@ Drupal.verticalTab.prototype = {
       .siblings(':hidden.vertical-tabs-active-tab')
         .val(this.fieldset.attr('id'));
     this.item.addClass('selected');
+    // Mark the active tab for screen readers.
+    $('#active-vertical-tab').remove();
+    this.link.append('<span id="active-vertical-tab" class="element-invisible">' + Drupal.t('(active tab)') + '</span>');
   },
 
-  // Updates the tab's summary.
+  /**
+   * Updates the tab's summary.
+   */
   updateSummary: function () {
-    this.summary.html(this.fieldset.getSummary());
+	  this.summary.html(this.fieldset.drupalGetSummary());
+  },
+
+  /**
+   * Shows a vertical tab pane.
+   */
+  tabShow: function () {
+    // Display the tab.
+    this.item.show();
+    // Update .first marker for items. We need recurse from parent to retain the
+    // actual DOM element order as jQuery implements sortOrder, but not as public
+    // method.
+    this.item.parent().children('.vertical-tab-button').removeClass('first')
+      .filter(':visible:first').addClass('first');
+    // Display the fieldset.
+    this.fieldset.removeClass('vertical-tab-hidden').show();
+    // Focus this tab.
+    this.focus();
+    return this;
+  },
+
+  /**
+   * Hides a vertical tab pane.
+   */
+  tabHide: function () {
+    // Hide this tab.
+    this.item.hide();
+    // Update .first marker for items. We need recurse from parent to retain the
+    // actual DOM element order as jQuery implements sortOrder, but not as public
+    // method.
+    this.item.parent().children('.vertical-tab-button').removeClass('first')
+      .filter(':visible:first').addClass('first');
+    // Hide the fieldset.
+    this.fieldset.addClass('vertical-tab-hidden').hide();
+    // Focus the first visible tab (if there is one).
+    var $firstTab = this.fieldset.siblings('.vertical-tabs-pane:not(.vertical-tab-hidden):first');
+    if ($firstTab.length) {
+      $firstTab.data('verticalTab').focus();
+    }
+    return this;
   }
 };
 
@@ -110,10 +187,10 @@ Drupal.verticalTab.prototype = {
  */
 Drupal.theme.prototype.verticalTab = function (settings) {
   var tab = {};
-  tab.item = $('<li class="vertical-tab-button"></li>')
+  tab.item = $('<li class="vertical-tab-button" tabindex="-1"></li>')
     .append(tab.link = $('<a href="#"></a>')
       .append(tab.title = $('<strong></strong>').text(settings.title))
-      .append(tab.summary = $('<small class="summary"></small>')
+      .append(tab.summary = $('<span class="summary"></span>')
     )
   );
   return tab;

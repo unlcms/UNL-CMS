@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.module,v 1.322 2010/03/08 03:59:25 webchick Exp $
+// $Id: filter.module,v 1.328 2010/04/24 14:53:59 dries Exp $
 
 /**
  * @file
@@ -290,7 +290,7 @@ function filter_admin_format_title($format) {
 function filter_permission() {
   $perms['administer filters'] = array(
     'title' => t('Administer text formats and filters'),
-    'description' => drupal_placeholder(array('text' => t('Warning: Give to trusted roles only; this permission has security implications.'))),
+    'restrict access' => TRUE,
   );
 
   // Generate permissions for each text format. Warn the administrator that any
@@ -668,6 +668,8 @@ function filter_list_format($format_id) {
  *   Boolean whether to cache the filtered output in the {cache_filter} table.
  *   The caller may set this to FALSE when the output is already cached
  *   elsewhere to avoid duplicate cache lookups and storage.
+ *
+ * @ingroup sanitization
  */
 function check_markup($text, $format_id = NULL, $langcode = '', $cache = FALSE) {
   if (empty($format_id)) {
@@ -849,6 +851,38 @@ function filter_process_format($element) {
     '#weight' => 0,
   );
 
+  // Lastly, disallow editing of this field if the user is not allowed to use
+  // the stored and preselected text format. But only, if that format actually
+  // exists.
+  $all_formats = filter_formats();
+  if (!isset($formats[$element['#format']]) && isset($all_formats[$element['#format']])) {
+    // Overload default values into #value to make them unalterable.
+    $element['value']['#value'] = $element['value']['#default_value'];
+    $element['format']['format']['#value'] = $element['format']['format']['#default_value'];
+
+    // Prepend #pre_render callback to replace field value with user notice
+    // prior to rendering.
+    if (!isset($element['value']['#pre_render'])) {
+      $element['value']['#pre_render'] = array();
+    }
+    array_unshift($element['value']['#pre_render'], 'filter_form_access_denied');
+
+    // Cosmetic adjustments.
+    if (isset($element['value']['#rows'])) {
+      $element['value']['#rows'] = 3;
+    }
+    $element['value']['#disabled'] = TRUE;
+    $element['value']['#resizable'] = FALSE;
+
+    // Hide the text format selector and any other child element (such as text
+    // field's summary).
+    foreach (element_children($element) as $key) {
+      if ($key != 'value') {
+        $element[$key]['#access'] = FALSE;
+      }
+    }
+  }
+
   return $element;
 }
 
@@ -885,15 +919,27 @@ function filter_form_after_build($element, &$form_state) {
 }
 
 /**
- * Render a text format-enabled form element.
+ * #pre_render callback for #type 'text_format' to hide field value from prying eyes.
+ *
+ * To not break form processing and previews if a user does not have access to a
+ * stored text format, the expanded form elements in filter_process_format() are
+ * forced to take over the stored #default_values for 'value' and 'format'.
+ * However, to prevent the unfiltered, original #value from being displayed to
+ * the user, we replace it with a friendly notice here.
+ *
+ * @see filter_process_format()
+ */
+function filter_form_access_denied($element) {
+  $element['#value'] = t('This field has been disabled because you do not have sufficient permissions to edit it.');
+  return $element;
+}
+
+/**
+ * Returns HTML for a text format-enabled form element.
  *
  * @param $variables
  *   An associative array containing:
- *   - element: An associative array containing the properties of the element.
- *     Properties used: #children, #description
- *
- * @return
- *   A string representing the form element.
+ *   - element: A render element containing #children and #description.
  *
  * @ingroup themeable
  */
@@ -983,7 +1029,7 @@ function _filter_tips($format_id, $long = FALSE) {
  */
 function filter_dom_load($text) {
   // Ignore warnings during HTML soup loading.
-  $dom_document = @DOMDocument::loadHTML('<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head><body>' . $text . '</body></html>');
+  $dom_document = @DOMDocument::loadHTML('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head><body>' . $text . '</body></html>');
 
   return $dom_document;
 }
@@ -1018,7 +1064,7 @@ function filter_dom_serialize($dom_document) {
   foreach ($body_node->childNodes as $child_node) {
     $body_content .= $dom_document->saveXML($child_node);
   }
-  return preg_replace('|<([^>]*)/>|i', '<$1 />', $body_content);
+  return preg_replace('|<([^> ]*)/>|i', '<$1 />', $body_content);
 }
 
 /**
@@ -1043,7 +1089,7 @@ function filter_dom_serialize($dom_document) {
 function filter_dom_serialize_escape_cdata_element($dom_document, $dom_element, $comment_start = '//', $comment_end = '') {
   foreach ($dom_element->childNodes as $node) {
     if (get_class($node) == 'DOMCdataSection') {
-      // @see drupal_get_js().  This code is more or less duplicated there.
+      // See drupal_get_js().  This code is more or less duplicated there.
       $embed_prefix = "\n<!--{$comment_start}--><![CDATA[{$comment_start} ><!--{$comment_end}\n";
       $embed_suffix = "\n{$comment_start}--><!]]>{$comment_end}\n";
       $fragment = $dom_document->createDocumentFragment();
@@ -1055,7 +1101,7 @@ function filter_dom_serialize_escape_cdata_element($dom_document, $dom_element, 
 }
 
 /**
- * Format a link to the more extensive filter tips.
+ * Returns HTML for a link to the more extensive filter tips.
  *
  * @ingroup themeable
  */
@@ -1064,7 +1110,7 @@ function theme_filter_tips_more_info() {
 }
 
 /**
- * Format guidelines for a text format.
+ * Returns HTML for guidelines for a text format.
  *
  * @param $variables
  *   An associative array containing:

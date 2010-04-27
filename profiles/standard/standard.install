@@ -1,5 +1,5 @@
 <?php
-// $Id: standard.install,v 1.8 2010/03/11 22:48:34 dries Exp $
+// $Id: standard.install,v 1.13 2010/04/22 09:55:32 webchick Exp $
 
 /**
  * Implements hook_install().
@@ -217,7 +217,7 @@ function standard_install() {
       'type' => 'article',
       'name' => st('Article'),
       'base' => 'node_content',
-      'description' => st('Use <em>articles</em> for time-specific content like news, press releases or blog posts.'),
+      'description' => st('Use <em>articles</em> for time-sensitive content like news, press releases or blog posts.'),
       'custom' => 1,
       'modified' => 1,
       'locked' => 0,
@@ -247,7 +247,7 @@ function standard_install() {
           'predicates' => array('rdfs:seeAlso'),
           'type' => 'rel',
         ),
-        'taxonomy_tags' => array(
+        'field_tags' => array(
           'predicates' => array('dc:subject'),
           'type' => 'rel',
         ),
@@ -284,7 +284,7 @@ function standard_install() {
   taxonomy_vocabulary_save($vocabulary);
 
   $field = array(
-    'field_name' => 'taxonomy_' . $vocabulary->machine_name,
+    'field_name' => 'field_' . $vocabulary->machine_name,
     'type' => 'taxonomy_term_reference',
     // Set cardinality to unlimited for tagging.
     'cardinality' => FIELD_CARDINALITY_UNLIMITED,
@@ -300,8 +300,8 @@ function standard_install() {
   field_create_field($field);
 
   $instance = array(
-    'field_name' => 'taxonomy_' . $vocabulary->machine_name,
-    'object_type' => 'node',
+    'field_name' => 'field_' . $vocabulary->machine_name,
+    'entity_type' => 'node',
     'label' => $vocabulary->name,
     'bundle' => 'article',
     'description' => $vocabulary->help,
@@ -315,7 +315,7 @@ function standard_install() {
 
   // Create an image field named "Image", enabled for the 'article' content type.
   // Many of the following values will be defaulted, they're included here as an illustrative examples.
-  // @see: http://api.drupal.org/api/function/field_create_field/7
+  // See http://api.drupal.org/api/function/field_create_field/7
 
   $field = array(
     'field_name' => 'field_image',
@@ -337,10 +337,10 @@ function standard_install() {
 
 
   // Many of the following values will be defaulted, they're included here as an illustrative examples.
-  // @see: http://api.drupal.org/api/function/field_create_instance/7
+  // See http://api.drupal.org/api/function/field_create_instance/7
   $instance = array(
     'field_name' => 'field_image',
-    'object_type' => 'node',
+    'entity_type' => 'node',
     'label' => 'Image',
     'bundle' => 'article',
     'description' => 'Upload an image to go with this article.',
@@ -408,6 +408,7 @@ function standard_install() {
   // Create a default role for site administrators, with all available permissions assigned.
   $admin_role = new stdClass();
   $admin_role->name = 'administrator';
+  $admin_role->weight = 2;
   user_role_save($admin_role);
   user_role_grant_permissions($admin_role->rid, array_keys(module_invoke_all('permission')));
   // Set this as the administrator role.

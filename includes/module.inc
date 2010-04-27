@@ -1,5 +1,5 @@
 <?php
-// $Id: module.inc,v 1.184 2010/03/03 07:38:08 dries Exp $
+// $Id: module.inc,v 1.190 2010/04/22 22:36:01 webchick Exp $
 
 /**
  * @file
@@ -369,6 +369,8 @@ function module_enable($module_list, $enable_dependencies = TRUE) {
       registry_update();
       // Refresh the schema to include it.
       drupal_get_schema(NULL, TRUE);
+      // Clear entity cache.
+      entity_info_cache_clear();
 
       // Now install the module if necessary.
       if (drupal_get_installed_schema_version($module, TRUE) == SCHEMA_UNINSTALLED) {
@@ -503,6 +505,12 @@ function module_disable($module_list, $disable_dependents = TRUE) {
  * the module name in the hook definitions. For example, if the module file is
  * called example.module, then hook_help() as implemented by that module would
  * be defined as example_help().
+ *
+ * The example functions included are not part of the Drupal core, they are
+ * just models that you can modify. Only the hooks implemented within modules
+ * are executed when running Drupal.
+ *
+ * See also @link themeable the themeable group page. @endlink
  */
 
 /**
@@ -536,7 +544,7 @@ function module_hook($module, $hook) {
  * @return
  *   An array with the names of the modules which are implementing this hook.
  *
- * @see module_implements_write_cache().
+ * @see module_implements_write_cache()
  */
 function module_implements($hook, $sort = FALSE, $reset = FALSE) {
   // Use the advanced drupal_static() pattern, since this is called very often.
@@ -581,12 +589,17 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
     $implementations[$hook] = array();
     $list = module_list(FALSE, FALSE, $sort);
     foreach ($list as $module) {
-      $include_file = FALSE;
-      if (module_hook($module, $hook) || (isset($hook_info[$hook]['group']) && $include_file = module_load_include('inc', $module, $module . '.' . $hook_info[$hook]['group']) && module_hook($module, $hook))) {
+      $include_file = isset($hook_info[$hook]['group']) && module_load_include('inc', $module, $module . '.' . $hook_info[$hook]['group']);
+      if (module_hook($module, $hook)) {
         $implementations[$hook][$module] = $include_file ? $hook_info[$hook]['group'] : FALSE;
         // We added something to the cache, so write it when we are done.
         $implementations['#write_cache'] = TRUE;
       }
+    }
+    // Allow modules to change the weight of specific implementations but avoid
+    // an infinite loop.
+    if ($hook != 'module_implements_alter') {
+      drupal_alter('module_implements', $implementations[$hook], $hook);
     }
   }
   else {
@@ -740,4 +753,84 @@ function drupal_required_modules() {
   }
 
   return $required;
+}
+
+/**
+ * Hands off alterable variables to type-specific *_alter implementations.
+ *
+ * This dispatch function hands off the passed in variables to type-specific
+ * hook_TYPE_alter() implementations in modules. It ensures a consistent
+ * interface for all altering operations.
+ *
+ * A maximum of 2 alterable arguments is supported. In case more arguments need
+ * to be passed and alterable, modules provide additional variables assigned by
+ * reference in the last $context argument:
+ * @code
+ *   $context = array(
+ *     'alterable' => &$alterable,
+ *     'unalterable' => $unalterable,
+ *     'foo' => 'bar',
+ *   );
+ *   drupal_alter('mymodule_data', $alterable1, $alterable2, $context);
+ * @endcode
+ *
+ * Note that objects are always passed by reference in PHP5. If it is absolutely
+ * required that no implementation alters a passed object in $context, then an
+ * object needs to be cloned:
+ * @code
+ *   $context = array(
+ *     'unalterable_object' => clone $object,
+ *   );
+ *   drupal_alter('mymodule_data', $data, $context);
+ * @endcode
+ *
+ * @param $type
+ *   A string describing the data type of the alterable $data. 'form', 'links',
+ *   'node_content', and so on are several examples.
+ * @param &$data
+ *   The primary data to be altered.
+ * @param &$context1
+ *   (optional) An additional variable that is passed by reference.
+ * @param &$context2
+ *   (optional) An additional variable that is passed by reference. If more
+ *   context needs to be provided to implementations, then this should be an
+ *   keyed array as described above.
+ */
+function drupal_alter($type, &$data, &$context1 = NULL, &$context2 = NULL) {
+  // Use the advanced drupal_static() pattern, since this is called very often.
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['functions'] = &drupal_static(__FUNCTION__);
+  }
+  $functions = &$drupal_static_fast['functions'];
+
+  // Some alter hooks are invoked many times per page request, so statically
+  // cache the list of functions to call, and on subsequent calls, iterate
+  // through them quickly.
+  if (!isset($functions[$type])) {
+    $functions[$type] = array();
+    $hook = $type . '_alter';
+    foreach (module_implements($hook) as $module) {
+      $functions[$type][] = $module . '_' . $hook;
+    }
+    // Allow the theme to alter variables after the theme system has been
+    // initialized.
+    global $theme, $base_theme_info;
+    if (isset($theme)) {
+      $theme_keys = array();
+      foreach ($base_theme_info as $base) {
+        $theme_keys[] = $base->name;
+      }
+      $theme_keys[] = $theme;
+      foreach ($theme_keys as $theme_key) {
+        $function = $theme_key . '_' . $hook;
+        if (function_exists($function)) {
+          $functions[$type][] = $function;
+        }
+      }
+    }
+  }
+  foreach ($functions[$type] as $function) {
+    $function($data, $context1, $context2);
+  }
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.31 2010/03/09 11:39:07 dries Exp $
+// $Id: schema.inc,v 1.34 2010/04/07 15:07:59 dries Exp $
 
 /**
  * @file
@@ -24,7 +24,6 @@
  * the module defines.
  *
  * The following keys are defined:
- *
  *   - 'description': A string in non-markup plain text describing this table
  *     and its purpose. References to other tables should be enclosed in
  *     curly-brackets. For example, the node_revisions table
@@ -33,7 +32,6 @@
  *   - 'fields': An associative array ('fieldname' => specification)
  *     that describes the table's database columns. The specification
  *     is also an array. The following specification parameters are defined:
- *
  *     - 'description': A string in non-markup plain text describing this field
  *       and its purpose. References to other tables should be enclosed in
  *       curly-brackets. For example, the node table vid field
@@ -52,7 +50,6 @@
  *       datatypes will be used (e.g. on MySQL, TINYINT vs. INT vs. BIGINT).
  *       'normal', the default, selects the base type (e.g. on MySQL,
  *       INT, VARCHAR, BLOB, etc.).
- *
  *       Not all sizes are available for all data types. See
  *       DatabaseSchema::getFieldTypeMap() for possible combinations.
  *     - 'not null': If true, no NULL values will be allowed in this
@@ -71,10 +68,8 @@
  *       the precision (total number of significant digits) and scale
  *       (decimal digits right of the decimal point). Both values are
  *       mandatory. Ignored for other field types.
- *
  *     All parameters apart from 'type' are optional except that type
  *     'numeric' columns must specify 'precision' and 'scale'.
- *
  *  - 'primary key': An array of one or more key column specifiers (see below)
  *    that form the primary key.
  *  - 'unique keys': An associative array of unique keys ('keyname' =>
@@ -155,6 +150,16 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    */
   protected $placeholder = 0;
 
+  /**
+   * Definition of prefixInfo array structure.
+   *
+   * Rather than redefining DatabaseSchema::getPrefixInfo() for each driver,
+   * by defining the defaultSchema variable only MySQL has to re-write the
+   * method.
+   *
+   * @see DatabaseSchema::getPrefixInfo()
+   */
+  protected $defaultSchema = 'public';
 
   public function __construct($connection) {
     $this->connection = $connection;
@@ -162,6 +167,48 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
 
   public function nextPlaceholder() {
     return $this->placeholder++;
+  }
+
+  /**
+   * Get information about the table name and schema from the db_prefix.
+   *
+   * @param
+   *   Name of table to look prefix up for. Defaults to 'default' because thats
+   *   default key for db_prefix.
+   * @return
+   *   A keyed array with information about the schema, table name and prefix.
+   */
+  protected function getPrefixInfo($table = 'default') {
+    $info = array(
+      'schema' => $this->defaultSchema,
+      'prefix' => $this->connection->tablePrefix($table),
+    );
+    // If the prefix contains a period in it, then that means the prefix also
+    // contains a schema reference in which case we will change the schema key
+    // to the value before the period in the prefix. Everything after the dot
+    // will be prefixed onto the front of the table.
+    if ($pos = strpos($info['prefix'], '.') !== FALSE) {
+      // Grab everything before the period.
+      $info['schema'] = substr($info['prefix'], 0, $pos);
+      // Grab everything after the dot, and prefix on to the table.
+      $info['table'] = substr($info['prefix'], ++$pos) . $table;
+    }
+    else {
+      $info['table'] = $info['prefix'] . $table;
+    }
+    return $info;
+  }
+
+  /**
+   * Create names for indexes, primary keys and constraints.
+   *
+   * This prevents using {} around non-table names like indexes and keys.
+   */
+  function prefixNonTable($table) {
+    $args = func_get_args();
+    $info = $this->getPrefixInfo($table);
+    $args[0] = $info['table'];
+    return implode('_', $args);
   }
 
   /**
@@ -180,27 +227,23 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    * to make all the others work. For example see includes/databases/mysql/schema.inc.
    *
    * @param $table_name
-   *   The name of the table to explode.
+   *   The name of the table in question.
    * @param $operator
    *   The operator to apply on the 'table' part of the condition.
+   *
    * @return QueryConditionInterface
    *   A DatabaseCondition object.
    */
   protected function buildTableNameCondition($table_name, $operator = '=') {
     $info = $this->connection->getConnectionOptions();
 
-    // The table name may describe the schema eg. schema.table.
-    if (strpos($table_name, '.')) {
-      list($schema, $table_name) = explode('.', $table_name);
-    }
-    else {
-      $schema = 'public';
-    }
+    // Retrive the table name and schema
+    $table_info = $this->getPrefixInfo($table_name);
 
     $condition = new DatabaseCondition('AND');
     $condition->condition('table_catalog', $info['database']);
-    $condition->condition('table_schema', $schema);
-    $condition->condition('table_name', $table_name, $operator);
+    $condition->condition('table_schema', $table_info['schema']);
+    $condition->condition('table_name', $table_info['table'], $operator);
     return $condition;
   }
 
@@ -209,11 +252,12 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *
    * @param $table
    *   The name of the table in drupal (no prefixing).
+   *
    * @return
    *   TRUE if the given table exists, otherwise FALSE.
    */
   public function tableExists($table) {
-    $condition = $this->buildTableNameCondition($this->connection->prefixTables('{' . $table . '}'));
+    $condition = $this->buildTableNameCondition($table);
     $condition->compile($this->connection, $this);
     // Normally, we would heartily discourage the use of string
     // concatenation for conditionals like this however, we
@@ -229,6 +273,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    * @param $table_expression
    *   An SQL expression, for example "simpletest%" (without the quotes).
    *   BEWARE: this is not prefixed, the caller should take care of that.
+   *
    * @return
    *   Array, both the keys and the values are the matching tables.
    */
@@ -250,11 +295,12 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The name of the table in drupal (no prefixing).
    * @param $name
    *   The name of the column.
+   *
    * @return
    *   TRUE if the given column exists, otherwise FALSE.
    */
-  public function columnExists($table, $column) {
-    $condition = $this->buildTableNameCondition($this->connection->prefixTables('{' . $table . '}'));
+  public function fieldExists($table, $column) {
+    $condition = $this->buildTableNameCondition($table);
     $condition->condition('column_name', $column);
     $condition->compile($this->connection, $this);
     // Normally, we would heartily discourage the use of string
@@ -266,15 +312,15 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
   }
 
   /**
-  * Returns a mapping of Drupal schema field names to DB-native field types.
-  *
-  * Because different field types do not map 1:1 between databases, Drupal has
-  * its own normalized field type names. This function returns a driver-specific
-  * mapping table from Drupal names to the native names for each database.
-  *
-  * @return array
-  *   An array of Schema API field types to driver-specific field types.
-  */
+   * Returns a mapping of Drupal schema field names to DB-native field types.
+   *
+   * Because different field types do not map 1:1 between databases, Drupal has
+   * its own normalized field type names. This function returns a driver-specific
+   * mapping table from Drupal names to the native names for each database.
+   *
+   * @return array
+   *   An array of Schema API field types to driver-specific field types.
+   */
   abstract public function getFieldTypeMap();
 
   /**
@@ -284,6 +330,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The table to be renamed.
    * @param $new_name
    *   The new name for the table.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table doesn't exist.
    * @throws DatabaseSchemaObjectExistsException
@@ -296,6 +343,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *
    * @param $table
    *   The table to be dropped.
+   *
    * @return
    *   TRUE if the table was successfully dropped, FALSE if there was no table
    *   by that name to begin with.
@@ -322,6 +370,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   adding a type 'serial' field, you MUST specify at least one key
    *   or index including it in this array. See db_change_field() for more
    *   explanation why.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table doesn't exist.
    * @throws DatabaseSchemaObjectExistsException
@@ -336,6 +385,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The table to be altered.
    * @param $field
    *   The field to be dropped.
+   *
    * @return
    *   TRUE if the field was successfully dropped, FALSE if there was no field
    *   by that name to begin with.
@@ -351,6 +401,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The field to be altered.
    * @param $default
    *   Default value to be set. NULL for 'default NULL'.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table or field doesn't exist.
    */
@@ -363,6 +414,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The table to be altered.
    * @param $field
    *   The field to be altered.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table or field doesn't exist.
    */
@@ -375,6 +427,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The name of the table in drupal (no prefixing).
    * @param $name
    *   The name of the index in drupal (no prefixing).
+   *
    * @return
    *   TRUE if the given index exists, otherwise FALSE.
    */
@@ -387,6 +440,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The table to be altered.
    * @param $fields
    *   Fields for the primary key.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table doesn't exist.
    * @throws DatabaseSchemaObjectExistsException
@@ -399,6 +453,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *
    * @param $table
    *   The table to be altered.
+   *
    * @return
    *   TRUE if the primary key was successfully dropped, FALSE if there was no
    *   primary key on this table to begin with.
@@ -414,6 +469,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The name of the key.
    * @param $fields
    *   An array of field names.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table doesn't exist.
    * @throws DatabaseSchemaObjectExistsException
@@ -428,6 +484,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The table to be altered.
    * @param $name
    *   The name of the key.
+   *
    * @return
    *   TRUE if the key was successfully dropped, FALSE if there was no key by
    *   that name to begin with.
@@ -443,6 +500,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The name of the index.
    * @param $fields
    *   An array of field names.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table doesn't exist.
    * @throws DatabaseSchemaObjectExistsException
@@ -457,6 +515,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The table to be altered.
    * @param $name
    *   The name of the index.
+   *
    * @return
    *   TRUE if the index was successfully dropped, FALSE if there was no index
    *   by that name to begin with.
@@ -522,6 +581,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   Optional keys and indexes specification to be created on the
    *   table along with changing the field. The format is the same as a
    *   table specification but without the 'fields' element.
+   *
    * @throws DatabaseSchemaObjectDoesNotExistException
    *   If the specified table or source field doesn't exist.
    * @throws DatabaseSchemaObjectExistsException
@@ -536,6 +596,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The name of the table to create.
    * @param $table
    *   A Schema API table definition array.
+   *
    * @throws DatabaseSchemaObjectExistsException
    *   If the specified table already exists.
    */
@@ -557,6 +618,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *
    * @param $fields
    *   An array of key/index column specifiers.
+   *
    * @return
    *   An array of field names.
    */
@@ -580,6 +642,7 @@ abstract class DatabaseSchema implements QueryPlaceholderInterface {
    *   The comment string to prepare.
    * @param $length
    *   Optional upper limit on the returned string length.
+   *
    * @return
    *   The prepared comment.
    */

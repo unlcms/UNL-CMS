@@ -1,5 +1,5 @@
 <?php
-// $Id: profile.admin.inc,v 1.39 2010/03/07 08:05:02 webchick Exp $
+// $Id: profile.admin.inc,v 1.42 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -40,7 +40,8 @@ function profile_admin_overview($form) {
 
   // Display the submit button only when there's more than one field
   if (count($form) > 1) {
-    $form['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
+    $form['actions'] = array('#type' => 'actions');
+    $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
   }
   else {
     // Disable combo boxes when there isn't a submit button
@@ -91,17 +92,21 @@ function profile_admin_overview_submit($form, &$form_state) {
 }
 
 /**
- * Theme the profile field overview into a drag and drop enabled table.
+ * Returns HTML for the profile field overview form into a drag and drop enabled table.
  *
- * @ingroup themeable
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
+ *
  * @see profile_admin_overview()
+ * @ingroup themeable
  */
 function theme_profile_admin_overview($variables) {
   $form = $variables['form'];
 
   drupal_add_css(drupal_get_path('module', 'profile') . '/profile.css');
   // Add javascript if there's more than one field.
-  if (isset($form['submit'])) {
+  if (isset($form['actions'])) {
     drupal_add_js(drupal_get_path('module', 'profile') . '/profile.js');
   }
 
@@ -119,11 +124,11 @@ function theme_profile_admin_overview($variables) {
         // class names won't contain invalid characters.
         $categories[$category] = $category_number;
         $category_field['#attributes']['class'] = array('profile-category', 'profile-category-' . $category_number);
-        $rows[] = array(array('data' => $category, 'colspan' => 7, 'class' => array('category')));
+        $rows[] = array(array('data' => check_plain($category), 'colspan' => 7, 'class' => array('category')));
         $rows[] = array('data' => array(array('data' => '<em>' . t('No fields in this category. If this category remains empty when saved, it will be removed.') . '</em>', 'colspan' => 7)), 'class' => array('category-' . $category_number . '-message', 'category-message', 'category-populated'));
 
         // Make it draggable only if there is more than one field
-        if (isset($form['submit'])) {
+        if (isset($form['actions'])) {
           drupal_add_tabledrag('profile-fields', 'order', 'sibling', 'profile-weight', 'profile-weight-' . $category_number);
           drupal_add_tabledrag('profile-fields', 'match', 'sibling', 'profile-category', 'profile-category-' . $category_number);
         }
@@ -139,7 +144,7 @@ function theme_profile_admin_overview($variables) {
       $row[] = drupal_render($field['title']);
       $row[] = drupal_render($field['name']);
       $row[] = drupal_render($field['type']);
-      if (isset($form['submit'])) {
+      if (isset($form['actions'])) {
         $row[] = drupal_render($field['category']);
         $row[] = drupal_render($field['weight']);
       }
@@ -150,7 +155,7 @@ function theme_profile_admin_overview($variables) {
   }
 
   $header = array(t('Title'), t('Name'), t('Type'));
-  if (isset($form['submit'])) {
+  if (isset($form['actions'])) {
     $header[] = t('Category');
     $header[] = t('Weight');
   }
@@ -282,7 +287,7 @@ Unless you know what you are doing, it is highly recommended that you prefix the
     '#default_value' => $edit['register'],
   );
 
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit',
     '#value' => t('Save field'),
   );

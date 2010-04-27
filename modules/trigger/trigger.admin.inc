@@ -1,5 +1,5 @@
 <?php
-// $Id: trigger.admin.inc,v 1.23 2010/03/07 07:22:42 webchick Exp $
+// $Id: trigger.admin.inc,v 1.25 2010/04/21 08:23:42 webchick Exp $
 
 /**
  * @file
@@ -130,7 +130,7 @@ function trigger_assign_form($form, $form_state, $module, $hook, $label) {
   $functions = array();
   // Restrict the options list to actions that declare support for this hook.
   foreach (actions_list() as $func => $metadata) {
-    if (in_array('any', $metadata['triggers']) || in_array($hook, $metadata['triggers'])) {
+    if (isset($metadata['triggers']) && array_intersect(array($hook, 'any'), $metadata['triggers'])) {
       $functions[] = $func;
     }
   }
@@ -272,14 +272,11 @@ function trigger_assign_form_submit($form, &$form_state) {
 }
 
 /**
- * Displays actions assigned to this hook in a table.
+ * Returns HTML for the form showing actions assigned to a trigger.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: The fieldset including all assigned actions.
- *
- * @return
- *   The rendered form with the table prepended.
  *
  * @ingroup themeable
  */

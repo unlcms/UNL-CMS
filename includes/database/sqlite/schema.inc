@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.14 2010/03/01 06:27:58 dries Exp $
+// $Id: schema.inc,v 1.16 2010/04/07 15:07:59 dries Exp $
 
 /**
  * @file
@@ -14,12 +14,17 @@
 
 class DatabaseSchema_sqlite extends DatabaseSchema {
 
+	/**
+   * Override DatabaseSchema::$defaultSchema
+   */
+  protected $defaultSchema = 'main';
+
   public function tableExists($table) {
     // Don't use {} around sqlite_master table.
     return (bool) $this->connection->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '{" . $table . "}'", array(), array())->fetchField();
   }
 
-  public function columnExists($table, $column) {
+  public function fieldExists($table, $column) {
     $schema = $this->introspectSchema($table);
     return !empty($schema['fields'][$column]);
   }
@@ -45,14 +50,19 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
    */
   protected function createIndexSql($tablename, $schema) {
     $sql = array();
+    $info = $this->getPrefixInfo($tablename);
     if (!empty($schema['unique keys'])) {
       foreach ($schema['unique keys'] as $key => $fields) {
-        $sql[] = 'CREATE UNIQUE INDEX "{' . $tablename . '}_' . $key . '" ON {' . $tablename . '} (' . $this->createKeySql($fields) . "); \n";
+        // Normally we don't escape double quotes (we use single quotes) but
+        // describing the index name like this is faster and is readable.
+        $index = "\"{$info['schema']}\".\"{$info['table']}_$key\"";
+        $sql[] = 'CREATE UNIQUE INDEX ' . $index . ' ON ' . $info['table'] . ' (' . $this->createKeySql($fields) . "); \n";
       }
     }
     if (!empty($schema['indexes'])) {
-      foreach ($schema['indexes'] as $index => $fields) {
-        $sql[] = 'CREATE INDEX "{' . $tablename . '}_' . $index . '" ON {' . $tablename . '} (' . $this->createKeySql($fields) . "); \n";
+      foreach ($schema['indexes'] as $key => $fields) {
+        $index = "\"{$info['schema']}\".\"{$info['table']}_$key\"";
+        $sql[] = 'CREATE INDEX ' . $index . ' ON ' . $info['table'] . ' (' . $this->createKeySql($fields) . "); \n";
       }
     }
     return $sql;
@@ -228,7 +238,13 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
 
     $schema = $this->introspectSchema($table);
 
-    $this->connection->query('ALTER TABLE {' . $table . '} RENAME TO {' . $new_name . '}');
+    // SQLite doesn't allow you to rename tables outside of the current
+    // database. So the syntax '...RENAME TO database.table' would fail.
+    // So we must determine the full table name here rather than surrounding
+    // the table with curly braces incase the db_prefix contains a reference
+    // to a database outside of our existsing database.
+    $info = $this->getPrefixInfo($new_name);
+    $this->connection->query('ALTER TABLE {' . $table . '} RENAME TO ' . $info['table']);
 
     // Drop the indexes, there is no RENAME INDEX command in SQLite.
     if (!empty($schema['unique keys'])) {
@@ -262,7 +278,7 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
     if (!$this->tableExists($table)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot add field %table.%field: table doesn't exist.", array('%field' => $field, '%table' => $table)));
     }
-    if ($this->columnExists($table, $field)) {
+    if ($this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectExistsException(t("Cannot add field %table.%field: field already exists.", array('%field' => $field, '%table' => $table)));
     }
 
@@ -377,7 +393,7 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
   }
 
   public function dropField($table, $field) {
-    if ($this->columnExists($table, $field)) {
+    if ($this->fieldExists($table, $field)) {
       return FALSE;
     }
 
@@ -399,10 +415,10 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
   }
 
   public function changeField($table, $field, $field_new, $spec, $keys_new = array()) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot change the definition of field %table.%name: field doesn't exist.", array('%table' => $table, '%name' => $field)));
     }
-    if (($field != $field_new) && $this->columnExists($table, $field_new)) {
+    if (($field != $field_new) && $this->fieldExists($table, $field_new)) {
       throw new DatabaseSchemaObjectExistsException(t("Cannot rename field %table.%name to %name_new: target field already exists.", array('%table' => $table, '%name' => $field, '%name_new' => $field_new)));
     }
 
@@ -445,7 +461,7 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
       return FALSE;
     }
 
-    $this->connection->query('DROP INDEX ' . '{' . $table . '}_' . $name);
+    $this->connection->query('DROP INDEX ' . $this->prefixNonTable($table, $name));
     return TRUE;
   }
 
@@ -469,7 +485,7 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
       return FALSE;
     }
 
-    $this->connection->query('DROP INDEX ' . '{' . $table . '}_' . $name);
+    $this->connection->query('DROP INDEX ' . $this->prefixNonTable($table, $name));
     return TRUE;
   }
 
@@ -499,7 +515,7 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
   }
 
   public function fieldSetDefault($table, $field, $default) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot set default value of field %table.%field: field doesn't exist.", array('%table' => $table, '%field' => $field)));
     }
 
@@ -509,7 +525,7 @@ class DatabaseSchema_sqlite extends DatabaseSchema {
   }
 
   public function fieldSetNoDefault($table, $field) {
-    if (!$this->columnExists($table, $field)) {
+    if (!$this->fieldExists($table, $field)) {
       throw new DatabaseSchemaObjectDoesNotExistException(t("Cannot remove default value of field %table.%field: field doesn't exist.", array('%table' => $table, '%field' => $field)));
     }
 

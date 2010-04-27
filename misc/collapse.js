@@ -1,4 +1,4 @@
-// $Id: collapse.js,v 1.28 2010/03/03 19:46:25 dries Exp $
+// $Id: collapse.js,v 1.30 2010/04/09 12:24:53 dries Exp $
 (function ($) {
 
 /**
@@ -40,8 +40,8 @@ Drupal.toggleFieldset = function (fieldset) {
  * Scroll a given fieldset into view as much as possible.
  */
 Drupal.collapseScrollIntoView = function (node) {
-  var h = self.innerHeight || document.documentElement.clientHeight || $('body')[0].clientHeight || 0;
-  var offset = self.pageYOffset || document.documentElement.scrollTop || $('body')[0].scrollTop || 0;
+  var h = document.documentElement.clientHeight || document.body.clientHeight || 0;
+  var offset = document.documentElement.scrollTop || document.body.scrollTop || 0;
   var posY = $(node).offset().top;
   var fudge = 55;
   if (posY + node.offsetHeight + fudge > h + offset) {
@@ -66,7 +66,7 @@ Drupal.behaviors.collapse = {
       var summary = $('<span class="summary"></span>');
       $fieldset.
         bind('summaryUpdated', function () {
-          var text = $.trim($fieldset.getSummary());
+          var text = $.trim($fieldset.drupalGetSummary());
           summary.html(text ? ' (' + text + ')' : '');
         })
         .trigger('summaryUpdated');

@@ -1,5 +1,5 @@
 <?php
-// $Id: user.module,v 1.1139 2010/03/20 19:06:12 dries Exp $
+// $Id: user.module,v 1.1163 2010/04/24 14:51:49 dries Exp $
 
 /**
  * @file
@@ -40,9 +40,9 @@ function user_help($path, $arg) {
     case 'admin/people/create':
       return '<p>' . t("This web page allows administrators to register new users. Users' e-mail addresses and usernames must be unique.") . '</p>';
     case 'admin/people/permissions':
-      return '<p>' . t('Permissions let you control what users can do and see on your site. You can define a specific set of permissions for each role. (See the <a href="@role">Roles</a> page to create a role). Two important roles to consider are Authenticated Users and Administrators. Any permissions granted to the Authenticated Users role will be given to any user who can log into your site.  You can make any role the Administrator role for the site, meaning this will be granted all new permissions automatically. You can do this on the <a href="@settings">User Settings</a> page. You should be careful to ensure that only trusted users are given this access and level of control of your site.', array('@role' => url('admin/people/permissions/roles'), '@settings' => url('admin/config/people/accounts'))) . '</p>';
+      return '<p>' . t('Permissions let you control what users can do and see on your site. You can define a specific set of permissions for each role. (See the <a href="@role">Roles</a> page to create a role). Two important roles to consider are Authenticated Users and Administrators. Any permissions granted to the Authenticated Users role will be given to any user who can log into your site. You can make any role the Administrator role for the site, meaning this will be granted all new permissions automatically. You can do this on the <a href="@settings">User Settings</a> page. You should be careful to ensure that only trusted users are given this access and level of control of your site.', array('@role' => url('admin/people/permissions/roles'), '@settings' => url('admin/config/people/accounts'))) . '</p>';
     case 'admin/people/permissions/roles':
-      $output = '<p>' . t('Roles allow you to fine tune the security and administration of Drupal. A role defines a group of users that have certain privileges as defined in <a href="@permissions">user permissions</a>. Examples of roles include: anonymous user, authenticated user, moderator, administrator and so on. In this area you will define the <em>role names</em> of the various roles. To delete a role choose "edit".', array('@permissions' => url('admin/people/permissions'))) . '</p>';
+      $output = '<p>' . t('Roles allow you to fine tune the security and administration of Drupal. A role defines a group of users that have certain privileges as defined on the <a href="@permissions">permissions page</a>. Examples of roles include: anonymous user, authenticated user, moderator, administrator and so on. In this area you will define the names and order of the roles on your site. It is recommended to order your roles from least permissive (anonymous user) to most permissive (administrator). To delete a role choose "edit role".', array('@permissions' => url('admin/people/permissions'))) . '</p>';
       $output .= '<p>'. t('By default, Drupal comes with two user roles:') . '</p>';
       $output .= '<ul>';
       $output .= '<li>' . t("Anonymous user: this role is used for users that don't have a user account or that are not authenticated.") . '</li>';
@@ -102,12 +102,16 @@ function user_theme() {
       'render element' => 'form',
       'file' => 'user.admin.inc',
     ),
-    'user_admin_new_role' => array(
+    'user_admin_roles' => array(
       'render element' => 'form',
       'file' => 'user.admin.inc',
     ),
     'user_filters' => array(
       'render element' => 'form',
+      'file' => 'user.admin.inc',
+    ),
+    'user_permission_description' => array(
+      'variables' => array('permission_item' => NULL, 'hide' => NULL),
       'file' => 'user.admin.inc',
     ),
     'user_signature' => array(
@@ -127,7 +131,7 @@ function user_entity_info() {
       'base table' => 'users',
       'uri callback' => 'user_uri',
       'fieldable' => TRUE,
-      'object keys' => array(
+      'entity keys' => array(
         'id' => 'uid',
       ),
       'bundles' => array(
@@ -234,7 +238,7 @@ class UserController extends DrupalDefaultEntityController {
     $picture_fids = array();
     foreach ($queried_users as $key => $record) {
       $picture_fids[] = $record->picture;
-      $queried_users[$key] = drupal_unpack($record);
+      $queried_users[$key]->data = unserialize($record->data);
       $queried_users[$key]->roles = array();
       if ($record->uid) {
         $queried_users[$record->uid]->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
@@ -330,11 +334,8 @@ function user_load_by_name($name) {
  *   TRUE or omit the $account->uid field.
  * @param $edit
  *   An array of fields and values to save. For example array('name'
- *   => 'My name'). Keys that do not belong to columns in the user-related
- *   tables are added to the a serialized array in the 'data' column
- *   and will be loaded in the $user->data array by user_load().
- *   Setting a field to NULL deletes it from the data column, if you are
- *   modifying an existing user account.
+ *   => 'My name'). Key / value pairs added to the $edit['data'] will be
+ *   serialized and saved in the {users.data} column.
  * @param $category
  *   (optional) The category for storing profile information in.
  *
@@ -365,16 +366,16 @@ function user_save($account, $edit = array(), $category = 'account') {
     field_attach_presave('user', $edit);
     $edit = (array) $edit;
 
+    if (empty($account)) {
+      $account = new stdClass();
+    }
     if (!isset($account->is_new)) {
       $account->is_new = empty($account->uid);
     }
     // Prepopulate $edit['data'] with the current value of $account->data.
     // Modules can add to or remove from this array in hook_user_presave().
     if (!empty($account->data)) {
-      $data = unserialize($account->data);
-      foreach ($data as $key => $value) {
-        $edit['data'][$key] = $value;
-      }
+      $edit['data'] = !empty($edit['data']) ? array_merge($account->data, $edit['data']) : $account->data;
     }
     user_module_invoke('presave', $edit, $account, $category);
 
@@ -496,11 +497,11 @@ function user_save($account, $edit = array(), $category = 'account') {
         return FALSE;
       }
 
-      // Build the initial user object.
-      $user = user_load($edit['uid'], TRUE);
+      // Build a stub user object.
+      $user = (object) $edit;
+      $user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
 
-      $entity = (object) $edit;
-      field_attach_insert('user', $entity);
+      field_attach_insert('user', $user);
 
       user_module_invoke('insert', $edit, $user, $category);
       entity_invoke('insert', 'user', $user);
@@ -518,15 +519,13 @@ function user_save($account, $edit = array(), $category = 'account') {
         }
         $query->execute();
       }
-
-      // Build the finished user object.
-      $user = user_load($edit['uid'], TRUE);
     }
 
     return $user;
   }
   catch (Exception $e) {
     $transaction->rollback('user', $e->getMessage(), array(), WATCHDOG_ERROR);
+    throw $e;
   }
 }
 
@@ -735,11 +734,11 @@ function user_permission() {
   return array(
     'administer permissions' =>  array(
       'title' => t('Administer permissions'),
-      'description' => drupal_placeholder(array('text' => t('Warning: Give to trusted roles only; this permission has security implications.'))),
+      'restrict access' => TRUE,
     ),
     'administer users' => array(
       'title' => t('Administer users'),
-      'description' => drupal_placeholder(array('text' => t('Warning: Give to trusted roles only; this permission has security implications.'))),
+      'restrict access' => TRUE,
     ),
     'access user profiles' => array(
       'title' => t('View user profiles'),
@@ -753,7 +752,7 @@ function user_permission() {
     ),
     'select account cancellation method' => array(
       'title' => t('Select method for cancelling own account'),
-      'description' => drupal_placeholder(array('text' => t('Warning: Give to trusted roles only; this permission has security implications.'))),
+      'restrict access' => TRUE,
     ),
   );
 }
@@ -778,7 +777,8 @@ function user_file_references($file) {
   $file_used = (bool) db_query_range('SELECT 1 FROM {users} WHERE picture = :fid', 0, 1, array(':fid' => $file->fid))->fetchField();
   if ($file_used) {
     // Return the name of the module and how many references it has to the file.
-    return array('user' => $count);
+    // If file is still used then 1 is enough to indicate this.
+    return array('user' => 1);
   }
 }
 
@@ -975,7 +975,7 @@ function user_account_form(&$form, &$form_state) {
     '#access' => $admin,
   );
 
-  $roles = user_roles(TRUE);
+  $roles = array_map('check_plain', user_roles(TRUE));
   // The disabled checkbox subelement for the 'authenticated user' role
   // must be generated separately and added to the checkboxes element,
   // because of a limitation in Form API not supporting a single disabled
@@ -1041,7 +1041,7 @@ function user_account_form(&$form, &$form_state) {
     '#type' => 'file',
     '#title' => t('Upload picture'),
     '#size' => 48,
-    '#description' => t('Your virtual face or picture. Maximum dimensions are %dimensions pixels and the maximum size is %size kB.', array('%dimensions' => variable_get('user_picture_dimensions', '85x85'), '%size' => variable_get('user_picture_file_size', '30'))) . ' ' . variable_get('user_picture_guidelines', ''),
+    '#description' => t('Your virtual face or picture. Maximum dimensions are %dimensions pixels and the maximum size is %size kB.', array('%dimensions' => variable_get('user_picture_dimensions', '85x85'), '%size' => variable_get('user_picture_file_size', '30'))) . ' ' . filter_xss_admin(variable_get('user_picture_guidelines', '')),
   );
   $form['#validate'][] = 'user_validate_picture';
 }
@@ -1165,7 +1165,8 @@ function user_login_block($form) {
     '#size' => 15,
     '#required' => TRUE,
   );
-  $form['submit'] = array('#type' => 'submit',
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array('#type' => 'submit',
     '#value' => t('Log in'),
   );
   $items = array();
@@ -1339,7 +1340,7 @@ function template_preprocess_user_picture(&$variables) {
 }
 
 /**
- * Make a list of users.
+ * Returns HTML for a list of users.
  *
  * @param $variables
  *   An associative array containing:
@@ -1500,6 +1501,8 @@ function user_menu() {
     'weight' => -10,
     'file' => 'user.admin.inc',
   );
+
+  // Permissions and role forms.
   $items['admin/people/permissions'] = array(
     'title' => 'Permissions',
     'description' => 'Determine access to features by selecting permissions for roles.',
@@ -1519,19 +1522,28 @@ function user_menu() {
     'title' => 'Roles',
     'description' => 'List, edit, or add user roles.',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('user_admin_new_role'),
+    'page arguments' => array('user_admin_roles'),
     'access arguments' => array('administer permissions'),
     'file' => 'user.admin.inc',
     'type' => MENU_LOCAL_TASK,
     'weight' => -5,
   );
-  $items['admin/people/permissions/roles/edit'] = array(
+  $items['admin/people/permissions/roles/edit/%user_role'] = array(
     'title' => 'Edit role',
-    'page arguments' => array('user_admin_role'),
-    'access arguments' => array('administer permissions'),
+    'page arguments' => array('user_admin_role', 5),
+    'access callback' => 'user_role_edit_access',
+    'access arguments' => array(5),
     'type' => MENU_CALLBACK,
   );
-
+  $items['admin/people/permissions/roles/delete/%user_role'] = array(
+    'title' => 'Delete role',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('user_admin_role_delete_confirm', 5),
+    'access callback' => 'user_role_edit_access',
+    'access arguments' => array(5),
+    'type' => MENU_CALLBACK,
+    'file' => 'user.admin.inc',
+  );
 
   $items['admin/people/create'] = array(
     'title' => 'Add user',
@@ -1544,7 +1556,8 @@ function user_menu() {
   $items['admin/config/people'] = array(
    'title' => 'People',
    'description' => 'Configure user accounts.',
-   'position' => 'right',
+   'position' => 'left',
+   'weight' => -20,
    'page callback' => 'system_admin_menu_block_page',
    'access arguments' => array('access administration pages'),
    'file' => 'system.admin.inc',
@@ -1817,7 +1830,8 @@ function user_login($form, &$form_state) {
     '#required' => TRUE,
   );
   $form['#validate'] = user_login_default_validators();
-  $form['submit'] = array('#type' => 'submit', '#value' => t('Log in'), '#weight' => 2);
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Log in'));
 
   return $form;
 }
@@ -2494,19 +2508,18 @@ function user_mail_tokens(&$replacements, $data, $options) {
  *   value.
  */
 function user_roles($membersonly = FALSE, $permission = NULL) {
-  // System roles take the first two positions.
-  $roles = array(
-    DRUPAL_ANONYMOUS_RID => NULL,
-    DRUPAL_AUTHENTICATED_RID => NULL,
-  );
-
+  $query = db_select('role', 'r');
+  $query->addTag('translatable');
+  $query->fields('r', array('rid', 'name'));
+  $query->orderBy('weight');
+  $query->orderBy('name');
   if (!empty($permission)) {
-    $result = db_query("SELECT r.* FROM {role} r INNER JOIN {role_permission} p ON r.rid = p.rid WHERE p.permission = :permission ORDER BY r.name", array(':permission' => $permission));
+    $query->innerJoin('role_permission', 'p', 'r.rid = p.rid');
+    $query->condition('p.permission', $permission);
   }
-  else {
-    $result = db_query('SELECT * FROM {role} ORDER BY name');
-  }
+  $result = $query->execute();
 
+  $roles = array();
   foreach ($result as $role) {
     switch ($role->rid) {
       // We only translate the built in role names
@@ -2523,27 +2536,49 @@ function user_roles($membersonly = FALSE, $permission = NULL) {
     }
   }
 
-  // Filter to remove unmatched system roles.
-  return array_filter($roles);
+  return $roles;
 }
 
 /**
- * Fetch a user role from database.
+ * Fetches a user role by role ID.
  *
- * @param $role
- *   A string with the role name, or an integer with the role ID.
+ * @param $rid
+ *   An integer representing the role ID.
+ *
  * @return
- *   A fully-loaded role object if a role with the given name or ID
- *   exists, FALSE otherwise.
+ *   A fully-loaded role object if a role with the given ID exists, or FALSE
+ *   otherwise.
+ *
+ * @see user_role_load_by_name()
  */
-function user_role_load($role) {
-  $field = is_int($role) ? 'rid' : 'name';
+function user_role_load($rid) {
   return db_select('role', 'r')
     ->fields('r')
-    ->condition($field, $role)
+    ->condition('rid', $rid)
     ->execute()
     ->fetchObject();
 }
+
+/**
+ * Fetches a user role by role name.
+ *
+ * @param $role_name
+ *   A string representing the role name.
+ *
+ * @return
+ *   A fully-loaded role object if a role with the given name exists, or FALSE
+ *   otherwise.
+ *
+ * @see user_role_load()
+ */
+function user_role_load_by_name($role_name) {
+  return db_select('role', 'r')
+    ->fields('r')
+    ->condition('name', $role_name)
+    ->execute()
+    ->fetchObject();
+}
+
 /**
  * Save a user role to the database.
  *
@@ -2560,6 +2595,12 @@ function user_role_save($role) {
   if ($role->name) {
     // Prevent leading and trailing spaces in role names.
     $role->name = trim($role->name);
+  }
+  if (!isset($role->weight)) {
+    // Set a role weight to make this new role last.
+    $query = db_select('role');
+    $query->addExpression('MAX(weight)');
+    $role->weight = $query->execute()->fetchField() + 1;
   }
   if (!empty($role->rid) && $role->name) {
     $status = drupal_write_record('role', $role, 'rid');
@@ -2584,7 +2625,12 @@ function user_role_save($role) {
  *   A string with the role name, or an integer with the role ID.
  */
 function user_role_delete($role) {
-  $role = user_role_load($role);
+  if (is_int($role)) {
+    $role = user_role_load($role);
+  }
+  else {
+    $role = user_role_load_by_name($role);
+  }
 
   db_delete('role')
     ->condition('rid', $role->rid)
@@ -2602,6 +2648,18 @@ function user_role_delete($role) {
   // Clear the user access cache.
   drupal_static_reset('user_access');
   drupal_static_reset('user_role_permissions');
+}
+
+/**
+ * Menu access callback for user role editing.
+ */
+function user_role_edit_access($role) {
+  // Prevent the system-defined roles from being altered or removed.
+  if ($role->rid == DRUPAL_ANONYMOUS_RID || $role->rid == DRUPAL_AUTHENTICATED_RID) {
+    return FALSE;
+  }
+
+  return user_access('administer permissions');
 }
 
 /**
@@ -3045,7 +3103,6 @@ function user_build_filter_query(SelectQuery $query) {
 function user_forms() {
   $forms['user_admin_access_add_form']['callback'] = 'user_admin_access_form';
   $forms['user_admin_access_edit_form']['callback'] = 'user_admin_access_form';
-  $forms['user_admin_new_role']['callback'] = 'user_admin_role';
   return $forms;
 }
 
@@ -3062,7 +3119,11 @@ function user_comment_view($comment) {
 }
 
 /**
- * Theme output of user signature.
+ * Returns HTML for a user signature.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - signature: The user's signature.
  *
  * @ingroup themeable
  */
@@ -3298,10 +3359,10 @@ function user_register_form($form, &$form_state) {
     $form_state['redirect'] = $_GET['q'];
   }
 
-  $form['submit'] = array(
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Create new account'),
-    '#weight' => 30,
   );
 
   // Add the final user registration form submit handler.
@@ -3343,10 +3404,7 @@ function user_register_submit($form, &$form_state) {
   }
   $notify = !empty($form_state['values']['notify']);
 
-  // The unset below is needed to prevent these form values from being saved as
-  // user data.
   form_state_values_clean($form_state);
-  unset($form_state['values']['notify']);
 
   $form_state['values']['pass'] = $pass;
   $form_state['values']['init'] = $form_state['values']['mail'];
@@ -3368,8 +3426,9 @@ function user_register_submit($form, &$form_state) {
   $account->password = $pass;
 
   // New administrative account without notification.
+  $uri = entity_uri('user', $account);
   if ($admin && !$notify) {
-    drupal_set_message(t('Created a new user account for <a href="@url">%name</a>. No e-mail has been sent.', array('@url' => url("user/$account->uid"), '%name' => $account->name)));
+    drupal_set_message(t('Created a new user account for <a href="@url">%name</a>. No e-mail has been sent.', array('@url' => url($uri['path'], $uri['options']), '%name' => $account->name)));
   }
   // No e-mail verification required; log in user immediately.
   elseif (!$admin && !variable_get('user_email_verification', TRUE) && $account->status) {
@@ -3384,7 +3443,7 @@ function user_register_submit($form, &$form_state) {
     $op = $notify ? 'register_admin_created' : 'register_no_approval_required';
     _user_mail_notify($op, $account);
     if ($notify) {
-      drupal_set_message(t('A welcome message with further instructions has been e-mailed to the new user <a href="@url">%name</a>.', array('@url' => url("user/$account->uid"), '%name' => $account->name)));
+      drupal_set_message(t('A welcome message with further instructions has been e-mailed to the new user <a href="@url">%name</a>.', array('@url' => url($uri['path'], $uri['options']), '%name' => $account->name)));
     }
     else {
       drupal_set_message(t('A welcome message with further instructions has been sent to your e-mail address.'));
@@ -3445,18 +3504,23 @@ function user_login_destination() {
  * Saves visitor information as a cookie so it can be reused.
  *
  * @param $values
- *   An array of submitted form values with identifying information about the
- *   current user, typically $form_state['values'] from a submit handler.
- * @param $fields
- *   An array of key values from $values to be saved into a cookie.
+ *   An array of key/value pairs to be saved into a cookie.
  */
-function user_cookie_save(array $values, array $fields = array('name', 'mail', 'homepage')) {
-  foreach ($fields as $field) {
-    if (isset($values[$field])) {
-      // Set cookie for 365 days.
-      setrawcookie('Drupal.visitor.' . $field, rawurlencode($values[$field]), REQUEST_TIME + 31536000, '/');
-    }
+function user_cookie_save(array $values) {
+  foreach ($values as $field => $value) {
+    // Set cookie for 365 days.
+    setrawcookie('Drupal.visitor.' . $field, rawurlencode($value), REQUEST_TIME + 31536000, '/');
   }
+}
+
+/**
+ * Delete a visitor information cookie.
+ *
+ * @param $cookie_name
+ *   A cookie name such as 'homepage'.
+ */
+function user_cookie_delete($cookie_name) {
+  setrawcookie('Drupal.visitor.' . $cookie_name, '', REQUEST_TIME - 3600, '/');
 }
 
 /**
@@ -3468,7 +3532,7 @@ function user_rdf_mapping() {
       'type' => 'user',
       'bundle' => RDF_DEFAULT_BUNDLE,
       'mapping' => array(
-        'rdftype' => array('sioc:User'),
+        'rdftype' => array('sioc:UserAccount'),
         'name' => array(
           'predicates' => array('foaf:name'),
         ),

@@ -1,5 +1,5 @@
 <?php
-// $Id: form.inc,v 1.442 2010/03/13 22:33:05 webchick Exp $
+// $Id: form.inc,v 1.454 2010/04/24 14:49:13 dries Exp $
 
 /**
  * @defgroup forms Form builder functions
@@ -61,6 +61,7 @@
  *   drupal_get_form(), including the unique form constructor function. For
  *   example, the node_edit form requires that a node object is passed in here
  *   when it is called.
+ *
  * @return
  *   The form array.
  *
@@ -191,13 +192,13 @@ function drupal_build_form($form_id, &$form_state) {
     if (!isset($form)) {
       // Record the filepath of the include file containing the original form,
       // so the form builder callbacks can be loaded when the form is being
-      // rebuilt from cache on a different path (such as 'system/ajax').
-      // @see form_get_cache()
-      // menu_get_item() is not available at installation time.
+      // rebuilt from cache on a different path (such as 'system/ajax'). See
+      // form_get_cache().
+      // $menu_get_item() is not available at installation time.
       if (!isset($form_state['build_info']['file']) && !defined('MAINTENANCE_MODE')) {
         $item = menu_get_item();
-        if (!empty($item['file'])) {
-          $form_state['build_info']['file'] = $item['file'];
+        if (!empty($item['include_file'])) {
+          $form_state['build_info']['file'] = $item['include_file'];
         }
       }
 
@@ -280,19 +281,21 @@ function form_state_defaults() {
     'cache'=> FALSE,
     'method' => 'post',
     'groups' => array(),
+    'buttons' => array(),
   );
 }
 
 /**
  * Retrieves a form, caches it and processes it again.
  *
- * If your AHAH callback simulates the pressing of a button, then your AHAH
- * callback will need to do the same as what drupal_get_form would do when the
+ * If your AJAX callback simulates the pressing of a button, then your AJAX
+ * callback will need to do the same as what drupal_get_form() would do when the
  * button is pressed: get the form from the cache, run drupal_process_form over
- * it and then if it needs rebuild, run drupal_rebuild_form over it. Then send
+ * it and then if it needs rebuild, run drupal_rebuild_form() over it. Then send
  * back a part of the returned form.
- * $form_state['clicked_button']['#array_parents'] will help you to find which
- * part.
+ * $form_state['triggering_element']['#array_parents'] will help you to find
+ * which part.
+ * @see ajax_form_callback() for an example.
  *
  * @param $form_id
  *   The unique string identifying the desired form. If a function
@@ -303,14 +306,16 @@ function form_state_defaults() {
  *   may be found in node_forms(), search_forms(), and user_forms().
  * @param $form_state
  *   A keyed array containing the current state of the form.
- * @param $form_build_id
- *   If the AHAH callback calling this function only alters part of the form,
- *   then pass in the existing form_build_id so we can re-cache with the same
- *   csid.
+ * @param $old_form
+ *   (optional) A previously built $form. Used to retain the #build_id and
+ *   #action properties in AJAX callbacks and similar partial form rebuilds.
+ *   Should not be passed for regular rebuilds, for which the entire $form
+ *   should be rebuilt freshly.
+ *
  * @return
  *   The newly built form.
  */
-function drupal_rebuild_form($form_id, &$form_state, $form_build_id = NULL) {
+function drupal_rebuild_form($form_id, &$form_state, $old_form = NULL) {
   // AJAX and other contexts may call drupal_rebuild_form() even when
   // $form_state['rebuild'] isn't set, but _form_builder_handle_input_element()
   // needs to distinguish a rebuild from an initial build in order to process
@@ -320,17 +325,27 @@ function drupal_rebuild_form($form_id, &$form_state, $form_build_id = NULL) {
 
   $form = drupal_retrieve_form($form_id, $form_state);
 
-  if (!isset($form_build_id)) {
-    // We need a new build_id for the new version of the form.
-    $form_build_id = 'form-' . md5(mt_rand());
+  // If only parts of the form will be returned to the browser (e.g. AJAX or
+  // RIA clients), re-use the old #build_id to not require client-side code to
+  // manually update the hidden 'build_id' input element.
+  // Otherwise, a new #build_id is generated, to not clobber the previous
+  // build's data in the form cache; also allowing the user to go back to an
+  // earlier build, make changes, and re-submit.
+  $form['#build_id'] = isset($old_form['#build_id']) ? $old_form['#build_id'] : 'form-' . md5(mt_rand());
+
+  // #action defaults to request_uri(), but in case of AJAX and other partial
+  // rebuilds, the form is submitted to an alternate URL, and the original
+  // #action needs to be retained.
+  if (isset($old_form['#action'])) {
+    $form['#action'] = $old_form['#action'];
   }
-  $form['#build_id'] = $form_build_id;
+
   drupal_prepare_form($form_id, $form, $form_state);
 
   if (empty($form_state['no_cache'])) {
     // We cache the form structure and the form state so it can be retrieved
     // later for validation.
-    form_set_cache($form_build_id, $form, $form_state);
+    form_set_cache($form['#build_id'], $form, $form_state);
   }
 
   // Clear out all group associations as these might be different when
@@ -357,7 +372,7 @@ function form_get_cache($form_build_id, &$form_state) {
         $form_state = $cached->data + $form_state;
 
         // If the original form is contained in an include file, load the file.
-        // @see drupal_build_form()
+        // See drupal_build_form().
         if (!empty($form_state['build_info']['file']) && file_exists($form_state['build_info']['file'])) {
           require_once DRUPAL_ROOT . '/' . $form_state['build_info']['file'];
         }
@@ -402,6 +417,7 @@ function form_state_keys_no_cache() {
     'temporary',
     // Internal properties defined by form processing.
     'buttons',
+    'triggering_element',
     'clicked_button',
     'complete form',
     'groups',
@@ -443,7 +459,20 @@ function form_state_keys_no_cache() {
  *   Any additional arguments are passed on to the functions called by
  *   drupal_form_submit(), including the unique form constructor function.
  *   For example, the node_edit form requires that a node object be passed
- *   in here when it is called.
+ *   in here when it is called. Arguments that need to be passed by reference
+ *   should not be included here, but rather placed directly in the $form_state
+ *   build info array so that the reference can be preserved. For example, a
+ *   form builder function with the following signature:
+ *   @code
+ *   function mymodule_form($form, &$form_state, &$object) {
+ *   }
+ *   @endcode
+ *   would be called via drupal_form_submit() as follows:
+ *   @code
+ *   $form_state['values'] = $my_form_values;
+ *   $form_state['build_info']['args'] = array(&$object);
+ *   drupal_form_submit('mymodule_form', $form_state);
+ *   @endcode
  * For example:
  * @code
  * // register a new user
@@ -553,8 +582,7 @@ function drupal_retrieve_form($form_id, &$form_state) {
   // builder function to pre-populate the $form array with form elements, which
   // the actual form builder function ($callback) expects. This allows for
   // pre-populating a form with common elements for certain forms, such as
-  // back/next/save buttons in multi-step form wizards.
-  // @see drupal_build_form()
+  // back/next/save buttons in multi-step form wizards. See drupal_build_form().
   if (isset($form_state['wrapper_callback']) && function_exists($form_state['wrapper_callback'])) {
     $form = call_user_func_array($form_state['wrapper_callback'], $args);
     // Put the prepopulated $form into $args.
@@ -640,7 +668,7 @@ function drupal_process_form($form_id, &$form, &$form_state) {
         // - The form is multistep.
         // In other cases, we only need the information expected by
         // drupal_redirect_form().
-        if ($batch['has_form_submits'] || !empty($form_state['rebuild']) || !empty($form_state['storage'])) {
+        if ($batch['has_form_submits'] || !empty($form_state['rebuild'])) {
           $batch['form_state'] = $form_state;
         }
         else {
@@ -935,27 +963,40 @@ function _form_validate(&$elements, &$form_state, $form_id = NULL) {
     // to form_set_error() be suppressed and not result in a form error, so
     // that a button that implements low-risk functionality (such as "Previous"
     // or "Add more") that doesn't require all user input to be valid can still
-    // have its submit handlers triggered. The clicked button's
+    // have its submit handlers triggered. The triggering element's
     // #limit_validation_errors property contains the information for which
     // errors are needed, and all other errors are to be suppressed. The
-    // #limit_validation_errors property is ignored if the button doesn't also
-    // define its own submit handlers, because it's too large a security risk to
-    // have any invalid user input when executing form-level submit handlers.
-    if (isset($form_state['clicked_button']['#limit_validation_errors']) && isset($form_state['clicked_button']['#submit'])) {
-      form_set_error(NULL, '', $form_state['clicked_button']['#limit_validation_errors']);
+    // #limit_validation_errors property is ignored if submit handlers will run,
+    // but the element doesn't have a #submit property, because it's too large a
+    // security risk to have any invalid user input when executing form-level
+    // submit handlers.
+    if (isset($form_state['triggering_element']['#limit_validation_errors']) && ($form_state['triggering_element']['#limit_validation_errors'] !== FALSE) && !($form_state['submitted'] && !isset($form_state['triggering_element']['#submit']))) {
+      form_set_error(NULL, '', $form_state['triggering_element']['#limit_validation_errors']);
     }
+    // If submit handlers won't run (due to the submission having been triggered
+    // by an element whose #executes_submit_callback property isn't TRUE), then
+    // it's safe to suppress all validation errors, and we do so by default,
+    // which is particularly useful during an AJAX submission triggered by a
+    // non-button. An element can override this default by setting the
+    // #limit_validation_errors property. For button element types,
+    // #limit_validation_errors defaults to FALSE (via system_element_info()),
+    // so that full validation is their default behavior.
+    elseif (isset($form_state['triggering_element']) && !isset($form_state['triggering_element']['#limit_validation_errors']) && !$form_state['submitted']) {
+      form_set_error(NULL, '', array());
+    }
+    // As an extra security measure, explicitly turn off error suppression if
+    // one of the above conditions wasn't met. Since this is also done at the
+    // end of this function, doing it here is only to handle the rare edge case
+    // where a validate handler invokes form processing of another form.
     else {
-      // As an extra security measure, explicitly turn off error suppression.
-      // Since this is also done at the end of this function, doing it here is
-      // only to handle the rare edge case where a validate handler invokes form
-      // processing of another form.
       drupal_static_reset('form_set_error:limit_validation_errors');
     }
+
     // Make sure a value is passed when the field is required.
     // A simple call to empty() will not cut it here as some fields, like
     // checkboxes, can return a valid value of '0'. Instead, check the
     // length if it's a string, and the item count if it's an array.
-    // An unchecked checkbox has a #value of numeric 0, different than string
+    // An unchecked checkbox has a #value of integer 0, different than string
     // '0', which could be a valid value.
     if (isset($elements['#needs_validation']) && $elements['#required'] && (!count($elements['#value']) || (is_string($elements['#value']) && strlen(trim($elements['#value'])) == 0) || $elements['#value'] === 0)) {
       form_error($elements, $t('!name field is required.', array('!name' => $elements['#title'])));
@@ -1088,7 +1129,7 @@ function form_execute_handlers($type, &$form, &$form_state) {
  *   assume that certain data exists within $form_state['values'], and while not
  *   doing anything with that data that requires it to be valid, PHP errors
  *   would be triggered if the input processing and validation steps were fully
- *   skipped. @see http://drupal.org/node/370537.
+ *   skipped. See http://drupal.org/node/370537.
  *
  * @return
  *   Return value is for internal use only. To get a list of errors, use
@@ -1196,7 +1237,7 @@ function form_builder($form_id, $element, &$form_state) {
   $element['#processed'] = FALSE;
 
   // Use element defaults.
-  if (isset($element['#type']) && ($info = element_info($element['#type']))) {
+  if (isset($element['#type']) && empty($element['#defaults_loaded']) && ($info = element_info($element['#type']))) {
     // Overlay $info onto $element, retaining preexisting keys in $element.
     $element += $info;
     $element['#defaults_loaded'] = TRUE;
@@ -1274,6 +1315,12 @@ function form_builder($form_id, $element, &$form_state) {
     $array_parents[] = $key;
     $element[$key]['#array_parents'] = $array_parents;
 
+    // Prior to handling #weight, default element properties need to be applied.
+    if (isset($element[$key]['#type']) && empty($element[$key]['#defaults_loaded']) && ($info = element_info($element[$key]['#type']))) {
+      $element[$key] += $info;
+      $element[$key]['#defaults_loaded'] = TRUE;
+    }
+
     // Assign a decimal placeholder weight to preserve original array order.
     if (!isset($element[$key]['#weight'])) {
       $element[$key]['#weight'] = $count/1000;
@@ -1296,22 +1343,61 @@ function form_builder($form_id, $element, &$form_state) {
     $element['#after_build_done'] = TRUE;
   }
 
-  // Now that we've processed everything, we can go back to handle the funky
-  // Internet Explorer button-click scenario.
-  _form_builder_ie_cleanup($element, $form_state);
-
   // If there is a file element, we need to flip a flag so later the
   // form encoding can be set.
   if (isset($element['#type']) && $element['#type'] == 'file') {
     $form_state['has_file_element'] = TRUE;
   }
 
+  // Final tasks for the form element after form_builder() has run for all other
+  // elements.
   if (isset($element['#type']) && $element['#type'] == 'form') {
-    // We are on the top form.
     // If there is a file element, we set the form encoding.
     if (isset($form_state['has_file_element'])) {
       $element['#attributes']['enctype'] = 'multipart/form-data';
     }
+
+    // If a form contains a single textfield, and the ENTER key is pressed
+    // within it, Internet Explorer submits the form with no POST data
+    // identifying any submit button. Other browsers submit POST data as though
+    // the user clicked the first button. Therefore, to be as consistent as we
+    // can be across browsers, if no 'triggering_element' has been identified
+    // yet, default it to the first button.
+    if (!$form_state['programmed'] && !isset($form_state['triggering_element']) && !empty($form_state['buttons'])) {
+      $form_state['triggering_element'] = $form_state['buttons'][0];
+    }
+
+    // If the triggering element specifies "button-level" validation and submit
+    // handlers to run instead of the default form-level ones, then add those to
+    // the form state.
+    foreach (array('validate', 'submit') as $type) {
+      if (isset($form_state['triggering_element']['#' . $type])) {
+        $form_state[$type . '_handlers'] = $form_state['triggering_element']['#' . $type];
+      }
+    }
+
+    // If the triggering element executes submit handlers, then set the form
+    // state key that's needed for those handlers to run.
+    if (!empty($form_state['triggering_element']['#executes_submit_callback'])) {
+      $form_state['submitted'] = TRUE;
+    }
+
+    // Special processing if the triggering element is a button.
+    if (isset($form_state['triggering_element']['#button_type'])) {
+      // Because there are several ways in which the triggering element could
+      // have been determined (including from input variables set by JavaScript
+      // or fallback behavior implemented for IE), and because buttons often
+      // have their #name property not derived from their #parents property, we
+      // can't assume that input processing that's happened up until here has
+      // resulted in $form_state['values'][BUTTON_NAME] being set. But it's
+      // common for forms to have several buttons named 'op' and switch on
+      // $form_state['values']['op'] during submit handler execution.
+      $form_state['values'][$form_state['triggering_element']['#name']] = $form_state['triggering_element']['#value'];
+
+      // @todo Legacy support. Remove in Drupal 8.
+      $form_state['clicked_button'] = $form_state['triggering_element'];
+    }
+
     // Update the copy of the complete form for usage in validation handlers.
     $form_state['complete form'] = $element;
   }
@@ -1338,15 +1424,45 @@ function _form_builder_handle_input_element($form_id, &$element, &$form_state) {
     array_unshift($element['#parents'], $name);
   }
 
+  // Setting #disabled to TRUE results in user input being ignored, regardless
+  // of how the element is themed or whether JavaScript is used to change the
+  // control's attributes. However, it's good UI to let the user know that input
+  // is not wanted for the control. HTML supports two attributes for this:
+  // http://www.w3.org/TR/html401/interact/forms.html#h-17.12. If a form wants
+  // to start a control off with one of these attributes for UI purposes only,
+  // but still allow input to be processed if it's sumitted, it can set the
+  // desired attribute in #attributes directly rather than using #disabled.
+  // However, developers should think carefully about the accessibility
+  // implications of doing so: if the form expects input to be enterable under
+  // some condition triggered by JavaScript, how would someone who has
+  // JavaScript disabled trigger that condition? Instead, developers should
+  // consider whether a multi-step form would be more appropriate (#disabled can
+  // be changed from step to step). If one still decides to use JavaScript to
+  // affect when a control is enabled, then it is best for accessibility for the
+  // control to be enabled in the HTML, and disabled by JavaScript on document
+  // ready.
   if (!empty($element['#disabled'])) {
-    $element['#attributes']['disabled'] = 'disabled';
+    if (!empty($element['#allow_focus'])) {
+      $element['#attributes']['readonly'] = 'readonly';
+    }
+    else {
+      $element['#attributes']['disabled'] = 'disabled';
+    }
   }
 
   // Set the element's #value property.
   if (!isset($element['#value']) && !array_key_exists('#value', $element)) {
     $value_callback = !empty($element['#value_callback']) ? $element['#value_callback'] : 'form_type_' . $element['#type'] . '_value';
 
-    if ($form_state['programmed'] || ($form_state['process_input'] && (!isset($element['#access']) || $element['#access']))) {
+    // With JavaScript or other easy hacking, input can be submitted even for
+    // elements with #access=FALSE or #disabled=TRUE. For security, these must
+    // not be processed. Forms that set #disabled=TRUE on an element do not
+    // expect input for the element, and even forms submitted with
+    // drupal_form_submit() must not be able to get around this. Forms that set
+    // #access=FALSE on an element usually allow access for some users, so forms
+    // submitted with drupal_form_submit() may bypass access restriction and be
+    // treated as high-privelege users instead.
+    if (empty($element['#disabled']) && ($form_state['programmed'] || ($form_state['process_input'] && (!isset($element['#access']) || $element['#access'])))) {
       // Get the input for the current element. NULL values in the input need to
       // be explicitly distinguished from missing input. (see below)
       $input = $form_state['input'];
@@ -1408,33 +1524,42 @@ function _form_builder_handle_input_element($form_id, &$element, &$form_state) {
     }
   }
 
-  // Determine which button (if any) was clicked to submit the form.
-  // We compare the incoming values with the buttons defined in the form,
-  // and flag the one that matches. We have to do some funky tricks to
-  // deal with Internet Explorer's handling of single-button forms, though.
-  if (!empty($form_state['input']) && isset($element['#executes_submit_callback'])) {
-    // First, accumulate a collection of buttons, divided into two bins:
-    // those that execute full submit callbacks and those that only validate.
-    $button_type = $element['#executes_submit_callback'] ? 'submit' : 'button';
-    $form_state['buttons'][$button_type][] = $element;
+  // Determine which element (if any) triggered the submission of the form and
+  // keep track of all the buttons in the form for form_state_values_clean().
+  // @todo We need to add a #access check here, so that someone can't fake the
+  //   click of a button they shouldn't have access to, but first we need to
+  //   fix file.module's managed_file element pipeline to handle the click of
+  //   the remove button in a submit handler instead of in a #process function.
+  //   During the first run of form_builder() after the form is submitted,
+  //   #process functions need to return the expanded element with child
+  //   elements' #access properties matching what they were when the form was
+  //   displayed to the user, since that is what we are processing input for.
+  //   Changes to the form (like toggling the upload/remove button) need to wait
+  //   until form rebuild: http://drupal.org/node/736298.
+  if (!empty($form_state['input'])) {
+    // Detect if the element triggered the submission via AJAX.
+    if (_form_element_triggered_scripted_submission($element, $form_state)) {
+      $form_state['triggering_element'] = $element;
+    }
 
-    if (_form_button_was_clicked($element, $form_state)) {
-      $form_state['submitted'] = $form_state['submitted'] || $element['#executes_submit_callback'];
-
-      // In most cases, we want to use form_set_value() to manipulate
-      // the global variables. In this special case, we want to make sure that
-      // the value of this element is listed in $form_variables under 'op'.
-      $form_state['values'][$element['#name']] = $element['#value'];
-      $form_state['clicked_button'] = $element;
-
-      if (isset($element['#validate'])) {
-        $form_state['validate_handlers'] = $element['#validate'];
+    // If the form was submitted by the browser rather than via AJAX, then it
+    // can only have been triggered by a button, and we need to determine which
+    // button within the constraints of how browsers provide this information.
+    if (isset($element['#button_type'])) {
+      // All buttons in the form need to be tracked for
+      // form_state_values_clean() and for the form_builder() code that handles
+      // a form submission containing no button information in $_POST.
+      // @todo When #access is checked in an outer if statement (see above), it
+      //   won't need to be checked here.
+      if ($form_state['programmed'] || !isset($element['#access']) || $element['#access']) {
+        $form_state['buttons'][] = $element;
       }
-      if (isset($element['#submit'])) {
-        $form_state['submit_handlers'] = $element['#submit'];
+      if (_form_button_was_clicked($element, $form_state)) {
+        $form_state['triggering_element'] = $element;
       }
     }
   }
+
   // Set the element's value in $form_state['values'], but only, if its key
   // does not exist yet (a #value_callback may have already populated it).
   $values = $form_state['values'];
@@ -1447,21 +1572,52 @@ function _form_builder_handle_input_element($form_id, &$element, &$form_state) {
 }
 
 /**
- * Helper function to handle the sometimes-convoluted logic of button
- * click detection.
+ * Helper function to handle the convoluted logic of button click detection.
  *
- * In Internet Explorer, if ONLY one submit button is present, AND the
- * enter key is used to submit the form, no form value is sent for it
- * and we'll never detect a match. That special case is handled by
- * _form_builder_ie_cleanup().
+ * This detects button or non-button controls that trigger a form submission via
+ * AJAX or some other scriptable environment. These environments can set the
+ * special input key '_triggering_element_name' to identify the triggering
+ * element. If the name alone doesn't identify the element uniquely, the input
+ * key '_triggering_element_value' may also be set to require a match on element
+ * value. An example where this is needed is if there are several buttons all
+ * named 'op', and only differing in their value.
  */
-function _form_button_was_clicked($form, &$form_state) {
+function _form_element_triggered_scripted_submission($element, &$form_state) {
+  if (!empty($form_state['input']['_triggering_element_name']) && $element['#name'] == $form_state['input']['_triggering_element_name']) {
+    if (empty($form_state['input']['_triggering_element_value']) || $form_state['input']['_triggering_element_value'] == $element['#value']) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Helper function to handle the convoluted logic of button click detection.
+ *
+ * This detects button controls that trigger a form submission by being clicked
+ * and having the click processed by the browser rather than being captured by
+ * JavaScript. Essentially, it detects if the button's name and value are part
+ * of the POST data, but with extra code to deal with the convoluted way in
+ * which browsers submit data for image button clicks.
+ *
+ * This does not detect button clicks processed by AJAX (that is done in
+ * _form_element_triggered_scripted_submission()) and it does not detect form
+ * submissions from Internet Explorer in response to an ENTER key pressed in a
+ * textfield (form_builder() has extra code for that).
+ *
+ * Because this function contains only part of the logic needed to determine
+ * $form_state['triggering_element'], it should not be called from anywhere
+ * other than within the Form API. Form validation and submit handlers needing
+ * to know which button was clicked should get that information from
+ * $form_state['triggering_element'].
+ */
+function _form_button_was_clicked($element, &$form_state) {
   // First detect normal 'vanilla' button clicks. Traditionally, all
   // standard buttons on a form share the same name (usually 'op'),
   // and the specific return value is used to determine which was
   // clicked. This ONLY works as long as $form['#name'] puts the
   // value at the top level of the tree of $_POST data.
-  if (isset($form_state['input'][$form['#name']]) && $form_state['input'][$form['#name']] == $form['#value']) {
+  if (isset($form_state['input'][$element['#name']]) && $form_state['input'][$element['#name']] == $element['#value']) {
     return TRUE;
   }
   // When image buttons are clicked, browsers do NOT pass the form element
@@ -1469,39 +1625,10 @@ function _form_button_was_clicked($form, &$form_state) {
   // coordinates of the click on the button image. This means that image
   // buttons MUST have unique $form['#name'] values, but the details of
   // their $_POST data should be ignored.
-  elseif (!empty($form['#has_garbage_value']) && isset($form['#value']) && $form['#value'] !== '') {
+  elseif (!empty($element['#has_garbage_value']) && isset($element['#value']) && $element['#value'] !== '') {
     return TRUE;
   }
   return FALSE;
-}
-
-/**
- * In IE, if only one submit button is present, AND the enter key is
- * used to submit the form, no form value is sent for it and our normal
- * button detection code will never detect a match. We call this
- * function after all other button-detection is complete to check
- * for the proper conditions, and treat the single button on the form
- * as 'clicked' if they are met.
- */
-function _form_builder_ie_cleanup($form, &$form_state) {
-  // Quick check to make sure we're always looking at the full form
-  // and not a sub-element.
-  if (!empty($form['#type']) && $form['#type'] == 'form') {
-    // If we haven't recognized a submission yet, and there's a single
-    // submit button, we know that we've hit the right conditions. Grab
-    // the first one and treat it as the clicked button.
-    if (empty($form_state['submitted']) && !empty($form_state['buttons']['submit']) && empty($form_state['buttons']['button'])) {
-      $button = $form_state['buttons']['submit'][0];
-
-      // Set up all the $form_state information that would have been
-      // populated had the button been recognized earlier.
-      $form_state['submitted'] = TRUE;
-      $form_state['submit_handlers'] = empty($button['#submit']) ? NULL : $button['#submit'];
-      $form_state['validate_handlers'] = empty($button['#validate']) ? NULL : $button['#validate'];
-      $form_state['values'][$button['#name']] = $button['#value'];
-      $form_state['clicked_button'] = $button;
-    }
-  }
 }
 
 /**
@@ -1527,37 +1654,35 @@ function form_state_values_clean(&$form_state) {
   unset($form_state['values']['form_id'], $form_state['values']['form_token'], $form_state['values']['form_build_id'], $form_state['values']['op']);
 
   // Remove button values.
-  // form_builder() collects all button elements in a form, keyed by button
-  // type. We remove the button value separately for each button element.
-  foreach ($form_state['buttons'] as $button_type => $buttons) {
-    foreach ($buttons as $button) {
-      // Remove this button's value from the submitted form values by finding
-      // the value corresponding to this button.
-      // We iterate over the #parents of this button and move a reference to
-      // each parent in $form_state['values']. For example, if #parents is:
-      //   array('foo', 'bar', 'baz')
-      // then the corresponding $form_state['values'] part will look like this:
-      // array(
-      //   'foo' => array(
-      //     'bar' => array(
-      //       'baz' => 'button_value',
-      //     ),
-      //   ),
-      // )
-      // We start by (re)moving 'baz' to $last_parent, so we are able unset it
-      // at the end of the iteration. Initially, $values will contain a
-      // reference to $form_state['values'], but in the iteration we move the
-      // reference to $form_state['values']['foo'], and finally to
-      // $form_state['values']['foo']['bar'], which is the level where we can
-      // unset 'baz' (that is stored in $last_parent).
-      $parents = $button['#parents'];
-      $values = &$form_state['values'];
-      $last_parent = array_pop($parents);
-      foreach ($parents as $parent) {
-        $values = &$values[$parent];
-      }
-      unset($values[$last_parent]);
+  // form_builder() collects all button elements in a form. We remove the button
+  // value separately for each button element.
+  foreach ($form_state['buttons'] as $button) {
+    // Remove this button's value from the submitted form values by finding
+    // the value corresponding to this button.
+    // We iterate over the #parents of this button and move a reference to
+    // each parent in $form_state['values']. For example, if #parents is:
+    //   array('foo', 'bar', 'baz')
+    // then the corresponding $form_state['values'] part will look like this:
+    // array(
+    //   'foo' => array(
+    //     'bar' => array(
+    //       'baz' => 'button_value',
+    //     ),
+    //   ),
+    // )
+    // We start by (re)moving 'baz' to $last_parent, so we are able unset it
+    // at the end of the iteration. Initially, $values will contain a
+    // reference to $form_state['values'], but in the iteration we move the
+    // reference to $form_state['values']['foo'], and finally to
+    // $form_state['values']['foo']['bar'], which is the level where we can
+    // unset 'baz' (that is stored in $last_parent).
+    $parents = $button['#parents'];
+    $values = &$form_state['values'];
+    $last_parent = array_pop($parents);
+    foreach ($parents as $parent) {
+      $values = &$values[$parent];
     }
+    unset($values[$last_parent]);
   }
 }
 
@@ -1622,18 +1747,11 @@ function form_type_image_button_value($form, $input, $form_state) {
  */
 function form_type_checkbox_value($element, $input = FALSE) {
   if ($input !== FALSE) {
-    if (empty($element['#disabled'])) {
-      // Successful (checked) checkboxes are present with a value (possibly '0').
-      // http://www.w3.org/TR/html401/interact/forms.html#successful-controls
-      // For an unchecked checkbox, we return numeric 0, so we can explicitly
-      // test for a value different than string '0'.
-      return isset($input) ? $element['#return_value'] : 0;
-    }
-    else {
-      // Disabled form controls are not submitted by the browser. Ignore any
-      // submitted value and always return default.
-      return $element['#default_value'];
-    }
+    // Successful (checked) checkboxes are present with a value (possibly '0').
+    // http://www.w3.org/TR/html401/interact/forms.html#successful-controls
+    // For an unchecked checkbox, we return integer 0, so we can explicitly
+    // test for a value different than string '0'.
+    return isset($input) ? $element['#return_value'] : 0;
   }
 }
 
@@ -1830,7 +1948,11 @@ function _form_options_flatten($array) {
 }
 
 /**
- * Theme select form element.
+ * Returns HTML for a select form element.
+ *
+ * It is possible to group options together; to do this, change the format of
+ * $options to an associative array in which the keys are group labels, and the
+ * values are associative arrays in the normal $options format.
  *
  * @param $variables
  *   An associative array containing:
@@ -1838,14 +1960,7 @@ function _form_options_flatten($array) {
  *     Properties used: #title, #value, #options, #description, #extra,
  *     #multiple, #required, #name, #attributes, #size.
  *
- * @return
- *   A themed HTML string representing the form element.
- *
  * @ingroup themeable
- *
- * It is possible to group options together; to do this, change the format of
- * $options to an associative array in which the keys are group labels, and the
- * values are associative arrays in the normal $options format.
  */
 function theme_select($variables) {
   $element = $variables['element'];
@@ -1950,16 +2065,13 @@ function form_get_options($element, $key) {
 }
 
 /**
- * Theme a fieldset form element.
+ * Returns HTML for a fieldset form element and its children.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #attributes, #children, #collapsed, #collapsible,
  *     #description, #id, #title, #value.
- *
- * @return
- *   A themed HTML string representing the group of items.
  *
  * @ingroup themeable
  */
@@ -1985,16 +2097,13 @@ function theme_fieldset($variables) {
 }
 
 /**
- * Theme a radio button form element.
+ * Returns HTML for a radio button form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #required, #return_value, #value, #attributes, #title,
  *     #description
- *
- * @return
- *   A themed HTML string representing the form item group.
  *
  * @ingroup themeable
  */
@@ -2012,7 +2121,7 @@ function theme_radio($variables) {
 }
 
 /**
- * Theme a set of radio button form elements.
+ * Returns HTML for a set of radio button form elements.
  *
  * @param $variables
  *   An associative array containing:
@@ -2020,20 +2129,19 @@ function theme_radio($variables) {
  *     Properties used: #title, #value, #options, #description, #required,
  *     #attributes, #children.
  *
- * @return
- *   A themed HTML string representing the radio button set.
- *
  * @ingroup themeable
  */
 function theme_radios($variables) {
   $element = $variables['element'];
-  $class = 'form-radios';
-  if (!empty($element['#attributes']['class'])) {
-    $class .= ' ' . implode(' ', $element['#attributes']['class']);
+  $attributes = array();
+  if (!empty($element['#id'])) {
+    $attributes['id'] = $element['#id'];
   }
-  $element['#children'] = '<div class="' . $class . '">' . (!empty($element['#children']) ? $element['#children'] : '') . '</div>';
-
-  return $element['#children'];
+  $attributes['class'] = 'form-radios';
+  if (!empty($element['#attributes']['class'])) {
+    $attributes['class'] .= ' ' . implode(' ', $element['#attributes']['class']);
+  }
+  return '<div' . drupal_attributes($attributes) . '>' . (!empty($element['#children']) ? $element['#children'] : '') . '</div>';
 }
 
 /**
@@ -2090,16 +2198,13 @@ function password_confirm_validate($element, &$element_state) {
 }
 
 /**
- * Theme a date selection form element.
+ * Returns HTML for a date selection form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #title, #value, #options, #description, #required,
  *     #attributes.
- *
- * @return
- *   A themed HTML string representing the date selection boxes.
  *
  * @ingroup themeable
  */
@@ -2216,9 +2321,12 @@ function form_process_radios($element) {
           '#attributes' => $element['#attributes'],
           '#parents' => $element['#parents'],
           '#id' => drupal_html_id('edit-' . implode('-', $parents_for_id)),
-          '#ajax' => isset($element['#ajax']) ? $element['#ajax'] : NULL,
-          '#disabled' => isset($element['#disabled']) ? $element['#disabled'] : NULL,
         );
+        foreach (array('#ajax', '#disabled', '#allow_focus') as $property) {
+          if (isset($element[$property])) {
+            $element[$key][$property] = $element[$property];
+          }
+        }
       }
     }
   }
@@ -2226,16 +2334,13 @@ function form_process_radios($element) {
 }
 
 /**
- * Theme a checkbox form element.
+ * Returns HTML for a checkbox form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #title, #value, #return_value, #description, #required,
  *     #attributes.
- *
- * @return
- *   A themed HTML string representing the checkbox.
  *
  * @ingroup themeable
  */
@@ -2248,7 +2353,7 @@ function theme_checkbox($variables) {
   $checkbox .= 'name="' . $element['#name'] . '" ';
   $checkbox .= 'id="' . $element['#id'] . '" ' ;
   $checkbox .= 'value="' . $element['#return_value'] . '" ';
-  // Unchecked checkbox has #value of numeric 0.
+  // Unchecked checkbox has #value of integer 0.
   if ($element['#value'] !== 0 && $element['#value'] == $element['#return_value']) {
     $checkbox .= 'checked="checked" ';
   }
@@ -2258,27 +2363,26 @@ function theme_checkbox($variables) {
 }
 
 /**
- * Theme a set of checkbox form elements.
+ * Returns HTML for a set of checkbox form elements.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #children, #attributes.
  *
- * @return
- *   A themed HTML string representing the checkbox set.
- *
  * @ingroup themeable
  */
 function theme_checkboxes($variables) {
   $element = $variables['element'];
-  $class = 'form-checkboxes';
-  if (!empty($element['#attributes']['class'])) {
-    $class .= ' ' . implode(' ', $element['#attributes']['class']);
+  $attributes = array();
+  if (!empty($element['#id'])) {
+    $attributes['id'] = $element['#id'];
   }
-  $element['#children'] = '<div class="' . $class . '">' . (!empty($element['#children']) ? $element['#children'] : '') . '</div>';
-
-  return $element['#children'];
+  $attributes['class'] = 'form-checkboxes';
+  if (!empty($element['#attributes']['class'])) {
+    $attributes['class'] .= ' ' . implode(' ', $element['#attributes']['class']);
+  }
+  return '<div' . drupal_attributes($attributes) . '>' . (!empty($element['#children']) ? $element['#children'] : '') . '</div>';
 }
 
 /**
@@ -2297,7 +2401,6 @@ function form_pre_render_conditional_form_element($element) {
   }
 
   if (isset($element['#title']) || isset($element['#description'])) {
-    unset($element['#id']);
     $element['#theme_wrappers'][] = 'form_element';
   }
   return $element;
@@ -2319,12 +2422,32 @@ function form_process_checkboxes($element) {
           '#return_value' => $key,
           '#default_value' => isset($value[$key]) ? $key : NULL,
           '#attributes' => $element['#attributes'],
-          '#ajax' => isset($element['#ajax']) ? $element['#ajax'] : NULL,
-          '#disabled' => isset($element['#disabled']) ? $element['#disabled'] : NULL,
         );
+        foreach (array('#ajax', '#disabled', '#allow_focus') as $property) {
+          if (isset($element[$property])) {
+            $element[$key][$property] = $element[$property];
+          }
+        }
       }
     }
   }
+  return $element;
+}
+
+/**
+ * Processes a form actions container element.
+ *
+ * @param $element
+ *   An associative array containing the properties and children of the
+ *   form actions container.
+ * @param $form_state
+ *   The $form_state array for the form this element belongs to.
+ *
+ * @return
+ *   The processed element.
+ */
+function form_process_actions($element, &$form_state) {
+  $element['#attributes']['class'][] = 'form-actions';
   return $element;
 }
 
@@ -2348,14 +2471,12 @@ function form_process_container($element, &$form_state) {
 }
 
 /**
- * Adds a container for grouped items.
+ * Returns HTML for a container for grouped form items.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #id, #attributes, #children.
- * @return
- *   A themed HTML string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2370,16 +2491,9 @@ function theme_container($variables) {
 }
 
 /**
- * Formats a table with radio buttons or checkboxes.
+ * Returns HTML for a table with radio buttons or checkboxes.
  *
- * @param $variables
- *   An associative array containing:
- *   - element: An associative array containing the properties and children of
- *     the tableselect element. Properties used: #header, #options, #empty,
- *     and #js_select. The #options property is an array of selection options;
- *     each array element of #options is an array of properties. These
- *     properties can include #attributes, which is added to the
- *     table row's HTML attributes (see theme_table()). Example:
+ * An example of per-row options:
  * @code
  * $options = array();
  * $options[0]['title'] = "A red row"
@@ -2394,8 +2508,14 @@ function theme_container($variables) {
  * );
  * @endcode
  *
- * @return
- *   A themed HTML string representing the table.
+ * @param $variables
+ *   An associative array containing:
+ *   - element: An associative array containing the properties and children of
+ *     the tableselect element. Properties used: #header, #options, #empty,
+ *     and #js_select. The #options property is an array of selection options;
+ *     each array element of #options is an array of properties. These
+ *     properties can include #attributes, which is added to the
+ *     table row's HTML attributes; see theme_table().
  *
  * @ingroup themeable
  */
@@ -2471,8 +2591,6 @@ function form_process_tableselect($element) {
             '#return_value' => $key,
             '#default_value' => isset($value[$key]) ? $key : NULL,
             '#attributes' => $element['#attributes'],
-            '#ajax' => isset($element['#ajax']) ? $element['#ajax'] : NULL,
-            '#disabled' => isset($element['#disabled']) ? $element['#disabled'] : NULL,
           );
         }
         else {
@@ -2487,9 +2605,12 @@ function form_process_tableselect($element) {
             '#attributes' => $element['#attributes'],
             '#parents' => $element['#parents'],
             '#id' => drupal_html_id('edit-' . implode('-', $parents_for_id)),
-            '#ajax' => isset($element['#ajax']) ? $element['#ajax'] : NULL,
-            '#disabled' => isset($element['#disabled']) ? $element['#disabled'] : NULL,
           );
+        }
+        foreach (array('#ajax', '#disabled', '#allow_focus') as $property) {
+          if (isset($element[$property])) {
+            $element[$key][$property] = $element[$property];
+          }
         }
       }
     }
@@ -2537,7 +2658,7 @@ function form_process_fieldset(&$element, &$form_state) {
     if (!isset($element['#attributes']['class'])) {
       $element['#attributes']['class'] = array();
     }
-
+    $element['#attributes']['class'][] = 'form-wrapper';
     $element['#attributes']['class'][] = 'collapsible';
     if (!empty($element['#collapsed'])) {
       $element['#attributes']['class'][] = 'collapsed';
@@ -2638,15 +2759,12 @@ function form_process_vertical_tabs($element, &$form_state) {
 }
 
 /**
- * Makes the element's children fieldsets be vertical tabs.
+ * Returns HTML for an element's children fieldsets as vertical tabs.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties and children of the
  *     fieldset. Properties used: #children.
- *
- * @return
- *   A themed HTML string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2655,19 +2773,18 @@ function theme_vertical_tabs($variables) {
   // Add required JavaScript and Stylesheet.
   drupal_add_library('system', 'vertical-tabs');
 
-  return '<div class="vertical-tabs-panes">' . $element['#children'] . '</div>';
+  $output = '<h2 class="element-invisible">' . t('Vertical Tabs') . '</h2>';
+  $output .= '<div class="vertical-tabs-panes">' . $element['#children'] . '</div>';
+  return $output;
 }
 
 /**
- * Theme a submit button form element.
+ * Returns HTML for a submit button form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #attributes, #button_type, #name, #value.
- *
- * @return
- *   A themed HTML string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2677,15 +2794,12 @@ function theme_submit($variables) {
 }
 
 /**
- * Theme a button form element.
+ * Returns HTML for a button form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #attributes, #button_type, #name, #value.
- *
- * @return
- *   A themed HTML string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2697,15 +2811,13 @@ function theme_button($variables) {
 }
 
 /**
- * Theme a image button form element.
+ * Returns HTML for an image button form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #attributes, #button_type, #name, #value, #title, #src.
  *
- * @return
- *   A themed HTML string representing the form element.
  * @ingroup themeable
  */
 function theme_image_button($variables) {
@@ -2722,15 +2834,12 @@ function theme_image_button($variables) {
 }
 
 /**
- * Theme a hidden form element.
+ * Returns HTML for a hidden form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #name, #value, #attributes.
- *
- * @return
- *   A themed HTML string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2740,16 +2849,13 @@ function theme_hidden($variables) {
 }
 
 /**
- * Theme a textfield form element.
+ * Returns HTML for a textfield form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #title, #value, #description, #size, #maxlength,
  *     #required, #attributes, #autocomplete_path.
- *
- * @return
- *   A themed HTML string representing the textfield.
  *
  * @ingroup themeable
  */
@@ -2774,15 +2880,12 @@ function theme_textfield($variables) {
 }
 
 /**
- * Theme a form.
+ * Returns HTML for a form.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #action, #method, #attributes, #children
- *
- * @return
- *   A themed HTML string representing the form.
  *
  * @ingroup themeable
  */
@@ -2794,16 +2897,13 @@ function theme_form($variables) {
 }
 
 /**
- * Theme a textarea form element.
+ * Returns HTML for a textarea form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #title, #value, #description, #rows, #cols, #required,
  *     #attributes
- *
- * @return
- *   A themed HTML string representing the textarea.
  *
  * @ingroup themeable
  */
@@ -2830,16 +2930,13 @@ function theme_textarea($variables) {
 }
 
 /**
- * Theme a password form element.
+ * Returns HTML for a password form element.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #title, #value, #description, #size, #maxlength,
  *     #required, #attributes.
- *
- * @return
- *   A themed HTML string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2868,7 +2965,10 @@ function form_process_weight($element) {
 }
 
 /**
- * Theme a file upload form element.
+ * Returns HTML for a file upload form element.
+ *
+ * For assistance with handling the uploaded file correctly, see the API
+ * provided by file.inc.
  *
  * @param $variables
  *   An associative array containing:
@@ -2876,13 +2976,7 @@ function form_process_weight($element) {
  *     Properties used: #title, #name, #size, #description, #required,
  *     #attributes.
  *
- * @return
- *   A themed HTML string representing the field.
- *
  * @ingroup themeable
- *
- * For assistance with handling the uploaded file correctly, see the API
- * provided by file.inc.
  */
 function theme_file($variables) {
   $element = $variables['element'];
@@ -2891,7 +2985,7 @@ function theme_file($variables) {
 }
 
 /**
- * Theme a form element.
+ * Returns HTML for a form element.
  *
  * Each form element is wrapped in a DIV with #type and #name classes. In
  * addition to the element itself, the div contains a label before or after
@@ -2905,6 +2999,9 @@ function theme_file($variables) {
  *   for radio and checkbox #type elements as set in system_element_info().
  *   If the #title is empty but the field is #required, the label will
  *   contain only the required marker.
+ * - invisible: Labels are critical for screen readers to enable them to
+ *   properly navigate through forms but can be visually distracting. This
+ *   property hides the label for everyone except screen readers.
  * - attribute: Set the title attribute on the element to create a tooltip
  *   but output no label element. This is supported only for checkboxes
  *   and radios in form_pre_render_conditional_form_element(). It is used
@@ -2924,9 +3021,6 @@ function theme_file($variables) {
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #title, #title_display, #description, #id, #required,
  *     #children, #type, #name.
- *
- * @return
- *   A string representing the form element.
  *
  * @ingroup themeable
  */
@@ -2961,6 +3055,7 @@ function theme_form_element($variables) {
       $output .= ' ' . $element['#children'] . "\n";
       break;
 
+    case 'invisible':
     case 'after':
       $output .= ' ' . $element['#children'];
       $output .= ' ' . theme('form_element_label', $variables) . "\n";
@@ -2987,13 +3082,11 @@ function theme_form_element($variables) {
 }
 
 /**
- * Theme the marker for required form elements.
+ * Returns HTML for a marker for required form elements.
  *
  * @param $variables
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
- * @return
- *   A string representing the marker to identify required form elements.
  *
  * @ingroup themeable
  */
@@ -3008,7 +3101,7 @@ function theme_form_required_marker($variables) {
 }
 
 /**
- * Theme a form element label and required marker.
+ * Returns HTML for a form element label and required marker.
  *
  * Form element labels include the #title and a #required marker. The label is
  * associated with the element itself by the element #id. Labels may appear
@@ -3026,8 +3119,6 @@ function theme_form_required_marker($variables) {
  *   An associative array containing:
  *   - element: An associative array containing the properties of the element.
  *     Properties used: #required, #title, #id, #value, #description.
- * @return
- *   A string representing the form element label.
  *
  * @ingroup themeable
  */
@@ -3047,10 +3138,15 @@ function theme_form_element_label($variables) {
   $title = filter_xss_admin($element['#title']);
 
   $attributes = array();
+  // Style the label as class option to display inline with the element.
   if ($element['#title_display'] == 'after') {
-    // Style the label as class option to display inline with the element.
     $attributes['class'] = 'option';
   }
+  // Show label only to screen readers to avoid disruption in visual flows.
+  elseif ($element['#title_display'] == 'invisible') {
+    $attributes['class'] = 'element-invisible';
+  }
+
   if (!empty($element['#id'])) {
     $attributes['for'] = $element['#id'];
   }

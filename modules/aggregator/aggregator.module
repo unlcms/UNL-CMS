@@ -1,5 +1,5 @@
 <?php
-// $Id: aggregator.module,v 1.436 2010/02/26 00:11:58 webchick Exp $
+// $Id: aggregator.module,v 1.438 2010/04/13 15:23:02 dries Exp $
 
 /**
  * @file
@@ -209,7 +209,7 @@ function aggregator_menu() {
   $items['aggregator/categories/%aggregator_category/categorize'] = array(
     'title' => 'Categorize',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('aggregator_page_category', 2),
+    'page arguments' => array('aggregator_page_category_form', 2),
     'access arguments' => array('administer news feeds'),
     'type' => MENU_LOCAL_TASK,
     'file' => 'aggregator.pages.inc',
@@ -238,7 +238,7 @@ function aggregator_menu() {
   $items['aggregator/sources/%aggregator_feed/categorize'] = array(
     'title' => 'Categorize',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('aggregator_page_source', 2),
+    'page arguments' => array('aggregator_page_source_form', 2),
     'access arguments' => array('administer news feeds'),
     'type' => MENU_LOCAL_TASK,
     'file' => 'aggregator.pages.inc',
@@ -703,15 +703,13 @@ function aggregator_category_load($cid) {
 }
 
 /**
- * Format an individual feed item for display in the block.
+ * Returns HTML for an individual feed item for display in the block.
  *
  * @param $variables
  *   An associative array containing:
  *   - item: The item to be displayed.
  *   - feed: Not used.
  *
- * @return
- *   The item HTML.
  * @ingroup themeable
  */
 function theme_aggregator_block_item($variables) {

@@ -11,8 +11,8 @@ files[] = xrds.inc
 files[] = openid.install
 files[] = openid.test
 
-; Information added by drupal.org packaging script on 2010-03-21
-version = "7.0-alpha3"
+; Information added by drupal.org packaging script on 2010-04-26
+version = "7.0-alpha4"
 project = "drupal"
-datestamp = "1269192313"
+datestamp = "1272318008"
 

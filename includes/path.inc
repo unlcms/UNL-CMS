@@ -1,5 +1,5 @@
 <?php
-// $Id: path.inc,v 1.60 2010/03/10 19:36:14 webchick Exp $
+// $Id: path.inc,v 1.62 2010/04/24 15:11:27 dries Exp $
 
 /**
  * @file
@@ -238,7 +238,7 @@ function drupal_get_normal_path($path, $path_language = NULL) {
  * Return a component of the current Drupal path.
  *
  * When viewing a page at the path "admin/structure/types", for example, arg(0)
- * returns "admin", arg(1) returns "content", and arg(2) returns "types".
+ * returns "admin", arg(1) returns "structure", and arg(2) returns "types".
  *
  * Avoid use of this function where possible, as resulting code is hard to read.
  * In menu callback functions, attempt to use named arguments. See the explanation
@@ -362,7 +362,20 @@ function drupal_match_path($path, $patterns) {
   $regexps = &drupal_static(__FUNCTION__);
 
   if (!isset($regexps[$patterns])) {
-    $regexps[$patterns] = '/^(' . preg_replace(array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'), array('|', '.*', '\1' . preg_quote(variable_get('site_frontpage', 'node'), '/') . '\2'), preg_quote($patterns, '/')) . ')$/';
+    // Convert path settings to a regular expression.
+    // Therefore replace newlines with a logical or, /* with asterisks and the <front> with the frontpage.
+    $to_replace = array(
+      '/(\r\n?|\n)/', // newlines
+      '/\\\\\*/',     // asterisks
+      '/(^|\|)\\\\<front\\\\>($|\|)/' // <front>
+    );
+    $replacements = array(
+      '|',
+      '.*',
+      '\1' . preg_quote(variable_get('site_frontpage', 'node'), '/') . '\2'
+    );
+    $patterns_quoted = preg_quote($patterns, '/');
+    $regexps[$patterns] = '/^(' . preg_replace($to_replace, $replacements, $patterns_quoted) . ')$/';
   }
   return (bool)preg_match($regexps[$patterns], $path);
 }

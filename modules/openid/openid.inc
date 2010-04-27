@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.inc,v 1.26 2010/03/06 06:39:00 dries Exp $
+// $Id: openid.inc,v 1.31 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -61,6 +61,16 @@ define('OPENID_NS_SREG', 'http://openid.net/extensions/sreg/1.1');
 define('OPENID_NS_AX', 'http://openid.net/srv/ax/1.0');
 
 /**
+ * Extensible Resource Descriptor documents.
+ */
+define('OPENID_NS_XRD', 'xri://$xrd*($v*2.0)');
+
+/**
+ * OpenID IDP for Google hosted domains.
+ */
+define('OPENID_NS_GOOGLE', 'http://namespace.google.com/openid/xmlns');
+
+/**
  * Performs an HTTP 302 redirect (for the 1.x protocol).
  */
 function openid_redirect_http($url, $message) {
@@ -80,7 +90,8 @@ function openid_redirect_http($url, $message) {
  */
 function openid_redirect($url, $message) {
   $output = '<html><head><title>' . t('OpenID redirect') . "</title></head>\n<body>";
-  $output .= drupal_render(drupal_get_form('openid_redirect_form', $url, $message));
+  $elements = drupal_get_form('openid_redirect_form', $url, $message);
+  $output .= drupal_render($elements);
   $output .= '<script type="text/javascript">document.getElementById("openid-redirect-form").submit();</script>';
   $output .= "</body></html>\n";
   print $output;
@@ -98,7 +109,8 @@ function openid_redirect_form($form, &$form_state, $url, $message) {
       '#value' => $value,
     );
   }
-  $form['submit'] = array(
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#prefix' => '<noscript>',
     '#suffix' => '</noscript>',
@@ -106,6 +118,49 @@ function openid_redirect_form($form, &$form_state, $url, $message) {
   );
 
   return $form;
+}
+
+/**
+ * Parse an XRDS document.
+ *
+ * @param $raw_xml
+ *   A string containing the XRDS document.
+ * @return
+ *   An array of service entries.
+ */
+function _openid_xrds_parse($raw_xml) {
+  $services = array();
+  try {
+    $xml = @new SimpleXMLElement($raw_xml);
+    foreach ($xml->children(OPENID_NS_XRD)->XRD as $xrd) {
+      foreach ($xrd->children(OPENID_NS_XRD)->Service as $service_element) {
+        $service = array(
+          'priority' => $service_element->attributes()->priority ? (int)$service_element->attributes()->priority : PHP_INT_MAX,
+          'types' => array(),
+          'uri' => (string)$service_element->children(OPENID_NS_XRD)->URI,
+          'service' => $service_element,
+          'xrd' => $xrd,
+        );
+        foreach ($service_element->Type as $type) {
+          $service['types'][] = (string)$type;
+        }
+        if ($service_element->children(OPENID_NS_XRD)->Delegate) {
+          $service['identity'] = (string)$service_element->children(OPENID_NS_XRD)->Delegate;
+        }
+        if ($service_element->children(OPENID_NS_XRD)->LocalID) {
+          $service['identity'] = (string)$service_element->children(OPENID_NS_XRD)->LocalID;
+        }
+        else {
+          $service['identity'] = FALSE;
+        }
+        $services[] = $service;
+      }
+    }
+  }
+  catch (Exception $e) {
+    // Invalid XML.
+  }
+  return $services;
 }
 
 /**
@@ -155,6 +210,12 @@ function _openid_select_service(array $services) {
     }
   }
 
+  if ($selected_service) {
+    // Unset SimpleXMLElement instances that cannot be saved in $_SESSION.
+    unset($selected_service['xrd']);
+    unset($selected_service['service']);
+  }
+
   return $selected_service;
 }
 
@@ -163,10 +224,9 @@ function _openid_select_service(array $services) {
  */
 function _openid_is_xri($identifier) {
   // Strip the xri:// scheme from the identifier if present.
-  if (stripos($identifier, 'xri://') !== FALSE) {
+  if (stripos($identifier, 'xri://') === 0) {
     $identifier = substr($identifier, 6);
   }
-
 
   // Test whether the identifier starts with an XRI global context symbol or (.
   $firstchar = substr($identifier, 0, 1);
@@ -606,3 +666,35 @@ function openid_extract_namespace($response, $extension_namespace, $fallback_pre
 
   return $output;
 }
+
+/**
+ * Extracts values from an OpenID AX Response.
+ *
+ * The values can be returned in two forms:
+ *   - only openid.ax.value.<alias> (for single-valued answers)
+ *   - both openid.ax.count.<alias> and openid.ax.value.<alias>.<count> (for both
+ *     single and multiple-valued answers)
+ *
+ * @param $values
+ *   An array as returned by openid_extract_namespace(..., OPENID_NS_AX).
+ * @param $aliases
+ *   An array of aliases used in the fetch request.
+ * @return
+ *   An array of values.
+ * @see http://openid.net/specs/openid-attribute-exchange-1_0.html#fetch_response
+ */
+function openid_extract_ax_values($values, $aliases) {
+  $output = array();
+  foreach ($aliases as $alias) {
+    if (isset($values['count.' . $alias])) {
+      for ($i = 1; $i <= $values['count.' . $alias]; $i++) {
+        $output[] = $values['value.' . $alias . '.' . $i];
+      }
+    }
+    elseif (isset($values['value.' . $alias])) {
+      $output[] = $values['value.' . $alias];
+    }
+  }
+  return $output;
+}
+

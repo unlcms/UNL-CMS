@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.364 2010/03/21 16:51:26 webchick Exp $
+// $Id: bootstrap.inc,v 1.377 2010/04/26 21:24:54 webchick Exp $
 
 /**
  * @file
@@ -9,7 +9,7 @@
 /**
  * The current system version.
  */
-define('VERSION', '7.0-alpha3');
+define('VERSION', '7.0-alpha4');
 
 /**
  * Core API compatibility.
@@ -352,7 +352,7 @@ function timer_stop($name) {
  *
  * $sites = array(
  *   'devexample.com' => 'example.com',
- *   'localhost/example' => 'example.com',
+ *   'localhost.example' => 'example.com',
  * );
  *
  * The above array will cause Drupal to look for a directory named
@@ -598,15 +598,15 @@ function drupal_settings_initialize() {
     // in drupal_settings_initialize().
     if (!empty($_SERVER['HTTP_HOST'])) {
       $cookie_domain = $_SERVER['HTTP_HOST'];
+      // Strip leading periods, www., and port numbers from cookie domain.
+      $cookie_domain = ltrim($cookie_domain, '.');
+      if (strpos($cookie_domain, 'www.') === 0) {
+        $cookie_domain = substr($cookie_domain, 4);
+      }
+      $cookie_domain = explode(':', $cookie_domain);
+      $cookie_domain = '.' . $cookie_domain[0];
     }
   }
-  // Strip leading periods, www., and port numbers from cookie domain.
-  $cookie_domain = ltrim($cookie_domain, '.');
-  if (strpos($cookie_domain, 'www.') === 0) {
-    $cookie_domain = substr($cookie_domain, 4);
-  }
-  $cookie_domain = explode(':', $cookie_domain);
-  $cookie_domain = '.' . $cookie_domain[0];
   // Per RFC 2109, cookie domains must contain at least one dot other than the
   // first. For hosts such as 'localhost' or IP Addresses we don't set a cookie domain.
   if (count(explode('.', $cookie_domain)) > 2 && !is_numeric(str_replace('.', '', $cookie_domain))) {
@@ -752,10 +752,12 @@ function variable_initialize($conf = array()) {
  *   The name of the variable to return.
  * @param $default
  *   The default value to use if this variable has never been set.
+ *
  * @return
  *   The value of the variable.
  *
- * @see variable_del(), variable_set()
+ * @see variable_del()
+ * @see variable_set()
  */
 function variable_get($name, $default = NULL) {
   global $conf;
@@ -772,7 +774,8 @@ function variable_get($name, $default = NULL) {
  *   The value to set. This can be any PHP data type; these functions take care
  *   of serialization as necessary.
  *
- * @see variable_del(), variable_get()
+ * @see variable_del()
+ * @see variable_get()
  */
 function variable_set($name, $value) {
   global $conf;
@@ -790,7 +793,8 @@ function variable_set($name, $value) {
  * @param $name
  *   The name of the variable to undefine.
  *
- * @see variable_get(), variable_set()
+ * @see variable_get()
+ * @see variable_set()
  */
 function variable_del($name) {
   global $conf;
@@ -855,10 +859,10 @@ function drupal_page_is_cacheable($allow_caching = NULL) {
 }
 
 /**
- * Call all init or exit hooks without including all modules.
+ * Invoke a bootstrap hook in all bootstrap modules that implement it.
  *
  * @param $hook
- *   The name of the bootstrap hook we wish to invoke.
+ *   The name of the bootstrap hook to invoke.
  */
 function bootstrap_invoke_all($hook) {
   // _drupal_bootstrap_page_cache() already loaded the bootstrap modules, so we
@@ -1159,7 +1163,7 @@ function drupal_serve_page_from_cache(stdClass $cache) {
  * Define the critical hooks that force modules to always be loaded.
  */
 function bootstrap_hooks() {
-  return array('boot', 'exit', 'watchdog');
+  return array('boot', 'exit', 'watchdog', 'language_init');
 }
 
 /**
@@ -1376,6 +1380,8 @@ function drupal_unpack($obj, $field = 'data') {
  *       belongs to.
  * @return
  *   The translated string.
+ *
+ * @ingroup sanitization
  */
 function t($string, array $args = array(), array $options = array()) {
   global $language;
@@ -1438,10 +1444,13 @@ function t($string, array $args = array(), array $options = array()) {
  *
  * @param $text
  *   The text to be checked or processed.
+ *
  * @return
  *   An HTML safe version of $text, or an empty string if $text is not
  *   valid UTF-8.
- * @see drupal_validate_utf8().
+ *
+ * @see drupal_validate_utf8()
+ * @ingroup sanitization
  */
 function check_plain($text) {
   // We do not want to use drupal_static() since PHP version will never change
@@ -1455,8 +1464,8 @@ function check_plain($text) {
   // drupal_validate_utf8() here. This avoids the overhead of an additional
   // function call, since check_plain() may be called hundreds of times during
   // a request. For PHP 5.2.5+, this check for valid UTF-8 should be handled
-  // internally by PHP in htmlspecialchars().
-  // @see http://www.php.net/releases/5_2_5.php
+  // internally by PHP in htmlspecialchars(). 
+  // See http://www.php.net/releases/5_2_5.php.
   // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
 
   if ($php525) {
@@ -1681,7 +1690,7 @@ function drupal_is_denied($ip) {
   // won't be denied. However the user asked explicitly not to use the
   // database and also in this case it's quite likely that the user relies
   // on higher performance solutions like a firewall.
-  elseif (function_exists('db_is_active')) {
+  elseif (class_exists('Database', FALSE)) {
     $denied = (bool)db_query("SELECT 1 FROM {blocked_ips} WHERE ip = :ip", array(':ip' => $ip))->fetchField();
   }
   return $denied;
@@ -1811,6 +1820,21 @@ function drupal_bootstrap($phase = NULL, $new_phase = TRUE) {
 }
 
 /**
+ * Return the time zone of the current user.
+ */
+function drupal_get_user_timezone() {
+  global $user;
+  if (variable_get('configurable_timezones', 1) && $user->uid && $user->timezone) {
+    return $user->timezone;
+  }
+  else {
+    // Ignore PHP strict notice if time zone has not yet been set in the php.ini
+    // configuration.
+    return variable_get('date_default_timezone', @date_default_timezone_get());
+  }
+}
+
+/**
  * Custom PHP error handler.
  *
  * @param $error_level
@@ -1841,8 +1865,21 @@ function _drupal_error_handler($error_level, $message, $filename, $line, $contex
  */
 function _drupal_exception_handler($exception) {
   require_once DRUPAL_ROOT . '/includes/errors.inc';
-  // Log the message to the watchdog and return an error page to the user.
-  _drupal_log_error(_drupal_decode_exception($exception), TRUE);
+
+  try {
+    // Log the message to the watchdog and return an error page to the user.
+    _drupal_log_error(_drupal_decode_exception($exception), TRUE);
+  }
+  catch (Exception $exception2) {
+    // Another uncaught exception was thrown while handling the first one.
+    // If we are displaying errors, then do so with no possibility of a further uncaught exception being thrown.
+    $error_level = variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL);
+    if ($error_level == ERROR_REPORTING_DISPLAY_ALL || (defined('MAINTENANCE_MODE') && MAINTENANCE_MODE == 'update')) {
+      print 'Additional uncaught exception thrown while handling exception.<br /><br />';
+      print '<b>Original</b><br />' . _drupal_render_exception_safe($exception) . '<br /><br />';
+      print '<b>Additional</b><br />' . _drupal_render_exception_safe($exception2) . '<br /><br />';
+    }
+  }
 }
 
 /**
@@ -1891,6 +1928,7 @@ function _drupal_bootstrap_page_cache() {
     $cache = drupal_page_get_cache();
     // If there is a cached page, display it.
     if (is_object($cache)) {
+      date_default_timezone_set(drupal_get_user_timezone());
       // If the skipping of the bootstrap hooks is not enforced, call
       // hook_boot.
       if (variable_get('page_cache_invoke_hooks', TRUE)) {
@@ -1928,6 +1966,10 @@ function _drupal_bootstrap_database() {
   Database::setLoggingCallback('watchdog', WATCHDOG_NOTICE, WATCHDOG_ERROR);
 
   // Register autoload functions so that we can access classes and interfaces.
+  // The database autoload routine comes first so that we can load the database
+  // system without hitting the database. That is especially important during
+  // the install or upgrade process.
+  spl_autoload_register('db_autoload');
   spl_autoload_register('drupal_autoload_class');
   spl_autoload_register('drupal_autoload_interface');
 }
@@ -2067,7 +2109,7 @@ function drupal_language_initialize() {
     }
     // Allow modules to react on language system initialization in multilingual
     // environments.
-    module_invoke_all('language_init', $types);
+    bootstrap_invoke_all('language_init');
   }
 }
 
@@ -2539,7 +2581,7 @@ function registry_update() {
  * - http://php.net/manual/en/language.variables.scope.php#language.variables.scope.static
  * - http://php.net/manual/en/language.variables.scope.php#language.variables.scope.references
  * The example below shows the syntax needed to work around both limitations.
- * For benchmarks and more information, @see http://drupal.org/node/619666.
+ * For benchmarks and more information, see http://drupal.org/node/619666.
  *
  * Example:
  * @code
@@ -2667,7 +2709,7 @@ function &drupal_register_shutdown_function($callback = NULL, $parameters = NULL
     $args = func_get_args();
     array_shift($args);
     // Save callback and arguments
-    $callbacks[] = array('callback' => $callback, 'arguments' => $args);
+    $callbacks[] = array('callback' => $callback, 'arguments' => $args, 'cwd' => getcwd());
   }
   return $callbacks;
 }
@@ -2680,15 +2722,17 @@ function _drupal_shutdown_function() {
 
   try {
     while (list($key, $callback) = each($callbacks)) {
+      chdir($callback['cwd']);
       call_user_func_array($callback['callback'], $callback['arguments']);
     }
   }
-  catch(Exception $exception) {
-    require_once DRUPAL_ROOT . '/includes/errors.inc';
-    // The theme has already been printed so it doesn't make much sense to use
-    // drupal_exception_handler() because that would display the maintenaince
-    // page below the usual page. For now, just print the error for debugging.
-    // @todo: Improve this.
-    print t('%type: %message in %function (line %line of %file).', _drupal_decode_exception($exception));
+  catch (Exception $exception) {
+    // If we are displaying errors, then do so with no possibility of a further uncaught exception being thrown.
+    $error_level = variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL);
+    if ($error_level == ERROR_REPORTING_DISPLAY_ALL || (defined('MAINTENANCE_MODE') && MAINTENANCE_MODE == 'update')) {
+      require_once DRUPAL_ROOT . '/includes/errors.inc';
+      print 'Uncaught exception thrown in shutdown function.<br /><br />';
+      print _drupal_render_exception_safe($exception) . '<br /><br />';
+    }
   }
 }

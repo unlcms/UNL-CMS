@@ -1,5 +1,5 @@
 <?php
-// $Id: search.module,v 1.340 2010/03/12 02:29:23 dries Exp $
+// $Id: search.module,v 1.345 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -224,7 +224,7 @@ function search_menu() {
     'page arguments' => array('search_admin_settings'),
     'access arguments' => array('administer search'),
     'type' => MENU_NORMAL_ITEM,
-    'weight' => -5,
+    'weight' => -10,
     'file' => 'search.admin.inc',
   );
   $items['admin/config/search/settings/reindex'] = array(
@@ -704,8 +704,9 @@ function search_index($sid, $type, $text) {
       // Unset the link to mark it as processed.
       unset($links[$nid]);
     }
-    else {
-      // Insert the existing link and mark the node for reindexing.
+    elseif ($sid != $nid || $type != 'node') {
+      // Insert the existing link and mark the node for reindexing, but don't
+      // reindex if this is a link in a node pointing to itself.
       db_insert('search_node_links')
         ->fields(array(
           'caption' => $caption,
@@ -867,7 +868,7 @@ function search_get_keys() {
  *   HTML indexing mechanism for searching full text efficiently.
  *
  * If your module needs to provide a more complicated search form, then you need
- * to implement it yourself without hook_search(). In that case, you should
+ * to implement it yourself without hook_search_info(). In that case, you should
  * define it as a local task (tab) under the /search page (e.g. /search/mymodule)
  * so that users can easily find it.
  */
@@ -934,7 +935,8 @@ function search_box($form, &$form_state, $form_id) {
     '#default_value' => '',
     '#attributes' => array('title' => t('Enter the terms you wish to search for.')),
   );
-  $form['submit'] = array('#type' => 'submit', '#value' => t('Search'));
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Search'));
   $form['#submit'][] = 'search_box_form_submit';
 
   return $form;
@@ -1076,7 +1078,7 @@ function search_excerpt($keys, $text) {
 
   // If we didn't find anything, return the beginning.
   if (count($ranges) == 0) {
-    return truncate_utf8($text, 256) . ' ...';
+    return truncate_utf8($text, 256, TRUE, TRUE);
   }
 
   // Sort the text ranges by starting position.

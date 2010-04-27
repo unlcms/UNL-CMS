@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.103 2010/03/20 15:06:51 dries Exp $
+// $Id: database.inc,v 1.119 2010/04/26 14:12:59 dries Exp $
 
 /**
  * @file
@@ -47,7 +47,6 @@
  * from user input can be caught and nullified. The LIMIT syntax varies between
  * database servers, so that is abstracted into db_query_range() arguments.
  * Finally, note the PDO-based ability to foreach() over the result set.
- *
  *
  * All queries are passed as a prepared statement string. A
  * prepared statement is a "template" of a query that omits literal or variable
@@ -98,7 +97,6 @@
  * considerably more secure against SQL injection than trying to remember
  * which values need quotation marks and string escaping and which don't.
  *
- *
  * INSERT, UPDATE, and DELETE queries need special care in order to behave
  * consistently across all different databases. Therefore, they use a special
  * object-oriented API for defining a query structurally. For example, rather
@@ -115,7 +113,6 @@
  * while also allowing optimizations such as multi-insert queries. UPDATE and
  * DELETE queries have a similar pattern.
  *
- *
  * Drupal also supports transactions, including a transparent fallback for
  * databases that do not support transactions. To start a new transaction,
  * simply call $txn = db_transaction(); in your own code. The transaction will
@@ -126,7 +123,6 @@
  * scope, that is, all relevant queries completed successfully.
  *
  * Example:
- *
  * @code
  * function my_transaction_function() {
  *   // The transaction opens here.
@@ -166,7 +162,6 @@
  *   }
  * }
  * @endcode
- *
  */
 
 
@@ -205,16 +200,9 @@ abstract class DatabaseConnection extends PDO {
    * nested calls to transactions and collapse them into a single
    * transaction.
    *
-   * @var int
+   * @var array
    */
-  protected $transactionLayers = 0;
-
-  /**
-   * Whether or not the active transaction (if any) will be rolled back.
-   *
-   * @var boolean
-   */
-  protected $willRollback;
+  protected $transactionLayers = array();
 
   /**
    * Array of argument arrays for logging post-rollback.
@@ -224,56 +212,11 @@ abstract class DatabaseConnection extends PDO {
   protected $rollbackLogs = array();
 
   /**
-   * The name of the Select class for this connection.
+   * Index of what driver-specific class to use for various operations.
    *
-   * Normally this and the following class names would be static variables,
-   * but statics in methods are still global and shared by all instances.
-   *
-   * @var string
+   * @var array
    */
-  protected $selectClass = NULL;
-
-  /**
-   * The name of the Delete class for this connection.
-   *
-   * @var string
-   */
-  protected $deleteClass = NULL;
-
-  /**
-   * The name of the Truncate class for this connection.
-   *
-   * @var string
-   */
-  protected $truncateClass = NULL;
-
-  /**
-   * The name of the Insert class for this connection.
-   *
-   * @var string
-   */
-  protected $insertClass = NULL;
-
-  /**
-   * The name of the Merge class for this connection.
-   *
-   * @var string
-   */
-  protected $mergeClass = NULL;
-
-  /**
-   * The name of the Update class for this connection.
-   *
-   * @var string
-   */
-  protected $updateClass = NULL;
-
-  /**
-   * The name of the Transaction class for this connection.
-   *
-   * @var string
-   */
-  protected $transactionClass = NULL;
+  protected $driverClasses = array();
 
   /**
    * The name of the Statement class for this connection.
@@ -336,47 +279,39 @@ abstract class DatabaseConnection extends PDO {
    * Returns the default query options for any given query.
    *
    * A given query can be customized with a number of option flags in an
-   * associative array.
-   *
-   *   target - The database "target" against which to execute a query. Valid
+   * associative array:
+   * - target: The database "target" against which to execute a query. Valid
    *   values are "default" or "slave". The system will first try to open a
    *   connection to a database specified with the user-supplied key. If one
    *   is not available, it will silently fall back to the "default" target.
    *   If multiple databases connections are specified with the same target,
    *   one will be selected at random for the duration of the request.
-   *
-   *   fetch - This element controls how rows from a result set will be
+   * - fetch: This element controls how rows from a result set will be
    *   returned. Legal values include PDO::FETCH_ASSOC, PDO::FETCH_BOTH,
    *   PDO::FETCH_OBJ, PDO::FETCH_NUM, or a string representing the name of a
    *   class. If a string is specified, each record will be fetched into a new
    *   object of that class. The behavior of all other values is defined by PDO.
    *   See http://www.php.net/PDOStatement-fetch
-   *
-   *   return - Depending on the type of query, different return values may be
+   * - return: Depending on the type of query, different return values may be
    *   meaningful. This directive instructs the system which type of return
    *   value is desired. The system will generally set the correct value
    *   automatically, so it is extremely rare that a module developer will ever
    *   need to specify this value. Setting it incorrectly will likely lead to
    *   unpredictable results or fatal errors. Legal values include:
-   *
-   *     Database::RETURN_STATEMENT - Return the prepared statement object for
+   *   - Database::RETURN_STATEMENT: Return the prepared statement object for
    *     the query. This is usually only meaningful for SELECT queries, where
    *     the statement object is how one accesses the result set returned by the
    *     query.
-   *
-   *     Database::RETURN_AFFECTED - Return the number of rows affected by an
+   *   - Database::RETURN_AFFECTED: Return the number of rows affected by an
    *     UPDATE or DELETE query. Be aware that means the number of rows actually
    *     changed, not the number of rows matched by the WHERE clause.
-   *
-   *     Database::RETURN_INSERT_ID - Return the sequence ID (primary key)
+   *   - Database::RETURN_INSERT_ID: Return the sequence ID (primary key)
    *     created by an INSERT statement on a table that contains a serial
    *     column.
-   *
-   *     Database::RETURN_NULL - Do not return anything, as there is no
+   *   - Database::RETURN_NULL: Do not return anything, as there is no
    *     meaningful value to return. That is the case for INSERT queries on
    *     tables that do not contain a serial column.
-   *
-   *   throw_exception - By default, the database system will catch any errors
+   * - throw_exception: By default, the database system will catch any errors
    *   on a query as an Exception, log it, and then rethrow it so that code
    *   further up the call chain can take an appropriate action. To suppress
    *   that behavior and simply return NULL on failure, set this option to
@@ -446,6 +381,26 @@ abstract class DatabaseConnection extends PDO {
     else {
       return strtr($sql, array('{' => $db_prefix , '}' => ''));
     }
+  }
+
+  /**
+   * Find the prefix for a table.
+   *
+   * This function is for when you want to know the prefix of a table. This
+   * is not used in prefixTables due to performance reasons.
+   */
+  public function tablePrefix($table = 'default') {
+    global $db_prefix;
+    if (is_array($db_prefix)) {
+      if (isset($db_prefix[$table])) {
+        return $db_prefix[$table];
+      }
+      elseif (isset($db_prefix['default'])) {
+        return $db_prefix['default'];
+      }
+      return '';
+    }
+    return $db_prefix;
   }
 
   /**
@@ -548,7 +503,6 @@ abstract class DatabaseConnection extends PDO {
    *   DatabaseStatementInterface may also be passed in order to allow calling
    *   code to manually bind variables to a query. If a
    *   DatabaseStatementInterface is passed, the $args array will be ignored.
-   *
    *   It is extremely rare that module code will need to pass a statement
    *   object to this method. It is used primarily for database drivers for
    *   databases that require special LOB field handling.
@@ -638,39 +592,54 @@ abstract class DatabaseConnection extends PDO {
   protected function expandArguments(&$query, &$args) {
     $modified = FALSE;
 
-    foreach ($args as $key => $data) {
-      // If the placeholder value to insert is an array, assume that we need
-      // to expand it out into a comma-delimited set of placeholders.
-      if (is_array($data)) {
-        $new_keys = array();
-        foreach ($data as $i => $value) {
-          // This assumes that there are no other placeholders that use the same
-          // name.  For example, if the array placeholder is defined as :example
-          // and there is already an :example_2 placeholder, this will generate
-          // a duplicate key.  We do not account for that as the calling code
-          // is already broken if that happens.
-          $new_keys[$key . '_' . $i] = $value;
-        }
-
-        // Update the query with the new placeholders.
-        // preg_replace is a little bit slower than str_replace, but it is
-        // necessary to ensure the replacement does not affect placeholders
-        // that start with the same exact text. For example, if the query
-        // contains the placeholders :foo and :foobar, and :foo has an array
-        // of values, using str_replace would affect both placeholders, but
-        // using the following preg_replace would only affect :foo because it
-        // is followed by a non-word character.
-        $query = preg_replace('#' . $key . '\b#', implode(', ', array_keys($new_keys)), $query);
-
-        // Update the args array with the new placeholders.
-        unset($args[$key]);
-        $args += $new_keys;
-
-        $modified = TRUE;
+    // If the placeholder value to insert is an array, assume that we need
+    // to expand it out into a comma-delimited set of placeholders.
+    foreach (array_filter($args, 'is_array') as $key => $data) {
+      $new_keys = array();
+      foreach ($data as $i => $value) {
+        // This assumes that there are no other placeholders that use the same
+        // name.  For example, if the array placeholder is defined as :example
+        // and there is already an :example_2 placeholder, this will generate
+        // a duplicate key.  We do not account for that as the calling code
+        // is already broken if that happens.
+        $new_keys[$key . '_' . $i] = $value;
       }
+
+      // Update the query with the new placeholders.
+      // preg_replace is necessary to ensure the replacement does not affect
+      // placeholders that start with the same exact text. For example, if the
+      // query contains the placeholders :foo and :foobar, and :foo has an
+      // array of values, using str_replace would affect both placeholders,
+      // but using the following preg_replace would only affect :foo because
+      // it is followed by a non-word character.
+      $query = preg_replace('#' . $key . '\b#', implode(', ', array_keys($new_keys)), $query);
+
+      // Update the args array with the new placeholders.
+      unset($args[$key]);
+      $args += $new_keys;
+
+      $modified = TRUE;
     }
 
     return $modified;
+  }
+
+  /**
+   * Gets the driver-specific override class if any for the specified class.
+   *
+   * @param string $class
+   *   The class for which we want the potentially driver-specific class.
+   * @return string
+   *   The name of the class that should be used for this driver.
+   */
+  protected function getDriverClass($class) {
+    if (empty($this->driverClasses[$class])) {
+      $this->driverClasses[$class] = $class . '_' . $this->driver();
+      if (!class_exists($this->driverClasses[$class])) {
+        $this->driverClasses[$class] = $class;
+      }
+    }
+    return $this->driverClasses[$class];
   }
 
   /**
@@ -693,17 +662,7 @@ abstract class DatabaseConnection extends PDO {
    * @see SelectQuery
    */
   public function select($table, $alias = NULL, array $options = array()) {
-    if (empty($this->selectClass)) {
-      $this->selectClass = 'SelectQuery_' . $this->driver();
-      if (!class_exists($this->selectClass)) {
-        $this->selectClass = 'SelectQuery';
-      }
-    }
-    $class = $this->selectClass;
-    // new is documented as the highest precedence operator so this will
-    // create a class named $class and pass the arguments into the constructor,
-    // instead of calling a function named $class with the arguments listed and
-    // then creating using the return value as the class name.
+    $class = $this->getDriverClass('SelectQuery');
     return new $class($table, $alias, $this, $options);
   }
 
@@ -719,13 +678,7 @@ abstract class DatabaseConnection extends PDO {
    * @see InsertQuery
    */
   public function insert($table, array $options = array()) {
-    if (empty($this->insertClass)) {
-      $this->insertClass = 'InsertQuery_' . $this->driver();
-      if (!class_exists($this->insertClass)) {
-        $this->insertClass = 'InsertQuery';
-      }
-    }
-    $class = $this->insertClass;
+    $class = $this->getDriverClass('InsertQuery');
     return new $class($this, $table, $options);
   }
 
@@ -741,13 +694,7 @@ abstract class DatabaseConnection extends PDO {
    * @see MergeQuery
    */
   public function merge($table, array $options = array()) {
-    if (empty($this->mergeClass)) {
-      $this->mergeClass = 'MergeQuery_' . $this->driver();
-      if (!class_exists($this->mergeClass)) {
-        $this->mergeClass = 'MergeQuery';
-      }
-    }
-    $class = $this->mergeClass;
+    $class = $this->getDriverClass('MergeQuery');
     return new $class($this, $table, $options);
   }
 
@@ -764,13 +711,7 @@ abstract class DatabaseConnection extends PDO {
    * @see UpdateQuery
    */
   public function update($table, array $options = array()) {
-    if (empty($this->updateClass)) {
-      $this->updateClass = 'UpdateQuery_' . $this->driver();
-      if (!class_exists($this->updateClass)) {
-        $this->updateClass = 'UpdateQuery';
-      }
-    }
-    $class = $this->updateClass;
+    $class = $this->getDriverClass('UpdateQuery');
     return new $class($this, $table, $options);
   }
 
@@ -786,13 +727,7 @@ abstract class DatabaseConnection extends PDO {
    * @see DeleteQuery
    */
   public function delete($table, array $options = array()) {
-    if (empty($this->deleteClass)) {
-      $this->deleteClass = 'DeleteQuery_' . $this->driver();
-      if (!class_exists($this->deleteClass)) {
-        $this->deleteClass = 'DeleteQuery';
-      }
-    }
-    $class = $this->deleteClass;
+    $class = $this->getDriverClass('DeleteQuery');
     return new $class($this, $table, $options);
   }
 
@@ -808,19 +743,12 @@ abstract class DatabaseConnection extends PDO {
    * @see TruncateQuery
    */
   public function truncate($table, array $options = array()) {
-    if (empty($this->truncateClass)) {
-      $this->truncateClass = 'TruncateQuery_' . $this->driver();
-      if (!class_exists($this->truncateClass)) {
-        $this->truncateClass = 'TruncateQuery';
-      }
-    }
-    $class = $this->truncateClass;
+    $class = $this->getDriverClass('TruncateQuery');
     return new $class($this, $table, $options);
   }
 
   /**
-   * Returns a DatabaseSchema object for manipulating the schema of this
-   * database.
+   * Returns a DatabaseSchema object for manipulating the schema.
    *
    * This method will lazy-load the appropriate schema library file.
    *
@@ -829,8 +757,10 @@ abstract class DatabaseConnection extends PDO {
    */
   public function schema() {
     if (empty($this->schema)) {
-      $class_type = 'DatabaseSchema_' . $this->driver();
-      $this->schema = new $class_type($this);
+      $class = $this->getDriverClass('DatabaseSchema');
+      if (class_exists($class)) {
+        $this->schema = new $class($this);
+      }
     }
     return $this->schema;
   }
@@ -846,7 +776,7 @@ abstract class DatabaseConnection extends PDO {
    *   The sanitized table name string.
    */
   public function escapeTable($table) {
-    return preg_replace('/[^A-Za-z0-9_]+/', '', $table);
+    return preg_replace('/[^A-Za-z0-9_.]+/', '', $table);
   }
 
   /**
@@ -885,29 +815,37 @@ abstract class DatabaseConnection extends PDO {
    *   TRUE if we're currently in a transaction, FALSE otherwise.
    */
   public function inTransaction() {
-    return ($this->transactionLayers > 0);
+    return ($this->transactionDepth() > 0);
+  }
+
+  /**
+   * Determines current transaction depth.
+   */
+  public function transactionDepth() {
+    return count($this->transactionLayers);
   }
 
   /**
    * Returns a new DatabaseTransaction object on this connection.
    *
+   * @param $name
+   *   Optional name of the savepoint.
+   *
    * @see DatabaseTransaction
    */
-  public function startTransaction() {
-    if (empty($this->transactionClass)) {
-      $this->transactionClass = 'DatabaseTransaction_' . $this->driver();
-      if (!class_exists($this->transactionClass)) {
-        $this->transactionClass = 'DatabaseTransaction';
-      }
-    }
-    return new $this->transactionClass($this);
+  public function startTransaction($name = '') {
+    $class = $this->getDriverClass('DatabaseTransaction');
+    return new $class($this, $name);
   }
 
   /**
-   * Schedules the current transaction for rollback.
+   * Rolls back the transaction entirely or to a named savepoint.
    *
    * This method throws an exception if no transaction is active.
    *
+   * @param $savepoint_name
+   *   The name of the savepoint. The default, 'drupal_transaction', will roll
+   *   the entire transaction back.
    * @param $type
    *   The category to which the rollback message belongs.
    * @param $message
@@ -927,9 +865,14 @@ abstract class DatabaseConnection extends PDO {
    * @see DatabaseTransaction::rollback()
    * @see watchdog()
    */
-  public function rollback($type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
-    if ($this->transactionLayers == 0) {
-      throw new NoActiveTransactionException();
+  public function rollback($savepoint_name = 'drupal_transaction', $type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
+    if (!$this->inTransaction()) {
+      throw new DatabaseTransactionNoActiveException();
+    }
+    // A previous rollback to an earlier savepoint may mean that the savepoint
+    // in question has already been rolled back.
+    if (!in_array($savepoint_name, $this->transactionLayers)) {
+      return;
     }
 
     // Set the severity to the configured default if not specified.
@@ -955,25 +898,54 @@ abstract class DatabaseConnection extends PDO {
       );
     }
 
-    $this->willRollback = TRUE;
+    // We need to find the point we're rolling back to, all other savepoints
+    // before are no longer needed.
+    while ($savepoint = array_pop($this->transactionLayers)) {
+      if ($savepoint == $savepoint_name) {
+        // If it is the last the transaction in the stack, then it is not a
+        // savepoint, it is the transaction itself so we will need to roll back
+        // the transaction rather than a savepoint.
+        if (empty($this->transactionLayers)) {
+          break;
+        }
+        $this->query('ROLLBACK TO SAVEPOINT ' . $savepoint);
+        return;
+      }
+    }
+    if ($this->supportsTransactions()) {
+      parent::rollBack();
+    }
+    else {
+      // Log unsupported rollback.
+      $this->rollbackLogs[] = array(
+        'type' => 'database',
+        'message' => t('Explicit rollback failed: not supported on active connection.'),
+        'variables' => array(),
+      );
+    }
+    $this->logRollback();
   }
 
   /**
-   * Determines if this transaction will roll back.
-   *
-   * Use this function to skip further operations if the current transaction
-   * is already scheduled to roll back. Throws an exception if no transaction
-   * is active.
-   *
-   * @return
-   *   TRUE if the transaction will roll back, FALSE otherwise.
+   * Logs messages from rollback().
    */
-  public function willRollback() {
-    if ($this->transactionLayers == 0) {
-      throw new NoActiveTransactionException();
+  protected function logRollback() {
+    $logging = Database::getLoggingCallback();
+    // If there is no callback defined. We can't do anything.
+    if (!is_array($logging)) {
+      return;
     }
 
-    return $this->willRollback;
+    $logging_callback = $logging['callback'];
+
+    // Play back the logged errors to the specified logging callback post-
+    // rollback.
+    foreach ($this->rollbackLogs as $log_item) {
+      call_user_func($logging_callback, $log_item['type'], $log_item['message'], $log_item['variables'], $log_item['severity'], $log_item['link']);
+    }
+
+    // Reset the error logs.
+    $this->rollbackLogs = array();
   }
 
   /**
@@ -983,72 +955,57 @@ abstract class DatabaseConnection extends PDO {
    *
    * @see DatabaseTransaction
    */
-  public function pushTransaction() {
-    ++$this->transactionLayers;
-
-    if ($this->transactionLayers == 1) {
-      if ($this->supportsTransactions()) {
-        parent::beginTransaction();
-      }
+  public function pushTransaction($name) {
+    if (!$this->supportsTransactions()) {
+      return;
     }
+    if (isset($this->transactionLayers[$name])) {
+      throw new DatabaseTransactionNameNonUniqueException($name . " is already in use.");
+    }
+    // If we're already in a transaction then we want to create a savepoint
+    // rather than try to create another transaction.
+    if ($this->inTransaction()) {
+      $this->query('SAVEPOINT ' . $name);
+    }
+    else {
+      parent::beginTransaction();
+    }
+    $this->transactionLayers[$name] = $name;
   }
 
   /**
    * Decreases the depth of transaction nesting.
    *
-   * This function first attempts to decrease the number of layers of
-   * transaction nesting by one. If there was no active transaction, the
-   * function throws an exception. If this was the last transaction layer, the
-   * function either rolls back or commits the transaction, depending on whether
-   * the transaction was marked for rollback or not.
+   * If we pop off the last transaction layer, then we either commit or roll
+   * back the transaction as necessary. If no transaction is active, we return
+   * because the transaction may have manually been rolled back.
+   *
+   * @param $name
+   *   The name of the savepoint
    *
    * @see DatabaseTransaction
    */
-  public function popTransaction() {
-    if ($this->transactionLayers == 0) {
-      throw new NoActiveTransactionException();
+  public function popTransaction($name) {
+    if (!$this->supportsTransactions()) {
+      return;
+    }
+    if (!$this->inTransaction()) {
+      throw new DatabaseTransactionNoActiveException();
     }
 
-    --$this->transactionLayers;
+    // Commit everything since SAVEPOINT $name.
+    while($savepoint = array_pop($this->transactionLayers)) {
+      if ($savepoint != $name) continue;
 
-    if ($this->transactionLayers == 0) {
-      if ($this->willRollback) {
-        // Reset the rollback status so that the next transaction starts clean.
-        $this->willRollback = FALSE;
-
-        // Reset the error log.
-        $rollback_logs = $this->rollbackLogs;
-        $this->rollbackLogs = array();
-
-        $logging = Database::getLoggingCallback();
-        $logging_callback = NULL;
-        if (is_array($logging)) {
-          $logging_callback = $logging['callback'];
-        }
-
-        if ($this->supportsTransactions()) {
-          parent::rollBack();
-        }
-        else {
-          if (isset($logging_callback)) {
-            // Log the failed rollback.
-            $logging_callback('database', 'Explicit rollback failed: not supported on active connection.', array(), $logging['error_severity']);
-          }
-
-          // It would be nice to throw an exception here if logging failed,
-          // but throwing exceptions in destructors is not supported.
-        }
-
-        if (isset($logging_callback)) {
-          // Play back the logged errors to the specified logging callback post-
-          // rollback.
-          foreach ($rollback_logs as $log_item) {
-            $logging_callback($log_item['type'], $log_item['message'], $log_item['variables'], $log_item['severity'], $log_item['link']);
-          }
+      // If there are no more layers left then we should commit.
+      if (empty($this->transactionLayers)) {
+        if (!parent::commit()) {
+          throw new DatabaseTransactionCommitFailedException();
         }
       }
-      elseif ($this->supportsTransactions()) {
-        parent::commit();
+      else {
+        $this->query('RELEASE SAVEPOINT ' . $name);
+        break;
       }
     }
   }
@@ -1181,7 +1138,7 @@ abstract class DatabaseConnection extends PDO {
    * @see DatabaseTransaction
    */
   public function commit() {
-    throw new ExplicitTransactionsNotSupportedException();
+    throw new DatabaseTransactionExplicitCommitNotAllowedException();
   }
 
   /**
@@ -1410,8 +1367,7 @@ abstract class Database {
       // If necessary, a new connection is opened.
       self::$connections[$key][$target] = self::openConnection($key, $target);
     }
-
-    return isset(self::$connections[$key][$target]) ? self::$connections[$key][$target] : NULL;
+    return self::$connections[$key][$target];
   }
 
   /**
@@ -1454,27 +1410,27 @@ abstract class Database {
 
     _db_check_install_needed();
 
-    $databaseInfo = $databases;
-    foreach ($databaseInfo as $index => $info) {
-      foreach ($databaseInfo[$index] as $target => $value) {
+    $database_info = is_array($databases) ? $databases : array();
+    foreach ($database_info as $index => $info) {
+      foreach ($database_info[$index] as $target => $value) {
         // If there is no "driver" property, then we assume it's an array of
         // possible connections for this target. Pick one at random. That allows
         //  us to have, for example, multiple slave servers.
         if (empty($value['driver'])) {
-          $databaseInfo[$index][$target] = $databaseInfo[$index][$target][mt_rand(0, count($databaseInfo[$index][$target]) - 1)];
+          $database_info[$index][$target] = $database_info[$index][$target][mt_rand(0, count($database_info[$index][$target]) - 1)];
         }
       }
     }
 
     if (!is_array(self::$databaseInfo)) {
-      self::$databaseInfo = $databaseInfo;
+      self::$databaseInfo = $database_info;
     }
 
-    // Merge the new $databaseInfo into the existing.
+    // Merge the new $database_info into the existing.
     // array_merge_recursive() cannot be used, as it would make multiple
     // database, user, and password keys in the same database array.
     else {
-      foreach ($databaseInfo as $database_key => $database_values) {
+      foreach ($database_info as $database_key => $database_values) {
         foreach ($database_values as $target => $target_values) {
           self::$databaseInfo[$database_key][$target] = $target_values;
         }
@@ -1544,11 +1500,11 @@ abstract class Database {
       // If the requested database does not exist then it is an unrecoverable
       // error.
       if (!isset(self::$databaseInfo[$key])) {
-        throw new Exception('DB does not exist');
+        throw new DatabaseConnectionNotDefinedException('The specified database connection is not defined: ' . $key);
       }
 
       if (!$driver = self::$databaseInfo[$key][$target]['driver']) {
-        throw new Exception('Drupal is not set up');
+        throw new DatabaseDriverNotSpecifiedException('Driver not specified for this database connection: ' . $key);
       }
 
       // We cannot rely on the registry yet, because the registry requires an
@@ -1626,7 +1582,17 @@ abstract class Database {
 /**
  * Exception for when popTransaction() is called with no active transaction.
  */
-class NoActiveTransactionException extends Exception { }
+class DatabaseTransactionNoActiveException extends Exception { }
+
+/**
+ * Exception thrown when a savepoint or transaction name occurs twice.
+ */
+class DatabaseTransactionNameNonUniqueException extends Exception { }
+
+/**
+ * Exception thrown when a commit() function fails.
+ */
+class DatabaseTransactionCommitFailedException extends Exception { }
 
 /**
  * Exception to deny attempts to explicitly manage transactions.
@@ -1634,7 +1600,7 @@ class NoActiveTransactionException extends Exception { }
  * This exception will be thrown when the PDO connection commit() is called.
  * Code should never call this method directly.
  */
-class ExplicitTransactionsNotSupportedException extends Exception { }
+class DatabaseTransactionExplicitCommitNotAllowedException extends Exception { }
 
 /**
  * Exception thrown for merge queries that do not make semantic sense.
@@ -1656,6 +1622,17 @@ class FieldsOverlapException extends Exception {}
  * Exception thrown if an insert query doesn't specify insert or default fields.
  */
 class NoFieldsException extends Exception {}
+
+/**
+ * Exception thrown if an undefined database connection is requested.
+ */
+class DatabaseConnectionNotDefinedException extends Exception {}
+
+/**
+ * Exception thrown if no driver is specified for a database connection.
+ */
+class DatabaseDriverNotSpecifiedException extends Exception {}
+
 
 /**
  * A wrapper class for creating and managing database transactions.
@@ -1685,13 +1662,51 @@ class DatabaseTransaction {
    */
   protected $connection;
 
-  public function __construct(DatabaseConnection &$connection) {
+  /**
+   * A boolean value to indicate whether this transaction has been rolled back.
+   *
+   * @var Boolean
+   */
+  protected $rolledBack = FALSE;
+
+  /**
+   * The name of the transaction.
+   *
+   * This is used to label the transaction savepoint. It will be overridden to
+   * 'drupal_transaction' if there is no transaction depth.
+   */
+  protected $name;
+
+  public function __construct(DatabaseConnection &$connection, $name = NULL) {
     $this->connection = &$connection;
-    $this->connection->pushTransaction();
+    // If there is no transaction depth, then no transaction has started. Name
+    // the transaction 'drupal_transaction'.
+    if (!$depth = $connection->transactionDepth()) {
+      $this->name = 'drupal_transaction';
+    }
+    // Within transactions, savepoints are used. Each savepoint requires a
+    // name. So if no name is present we need to create one.
+    elseif (!$name) {
+      $this->name = 'savepoint_' . $depth;
+    }
+    else {
+      $this->name = $name;
+    }
+    $this->connection->pushTransaction($this->name);
   }
 
   public function __destruct() {
-    $this->connection->popTransaction();
+    // If we rolled back then the transaction would have already been popped.
+    if ($this->connection->inTransaction() && !$this->rolledBack) {
+      $this->connection->popTransaction($this->name);
+    }
+  }
+
+  /**
+   * Retrieves the name of the transaction or savepoint.
+   */
+  public function name() {
+    return $this->name;
   }
 
   /**
@@ -1719,22 +1734,15 @@ class DatabaseTransaction {
    * @see watchdog()
    */
   public function rollback($type = NULL, $message = NULL, $variables = array(), $severity = NULL, $link = NULL) {
+    $this->rolledBack = TRUE;
     if (!isset($severity)) {
       $logging = Database::getLoggingCallback();
       if (is_array($logging)) {
         $severity = $logging['default_severity'];
       }
     }
-    $this->connection->rollback($type, $message, $variables, $severity, $link);
+    $this->connection->rollback($this->name, $type, $message, $variables, $severity, $link);
   }
-
-  /**
-   * Determines if this transaction will roll back.
-   */
-  public function willRollback() {
-    return $this->connection->willRollback();
-  }
-
 }
 
 /**
@@ -1751,8 +1759,7 @@ class DatabaseTransaction {
  * @code
  * class DatabaseStatement_oracle extends PDOStatement implements DatabaseStatementInterface {}
  * @endcode
- *
- * …or implement their own class, but in that case they will also have to
+ * or implement their own class, but in that case they will also have to
  * implement the Iterator or IteratorArray interfaces before
  * DatabaseStatementInterface:
  * @code
@@ -1802,12 +1809,12 @@ interface DatabaseStatementInterface extends Traversable {
    *   One of the PDO::FETCH_* constants.
    * @param $a1
    *   An option depending of the fetch mode specified by $mode:
-   *    - for PDO::FETCH_COLUMN, it is the index of the column to fetch,
-   *    - for PDO::FETCH_CLASS, it is the name of the class to create, and
-   *    - for PDO::FETCH_INTO, it is the object to add the data to.
+   *   - for PDO::FETCH_COLUMN, the index of the column to fetch
+   *   - for PDO::FETCH_CLASS, the name of the class to create
+   *   - for PDO::FETCH_INTO, the object to add the data to
    * @param $a2
-   *  In case of when mode is PDO::FETCH_CLASS, the optional arguments to
-   *  pass to the constructor.
+   *   If $mode is PDO::FETCH_CLASS, the optional arguments to pass to the
+   *   constructor.
    */
   // public function setFetchMode($mode, $a1 = NULL, $a2 = array());
 
@@ -2111,6 +2118,73 @@ class DatabaseStatementEmpty implements Iterator, DatabaseStatementInterface {
   }
 }
 
+/**
+ * Autoload callback for the database system.
+ */
+function db_autoload($class) {
+  static $base_path = '';
+  static $checked = array();
+
+  static $files = array(
+    'query.inc' => array(
+      'QueryPlaceholderInterface',
+      'QueryConditionInterface', 'DatabaseCondition',
+      'Query', 'DeleteQuery', 'InsertQuery', 'UpdateQuery', 'MergeQuery', 'TruncateQuery',
+      'QueryAlterableInterface',
+    ),
+    'select.inc' => array('QueryAlterableInterface', 'SelectQueryInterface', 'SelectQuery', 'SelectQueryExtender'),
+    'database.inc' => array('DatabaseConnection'),
+    'log.inc' => array('DatabaseLog'),
+    'prefetch.inc' => array('DatabaseStatementPrefetch'),
+    'schema.inc' => array('DatabaseSchema'),
+  );
+
+  // If a class doesn't exist, it may get checked a second time
+  // by class_exists().  If so, just bail out now.
+  if (isset($checked[$class])) {
+    return;
+  }
+  $checked[$class] = TRUE;
+
+  if (empty($base_path)) {
+    $base_path = dirname(realpath(__FILE__));
+  }
+
+  // If there is an underscore in the class name, we know it's a
+  // driver-specific file so check for those.  If not, it's a generic.
+  // Note that we use require_once here instead of require because of a
+  // quirk in class_exists().  By default, class_exists() will try to
+  // autoload a class if it's not found.  However, we cannot tell
+  // at this point whether or not the class is going to exist, only
+  // the file that it would be in if it does exist.  That means we may
+  // try to include a file that was already included by another
+  // autoload call, which would break.  Using require_once() neatly
+  // avoids that issue.
+  if (strpos($class, '_') !== FALSE) {
+    list($base, $driver) = explode('_', $class);
+
+    // Drivers have an extra file, and may put their SelectQuery implementation
+    // in the main query file since it's so small.
+    $driver_files = $files;
+    $driver_files['query.inc'][] = 'SelectQuery';
+    $driver_files['install.inc'] = array('DatabaseTasks');
+
+    foreach ($driver_files as $file => $classes) {
+      if (in_array($base, $classes)) {
+        require_once "{$base_path}/{$driver}/{$file}";
+        return;
+      }
+    }
+  }
+  else {
+    foreach ($files as $file => $classes) {
+      if (in_array($class, $classes)) {
+        require_once $base_path . '/' . $file;
+        return;
+      }
+    }
+  }
+}
 
 /**
  * The following utility functions are simply convenience wrappers.
@@ -2326,22 +2400,20 @@ function db_select($table, $alias = NULL, array $options = array()) {
 /**
  * Returns a new transaction object for the active database.
  *
- * @param $required
- *   TRUE if the calling code will not function properly without transaction
- *   support.  If set to TRUE and the active database does not support
- *   transactions, a TransactionsNotSupportedException exception will be thrown.
- * @param $options
- *   An array of options to control how the transaction operates.  Only the
- *   target key has any meaning in this case.
+ * @param string $name
+ *   Optional name of the transaction.
+ * @param array $options
+ *   An array of options to control how the transaction operates:
+ *   - target: The database target name.
  *
  * @return DatabaseTransaction
  *   A new DatabaseTransaction object for this connection.
  */
-function db_transaction($required = FALSE, Array $options = array()) {
+function db_transaction($name = NULL, array $options = array()) {
   if (empty($options['target'])) {
     $options['target'] = 'default';
   }
-  return Database::getConnection($options['target'])->startTransaction($required);
+  return Database::getConnection($options['target'])->startTransaction($name);
 }
 
 /**
@@ -2355,20 +2427,6 @@ function db_transaction($required = FALSE, Array $options = array()) {
  */
 function db_set_active($key = 'default') {
   return Database::setActiveConnection($key);
-}
-
-/**
- * Determines if there is an active connection.
- *
- * Note that this method will return FALSE if no connection has been established
- * yet, even if one could be.
- *
- * @return
- *   TRUE if there is at least one database connection established, FALSE
- *   otherwise.
- */
-function db_is_active() {
-  return Database::isActiveConnection();
 }
 
 /**
@@ -2429,7 +2487,7 @@ function db_driver() {
  * Closes the active database connection.
  *
  * @param $options
- *   An array of options to control which connection is closed.  Only the target
+ *   An array of options to control which connection is closed. Only the target
  *   key has any meaning in this case.
  */
 function db_close(array $options = array()) {
@@ -2442,8 +2500,9 @@ function db_close(array $options = array()) {
 /**
  * Retrieves a unique id.
  *
- * Use this function if for some reason you can't use a serial field, normally a
- * serial field with db_last_insert_id is preferred.
+ * Use this function if for some reason you can't use a serial field. Using a
+ * serial field is preferred, and InsertQuery::execute() returns the value of
+ * the last ID inserted.
  *
  * @param $existing_id
  *   After a database import, it might be that the sequences table is behind, so
@@ -2458,6 +2517,47 @@ function db_next_id($existing_id = 0) {
 }
 
 /**
+ * Returns a new DatabaseCondition, set to "OR" all conditions together.
+ *
+ * @return DatabaseCondition
+ */
+function db_or() {
+  return new DatabaseCondition('OR');
+}
+
+/**
+ * Returns a new DatabaseCondition, set to "AND" all conditions together.
+ *
+ * @return DatabaseCondition
+ */
+function db_and() {
+  return new DatabaseCondition('AND');
+}
+
+/**
+ * Returns a new DatabaseCondition, set to "XOR" all conditions together.
+ *
+ * @return DatabaseCondition
+ */
+function db_xor() {
+  return new DatabaseCondition('XOR');
+}
+
+/**
+ * Returns a new DatabaseCondition, set to the specified conjunction.
+ *
+ * Internal API function call.  The db_and(), db_or(), and db_xor()
+ * functions are preferred.
+ *
+ * @param $conjunction
+ *   The conjunction to use for query conditions (AND, OR or XOR).
+ * @return DatabaseCondition
+ */
+function db_condition($conjunction) {
+  return new DatabaseCondition($conjunction);
+}
+
+/**
  * @} End of "defgroup database".
  */
 
@@ -2466,7 +2566,6 @@ function db_next_id($existing_id = 0) {
  * @ingroup schemaapi
  * @{
  */
-
 
 /**
  * Creates a new table from a Drupal table definition.
@@ -2529,14 +2628,14 @@ function db_table_exists($table) {
  *
  * @param $table
  *   The name of the table in drupal (no prefixing).
- * @param $name
- *   The name of the column.
+ * @param $field
+ *   The name of the field.
  *
  * @return
  *   TRUE if the given column exists, otherwise FALSE.
  */
-function db_column_exists($table, $column) {
-  return Database::getConnection()->schema()->columnExists($table, $column);
+function db_field_exists($table, $field) {
+  return Database::getConnection()->schema()->fieldExists($table, $field);
 }
 
 /**
@@ -2784,7 +2883,7 @@ function db_change_field($table, $field, $field_new, $spec, $keys_new = array())
  * @} End of "ingroup schemaapi".
  */
 
- /**
+/**
  * Sets a session variable specifying the lag time for ignoring a slave server.
  */
 function db_ignore_slave() {

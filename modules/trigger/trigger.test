@@ -1,5 +1,5 @@
 <?php
-// $Id: trigger.test,v 1.28 2010/03/07 18:06:06 webchick Exp $
+// $Id: trigger.test,v 1.31 2010/04/10 10:49:15 dries Exp $
 
 /**
  * Class with common helper methods.
@@ -45,7 +45,7 @@ class TriggerContentTestCase extends TriggerWebTestCase {
   }
 
   function setUp() {
-    parent::setUp('trigger');
+    parent::setUp('trigger', 'trigger_test');
   }
 
   /**
@@ -55,18 +55,18 @@ class TriggerContentTestCase extends TriggerWebTestCase {
     global $user;
     $content_actions = array('node_publish_action', 'node_unpublish_action', 'node_make_sticky_action', 'node_make_unsticky_action', 'node_promote_action', 'node_unpromote_action');
 
+    $test_user = $this->drupalCreateUser(array('administer actions'));
+    $web_user = $this->drupalCreateUser(array('create page content', 'access content', 'administer nodes'));
     foreach ($content_actions as $action) {
       $hash = md5($action);
       $info = $this->actionInfo($action);
 
       // Assign an action to a trigger, then pull the trigger, and make sure
       // the actions fire.
-      $test_user = $this->drupalCreateUser(array('administer actions'));
       $this->drupalLogin($test_user);
       $edit = array('aid' => $hash);
-      $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'));
+      $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'), array(), array(), 'trigger-node-presave-assign-form');
       // Create an unpublished node.
-      $web_user = $this->drupalCreateUser(array('create page content', 'access content', 'administer nodes'));
       $this->drupalLogin($web_user);
       $edit = array();
       $langcode = LANGUAGE_NONE;
@@ -83,12 +83,10 @@ class TriggerContentTestCase extends TriggerWebTestCase {
 
       // There should be an error when the action is assigned to the trigger
       // twice.
-      $test_user = $this->drupalCreateUser(array('administer actions'));
       $this->drupalLogin($test_user);
+      // This action already assigned in this test.
       $edit = array('aid' => $hash);
-      $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'));
-      $edit = array('aid' => $hash);
-      $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'));
+      $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'), array(), array(), 'trigger-node-presave-assign-form');
       $this->assertRaw(t('The action you chose is already assigned to that trigger.'), t('Check to make sure an error occurs when assigning an action to a trigger twice.'));
 
       // The action should be able to be unassigned from a trigger.
@@ -97,6 +95,35 @@ class TriggerContentTestCase extends TriggerWebTestCase {
       $assigned = db_query("SELECT COUNT(*) FROM {trigger_assignments} WHERE aid IN (:keys)", array(':keys' => $content_actions))->fetchField();
       $this->assertFalse($assigned, t('Check to make sure unassign worked properly at the database level.'));
     }
+  }
+
+  /**
+   * Test that node actions are fired for each node individually if acting on
+   * multiple nodes.
+   */
+  function testActionContentMultiple() {
+    // Assign an action to the node save/update trigger.
+    $test_user = $this->drupalCreateUser(array('administer actions', 'administer nodes', 'create page content', 'access administration pages', 'access content overview'));
+    $this->drupalLogin($test_user);
+
+    for ($index = 0; $index < 3; $index++) {
+      $edit = array('title' => $this->randomName());
+      $this->drupalPost('node/add/page', $edit, t('Save'));
+    }
+
+    $action_id = 'trigger_test_generic_any_action';
+    $hash = md5($action_id);
+    $edit = array('aid' => $hash);
+    $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'), array(), array(), 'trigger-node-update-assign-form');
+
+    $edit = array(
+      'operation' => 'unpublish',
+      'nodes[1]' => TRUE,
+      'nodes[2]' => TRUE,
+    );
+    $this->drupalPost('admin/content', $edit, t('Update'));
+    $count = variable_get('trigger_test_generic_any_action', 0);
+    $this->assertTrue($count == 2, t('Action was triggered 2 times. Actual: %count', array('%count' => $count)));
   }
 
   /**
@@ -174,7 +201,7 @@ class TriggerCronTestCase extends TriggerWebTestCase {
 
     // Assign a non-configurable action to the cron run trigger.
     $edit = array('aid' => md5('trigger_test_system_cron_action'));
-    $this->drupalPost('admin/structure/trigger/system', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/system', $edit, t('Assign'), array(), array(), 'trigger-cron-assign-form');
 
     // Assign a configurable action to the cron trigger.
     $action_label = $this->randomName();
@@ -186,7 +213,7 @@ class TriggerCronTestCase extends TriggerWebTestCase {
     // $aid is likely 3 but if we add more uses for the sequences table in
     // core it might break, so it is easier to get the value from the database.
     $edit = array('aid' => md5($aid));
-    $this->drupalPost('admin/structure/trigger/system', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/system', $edit, t('Assign'), array(), array(), 'trigger-cron-assign-form');
 
     // Add a second configurable action to the cron trigger.
     $action_label = $this->randomName();
@@ -196,7 +223,7 @@ class TriggerCronTestCase extends TriggerWebTestCase {
     );
     $aid = $this->configureAdvancedAction('trigger_test_system_cron_conf_action', $edit);
     $edit = array('aid' => md5($aid));
-    $this->drupalPost('admin/structure/trigger/system', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/system', $edit, t('Assign'), array(), array(), 'trigger-cron-assign-form');
 
     // Force a cron run.
     $this->cronRun();
@@ -240,7 +267,7 @@ class TriggerOtherTestCase extends TriggerWebTestCase {
     $action_id = 'trigger_test_generic_action';
     $hash = md5($action_id);
     $edit = array('aid' => $hash);
-    $this->drupalPost('admin/structure/trigger/user', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/user', $edit, t('Assign'), array(), array(), 'trigger-user-insert-assign-form');
 
     // Set action variable to FALSE.
     variable_set( $action_id, FALSE );
@@ -274,7 +301,7 @@ class TriggerOtherTestCase extends TriggerWebTestCase {
     // Configure an advanced action that we can assign.
     $aid = $this->configureAdvancedAction('system_message_action', $action_edit);
     $edit = array('aid' => md5($aid));
-    $this->drupalPost('admin/structure/trigger/user', $edit, t('Assign'), array(), array(), 'trigger_user_login_assign_form');
+    $this->drupalPost('admin/structure/trigger/user', $edit, t('Assign'), array(), array(), 'trigger-user-login-assign-form');
 
     // Verify that the action has been assigned to the correct hook.
     $actions = trigger_get_assigned_actions('user_login');
@@ -297,7 +324,7 @@ class TriggerOtherTestCase extends TriggerWebTestCase {
     $action_id = 'trigger_test_generic_action';
     $hash = md5($action_id);
     $edit = array('aid' => $hash);
-    $this->drupalPost('admin/structure/trigger/comment', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/comment', $edit, t('Assign'), array(), array(), 'trigger-comment-insert-assign-form');
 
     // Set action variable to FALSE.
     variable_set($action_id, FALSE);
@@ -326,7 +353,7 @@ class TriggerOtherTestCase extends TriggerWebTestCase {
     $action_id = 'trigger_test_generic_action';
     $hash = md5($action_id);
     $edit = array('aid' => $hash);
-    $this->drupalPost('admin/structure/trigger/taxonomy', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/taxonomy', $edit, t('Assign'), array(), array(), 'trigger-taxonomy-term-insert-assign-form');
 
     // Set action variable to FALSE.
     variable_set($action_id, FALSE);
@@ -383,7 +410,7 @@ class TriggerOrphanedActionsTestCase extends DrupalWebTestCase {
     $test_user = $this->drupalCreateUser(array('administer actions'));
     $this->drupalLogin($test_user);
     $edit = array('aid' => $hash);
-    $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'));
+    $this->drupalPost('admin/structure/trigger/node', $edit, t('Assign'), array(), array(), 'trigger-node-presave-assign-form');
 
     // Create an unpublished node.
     $web_user = $this->drupalCreateUser(array('create page content', 'edit own page content', 'access content', 'administer nodes'));

@@ -1,5 +1,5 @@
 <?php
-// $Id: block.test,v 1.47 2010/03/12 05:14:14 webchick Exp $
+// $Id: block.test,v 1.52 2010/04/26 14:10:40 dries Exp $
 
 /**
  * @file
@@ -8,6 +8,7 @@
 
 class BlockTestCase extends DrupalWebTestCase {
   protected $regions;
+  protected $admin_user;
 
   public static function getInfo() {
     return array(
@@ -23,13 +24,12 @@ class BlockTestCase extends DrupalWebTestCase {
     // Create and log in an administrative user having access to the Full HTML
     // text format.
     $full_html_format = db_query_range('SELECT * FROM {filter_format} WHERE name = :name', 0, 1, array(':name' => 'Full HTML'))->fetchObject();
-    $admin_user = $this->drupalCreateUser(array(
+    $this->admin_user = $this->drupalCreateUser(array(
       'administer blocks',
       filter_permission_name($full_html_format),
       'access administration pages',
-      'access dashboard',
     ));
-    $this->drupalLogin($admin_user);
+    $this->drupalLogin($this->admin_user);
 
     // Define the existing regions
     $this->regions = array();
@@ -58,7 +58,7 @@ class BlockTestCase extends DrupalWebTestCase {
     foreach ($themes as $key => $theme) {
       if ($theme->status) {
         foreach ($theme->info['regions_hidden'] as $hidden_region) {
-          $elements = $this->xpath('//select[@id="edit-regions-' . $key . '"]//option[@value="' . $hidden_region . '"]');
+          $elements = $this->xpath('//select[@id=:id]//option[@value=:value]', array(':id' => 'edit-regions-' . $key, ':value' => $hidden_region));
           $this->assertFalse(isset($elements[0]), t('The hidden region @region is not available for @theme.', array('@region' => $hidden_region, '@theme' => $key)));
         }
       }
@@ -132,7 +132,7 @@ class BlockTestCase extends DrupalWebTestCase {
     $block_admin = $this->drupalCreateUser(array('administer blocks'));
     $this->drupalLogin($block_admin);
     $this->drupalGet('admin/structure/block/manage/block/' . $bid . '/configure');
-    $this->assertNoText(t('Block body'));
+    $this->assertFieldByXPath("//textarea[@name='body[value]' and @disabled='disabled']", t('This field has been disabled because you do not have sufficient permissions to edit it.'), t('Body field contains denied message'));
     $this->drupalPost('admin/structure/block/manage/block/' . $bid . '/configure', array(), t('Save block'));
     $this->assertNoText(t('Ensure that each block description is unique.'));
 
@@ -178,6 +178,9 @@ class BlockTestCase extends DrupalWebTestCase {
     $this->drupalGet('user');
     $this->assertNoText($title, t('Block was not displayed according to block visibility rules.'));
 
+    $this->drupalGet('USER/' . $this->admin_user->uid);
+    $this->assertNoText($title, t('Block was not displayed according to block visibility rules regardless of path case.'));
+
     // Confirm that the block is not displayed to anonymous users.
     $this->drupalLogout();
     $this->drupalGet('');
@@ -220,7 +223,7 @@ class BlockTestCase extends DrupalWebTestCase {
     $this->assertNoText(t($block['title']), t('Block no longer appears on page.'));
 
     // Confirm that the regions xpath is not availble
-    $xpath = '//div[@id="block-block-' . $bid . '"]/*';
+    $xpath = $this->buildXPathQuery('//div[@id=:id]/*', array(':id' => 'block-block-' . $bid));
     $this->assertNoFieldByXPath($xpath, FALSE, t('Custom block found in no regions.'));
 
     // For convenience of developers, put the navigation block back.
@@ -252,7 +255,10 @@ class BlockTestCase extends DrupalWebTestCase {
     $this->assertText(t($block['title']), t('Block successfully being displayed on the page.'));
 
     // Confirm that the custom block was found at the proper region.
-    $xpath = '//div[@class="' . $region['class'] . '"]//div[@id="block-' . $block['module'] . '-' . $block['delta'] . '"]/*';
+    $xpath = $this->buildXPathQuery('//div[@class=:region-class]//div[@id=:block-id]/*', array(
+      ':region-class' => $region['class'],
+      ':block-id' => 'block-' . $block['module'] . '-' . $block['delta'],
+    ));
     $this->assertFieldByXPath($xpath, FALSE, t('Custom block found in %region_name region.', array('%region_name' => $region['name'])));
   }
 }
@@ -541,5 +547,43 @@ class BlockCacheTestCase extends DrupalWebTestCase {
     if ($current_mode != $cache_mode) {
       $this->fail(t('Unable to set cache mode to %mode. Current mode: %current_mode', array('%mode' => $cache_mode, '%current_mode' => $current_mode)));
     }
+  }
+}
+
+/**
+ * Test block HTML id validity.
+ */
+class BlockHTMLIdTestCase extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Block HTML id',
+      'description' => 'Test block HTML id validity.',
+      'group' => 'Block',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('block_test');
+
+    // Create an admin user, log in and enable test blocks.
+    $this->admin_user = $this->drupalCreateUser(array('administer blocks', 'access administration pages'));
+    $this->drupalLogin($this->admin_user);
+
+    // Enable our test block.
+    $edit['block_test_test_html_id[region]'] = 'sidebar_first';
+    $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
+
+    // Make sure the block has some content so it will appear
+    $current_content = $this->randomName();
+    variable_set('block_test_content', $current_content);
+  }
+
+  /**
+   * Test valid HTML id.
+   */
+  function testHTMLId() {
+    $this->drupalGet('');
+    $this->assertRaw('block-block-test-test-html-id', t('HTML id for test block is valid.'));
   }
 }

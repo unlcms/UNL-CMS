@@ -1,5 +1,5 @@
 <?php
-// $Id: query.inc,v 1.43 2010/03/01 11:30:37 dries Exp $
+// $Id: query.inc,v 1.46 2010/04/19 04:43:05 webchick Exp $
 
 /**
  * @ingroup database
@@ -414,33 +414,6 @@ class InsertQuery extends Query {
     return $this;
   }
 
-  /**
-   * Flag this query as being delay-safe or not.
-   *
-   * If this method is never called, it is assumed that the query must be
-   * executed immediately. If delay is set to TRUE, then the query will be
-   * flagged to run "delayed" or "low priority" on databases that support such
-   * capabilities. In that case, the database will return immediately and the
-   * query will be run at some point in the future. That makes it useful for
-   * logging-style queries.
-   *
-   * If the database does not support delayed INSERT queries, this method
-   * has no effect.
-   *
-   * Note that for a delayed query there is no serial ID returned, as it won't
-   * be created until later when the query runs. It should therefore not be
-   * used if the value of the ID is known.
-   *
-   * @param $delay
-   *   If TRUE, this query is delay-safe and will run delayed on supported databases.
-   * @return InsertQuery
-   *   The called object.
-   */
-  public function delay($delay = TRUE) {
-    $this->delay = $delay;
-    return $this;
-  }
-
   public function from(SelectQueryInterface $query) {
     $this->fromQuery = $query;
     return $this;
@@ -498,7 +471,7 @@ class InsertQuery extends Query {
     $insert_fields = array_merge($this->defaultFields, $this->insertFields);
 
     if (!empty($this->fromQuery)) {
-      return "INSERT $delay INTO {" . $this->table . '} (' . implode(', ', $insert_fields) . ') ' . $this->fromQuery;
+      return "INSERT INTO {" . $this->table . '} (' . implode(', ', $insert_fields) . ') ' . $this->fromQuery;
     }
 
     // For simplicity, we will use the $placeholders array to inject
@@ -1355,47 +1328,6 @@ class DatabaseCondition implements QueryConditionInterface, Countable {
     return $return;
   }
 
-}
-
-/**
- * Returns a new DatabaseCondition, set to "OR" all conditions together.
- *
- * @return DatabaseCondition
- */
-function db_or() {
-  return new DatabaseCondition('OR');
-}
-
-/**
- * Returns a new DatabaseCondition, set to "AND" all conditions together.
- *
- * @return DatabaseCondition
- */
-function db_and() {
-  return new DatabaseCondition('AND');
-}
-
-/**
- * Returns a new DatabaseCondition, set to "XOR" all conditions together.
- *
- * @return DatabaseCondition
- */
-function db_xor() {
-  return new DatabaseCondition('XOR');
-}
-
-/**
- * Returns a new DatabaseCondition, set to the specified conjunction.
- *
- * Internal API function call.  The db_and(), db_or(), and db_xor()
- * functions are preferred.
- *
- * @param $conjunction
- *   The conjunction to use for query conditions (AND, OR or XOR).
- * @return DatabaseCondition
- */
-function db_condition($conjunction) {
-  return new DatabaseCondition($conjunction);
 }
 
 /**

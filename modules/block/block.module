@@ -1,5 +1,5 @@
 <?php
-// $Id: block.module,v 1.414 2010/03/12 05:14:14 webchick Exp $
+// $Id: block.module,v 1.419 2010/04/26 14:10:40 dries Exp $
 
 /**
  * @file
@@ -317,79 +317,99 @@ function _block_rehash($theme = NULL) {
   global $theme_key;
 
   drupal_theme_initialize();
-
   if (!isset($theme)) {
     // If theme is not specifically set, rehash for the current theme.
     $theme = $theme_key;
   }
-
-  $old_blocks = array();
-  $result = db_query("SELECT * FROM {block} WHERE theme = :theme", array(':theme' => $theme));
-  foreach ($result as $old_block) {
-    $old_block = is_object($old_block) ? get_object_vars($old_block) : $old_block;
-    $old_blocks[$old_block['module']][$old_block['delta']] = $old_block;
-  }
-
-  $blocks = array();
-  // Valid region names for the theme.
   $regions = system_region_list($theme);
 
+  // These are the blocks the function will return.
+  $blocks = array();
+  // These are the blocks defined by code and modified by the database.
+  $current_blocks = array();
+  // These are {block}.bid values to be kept.
+  $bids = array();
+  $or = db_or();
+  // Gather the blocks defined by modules.
   foreach (module_implements('block_info') as $module) {
     $module_blocks = module_invoke($module, 'block_info');
-    if ($module_blocks) {
-      foreach ($module_blocks as $delta => $block) {
-        if (empty($old_blocks[$module][$delta])) {
-          // If it's a new block, add identifiers.
-          $block['module'] = $module;
-          $block['delta']  = $delta;
-          $block['theme']  = $theme;
-          if (!isset($block['pages'])) {
-            // {block}.pages is type 'text', so it cannot have a
-            // default value, and not null, so we need to provide
-            // value if the module did not.
-            $block['pages']  = '';
-          }
-          // Add defaults and save it into the database.
-          drupal_write_record('block', $block);
-          // Set region to none if not enabled.
-          $block['region'] = $block['status'] ? $block['region'] : BLOCK_REGION_NONE;
-          // Add to the list of blocks we return.
-          $blocks[] = $block;
-        }
-        else {
-          // If it's an existing block, database settings should overwrite
-          // the code. But aside from 'info' everything that's definable in
-          // code is stored in the database and we do not store 'info', so we
-          // do not need to update the database here.
-          // Add 'info' to this block.
-          $old_blocks[$module][$delta]['info'] = $block['info'];
-          // If the region name does not exist, disable the block and assign it to none.
-          if (!empty($old_blocks[$module][$delta]['region']) && !isset($regions[$old_blocks[$module][$delta]['region']])) {
-            drupal_set_message(t('The block %info was assigned to the invalid region %region and has been disabled.', array('%info' => $old_blocks[$module][$delta]['info'], '%region' => $old_blocks[$module][$delta]['region'])), 'warning');
-            $old_blocks[$module][$delta]['status'] = 0;
-            $old_blocks[$module][$delta]['region'] = BLOCK_REGION_NONE;
-          }
-          else {
-            $old_blocks[$module][$delta]['region'] = $old_blocks[$module][$delta]['status'] ? $old_blocks[$module][$delta]['region'] : BLOCK_REGION_NONE;
-          }
-          // Add this block to the list of blocks we return.
-          $blocks[] = $old_blocks[$module][$delta];
-          // Remove this block from the list of blocks to be deleted.
-          unset($old_blocks[$module][$delta]);
-        }
-      }
+    foreach ($module_blocks as $delta => $block) {
+      // Compile a condition to retrieve this block from the database.
+      $condition = db_and()
+        ->condition('module', $module)
+        ->condition('delta', $delta);
+      $or->condition($condition);
+      // Add identifiers.
+      $block['module'] = $module;
+      $block['delta']  = $delta;
+      $block['theme']  = $theme;
+      $current_blocks[$module][$delta] = $block;
     }
   }
-
-  // Remove blocks that are no longer defined by the code from the database.
-  foreach ($old_blocks as $module => $old_module_blocks) {
-    foreach ($old_module_blocks as $delta => $block) {
-      db_delete('block')
-        ->condition('module', $module)
-        ->condition('delta', $delta)
-        ->condition('theme', $theme)
-        ->execute();
+  // Save the blocks defined in code for alter context.
+  $code_blocks = $current_blocks;
+  $database_blocks = db_select('block', 'b')
+    ->fields('b')
+    ->condition($or)
+    ->condition('theme', $theme)
+    ->execute();
+  foreach ($database_blocks as $block) {
+    // Preserve info which is not in the database.
+    $block->info = $current_blocks[$block->module][$block->delta]['info'];
+    // Blocks stored in the database override the blocks defined in code.
+    $current_blocks[$block->module][$block->delta] = get_object_vars($block);
+    // Preserve this block.
+    $bids[$block->bid] = $block->bid;
+  }
+  drupal_alter('block_info', $current_blocks, $theme, $code_blocks);
+  foreach ($current_blocks as $module => $module_blocks) {
+    foreach ($module_blocks as $delta => $block) {
+      if (!isset($block['pages'])) {
+        // {block}.pages is type 'text', so it cannot have a
+        // default value, and not null, so we need to provide
+        // value if the module did not.
+        $block['pages']  = '';
+      }
+      // Make sure weight is set.
+      if (!isset($block['weight'])) {
+        $block['weight'] = 0;
+      }
+      if (!empty($block['region']) && $block['region'] != BLOCK_REGION_NONE && !isset($regions[$block['region']])) {
+        drupal_set_message(t('The block %info was assigned to the invalid region %region and has been disabled.', array('%info' => $block['info'], '%region' => $block['region'])), 'warning');
+        // Disabled modules are moved into the BLOCK_REGION_NONE later so no
+        // need to move the bock to another region.
+        $block['status'] = 0;
+      }
+      // Set region to none if not enabled and make sure status is set.
+      if (empty($block['status'])) {
+        $block['status'] = 0;
+        $block['region'] = BLOCK_REGION_NONE;
+      }
+      // There is no point saving disabled blocks. Still, we need to save them
+      // beecause the 'title' attribute is saved to the {blocks} table.
+      if (isset($block['bid'])) {
+        // If the block has a bid property, it comes from the database and
+        // the record needs to be updated, so set the primary key to 'bid'
+        // before passing to drupal_write_record().
+        $primary_keys = array('bid');
+        // Remove a block from the list of blocks to keep if it became disabled.
+        unset($bids[$block['bid']]);
+      }
+      else {
+        $primary_keys = array();
+      }
+      drupal_write_record('block', $block, $primary_keys);
+      // Add to the list of blocks we return.
+      $blocks[] = $block;
     }
+  }
+  if ($bids) {
+    // Remove disabled that are no longer defined by the code from the
+    // database.
+    db_delete('block')
+      ->condition('bid', $bids, 'NOT IN')
+      ->condition('theme', $theme)
+      ->execute();
   }
   return $blocks;
 }
@@ -438,7 +458,6 @@ function block_custom_block_form($edit = array()) {
     '#description' => t('The content of the block as shown to the user.'),
     '#required' => TRUE,
     '#weight' => -17,
-    '#access' => filter_access(filter_format_load($edit['format'])),
   );
 
   return $form;
@@ -625,7 +644,7 @@ function _block_load_blocks() {
 
   $block_info = $result->fetchAllAssoc('bid');
   // Allow modules to modify the block list.
-  drupal_alter('block_info', $block_info);
+  drupal_alter('block_list', $block_info);
 
   $blocks = array();
   foreach ($block_info as $block) {
@@ -635,12 +654,12 @@ function _block_load_blocks() {
 }
 
 /**
- * Implements hook_block_info_alter().
+ * Implements hook_block_list_alter().
  *
- * Check the page, user role, content type and user specific visibilty settings.
+ * Check the page, user role and user specific visibilty settings.
  * Remove the block if the visibility conditions are not met.
  */
-function block_block_info_alter(&$blocks) {
+function block_block_list_alter(&$blocks) {
   global $user, $theme_key;
 
   // Build an array of roles for each block.
@@ -650,15 +669,8 @@ function block_block_info_alter(&$blocks) {
     $block_roles[$record->module][$record->delta][] = $record->rid;
   }
 
-  // Build an array of node types for each block.
-  $block_node_types = array();
-  $result = db_query('SELECT module, delta, type FROM {block_node_type}');
-  foreach ($result as $record) {
-    $block_node_types[$record->module][$record->delta][] = $record->type;
-  }
-
   foreach ($blocks as $key => $block) {
-    if ($block->theme != $theme_key || $block->status != 1) {
+    if (!isset($block->theme) || !isset($block->status) || $block->theme != $theme_key || $block->status != 1) {
       // This block was added by a contrib module, leave it in the list.
       continue;
     }
@@ -670,34 +682,6 @@ function block_block_info_alter(&$blocks) {
       // No match.
       unset($blocks[$key]);
       continue;
-    }
-
-    // If a block has no node types associated, it is displayed for every type.
-    // For blocks with node types associated, if the node type does not match
-    // the settings from this block, remove it from the block list.
-    if (isset($block_node_types[$block->module][$block->delta])) {
-      $node = menu_get_object();
-      if (!empty($node)) {
-        // This is a node or node edit page.
-        if (!in_array($node->type, $block_node_types[$block->module][$block->delta])) {
-          // This block should not be displayed for this node type.
-          unset($blocks[$key]);
-          continue;
-        }
-      }
-      elseif (arg(0) == 'node' && arg(1) == 'add' && in_array(arg(2), array_keys(node_type_get_types()))) {
-        // This is a node creation page
-        if (!in_array(arg(2), $block_node_types[$block->module][$block->delta])) {
-          // This block should not be displayed for this node type.
-          unset($blocks[$key]);
-          continue;
-        }
-      }
-      else {
-        // This is not a node page, remove the block.
-        unset($blocks[$key]);
-        continue;
-      }
     }
 
     // Use the user's block visibility setting, if necessary.
@@ -719,12 +703,16 @@ function block_block_info_alter(&$blocks) {
 
     // Match path if necessary.
     if ($block->pages) {
+      // Convert path to lowercase. This allows comparison of the same path
+      // with different case. Ex: /Page, /page, /PAGE.
+      $pages = drupal_strtolower($block->pages);
       if ($block->visibility < 2) {
-        $path = drupal_get_path_alias($_GET['q']);
-        // Compare with the internal and path alias (if any).
-        $page_match = drupal_match_path($path, $block->pages);
+        // Convert the Drupal path to lowercase
+        $path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
+        // Compare the lowercase internal and lowercase path alias (if any).
+        $page_match = drupal_match_path($path, $pages);
         if ($path != $_GET['q']) {
-          $page_match = $page_match || drupal_match_path($_GET['q'], $block->pages);
+          $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
         }
         // When $block->visibility has a value of 0, the block is displayed on
         // all pages except those listed in $block->pages. When set to 1, it
@@ -884,6 +872,9 @@ function template_preprocess_block(&$variables) {
   $variables['theme_hook_suggestions'][] = 'block__' . $variables['block']->region;
   $variables['theme_hook_suggestions'][] = 'block__' . $variables['block']->module;
   $variables['theme_hook_suggestions'][] = 'block__' . $variables['block']->module . '__' . $variables['block']->delta;
+
+  // Create a valid HTML ID and make sure it is unique.
+  $variables['block_html_id'] = drupal_html_id('block-' . $variables['block']->module . '-' . $variables['block']->delta);
 }
 
 /**

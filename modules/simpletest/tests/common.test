@@ -1,5 +1,5 @@
 <?php
-// $Id: common.test,v 1.105 2010/03/03 08:40:25 dries Exp $
+// $Id: common.test,v 1.110 2010/04/22 21:41:09 webchick Exp $
 
 /**
  * @file
@@ -23,6 +23,12 @@ class DrupalAlterTestCase extends DrupalWebTestCase {
   }
 
   function testDrupalAlter() {
+    // This test depends on Garland, so make sure that it is always the current
+    // active theme.
+    global $theme, $base_theme_info;
+    $theme = 'garland';
+    $base_theme_info = array();
+
     $array = array('foo' => 'bar');
     $entity = new stdClass;
     $entity->foo = 'bar';
@@ -317,7 +323,8 @@ class CommonXssUnitTest extends DrupalUnitTestCase {
    * Check that invalid multi-byte sequences are rejected.
    */
   function testInvalidMultiByte() {
-     $text = check_plain("Foo\xC0barbaz");
+     // Ignore PHP 5.3+ invalid multibyte sequence warning.
+     $text = @check_plain("Foo\xC0barbaz");
      $this->assertEqual($text, '', 'check_plain() rejects invalid sequence "Foo\xC0barbaz"');
      $text = check_plain("Fooÿñ");
      $this->assertEqual($text, "Fooÿñ", 'check_plain() accepts valid sequence "Fooÿñ"');
@@ -742,15 +749,15 @@ class DrupalHTMLIdentifierTestCase extends DrupalUnitTestCase {
     $this->assertIdentical(drupal_html_id('invalid,./:@\\^`{Üidentifier'), 'invalididentifier', t('Strip invalid characters.'));
 
     // Verify Drupal coding standards are enforced.
-    $this->assertIdentical(drupal_html_id('ID NAME_[1]'), 'id-name--1', t('Enforce Drupal coding standards.'));
+    $this->assertIdentical(drupal_html_id('ID NAME_[1]'), 'id-name-1', t('Enforce Drupal coding standards.'));
 
     // Reset the static cache so we can ensure the unique id count is at zero.
     drupal_static_reset('drupal_html_id');
 
     // Clean up IDs with invalid starting characters.
     $this->assertIdentical(drupal_html_id('test-unique-id'), 'test-unique-id', t('Test the uniqueness of IDs #1.'));
-    $this->assertIdentical(drupal_html_id('test-unique-id'), 'test-unique-id-2', t('Test the uniqueness of IDs #2.'));
-    $this->assertIdentical(drupal_html_id('test-unique-id'), 'test-unique-id-3', t('Test the uniqueness of IDs #3.'));
+    $this->assertIdentical(drupal_html_id('test-unique-id'), 'test-unique-id--2', t('Test the uniqueness of IDs #2.'));
+    $this->assertIdentical(drupal_html_id('test-unique-id'), 'test-unique-id--3', t('Test the uniqueness of IDs #3.'));
   }
 }
 
@@ -1149,6 +1156,7 @@ class JavaScriptTestCase extends DrupalWebTestCase {
     drupal_add_js('(function($){alert("Weight -8 #1");})(jQuery);', array('type' => 'inline', 'scope' => 'footer', 'weight' => -8));
     drupal_add_js('(function($){alert("Weight -8 #2");})(jQuery);', array('type' => 'inline', 'scope' => 'footer', 'weight' => -8));
     drupal_add_js('(function($){alert("Weight -8 #3");})(jQuery);', array('type' => 'inline', 'scope' => 'footer', 'weight' => -8));
+    drupal_add_js('http://example.com/example.js?Weight -5 #1', array('type' => 'external', 'scope' => 'footer', 'weight' => -5));
     drupal_add_js('(function($){alert("Weight -8 #4");})(jQuery);', array('type' => 'inline', 'scope' => 'footer', 'weight' => -8));
     drupal_add_js('(function($){alert("Weight 5 #2");})(jQuery);', array('type' => 'inline', 'scope' => 'footer', 'weight' => 5));
     drupal_add_js('(function($){alert("Weight 0 #3");})(jQuery);', array('type' => 'inline', 'scope' => 'footer'));
@@ -1159,6 +1167,7 @@ class JavaScriptTestCase extends DrupalWebTestCase {
       "-8 #2",
       "-8 #3",
       "-8 #4",
+      "-5 #1", // The external script.
       "0 #1",
       "0 #2",
       "0 #3",
@@ -1766,6 +1775,8 @@ class FormatDateUnitTest extends DrupalWebTestCase {
     $user = user_load($test_user->uid, TRUE);
     $real_language = $language->language;
     $language->language = $user->language;
+    // Simulate a Drupal bootstrap with the logged-in user.
+    date_default_timezone_set(drupal_get_user_timezone());
 
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'America/Los_Angeles', 'en'), 'Sunday, 25-Mar-07 17:00:00 PDT', t('Test a different language.'));
     $this->assertIdentical(format_date($timestamp, 'custom', 'l, d-M-y H:i:s T', 'Europe/London'), 'Monday, 26-Mar-07 01:00:00 BST', t('Test a different time zone.'));
@@ -1778,6 +1789,8 @@ class FormatDateUnitTest extends DrupalWebTestCase {
     // Restore the original user and language, and enable session saving.
     $user = $real_user;
     $language->language = $real_language;
+    // Restore default time zone.
+    date_default_timezone_set(drupal_get_user_timezone());
     drupal_save_session(TRUE);
   }
 }
@@ -1876,5 +1889,37 @@ class DrupalJSONTest extends DrupalUnitTestCase {
     $json_decoded = drupal_json_decode($json);
     $this->assertNotIdentical($source, $json, t('An array encoded in JSON is not identical to the source.'));
     $this->assertIdentical($source, $json_decoded, t('Encoding structured data to JSON and decoding back results in the original data.'));
+  }
+}
+
+/**
+ * Tests for RDF namespaces XML serialization.
+ */
+class DrupalGetRdfNamespacesTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'RDF namespaces XML serialization tests',
+      'description' => 'Confirm that the serialization of RDF namespaces via drupal_get_rdf_namespaces() is output and parsed correctly in the XHTML document.',
+      'group' => 'System',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('rdf', 'rdf_test');
+  }
+
+  /**
+   * Test RDF namespaces.
+   */
+  function testGetRdfNamespaces() {
+    // Fetches the front page and extracts XML namespaces.
+    $this->drupalGet('');
+    $xml = new SimpleXMLElement($this->content);
+    $ns = $xml->getDocNamespaces();
+
+    $this->assertEqual($ns['owl'], 'http://www.w3.org/2002/07/owl#', t('A prefix declared once is displayed.'));
+    $this->assertEqual($ns['foaf'], 'http://xmlns.com/foaf/0.1/', t('The same prefix declared in several implementations of hook_rdf_namespaces() is valid as long as all the namespaces are the same.'));
+    $this->assertEqual($ns['foaf1'], 'http://xmlns.com/foaf/0.1/', t('Two prefixes can be assigned the same namespace.'));
+    $this->assertTrue(!isset($ns['dc']), t('A prefix with conflicting namespaces is discarded.'));
   }
 }

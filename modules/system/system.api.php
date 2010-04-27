@@ -1,5 +1,5 @@
 <?php
-// $Id: system.api.php,v 1.142 2010/03/11 21:23:06 dries Exp $
+// $Id: system.api.php,v 1.157 2010/04/26 14:33:54 dries Exp $
 
 /**
  * @file
@@ -64,41 +64,46 @@ function hook_hook_info() {
  *     entity type's base table.
  *   - static cache: (used by DrupalDefaultEntityController) FALSE to disable
  *     static caching of entities during a page request. Defaults to TRUE.
+ *   - field cache: (used by Field API loading and saving of field data) FALSE
+ *     to disable Field API's persistent cache of field data. Only recommended
+ *     if a higher level persistent cache is available for the entity type.
+ *     Defaults to TRUE.
  *   - load hook: The name of the hook which should be invoked by
  *     DrupalDefaultEntityController:attachLoad(), for example 'node_load'.
  *   - uri callback: A function taking an entity as argument and returning the
  *     uri elements of the entity, e.g. 'path' and 'options'. The actual entity
  *     uri can be constructed by passing these elements to url().
  *   - fieldable: Set to TRUE if you want your entity type to be fieldable.
- *   - object keys: An array describing how the Field API can extract the
+ *   - entity keys: An array describing how the Field API can extract the
  *     information it needs from the objects of the type. Elements:
  *     - id: The name of the property that contains the primary id of the
- *       object. Every object passed to the Field API must have this property
- *       and its value must be numeric.
+ *       entity. Every entity object passed to the Field API must have this
+ *       property and its value must be numeric.
  *     - revision: The name of the property that contains the revision id of
- *       the object. The Field API assumes that all revision ids are unique
- *       across all objects of a type.
- *       This element can be omitted if the objects of this type are not
- *       versionable.
+ *       the entity. The Field API assumes that all revision ids are unique
+ *       across all entities of a type. This entry can be omitted if the
+ *       entities of this type are not versionable.
  *     - bundle: The name of the property that contains the bundle name for the
- *       object. The bundle name defines which set of fields are attached to
- *       the object (e.g. what nodes call "content type").
- *       This element can be omitted if this type has no bundles (all objects
- *       have the same fields).
+ *       entity. The bundle name defines which set of fields are attached to
+ *       the entity (e.g. what nodes call "content type"). This entry can be
+ *       omitted if this entity type exposes a single bundle (all entities have
+ *       the same collection of fields). The name of this single bundle will be
+ *       the same as the entity type.
  *   - bundle keys: An array describing how the Field API can extract the
  *     information it needs from the bundle objects for this type (e.g
- *     $vocabulary objects for terms; not applicable for nodes).
- *     This element can be omitted if this type's bundles do not exist as
- *     standalone objects. Elements:
+ *     $vocabulary objects for terms; not applicable for nodes). This entry can
+ *     be omitted if this type's bundles do not exist as standalone objects.
+ *     Elements:
  *     - bundle: The name of the property that contains the name of the bundle
  *       object.
- *   - cacheable: A boolean indicating whether Field API should cache
- *     loaded fields for each object, reducing the cost of
- *     field_attach_load().
- *   - bundles: An array describing all bundles for this object type.
- *     Keys are bundles machine names, as found in the objects' 'bundle'
- *     property (defined in the 'object keys' entry above). Elements:
+ *   - bundles: An array describing all bundles for this object type. Keys are
+ *     bundles machine names, as found in the objects' 'bundle' property
+ *     (defined in the 'entity keys' entry above). Elements:
  *     - label: The human-readable name of the bundle.
+ *     - uri callback: Same as the 'uri callback' key documented above for the
+ *       entity type, but for the bundle only. When determining the URI of an
+ *       entity, if a 'uri callback' is defined for both the entity type and
+ *       the bundle, the one for the bundle is used.
  *     - admin: An array of information that allows Field UI pages to attach
  *       themselves to the existing administration pages for the bundle.
  *       Elements:
@@ -131,7 +136,7 @@ function hook_entity_info() {
       'revision table' => 'node_revision',
       'path callback' => 'node_path',
       'fieldable' => TRUE,
-      'object keys' => array(
+      'entity keys' => array(
         'id' => 'nid',
         'revision' => 'vid',
         'bundle' => 'type',
@@ -139,8 +144,6 @@ function hook_entity_info() {
       'bundle keys' => array(
         'bundle' => 'type',
       ),
-      // Node.module handles its own caching.
-      // 'cacheable' => FALSE,
       'bundles' => array(),
       'view modes' => array(
         'full' => array(
@@ -396,13 +399,14 @@ function hook_cron_queue_info() {
 /**
  * Alter cron queue information before cron runs.
  *
- * Called by drupal_run_cron() to allow modules to alter cron queue settings
+ * Called by drupal_cron_run() to allow modules to alter cron queue settings
  * before any jobs are processesed.
  *
  * @param array $queues
  *   An array of cron queue information.
  *
  *  @see hook_cron_queue_info()
+ *  @see drupal_cron_run()
  */
 function hook_cron_queue_info_alter(&$queues) {
   // This site has many feeds so let's spend 90 seconds on each cron run
@@ -503,6 +507,7 @@ function hook_exit($destination = NULL) {
  *
  * @param $javascript
  *   An array of all JavaScript being presented on the page.
+ *
  * @see drupal_add_js()
  * @see drupal_get_js()
  * @see drupal_js_defaults()
@@ -622,6 +627,7 @@ function hook_library_alter(&$libraries, $module) {
  *
  * @param $css
  *   An array of all CSS items (files and inline CSS) being requested on the page.
+ *
  * @see drupal_add_css()
  * @see drupal_get_css()
  */
@@ -635,6 +641,7 @@ function hook_css_alter(&$css) {
  *
  * @param $commands
  *   An array of all commands that will be sent to the user.
+ *
  * @see ajax_render()
  */
 function hook_ajax_render_alter($commands) {
@@ -778,7 +785,7 @@ function hook_form_alter(&$form, &$form_state, $form_id) {
  * @param $form_state
  *   A keyed array containing the current state of the form.
  *
- * @see drupal_prepare_form().
+ * @see drupal_prepare_form()
  */
 function hook_form_FORM_ID_alter(&$form, &$form_state) {
   // Modification for the form with the given form ID goes here. For example, if
@@ -977,6 +984,32 @@ function hook_mail_alter(&$message) {
 }
 
 /**
+ * Alter the registry of modules implementing a hook.
+ *
+ * This hook is invoked during module_implements(). A module may implement this
+ * hook in order to reorder the implementing modules, which are otherwise
+ * ordered by the module's system weight.
+ *
+ * @param &$implementations
+ *   An array keyed by the module's name. The value of each item corresponds
+ *   to a $group, which is usually FALSE, unless the implementation is in a
+ *   file named $module.$group.inc.
+ * @param $hook
+ *   The name of the module hook being implemented.
+ */
+function hook_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'rdf_mapping') {
+    // Move my_module_rdf_mapping() to the end of the list. module_implements()
+    // iterates through $implementations with a foreach loop which PHP iterates
+    // in the order that the items were added, so to move an item to the end of
+    // the array, we remove it and then add it.
+    $group = $implementations['my_module'];
+    unset($implementations['my_module']);
+    $implementations['my_module'] = $group;
+  }
+}
+
+/**
  * Alter the information parsed from module and theme .info files
  *
  * This hook is invoked in _system_rebuild_module_data() and in
@@ -1012,13 +1045,22 @@ function hook_system_info_alter(&$info, $file, $type) {
  * For a detailed usage example, see page_example.module.
  *
  * @return
- *   An array of which permission names are the keys and their corresponding
- *   values are descriptions of each permission.
- *   The permission names (keys of the array) must not be wrapped with
- *   the t() function, since the string extractor takes care of
- *   extracting permission names defined in the perm hook for
- *   translation. The permission descriptions (values of the array)
- *   should be wrapped in the t() function so they can be translated.
+ *   An array whose keys are permission names and whose corresponding values
+ *   are arrays containing the following key-value pairs:
+ *   - title: The human-readable name of the permission, to be shown on the
+ *     permission administration page. This should be wrapped in the t()
+ *     function so it can be translated.
+ *   - description: (optional) A description of what the permission does. This
+ *     should be wrapped in the t() function so it can be translated.
+ *   - restrict access: (optional) A boolean which can be set to TRUE to
+ *     indicate that site administrators should restrict access to this
+ *     permission to trusted users. This should be used for permissions that
+ *     have inherent security risks across a variety of potential use cases
+ *     (for example, the "administer filters" and "bypass node access"
+ *     permissions provided by Drupal core). When set to TRUE, a standard
+ *     warning message defined in user_admin_permissions() will be associated
+ *     with the permission and displayed with it on the permission
+ *     administration page. Defaults to FALSE.
  */
 function hook_permission() {
   return array(
@@ -1413,7 +1455,7 @@ function hook_mail($key, &$message, $params) {
     '%username' => format_username($account),
   );
   if ($context['hook'] == 'taxonomy') {
-    $entity = $params['object'];
+    $entity = $params['entity'];
     $vocabulary = taxonomy_vocabulary_load($entity->vid);
     $variables += array(
       '%term_name' => $entity->name,
@@ -1724,11 +1766,11 @@ function hook_file_move($file, $source) {
  * @see upload_file_references()
  */
 function hook_file_references($file) {
-  // If upload.module is still using a file, do not let other modules delete it.
-  $file_used = (bool) db_query_range('SELECT 1 FROM {upload} WHERE fid = :fid', 0, 1, array(':fid' => $file->fid))->fetchField();
+  // If user.module is still using a file, do not let other modules delete it.
+  $file_used = (bool) db_query_range('SELECT 1 FROM {user} WHERE pictire = :fid', 0, 1, array(':fid' => $file->fid))->fetchField();
   if ($file_used) {
     // Return the name of the module and how many references it has to the file.
-    return array('upload' => $count);
+    return array('user' => 1);
   }
 }
 
@@ -1769,7 +1811,7 @@ function hook_file_download($uri) {
   if (!file_prepare_directory($uri)) {
     $uri = FALSE;
   }
-  $result = db_query("SELECT f.* FROM {file} f INNER JOIN {upload} u ON f.fid = u.fid WHERE uri = :uri", array('uri' => $uri));
+  $result = db_query("SELECT f.* FROM {file_managed} f INNER JOIN {upload} u ON f.fid = u.fid WHERE uri = :uri", array('uri' => $uri));
   foreach ($result as $file) {
     if (!user_access('view uploaded files')) {
       return -1;
@@ -2730,7 +2772,7 @@ function hook_actions_delete($aid) {
  * Called by actions_list() to allow modules to alter the return values from
  * implementations of hook_action_info().
  *
- * @see trigger_example_action_info_alter().
+ * @see trigger_example_action_info_alter()
  */
 function hook_action_info_alter(&$actions) {
   $actions['node_unpublish_action']['label'] = t('Unpublish and remove from public view.');
@@ -3179,6 +3221,34 @@ function hook_token_info() {
 }
 
 /**
+ * Alter batch information before a batch is processed.
+ *
+ * Called by batch_process() to allow modules to alter a batch before it is
+ * processed.
+ *
+ * @param $batch
+ *   The associative array of batch information. See batch_set() for details on
+ *   what this could contain.
+ *
+ * @see batch_set()
+ * @see batch_process()
+ *
+ * @ingroup batch
+ */
+function hook_batch_alter(&$batch) {
+  // If the current page request is inside the overlay, add ?render=overlay to
+  // the success callback URL, so that it appears correctly within the overlay.
+  if (overlay_get_mode() == 'child') {
+    if (isset($batch['url_options']['query'])) {
+      $batch['url_options']['query']['render'] = 'overlay';
+    }
+    else {
+      $batch['url_options']['query'] = array('render' => 'overlay');
+    }
+  }
+}
+
+/**
  * Alter the metadata about available placeholder tokens and token types.
  *
  * @param $data
@@ -3215,9 +3285,56 @@ function hook_token_info_alter(&$data) {
  * @see _country_get_predefined_list()
  */
 function hook_countries_alter(&$countries) {
-  // Quebec has seceded from Canada. Add to country list.
-  $countries['QC'] = 'Quebec';
+  // Elbonia is now independent, so add it to the country list.
+  $countries['EB'] = 'Elbonia';
 }
+
+/**
+ * Provide information on available file transfer backends.
+ *
+ * File transfer backends are used by modules to transfer files from remote
+ * locations to Drupal sites. For instance, update.module uses a file transfer
+ * backend to download new versions of modules and themes from drupal.org.
+ *
+ * @return
+ *   An associative array of information about the file transfer backend(s).
+ *   being provided. This array can contain the following keys:
+ *   - title: Title of the backend to be shown to the end user.
+ *   - class: Name of the PHP class which implements this backend.
+ *   - settings_form: An optional callback function that provides additional
+ *     configuration information required by this backend (for instance a port
+ *     number.)
+ *   - weight: Controls what order the backends are presented to the user.
+ *
+ * @see authorize.php
+ * @see FileTransfer
+ */
+function hook_filetransfer_backends() {
+  $backends = array();
+
+  // This is the default, will be available on most systems.
+  if (function_exists('ftp_connect')) {
+    $backends['ftp'] = array(
+      'title' => t('FTP'),
+      'class' => 'FileTransferFTP',
+      'settings_form' => 'system_filetransfer_backend_form_ftp',
+      'weight' => 0,
+    );
+  }
+
+  // SSH2 lib connection is only available if the proper PHP extension is
+  // installed.
+  if (function_exists('ssh2_connect')) {
+    $backends['ssh'] = array(
+      'title' => t('SSH'),
+      'class' => 'FileTransferSSH',
+      'settings_form' => 'system_filetransfer_backend_form_ssh',
+      'weight' => 20,
+    );
+  }
+  return $backends;
+}
+
 /**
  * @} End of "addtogroup hooks".
  */

@@ -1,5 +1,5 @@
 <?php
-// $Id: form_test.module,v 1.30 2010/03/07 07:49:26 webchick Exp $
+// $Id: form_test.module,v 1.37 2010/04/11 19:00:27 dries Exp $
 
 /**
  * @file
@@ -117,6 +117,26 @@ function form_test_menu() {
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
+
+  $items['form-test/clicked-button'] = array(
+    'title' => 'Clicked button test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_test_clicked_button'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  if (module_exists('node')) {
+    $items['form-test/two-instances-of-same-form'] = array(
+      'title' => 'AJAX test with two form instances',
+      'page callback' => 'form_test_two_instances',
+      'access callback' => 'node_access',
+      'access arguments' => array('create', 'page'),
+      'file path' => drupal_get_path('module', 'node'),
+      'file' => 'node.pages.inc',
+      'type' => MENU_CALLBACK,
+    );
+  }
 
   return $items;
 }
@@ -378,7 +398,7 @@ function _form_test_tableselect_js_select_form($form, $form_state, $action) {
  * request parameter "cache" the form can be tested with caching enabled, as
  * it would be the case, if the form would contain some #ajax callbacks.
  *
- * @see form_test_storage_form_submit().
+ * @see form_test_storage_form_submit()
  */
 function form_test_storage_form($form, &$form_state) {
   if ($form_state['rebuild']) {
@@ -488,10 +508,10 @@ function form_test_storage_form_submit($form, &$form_state) {
   $form_state['redirect'] = 'node';
 }
 
- /**
+/**
  * A form for testing form labels and required marks.
  */
-function form_label_test_form(&$form_state) {
+function form_label_test_form() {
   $form['form_checkboxes_test'] = array(
     '#type' => 'checkboxes',
     '#title' => t('Checkboxes test'),
@@ -535,6 +555,11 @@ function form_label_test_form(&$form_state) {
     '#type' => 'textfield',
     '#title' => t('Textfield test for title after element'),
     '#title_display' => 'after',
+  );
+  $form['form_textfield_test_title_invisible'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Textfield test for invisible title'),
+    '#title_display' => 'invisible',
   );
   // Textfield test for title set not to display
   $form['form_textfield_test_title_no_show'] = array(
@@ -681,6 +706,7 @@ function _form_test_disabled_elements($form, &$form_state) {
       '#type' => $type,
       '#title' => $type,
       '#default_value' => $type,
+      '#test_hijack_value' => 'HIJACK',
       '#disabled' => TRUE,
     );
   }
@@ -696,6 +722,9 @@ function _form_test_disabled_elements($form, &$form_state) {
       ),
       '#multiple' => TRUE,
       '#default_value' => array('test_2' => 'test_2'),
+      // The keys of #test_hijack_value need to match the #name of the control.
+      // @see FormsTestCase::testDisabledElements()
+      '#test_hijack_value' => $type == 'select' ? array('' => 'test_1') : array('test_1' => 'test_1'),
       '#disabled' => TRUE,
     );
   }
@@ -711,6 +740,7 @@ function _form_test_disabled_elements($form, &$form_state) {
       ),
       '#multiple' => FALSE,
       '#default_value' => 'test_2',
+      '#test_hijack_value' => 'test_1',
       '#disabled' => TRUE,
     );
   }
@@ -722,6 +752,7 @@ function _form_test_disabled_elements($form, &$form_state) {
       '#title' => $type . ' (unchecked)',
       '#return_value' => 1,
       '#default_value' => 0,
+      '#test_hijack_value' => 1,
       '#disabled' => TRUE,
     );
     $form[$type . '_checked'] = array(
@@ -729,6 +760,7 @@ function _form_test_disabled_elements($form, &$form_state) {
       '#title' => $type . ' (checked)',
       '#return_value' => 1,
       '#default_value' => 1,
+      '#test_hijack_value' => NULL,
       '#disabled' => TRUE,
     );
   }
@@ -738,6 +770,7 @@ function _form_test_disabled_elements($form, &$form_state) {
     '#type' => 'weight',
     '#title' => 'weight',
     '#default_value' => 10,
+    '#test_hijack_value' => 5,
     '#disabled' => TRUE,
   );
 
@@ -750,6 +783,11 @@ function _form_test_disabled_elements($form, &$form_state) {
       'day' => 19,
       'month' => 11,
       'year' => 1978,
+    ),
+    '#test_hijack_value' => array(
+      'day' => 20,
+      'month' => 12,
+      'year' => 1979,
     ),
   );
 
@@ -921,4 +959,126 @@ function form_test_programmatic_form_validate($form, &$form_state) {
  */
 function form_test_programmatic_form_submit($form, &$form_state) {
   $form_state['storage']['programmatic_form_submit'] = $form_state['values']['submitted_field'];
+}
+
+/**
+ * Form builder to test button click detection.
+ */
+function form_test_clicked_button($form, &$form_state) {
+  // A single text field. In IE, when a form has only one non-button input field
+  // and the ENTER key is pressed while that field has focus, the form is
+  // submitted without any information identifying the button responsible for
+  // the submission. In other browsers, the form is submitted as though the
+  // first button were clicked.
+  $form['text'] = array(
+    '#title' => 'Text',
+    '#type' => 'textfield',
+  );
+
+  // Loop through each path argument, addding buttons based on the information
+  // in the argument. For example, if the path is
+  // form-test/clicked-button/s/i/rb, then 3 buttons are added: a 'submit', an
+  // 'image_button', and a 'button' with #access=FALSE. This enables form.test
+  // to test a variety of combinations.
+  $i=0;
+  $args = array_slice(arg(), 2);
+  foreach ($args as $arg) {
+    $name = 'button' . ++$i;
+    // 's', 'b', or 'i' in the argument define the button type wanted.
+    if (strpos($arg, 's') !== FALSE) {
+      $type = 'submit';
+    }
+    elseif (strpos($arg, 'b') !== FALSE) {
+      $type = 'button';
+    }
+    elseif (strpos($arg, 'i') !== FALSE) {
+      $type = 'image_button';
+    }
+    else {
+      $type = NULL;
+    }
+    if (isset($type)) {
+      $form[$name] = array(
+        '#type' => $type,
+        '#name' => $name,
+      );
+      // Image buttons need a #src; the others need a #value.
+      if ($type == 'image_button') {
+        $form[$name]['#src'] = 'misc/druplicon.png';
+      }
+      else {
+        $form[$name]['#value'] = $name;
+      }
+      // 'r' for restricted, so we can test that button click detection code
+      // correctly takes #access security into account.
+      if (strpos($arg, 'r') !== FALSE) {
+        $form[$name]['#access'] = FALSE;
+      }
+    }
+  }
+
+  return $form;
+}
+
+/**
+ * Form validation handler for the form_test_clicked_button() form.
+ */
+function form_test_clicked_button_validate($form, &$form_state) {
+  if (isset($form_state['clicked_button'])) {
+    drupal_set_message(t('The clicked button is %name.', array('%name' => $form_state['clicked_button']['#name'])));
+  }
+  else {
+    drupal_set_message('There is no clicked button.');
+  }
+}
+
+/**
+ * Form submit handler for the form_test_clicked_button() form.
+ */
+function form_test_clicked_button_submit($form, &$form_state) {
+  drupal_set_message('Submit handler for form_test_clicked_button executed.');
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter() for the registration form.
+ */
+function form_test_form_user_register_form_alter(&$form, &$form_state) {
+  $form['test_rebuild'] = array(
+    '#type' => 'submit',
+    '#value' => t('Rebuild'),
+    '#submit' => array('form_test_user_register_form_rebuild'),
+  );
+  // If requested, add the test field by attaching the node page form.
+  if (!empty($_REQUEST['field'])) {
+    $node = (object)array('type' => 'page');
+    field_attach_form('node', $node, $form, $form_state);
+    // The form API requires the builder function to set rebuilding, so do so.
+    $form['#builder_function'] = 'form_test_user_register_form_rebuild';
+  }
+}
+
+/**
+ * Submit callback that just lets the form rebuild.
+ */
+function form_test_user_register_form_rebuild($form, &$form_state) {
+  drupal_set_message('Form rebuilt.');
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Menu callback that returns two instances of the node form.
+ */
+function form_test_two_instances() {
+  global $user;
+  $node1 = (object) array(
+    'uid' => $user->uid,
+    'name' => (isset($user->name) ? $user->name : ''),
+    'type' => 'page',
+    'language' => LANGUAGE_NONE,
+  );
+  $node2 = clone($node1);
+  $return['node_form_1'] = drupal_get_form('page_node_form', $node1);
+  $return['node_form_2'] = drupal_get_form('page_node_form', $node2);
+  return $return;
 }

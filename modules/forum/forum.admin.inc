@@ -1,5 +1,5 @@
 <?php
-// $Id: forum.admin.inc,v 1.30 2010/03/10 17:59:00 webchick Exp $
+// $Id: forum.admin.inc,v 1.33 2010/04/24 14:49:13 dries Exp $
 
 /**
  * @file
@@ -55,7 +55,7 @@ function forum_form_forum($form, &$form_state, $edit = array()) {
   );
 
   $form['vid'] = array('#type' => 'hidden', '#value' => variable_get('forum_nav_vocabulary', ''));
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit' ] = array('#type' => 'submit', '#value' => t('Save'));
   if ($edit['tid']) {
     $form['actions']['delete'] = array('#type' => 'submit', '#value' => t('Delete'));
@@ -93,6 +93,8 @@ function forum_form_submit($form, &$form_state) {
       break;
     case SAVED_UPDATED:
       drupal_set_message(t('The @type %term has been updated.', array('%term' => $form_state['values']['name'], '@type' => $type)));
+      // Clear the page and block caches to avoid stale data.
+      cache_clear_all();
       break;
   }
   $form_state['redirect'] = 'admin/structure/forum';
@@ -100,14 +102,15 @@ function forum_form_submit($form, &$form_state) {
 }
 
 /**
- * Theme forum forms.
+ * Returns HTML for a forum form.
  *
  * By default this does not alter the appearance of a form at all,
  * but is provided as a convenience for themers.
  *
  * @param $variables
  *   An associative array containing:
- *   - form: An associative array containing the structure of the form.
+ *   - form: A render element representing the form.
+ *
  * @ingroup themeable
  */
 function theme_forum_form($variables) {
@@ -157,7 +160,7 @@ function forum_form_container($form, &$form_state, $edit = array()) {
     '#type' => 'hidden',
     '#value' => variable_get('forum_nav_vocabulary', ''),
   );
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save')

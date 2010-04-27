@@ -1,5 +1,5 @@
 <?php
-// $Id: rdf.module,v 1.31 2010/03/10 14:23:32 dries Exp $
+// $Id: rdf.module,v 1.39 2010/04/22 21:41:09 webchick Exp $
 
 /**
  * @file
@@ -77,7 +77,6 @@ define('RDF_DEFAULT_BUNDLE', '');
  */
 function rdf_rdf_namespaces() {
   return array(
-    'admin'    => 'http://webns.net/mvcb/',
     'content'  => 'http://purl.org/rss/1.0/modules/content/',
     'dc'       => 'http://purl.org/dc/terms/',
     'foaf'     => 'http://xmlns.com/foaf/0.1/',
@@ -85,13 +84,37 @@ function rdf_rdf_namespaces() {
     'rdf'      => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
     'rdfs'     => 'http://www.w3.org/2000/01/rdf-schema#',
     'rss'      => 'http://purl.org/rss/1.0/',
-    'tags'     => 'http://www.holygoat.co.uk/owl/redwood/0.1/tags/',
     'sioc'     => 'http://rdfs.org/sioc/ns#',
     'sioct'    => 'http://rdfs.org/sioc/types#',
-    'ctag'     => 'http://commontag.org/ns#',
     'skos'     => 'http://www.w3.org/2004/02/skos/core#',
     'xsd'      => 'http://www.w3.org/2001/XMLSchema#',
   );
+}
+
+/**
+ * Returns an array of RDF namespaces defined via hook_rdf_namespaces().
+ */
+function rdf_get_namespaces() {
+  $rdf_namespaces = module_invoke_all('rdf_namespaces');
+  // module_invoke_all() uses array_merge_recursive() which might return nested
+  // arrays if several modules redefine the same prefix multiple times.
+  // We need to ensure the array of namespaces is flat and only contains
+  // strings as URIs.
+  foreach ($rdf_namespaces as $prefix => $uri) {
+    if (is_array($uri)) {
+      if (count(array_unique($uri)) == 1) {
+        // All namespaces declared for this prefix are the same, merge them all
+        // into a single namespace.
+        $rdf_namespaces[$prefix] = $uri[0];
+      }
+      else {
+        // There are conflicting namespaces for this prefix, do not include it
+        // in order to avoid asserting any inaccurate RDF statement.
+        unset($rdf_namespaces[$prefix]);
+      }
+    }
+  }
+  return $rdf_namespaces;
 }
 
 /**
@@ -409,8 +432,8 @@ function rdf_theme() {
 function rdf_process(&$variables, $hook) {
   // Handles attributes needed for content not covered by title, content,
   // and field items. Does this by adjusting the variable sent to the template
-  // so that the template doesn't have to worry about it.
-  // @see theme_rdf_template_variable_wrapper()
+  // so that the template doesn't have to worry about it. See 
+  // theme_rdf_template_variable_wrapper().
   if (!empty($variables['rdf_template_variable_attributes_array'])) {
     foreach ($variables['rdf_template_variable_attributes_array'] as $variable_name => $attributes) {
       $context = array(
@@ -439,7 +462,7 @@ function rdf_process(&$variables, $hook) {
 function rdf_preprocess_node(&$variables) {
   // Adds RDFa markup to the node container. The about attribute specifies the
   // URI of the resource described within the HTML element, while the typeof
-  // attribute indicates its RDF type (foaf:Document, or sioc:User, etc.).
+  // attribute indicates its RDF type (foaf:Document, or sioc:Person, etc.).
   $variables['attributes_array']['about'] = empty($variables['node_url']) ? NULL: $variables['node_url'];
   $variables['attributes_array']['typeof'] = empty($variables['node']->rdf_mapping['rdftype']) ? NULL : $variables['node']->rdf_mapping['rdftype'];
 
@@ -456,7 +479,7 @@ function rdf_preprocess_node(&$variables) {
     $element = array(
       '#tag' => 'meta',
       '#attributes' => array(
-        'content' => $variables['node_title'],
+        'content' => $variables['title'],
         'about' => $variables['node_url'],
       ),
     );
@@ -483,6 +506,12 @@ function rdf_preprocess_node(&$variables) {
       $comment_count_attributes['property'] = $variables['node']->rdf_mapping['comment_count']['predicates'];
       $comment_count_attributes['content'] = $variables['node']->comment_count;
       $comment_count_attributes['datatype'] = $variables['node']->rdf_mapping['comment_count']['datatype'];
+      // According to RDFa parsing rule number 4, a new subject URI is created
+      // from the href attribute if no rel/rev attribute is present. To get
+      // the original node URL from the about attribute of the parent container
+      // we set an empty rel attribute which triggers rule number 5. See
+      // http://www.w3.org/TR/rdfa-syntax/#sec_5.5.
+      $comment_count_attributes['rel'] = '';
       $variables['content']['links']['comment']['#links']['comment_comments']['attributes'] += $comment_count_attributes;
     }
     // In full node view, the number of comments is not displayed by
@@ -507,7 +536,7 @@ function rdf_preprocess_node(&$variables) {
  */
 function rdf_preprocess_field(&$variables) {
   $element = $variables['element'];
-  $mapping = rdf_mapping_load($element['#object_type'], $element['#bundle']);
+  $mapping = rdf_mapping_load($element['#entity_type'], $element['#bundle']);
   $field_name = $element['#field_name'];
 
   if (!empty($mapping) && !empty($mapping[$field_name])) {
@@ -534,29 +563,31 @@ function rdf_preprocess_field(&$variables) {
  * Implements MODULE_preprocess_HOOK().
  */
 function rdf_preprocess_user_profile(&$variables) {
-  // Adds RDFa markup to the user profile page. Fields displayed in this page
-  // will automatically describe the user.
   $account = $variables['elements']['#account'];
+  $uri = entity_uri('user', $account);
+
+  // Adds RDFa markup to the user profile page. Fields displayed in this page
+  // will automatically describe the user.  
   if (!empty($account->rdf_mapping['rdftype'])) {
     $variables['attributes_array']['typeof'] = $account->rdf_mapping['rdftype'];
-    $variables['attributes_array']['about'] = url('user/' . $account->uid);
+    $variables['attributes_array']['about'] = url($uri['path'], $uri['options']);
   }
-  // Adds the relationship between the sioc:User and the foaf:Person who holds
-  // the account.
+  // Adds the relationship between the sioc:UserAccount and the foaf:Person who
+  // holds the account.
   $account_holder_meta = array(
     '#tag' => 'meta',
     '#attributes' => array(
-      'about' => url('user/' . $account->uid, array('fragment' => 'me')),
+      'about' => url($uri['path'], array_merge($uri['options'], array('fragment' => 'me'))),
       'typeof' => array('foaf:Person'),
       'rel' => array('foaf:account'),
-      'resource' => url('user/' . $account->uid),
+      'resource' => url($uri['path'], $uri['options']),
     ),
   );
   // Adds the markup for username.
   $username_meta = array(
     '#tag' => 'meta',
     '#attributes' => array(
-      'about' => url('user/' . $account->uid),
+      'about' => url($uri['path'], $uri['options']),
       'property' => $account->rdf_mapping['name']['predicates'],
       'content' => $account->name,
     )
@@ -629,7 +660,8 @@ function rdf_preprocess_comment(&$variables) {
     // Adds RDFa markup to the comment container. The about attribute specifies
     // the URI of the resource described within the HTML element, while the
     // typeof attribute indicates its RDF type (e.g. sioc:Post, etc.).
-    $variables['attributes_array']['about'] = url('comment/' . $comment->cid, array('fragment' => 'comment-' . $comment->cid));
+    $uri = entity_uri('comment', $comment);
+    $variables['attributes_array']['about'] = url($uri['path'], $uri['options']);
     $variables['attributes_array']['typeof'] = $comment->rdf_mapping['rdftype'];
   }
 
@@ -715,7 +747,7 @@ function rdf_preprocess_image(&$variables) {
 }
 
 /**
- * Wraps a template variable in an HTML element with the desired attributes.
+ * Returns HTML for a template variable wrapped in an HTML element with the desired attributes.
  *
  * This is called by rdf_process() shortly before the theme system renders
  * a template file. It is called once for each template variable for which
@@ -725,6 +757,14 @@ function rdf_preprocess_image(&$variables) {
  * content (via the $content_attributes variable), additional template variables
  * that need containing attributes are routed through this function, allowing
  * the template file to receive properly wrapped variables.
+ *
+ * Tip for themers: if you're already outputting a wrapper element around a
+ * particular template variable in your template file and if you don't want
+ * an extra wrapper element, you can override this function to not wrap that
+ * variable and instead print the following inside your template file:
+ * @code
+ *   drupal_attributes($rdf_template_variable_attributes_array[$variable_name])
+ * @endcode
  *
  * @param $variables
  *   An associative array containing:
@@ -754,20 +794,7 @@ function rdf_preprocess_image(&$variables) {
  *     hook_preprocess_rdf_template_variable_wrapper() and set 'inline'
  *     accordingly.
  *
- * @return
- *   A string containing the wrapped content. The template receives the for its
- *   variable instead of the original content.
- *
- * Tip for themers: if you're already outputting a wrapper element around a
- * particular template variable in your template file and if you don't want
- * an extra wrapper element, you can override this function to not wrap that
- * variable and instead print the following inside your template file:
- * @code
- *   drupal_attributes($rdf_template_variable_attributes_array[$variable_name])
- * @endcode
- *
  * @see rdf_process()
- *
  * @ingroup themeable
  * @ingroup rdf
  */
@@ -781,7 +808,7 @@ function theme_rdf_template_variable_wrapper($variables) {
 }
 
 /**
- * Outputs a series of empty spans for exporting RDF metadata in RDFa.
+ * Returns HTML for a series of empty spans for exporting RDF metadata in RDFa.
  *
  * Sometimes it is useful to export data which is not semantically present in
  * the HTML output. For example, a hierarchy of comments is visible for a human
@@ -795,11 +822,7 @@ function theme_rdf_template_variable_wrapper($variables) {
  *     corresponds to its own set of attributes, and therefore, needs its own
  *     element.
  *
- * @return
- *   A string of HTML containing markup that can be understood by RDFa parsers.
- *
  * @see rdf_process()
- *
  * @ingroup themeable
  * @ingroup rdf
  */

@@ -1,5 +1,5 @@
 <?php
-// $Id: aggregator.admin.inc,v 1.50 2010/02/27 15:05:19 dries Exp $
+// $Id: aggregator.admin.inc,v 1.52 2010/04/24 14:49:13 dries Exp $
 
 /**
  * @file
@@ -109,13 +109,14 @@ function aggregator_form_feed($form, &$form_state, stdClass $feed = NULL) {
       '#description' => t('New feed items are automatically filed in the checked categories.'),
     );
   }
-  $form['submit'] = array(
+
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),
   );
-
   if (!empty($feed->fid)) {
-    $form['delete'] = array(
+    $form['actions']['delete'] = array(
       '#type' => 'submit',
       '#value' => t('Delete'),
     );
@@ -270,7 +271,8 @@ function aggregator_form_opml($form, &$form_state) {
       '#description' => t('New feed items are automatically filed in the checked categories.'),
     );
   }
-  $form['submit'] = array(
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Import')
   );
@@ -478,7 +480,7 @@ function aggregator_admin_form($form, $form_state) {
   // Implementing modules will expect an array at $form['modules'].
   $form['modules'] = array();
 
-  $form['actions'] = array('#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save configuration'),
@@ -488,7 +490,9 @@ function aggregator_admin_form($form, $form_state) {
 }
 
 function aggregator_admin_form_submit($form, &$form_state) {
-  $form_state['values']['aggregator_processors'] = array_filter($form_state['values']['aggregator_processors']);
+  if (isset($form_state['values']['aggregator_processors'])) {
+    $form_state['values']['aggregator_processors'] = array_filter($form_state['values']['aggregator_processors']);
+  }
   system_settings_form_submit($form, $form_state);
 }
 
@@ -510,10 +514,10 @@ function aggregator_form_category($form, &$form_state, $edit = array('title' => 
     '#title' => t('Description'),
     '#default_value' => $edit['description'],
   );
-  $form['submit'] = array('#type' => 'submit', '#value' => t('Save'));
-
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save'));
   if ($edit['cid']) {
-    $form['delete'] = array('#type' => 'submit', '#value' => t('Delete'));
+    $form['actions']['delete'] = array('#type' => 'submit', '#value' => t('Delete'));
     $form['cid'] = array('#type' => 'hidden', '#value' => $edit['cid']);
   }
 

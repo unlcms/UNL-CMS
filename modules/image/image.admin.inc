@@ -1,5 +1,5 @@
 <?php
-// $Id: image.admin.inc,v 1.17 2010/01/03 21:01:04 webchick Exp $
+// $Id: image.admin.inc,v 1.20 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -83,31 +83,36 @@ function image_style_form($form, &$form_state, $style) {
   $form['effects'] = array(
     '#theme' => 'image_style_effects',
   );
-  foreach ($style['effects'] as $ieid => $effect) {
-    $form['effects'][$ieid]['#weight'] = isset($form_state['input']['effects']) ? $form_state['input']['effects'][$ieid]['weight'] : NULL;
-    $form['effects'][$ieid]['label'] = array(
+  foreach ($style['effects'] as $key => $effect) {
+    $form['effects'][$key]['#weight'] = isset($form_state['input']['effects']) ? $form_state['input']['effects'][$key]['weight'] : NULL;
+    $form['effects'][$key]['label'] = array(
       '#markup' => $effect['label'],
     );
-    $form['effects'][$ieid]['summary'] = array(
+    $form['effects'][$key]['summary'] = array(
       '#markup' => isset($effect['summary theme']) ? theme($effect['summary theme'], array('data' => $effect['data'])) : '',
     );
-    $form['effects'][$ieid]['weight'] = array(
+    $form['effects'][$key]['weight'] = array(
       '#type' => 'weight',
       '#default_value' => $effect['weight'],
       '#access' => $editable,
     );
-    $form['effects'][$ieid]['configure'] = array(
-      '#type' => 'link',
-      '#title' => t('edit'),
-      '#href' => 'admin/config/media/image-styles/edit/' . $style['name'] . '/effects/' . $effect['ieid'],
-      '#access' => $editable && isset($effect['form callback']),
-    );
-    $form['effects'][$ieid]['remove'] = array(
-      '#type' => 'link',
-      '#title' => t('delete'),
-      '#href' => 'admin/config/media/image-styles/edit/' . $style['name'] . '/effects/' . $effect['ieid'] . '/delete',
-      '#access' => $editable,
-    );
+
+    // Only attempt to display these fields for editable styles as the 'ieid'
+    // key is not set for styles defined in code.
+    if ($editable) {
+      $form['effects'][$key]['configure'] = array(
+        '#type' => 'link',
+        '#title' => t('edit'),
+        '#href' => 'admin/config/media/image-styles/edit/' . $style['name'] . '/effects/' . $effect['ieid'],
+        '#access' => $editable && isset($effect['form callback']),
+      );
+      $form['effects'][$key]['remove'] = array(
+        '#type' => 'link',
+        '#title' => t('delete'),
+        '#href' => 'admin/config/media/image-styles/edit/' . $style['name'] . '/effects/' . $effect['ieid'] . '/delete',
+        '#access' => $editable,
+      );
+    }
   }
 
   // Build the new image effect addition form and add it to the effect list.
@@ -136,14 +141,15 @@ function image_style_form($form, &$form_state, $style) {
   );
 
   // Show the Override or Submit button for this style.
-  $form['override'] = array(
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['override'] = array(
     '#type' => 'submit',
     '#value' => t('Override defaults'),
     '#validate' => array(),
     '#submit' => array('image_style_form_override_submit'),
     '#access' => !$editable,
   );
-  $form['submit'] = array(
+  $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Update style'),
     '#access' => $editable,
@@ -388,7 +394,7 @@ function image_effect_form($form, &$form_state, $style, $effect) {
     '#value' => isset($_GET['weight']) ? intval($_GET['weight']) : (isset($effect['weight']) ? $effect['weight'] : count($style['effects'])),
   );
 
-  $form['actions'] = array('#tree' => FALSE, '#type' => 'container', '#attributes' => array('class' => array('form-actions')));
+  $form['actions'] = array('#tree' => FALSE, '#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => isset($effect['ieid']) ? t('Update effect') : t('Add effect'),
@@ -623,7 +629,7 @@ function image_rotate_form($data) {
 }
 
 /**
- * Display the page containing the list of image styles.
+ * Returns HTML for the page containing the list of image styles.
  *
  * @param $variables
  *   An associative array containing:
@@ -674,11 +680,11 @@ function theme_image_style_list($variables) {
 }
 
 /**
- * Theme callback for listing the effects within a specific image style.
+ * Returns HTML for a listing of the effects within a specific image style.
  *
  * @param $variables
  *   An associative array containing:
- *   - form: An associative array containing the structure of the effects group.
+ *   - form: A render element representing the form.
  *
  * @ingroup themeable
  */
@@ -733,7 +739,7 @@ function theme_image_style_effects($variables) {
 }
 
 /**
- * Theme callback for displaying a preview of an image style.
+ * Returns HTML for a preview of an image style.
  *
  * @param $variables
  *   An associative array containing:
@@ -809,11 +815,11 @@ function theme_image_style_preview($variables) {
 }
 
 /**
- * Theme callback for displaying a grid of checkboxes.
+ * Returns HTML for a 3x3 grid of checkboxes for image anchors.
  *
  * @param $variables
  *   An associative array containing:
- *   - element: A Form API element containing radio buttons.
+ *   - element: A render element containing radio buttons.
  *
  * @ingroup themeable
  */
@@ -836,7 +842,7 @@ function theme_image_anchor($variables) {
 }
 
 /**
- * Theme callback for image resize effect summary output.
+ * Returns HTML for a summary of an image resize effect.
  *
  * @param $variables
  *   An associative array containing:
@@ -856,7 +862,7 @@ function theme_image_resize_summary($variables) {
 }
 
 /**
- * Theme callback for image scale effect summary output.
+ * Returns HTML for a summary of an image scale effect.
  *
  * @param $variables
  *   An associative array containing:
@@ -870,7 +876,7 @@ function theme_image_scale_summary($variables) {
 }
 
 /**
- * Theme callback for image crop effect summary output.
+ * Returns HTML for a summary of an image crop effect.
  *
  * @param $variables
  *   An associative array containing:
@@ -883,7 +889,7 @@ function theme_image_crop_summary($variables) {
 }
 
 /**
- * Theme callback for image rotate effect summary output.
+ * Returns HTML for a summary of an image rotate effect.
  *
  * @param $variables
  *   An associative array containing:

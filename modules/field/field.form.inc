@@ -1,5 +1,5 @@
 <?php
-// $Id: field.form.inc,v 1.43 2010/03/13 06:55:50 dries Exp $
+// $Id: field.form.inc,v 1.47 2010/04/13 15:23:02 dries Exp $
 
 /**
  * @file
@@ -50,7 +50,7 @@ function field_default_form($entity_type, $entity, $field, $instance, $langcode,
       $function = $instance['widget']['module'] . '_field_widget_form';
       if (function_exists($function)) {
         $element = array(
-          '#object_type' => $instance['object_type'],
+          '#entity_type' => $instance['entity_type'],
           '#bundle' => $instance['bundle'],
           '#field_name' => $field_name,
           '#language' => $langcode,
@@ -131,11 +131,6 @@ function field_default_form($entity_type, $entity, $field, $instance, $langcode,
  * - drag-n-drop value reordering
  */
 function field_multiple_value_form($field, $instance, $langcode, $items, &$form, &$form_state) {
-  // This form has its own multistep persistance.
-  if ($form_state['rebuild']) {
-    $form_state['input'] = array();
-  }
-
   $field_name = $field['field_name'];
 
   // Determine the number of widgets to display.
@@ -158,7 +153,7 @@ function field_multiple_value_form($field, $instance, $langcode, $items, &$form,
 
   $title = check_plain(t($instance['label']));
   $description = field_filter_xss(t($instance['description']));
-  $wrapper_id = drupal_html_class($field_name) . '-add-more-wrapper';
+  $wrapper_id = drupal_html_id($field_name . '-add-more-wrapper');
   $field_elements = array();
 
   $function = $instance['widget']['module'] . '_field_widget_form';
@@ -166,7 +161,7 @@ function field_multiple_value_form($field, $instance, $langcode, $items, &$form,
     for ($delta = 0; $delta <= $max; $delta++) {
       $multiple = $field['cardinality'] > 1 || $field['cardinality'] == FIELD_CARDINALITY_UNLIMITED;
       $element = array(
-        '#object_type' => $instance['object_type'],
+        '#entity_type' => $instance['entity_type'],
         '#bundle' => $instance['bundle'],
         '#field_name' => $field_name,
         '#language' => $langcode,
@@ -236,17 +231,23 @@ function field_multiple_value_form($field, $instance, $langcode, $items, &$form,
 }
 
 /**
- * Theme an individual form element.
+ * Returns HTML for an individual form element.
  *
  * Combine multiple values into a table with drag-n-drop reordering.
  * TODO : convert to a template.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - element: A render element representing the form element.
+ *
+ * @ingroup themeable
  */
 function theme_field_multiple_value_form($variables) {
   $element = $variables['element'];
   $output = '';
 
   if ($element['#cardinality'] > 1 || $element['#cardinality'] == FIELD_CARDINALITY_UNLIMITED) {
-    $table_id = $element['#field_name'] . '_values';
+    $table_id = drupal_html_id($element['#field_name'] . '_values');
     $order_class = $element['#field_name'] . '-delta-order';
     $required = !empty($element['#required']) ? '<span class="form-required" title="' . t('This field is required. ') . '">*</span>' : '';
 

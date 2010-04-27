@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.test,v 1.67 2010/03/21 04:17:02 webchick Exp $
+// $Id: locale.test,v 1.69 2010/03/31 20:05:06 dries Exp $
 
 /**
  * @file
@@ -1151,7 +1151,7 @@ class LanguageSwitchingFunctionalTest extends DrupalWebTestCase {
     $this->assertText(t('Languages'), t('Language switcher block found.'));
 
     // Assert that only the current language is marked as active.
-    list($language_switcher) = $this->xpath("//div[@id=\"block-locale-{$language_type}\"]/div[@class=\"content\"]");
+    list($language_switcher) = $this->xpath('//div[@id=:id]/div[@class="content"]', array(':id' => 'block-locale-' . $language_type));
     $links = array(
       'active' => array(),
       'inactive' => array(),
@@ -1270,7 +1270,7 @@ class LocaleUserLanguageFunctionalTest extends DrupalWebTestCase {
     // Ensure form was submitted successfully.
     $this->assertText(t('The changes have been saved.'), t('Changes were saved.'));
     // Check if language was changed.
-    $elements = $this->xpath('//input[@id="edit-language-' . $langcode . '"]');
+    $elements = $this->xpath('//input[@id=:id]', array(':id' => 'edit-language-' . $langcode));
     $this->assertTrue(isset($elements[0]) && !empty($elements[0]['checked']), t('Default language successfully updated.'));
 
     $this->drupalLogout();
@@ -1806,8 +1806,6 @@ class LocaleMultilingualFieldsFunctionalTest extends DrupalWebTestCase {
     locale_add_language('it', 'Italian', 'Italiano', LANGUAGE_LTR, '', '', TRUE, FALSE);
 
     // Set "Basic page" content type to use multilingual support.
-    $this->drupalGet('admin/structure/types/manage/page');
-    $this->assertText(t('Multilingual support'), t('Multilingual support fieldset present on content type configuration form.'));
     $edit = array(
       'language_content_type' => 1,
     );
@@ -1852,6 +1850,16 @@ class LocaleMultilingualFieldsFunctionalTest extends DrupalWebTestCase {
 
     $assert = isset($node->body['it']) && !isset($node->body['en']) && $node->body['it'][0]['value'] == $body_value;
     $this->assertTrue($assert, t('Field language correctly changed.'));
+
+    // Enable content language URL detection.
+    language_negotiation_set(LANGUAGE_TYPE_CONTENT, array(LOCALE_LANGUAGE_NEGOTIATION_URL => 0));
+
+    // Test multilingual field language fallback logic.
+    $this->drupalGet("it/node/$node->nid");
+    $this->assertRaw($body_value, t('Body correctly displayed using Italian as requested language'));
+
+    $this->drupalGet("node/$node->nid");
+    $this->assertRaw($body_value, t('Body correctly displayed using English as requested language'));
   }
 
   /*
@@ -1878,17 +1886,18 @@ class LocaleMultilingualFieldsFunctionalTest extends DrupalWebTestCase {
 
     // Check if node body is showed.
     $this->drupalGet("node/$node->nid");
-    $body_xpath = '//div[@id="node-' . $node->nid . '"]//div[@property="content:encoded"]/p';
-    $this->assertEqual(current($this->xpath($body_xpath)), $node->body['en'][0]['value'], 'Node body is correctly showed.');
+    $body = $this->xpath('//div[@id=:id]//div[@property="content:encoded"]/p', array(':id' => 'node-' . $node->nid));
+    $this->assertEqual(current($body), $node->body['en'][0]['value'], 'Node body is correctly showed.');
 
     $settings['body[full][type]'] = 'hidden';
     $this->drupalPost('admin/structure/types/manage/page/display', $settings, t('Save'));
-    $select_xpath = '//select[@id="edit-body-full-type"]/option[@selected="selected"]';
+    $select = $this->xpath('//select[@id="edit-body-full-type"]/option[@selected="selected"]');
     // Check if body display is actually "hidden" for the "full" view mode.
-    $this->assertEqual(current($this->xpath($select_xpath)), '<Hidden>', 'Body display is actually "hidden" for the "full" view mode');
+    $this->assertEqual(current($select), '<Hidden>', 'Body display is actually "hidden" for the "full" view mode');
     $this->drupalGet("node/$node->nid");
     // Check if node body is not showed.
-    $this->assertFalse(is_array($this->xpath($body_xpath)), 'Body correctly not showed.');
+    $body = $this->xpath('//div[@id=:id]//div[@property="content:encoded"]/p', array(':id' => 'node-' . $node->nid));
+    $this->assertFalse(is_array($body), 'Body correctly not showed.');
   }
 }
 

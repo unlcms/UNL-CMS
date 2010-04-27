@@ -1,5 +1,5 @@
 <?php
-// $Id: session.inc,v 1.79 2010/03/09 03:52:02 dries Exp $
+// $Id: session.inc,v 1.82 2010/04/13 15:13:40 dries Exp $
 
 /**
  * @file
@@ -104,7 +104,7 @@ function _drupal_session_read($sid) {
   // active user.
   if ($user && $user->uid > 0 && $user->status == 1) {
     // This is done to unserialize the data member of $user.
-    $user = drupal_unpack($user);
+    $user->data = unserialize($user->data);
 
     // Add roles element to $user.
     $user->roles = array();
@@ -208,6 +208,7 @@ function drupal_session_initialize() {
     $user = drupal_anonymous_user();
     session_id(md5(uniqid('', TRUE)));
   }
+  date_default_timezone_set(drupal_get_user_timezone());
 }
 
 /**
@@ -309,6 +310,7 @@ function drupal_session_regenerate() {
       ->condition('sid', $old_session_id)
       ->execute();
   }
+  date_default_timezone_set(drupal_get_user_timezone());
 }
 
 /**

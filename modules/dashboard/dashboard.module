@@ -1,5 +1,5 @@
 <?php
-// $Id: dashboard.module,v 1.23 2010/03/01 13:12:45 dries Exp $
+// $Id: dashboard.module,v 1.27 2010/04/22 09:12:35 webchick Exp $
 
 /**
  * Implements hook_help().
@@ -29,7 +29,7 @@ function dashboard_menu() {
     'title' => 'Dashboard',
     'description' => 'View and customize your dashboard',
     'page callback' => 'dashboard_admin',
-    'access arguments' => array('access dashboard'),
+    'access arguments' => array('access administration pages'),
     // Make this appear first, so for example, in admin menus, it shows up on
     // the top corner of the window as a convinient "home link".
     'weight' => -100,
@@ -39,7 +39,7 @@ function dashboard_menu() {
     'description' => 'View and customize your dashboard',
     'page callback' => 'dashboard_admin',
     'page arguments' => array(TRUE),
-    'access arguments' => array('access dashboard'),
+    'access arguments' => array('access administration pages'),
     'type' => MENU_CALLBACK,
   );
   $items['admin/dashboard/drawer'] = array(
@@ -68,19 +68,18 @@ function dashboard_menu_alter(&$items) {
   // Make the dashboard the default local task on /admin.
   $items['admin']['title'] = 'Dashboard';
   $items['admin']['page callback'] = 'dashboard_admin';
-  $items['admin']['access arguments'] = array('access dashboard');
   $items['admin/dashboard']['type'] = MENU_DEFAULT_LOCAL_TASK;
   $items['admin/by-task']['type'] = MENU_LOCAL_TASK;
 }
 
 /**
- * Implements hook_block_info_alter().
+ * Implements hook_block_list_alter().
  *
  * Skip rendering dashboard blocks when not on the dashboard page itself. This
  * prevents expensive dashboard blocks from causing performance issues on pages
  * where they will never be displayed.
  */
-function dashboard_block_info_alter(&$blocks) {
+function dashboard_block_list_alter(&$blocks) {
   if (!dashboard_is_visible()) {
     foreach ($blocks as $key => $block) {
       if (in_array($block->region, dashboard_regions())) {
@@ -152,18 +151,6 @@ function dashboard_page_build(&$page) {
       }
     }
   }
-}
-
-/**
- * Implements hook_permission().
- */
-function dashboard_permission() {
-  return array(
-    'access dashboard' => array(
-      'title' => t('View the administrative dashboard'),
-      'description' => t('Note: modifying the dashboard requires the !administer_blocks permission.', array('!administer_blocks' => l(t('Administer blocks'), 'admin/people/permissions', array('fragment' => 'module-block')))),
-    ),
-  );
 }
 
 /**
@@ -379,13 +366,12 @@ function dashboard_update() {
 }
 
 /**
- * Theme the entire dashboard.
+ * Returns HTML for the entire dashboard.
  *
  * @param $variables
- *   - element: An associative array containing the properties of the dashboard region
- *              element. Properties used: #dashboard_region, #children
- * @return
- *   A string representing the themed dashboard.
+ *   An associative array containing:
+ *   - element: A render element containing the properties of the dashboard
+ *     region element, #dashboard_region and #children.
  *
  * @ingroup themeable
  */
@@ -396,15 +382,11 @@ function theme_dashboard($variables) {
 }
 
 /**
- * Theme the page containing the dashboard.
+ * Returns HTML for the non-customizable part of the dashboard page.
  *
  * @param $variables
  *   An associative array containing:
- *   - elements: An associative array containing the properties of the element.
- *     Properties used: #message
- * @return
- *   A themed HTML string representing the non-customizable part of the
- *   dashboard page.
+ *   - element: A render element containing a #message.
  *
  * @ingroup themeable
  */
@@ -415,13 +397,12 @@ function theme_dashboard_admin($variables) {
 }
 
 /**
- * Theme a generic dashboard region.
+ * Returns HTML for a generic dashboard region.
  *
  * @param $variables
- *   - element: An associative array containing the properties of the dashboard region
- *              element. Properties used: #dashboard_region, #children
- * @return
- *   A string representing the themed dashboard region.
+ *   An associative array containing:
+ *   - element: A render element containing the properties of the dashboard
+ *     region element, #dashboard_region and #children.
  *
  * @ingroup themeable
  */
@@ -438,20 +419,18 @@ function theme_dashboard_region($variables) {
 }
 
 /**
- * Theme a set of disabled blocks, for display in dashboard customization mode.
+ * Returns HTML for a set of disabled blocks, for display in dashboard customization mode.
  *
  * @param $variables
+ *   An associative array containing:
  *   - blocks: An array of block objects from _block_rehash().
- * @return
- *   A string representing the disabled blocks region of the dashboard
- *   customization page.
  *
  * @ingroup themeable
  */
 function theme_dashboard_disabled_blocks($variables) {
   extract($variables);
   $output = '<div class="canvas-content"><p>' . t('Drag and drop these blocks to the columns below. Changes are automatically saved.') . '</p>';
-  $output .= '<div id="disabled-blocks"><div class="section region disabled-blocks clearfix">';
+  $output .= '<div id="disabled-blocks"><div class="region disabled-blocks clearfix">';
   foreach ($blocks as $block) {
     $output .= theme('dashboard_disabled_block', array('block' => $block));
   }
@@ -460,12 +439,11 @@ function theme_dashboard_disabled_blocks($variables) {
 }
 
 /**
- * Theme a disabled block, for display in dashboard customization mode.
+ * Returns HTML for a disabled block, for display in dashboard customization mode.
  *
  * @param $variables
+ *   An associative array containing:
  *   - block: A block object from _block_rehash().
- * @return
- *   A string representing the disabled block.
  *
  * @ingroup themeable
  */

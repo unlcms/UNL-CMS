@@ -1,5 +1,5 @@
 <?php
-// $Id: file.inc,v 1.205 2010/02/01 19:07:07 dries Exp $
+// $Id: file.inc,v 1.207 2010/04/10 17:30:15 dries Exp $
 
 /**
  * @file
@@ -509,13 +509,13 @@ function file_save(stdClass $file) {
   $file->filesize = filesize($file->uri);
 
   if (empty($file->fid)) {
-    drupal_write_record('file', $file);
+    drupal_write_record('file_managed', $file);
     // Inform modules about the newly added file.
     module_invoke_all('file_insert', $file);
     entity_invoke('insert', 'file', $file);
   }
   else {
-    drupal_write_record('file', $file, 'fid');
+    drupal_write_record('file_managed', $file, 'fid');
     // Inform modules that the file has been updated.
     module_invoke_all('file_update', $file);
     entity_invoke('update', 'file', $file);
@@ -536,8 +536,8 @@ function file_save(stdClass $file) {
  * - If file already exists in $destination either the call will error out,
  *   replace the file or rename the file based on the $replace parameter.
  * - Adds the new file to the files database. If the source file is a
- *   temporary file, the resulting file will also be a temporary file.
- *   @see file_save_upload() for details on temporary files.
+ *   temporary file, the resulting file will also be a temporary file. See
+ *   file_save_upload() for details on temporary files.
  *
  * @param $source
  *   A file object.
@@ -553,6 +553,7 @@ function file_save(stdClass $file) {
  *   - FILE_EXISTS_RENAME - Append _{incrementing number} until the filename is
  *       unique.
  *   - FILE_EXISTS_ERROR - Do nothing and return FALSE.
+ *
  * @return
  *   File object if the copy is successful, or FALSE in the event of an error.
  *
@@ -973,7 +974,7 @@ function file_delete(stdClass $file, $force = FALSE) {
   // Make sure the file is deleted before removing its row from the
   // database, so UIs can still find the file in the database.
   if (file_unmanaged_delete($file->uri)) {
-    db_delete('file')->condition('fid', $file->fid)->execute();
+    db_delete('file_managed')->condition('fid', $file->fid)->execute();
     return TRUE;
   }
   return FALSE;
@@ -1068,9 +1069,9 @@ function file_unmanaged_delete_recursive($path) {
  *   An integer containing the number of bytes used.
  */
 function file_space_used($uid = NULL, $status = FILE_STATUS_PERMANENT) {
-  $query = db_select('file', 'f');
+  $query = db_select('file_managed', 'f');
   // Use separate placeholders for the status to avoid a bug in some versions
-  // of PHP. @see http://drupal.org/node/352956
+  // of PHP. See http://drupal.org/node/352956.
   $query->where('f.status & :status1 = :status2', array(':status1' => $status, ':status2' => $status));
   $query->addExpression('SUM(f.filesize)', 'filesize');
   if (!is_null($uid)) {
@@ -1082,9 +1083,9 @@ function file_space_used($uid = NULL, $status = FILE_STATUS_PERMANENT) {
 /**
  * Saves a file upload to a new location.
  *
- * The file will be added to the {file} table as a temporary file. Temporary
- * files are periodically cleaned. To make the file a permanent file, assign
- * the status and use file_save() to save the changes.
+ * The file will be added to the {file_managed} table as a temporary file.
+ * Temporary files are periodically cleaned. To make the file a permanent file,
+ * assign the status and use file_save() to save the changes.
  *
  * @param $source
  *   A string specifying the filepath or URI of the uploaded file to save.
@@ -1127,7 +1128,7 @@ function file_save_upload($source, $validators = array(), $destination = FALSE, 
 
   // Check for file upload errors and return FALSE if a lower level system
   // error occurred. For a complete list of errors:
-  // @see http://php.net/manual/en/features.file-upload.errors.php
+  // See http://php.net/manual/en/features.file-upload.errors.php.
   switch ($_FILES['files']['error'][$source]) {
     case UPLOAD_ERR_INI_SIZE:
     case UPLOAD_ERR_FORM_SIZE:
@@ -1503,7 +1504,8 @@ function file_save_data($data, $destination = NULL, $replace = FILE_EXISTS_RENAM
  * Save a string to the specified destination without invoking file API.
  *
  * This function is identical to file_save_data() except the file will not be
- * saved to the {file} table and none of the file_* hooks will be called.
+ * saved to the {file_managed} table and none of the file_* hooks will be
+ * called.
  *
  * @param $data
  *   A string containing the contents of the file.
@@ -1734,8 +1736,8 @@ function file_upload_max_size() {
  * @return
  *   The internet media type registered for the extension or
  *   application/octet-stream for unknown extensions.
- * @see
- *   file_default_mimetype_mapping()
+ *
+ * @see file_default_mimetype_mapping()
  */
 function file_get_mimetype($uri, $mapping = NULL) {
   if ($wrapper = file_stream_wrapper_get_instance_by_uri($uri)) {
@@ -1818,6 +1820,7 @@ function drupal_chmod($uri, $mode = NULL) {
  * @param $uri
  *   A string containing the URI to verify. If this value is omitted,
  *   Drupal's public files directory will be used [public://].
+ *
  * @return
  *   The absolute pathname, or FALSE on failure.
  *
@@ -1853,6 +1856,7 @@ function drupal_realpath($uri) {
  *
  * @param $uri
  *   A URI or path.
+ *
  * @return
  *   A string containing the directory name.
  *
@@ -1894,6 +1898,7 @@ function drupal_dirname($uri) {
  *   Default to FALSE.
  * @param $context
  *   Refer to http://php.net/manual/en/ref.stream.php
+ *
  * @return
  *   Boolean TRUE on success, or FALSE on failure.
  *
@@ -1929,6 +1934,7 @@ function drupal_mkdir($uri, $mode = NULL, $recursive = FALSE, $context = NULL) {
  * @param $prefix
  *   The prefix of the generated temporary filename.
  *   Note: Windows uses only the first three characters of prefix.
+ *
  * @return
  *   The new temporary filename, or FALSE on failure.
  *

@@ -1,5 +1,5 @@
 <?php
-// $Id: drupal_web_test_case.php,v 1.203 2010/03/12 14:38:37 dries Exp $
+// $Id: drupal_web_test_case.php,v 1.211 2010/04/23 05:46:01 webchick Exp $
 
 /**
  * Base class for Drupal tests.
@@ -566,12 +566,17 @@ class DrupalUnitTestCase extends DrupalTestCase {
     $this->originalPrefix = $db_prefix;
     $this->originalFileDirectory = file_directory_path();
 
+    spl_autoload_register('db_autoload');
+
     // Reset all statics so that test is performed with a clean environment.
     drupal_static_reset();
 
     // Generate temporary prefixed database to ensure that tests have a clean starting point.
     $db_prefix = Database::getConnection()->prefixTables('{simpletest' . mt_rand(1000, 1000000) . '}');
     $conf['file_public_path'] = $this->originalFileDirectory . '/' . $db_prefix;
+
+    // Set user agent to be consistent with web test case.
+    $_SERVER['HTTP_USER_AGENT'] = $db_prefix;
 
     // If locale is enabled then t() will try to access the database and
     // subsequently will fail as the database is not accessible.
@@ -1097,7 +1102,8 @@ class DrupalWebTestCase extends DrupalTestCase {
    * is created with the same name as the database prefix.
    *
    * @param ...
-   *   List of modules to enable for the duration of the test.
+   *   List of modules to enable for the duration of the test. This can be
+   *   either a single array or a variable number of string arguments.
    */
   protected function setUp() {
     global $db_prefix, $user, $language, $conf;
@@ -1159,8 +1165,15 @@ class DrupalWebTestCase extends DrupalTestCase {
     // Install the modules specified by the default profile.
     module_enable($profile_details['dependencies'], FALSE);
 
-    // Install modules needed for this test.
-    if ($modules = func_get_args()) {
+    // Install modules needed for this test. This could have been passed in as
+    // either a single array argument or a variable number of string arguments.
+    // @todo Remove this compatibility layer in Drupal 8, and only accept
+    // $modules as a single array argument.
+    $modules = func_get_args();
+    if (isset($modules[0]) && is_array($modules[0])) {
+      $modules = $modules[0];
+    }
+    if ($modules) {
       module_enable($modules, TRUE);
     }
 
@@ -1194,6 +1207,7 @@ class DrupalWebTestCase extends DrupalTestCase {
     variable_set('install_task', 'done');
     variable_set('clean_url', $clean_url_original);
     variable_set('site_mail', 'simpletest@example.com');
+    variable_set('date_default_timezone', date_default_timezone_get());
     // Set up English language.
     unset($GLOBALS['conf']['language_default']);
     $language = language_default();
@@ -1576,22 +1590,32 @@ class DrupalWebTestCase extends DrupalTestCase {
    *     which is likely different than the $path parameter used for retrieving
    *     the initial form. Defaults to 'system/ajax'.
    *   - triggering_element: If the value for the 'path' key is 'system/ajax' or
-   *     another generic AJAX processing path, this needs to be set to the '/'
-   *     separated path to the element within the server's cached $form array.
-   *     The callback for the generic AJAX processing path uses this to find
-   *     the #ajax information for the element, including which specific
-   *     callback to use for processing the request.
+   *     another generic AJAX processing path, this needs to be set to the name
+   *     of the element. If the name doesn't identify the element uniquely, then
+   *     this should instead be an array with a single key/value pair,
+   *     corresponding to the element name and value. The callback for the
+   *     generic AJAX processing path uses this to find the #ajax information
+   *     for the element, including which specific callback to use for
+   *     processing the request.
+   *
+   *   This can also be set to NULL in order to emulate an Internet Explorer
+   *   submission of a form with a single text field, and pressing ENTER in that
+   *   textfield: under these conditions, no button information is added to the
+   *   POST data.
    * @param $options
    *   Options to be forwarded to url().
    * @param $headers
    *   An array containing additional HTTP request headers, each formatted as
    *   "name: value".
-   * @param $form_id
-   *   The optional string identifying the form to be submitted. On some pages
+   * @param $form_html_id
+   *   (optional) HTML ID of the form to be submitted. On some pages
    *   there are many identical forms, so just using the value of the submit
-   *   button is not enough.
+   *   button is not enough. For example: 'trigger-node-presave-assign-form'.
+   *   Note that this is not the Drupal $form_id, but rather the HTML ID of the
+   *   form, which is typically the same thing but with hyphens replacing the
+   *   underscores.
    */
-  protected function drupalPost($path, $edit, $submit, array $options = array(), array $headers = array(), $form_id = NULL) {
+  protected function drupalPost($path, $edit, $submit, array $options = array(), array $headers = array(), $form_html_id = NULL) {
     $submit_matches = FALSE;
     $ajax = is_array($submit);
     if (isset($path)) {
@@ -1601,8 +1625,8 @@ class DrupalWebTestCase extends DrupalTestCase {
       $edit_save = $edit;
       // Let's iterate over all the forms.
       $xpath = "//form";
-      if (!empty($form_id)) {
-        $xpath .= "[@id='" . drupal_html_id($form_id) . "']";
+      if (!empty($form_html_id)) {
+        $xpath .= "[@id='" . $form_html_id . "']";
       }
       $forms = $this->xpath($xpath);
       foreach ($forms as $form) {
@@ -1622,7 +1646,7 @@ class DrupalWebTestCase extends DrupalTestCase {
 
         // We post only if we managed to handle every field in edit and the
         // submit button matches.
-        if (!$edit && $submit_matches) {
+        if (!$edit && ($submit_matches || !isset($submit))) {
           $post_array = $post;
           if ($upload) {
             // TODO: cURL handles file uploads for us, but the implementation
@@ -1642,8 +1666,21 @@ class DrupalWebTestCase extends DrupalTestCase {
               // http://www.w3.org/TR/html4/interact/forms.html#h-17.13.4.1
               $post[$key] = urlencode($key) . '=' . urlencode($value);
             }
-            if ($ajax && isset($submit['triggering_element'])) {
-              $post['ajax_triggering_element'] = 'ajax_triggering_element=' . urlencode($submit['triggering_element']);
+            // For AJAX requests, add '_triggering_element_*' and
+            // 'ajax_html_ids' to the POST data, as ajax.js does.
+            if ($ajax) {
+              if (is_array($submit['triggering_element'])) {
+                // Get the first key/value pair in the array.
+                $post['_triggering_element_value'] = '_triggering_element_value=' . urlencode(reset($submit['triggering_element']));
+                $post['_triggering_element_name'] = '_triggering_element_name=' . urlencode(key($submit['triggering_element']));
+              }
+              else {
+                $post['_triggering_element_name'] = '_triggering_element_name=' . urlencode($submit['triggering_element']);
+              }
+              foreach ($this->xpath('//*[@id]') as $element) {
+                $id = (string) $element['id'];
+                $post[] = urlencode('ajax_html_ids[]') . '=' . urlencode($id);
+              }
             }
             $post = implode('&', $post);
           }
@@ -1666,7 +1703,7 @@ class DrupalWebTestCase extends DrupalTestCase {
       foreach ($edit as $name => $value) {
         $this->fail(t('Failed to set field @name to @value', array('@name' => $name, '@value' => $value)));
       }
-      if (!$ajax) {
+      if (!$ajax && isset($submit)) {
         $this->assertTrue($submit_matches, t('Found the @submit button', array('@submit' => $submit)));
       }
       $this->fail(t('Found the requested form fields at @path', array('@path' => $path)));
@@ -1674,10 +1711,79 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Execute a POST request on an AJAX path and JSON decode the result.
+   * Execute an AJAX submission.
+   *
+   * This executes a POST as ajax.js does. It uses the returned JSON data, an
+   * array of commands, to update $this->content using equivalent DOM
+   * manipulation as is used by ajax.js. It also returns the array of commands.
+   *
+   * @see ajax.js
    */
-  protected function drupalPostAJAX($path, $edit, $triggering_element, $ajax_path = 'system/ajax', array $options = array(), array $headers = array()) {
-    return drupal_json_decode($this->drupalPost($path, $edit, array('path' => $ajax_path, 'triggering_element' => $triggering_element), $options, $headers));
+  protected function drupalPostAJAX($path, $edit, $triggering_element, $ajax_path = 'system/ajax', array $options = array(), array $headers = array(), $form_html_id = NULL, $ajax_settings = array()) {
+    // Get the content of the initial page prior to calling drupalPost(), since
+    // drupalPost() replaces $this->content.
+    if (isset($path)) {
+      $this->drupalGet($path, $options);
+    }
+    $content = $this->content;
+    $return = drupal_json_decode($this->drupalPost(NULL, $edit, array('path' => $ajax_path, 'triggering_element' => $triggering_element), $options, $headers, $form_html_id));
+
+    // We need $ajax_settings['wrapper'] to perform DOM manipulation.
+    if (!empty($ajax_settings) && !empty($return)) {
+      // DOM can load HTML soup. But, HTML soup can throw warnings, suppress
+      // them.
+      @$dom = DOMDocument::loadHTML($content);
+      foreach ($return as $command) {
+        // @todo ajax.js can process commands other than 'insert' and can
+        //   process commands that include a 'selector', but these are hard to
+        //   emulate with DOMDocument. For now, we only implement 'insert'
+        //   commands that use $ajax_settings['wrapper'].
+        if ($command['command'] == 'insert' && !isset($command['selector'])) {
+          // $dom->getElementById() doesn't work when drupalPostAJAX() is
+          // invoked multiple times for a page, so use XPath instead. This also
+          // sets us up for adding support for $command['selector'], though it
+          // will require transforming a jQuery selector to XPath.
+          $xpath = new DOMXPath($dom);
+          $wrapperNode = $xpath->query('//*[@id="' . $ajax_settings['wrapper'] . '"]')->item(0);
+          if ($wrapperNode) {
+            // ajax.js adds an enclosing DIV to work around a Safari bug.
+            $newDom = new DOMDocument();
+            $newDom->loadHTML('<div>' . $command['data'] . '</div>');
+            $newNode = $dom->importNode($newDom->documentElement->firstChild->firstChild, TRUE);
+            $method = isset($command['method']) ? $command['method'] : $ajax_settings['method'];
+            // The "method" is a jQuery DOM manipulation function. Emulate each
+            // one using PHP's DOMNode API.
+            switch ($method) {
+              case 'replaceWith':
+                $wrapperNode->parentNode->replaceChild($newNode, $wrapperNode);
+                break;
+              case 'append':
+                $wrapperNode->appendChild($newNode);
+                break;
+              case 'prepend':
+                // If no firstChild, insertBefore() falls back to appendChild().
+                $wrapperNode->insertBefore($newNode, $wrapperNode->firstChild);
+                break;
+              case 'before':
+                $wrapperNode->parentNode->insertBefore($newNode, $wrapperNode);
+                break;
+              case 'after':
+                // If no nextSibling, insertBefore() falls back to appendChild().
+                $wrapperNode->parentNode->insertBefore($newNode, $wrapperNode->nextSibling);
+                break;
+              case 'html':
+                foreach ($wrapperNode->childNodes as $childNode) {
+                  $wrapperNode->removeChild($childNode);
+                }
+                $wrapperNode->appendChild($newNode);
+                break;
+            }
+          }
+        }
+      }
+      $this->drupalSetContent($dom->saveHTML());
+    }
+    return $return;
   }
 
   /**
@@ -1856,7 +1962,7 @@ class DrupalWebTestCase extends DrupalTestCase {
             break;
           case 'submit':
           case 'image':
-            if ($submit == $value) {
+            if (isset($submit) && $submit == $value) {
               $post[$name] = $value;
               $submit_matches = TRUE;
             }
@@ -1876,6 +1982,48 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
+   * Builds an XPath query.
+   *
+   * Builds an XPath query by replacing placeholders in the query by the value
+   * of the arguments.
+   *
+   * XPath 1.0 (the version supported by libxml2, the underlying XML library
+   * used by PHP) doesn't support any form of quotation. This function
+   * simplifies the building of XPath expression.
+   *
+   * @param $xpath
+   *   An XPath query, possibly with placeholders in the form ':name'.
+   * @param $args
+   *   An array of arguments with keys in the form ':name' matching the
+   *   placeholders in the query. The values may be either strings or numeric
+   *   values.
+   * @return
+   *   An XPath query with arguments replaced.
+   */
+  protected function buildXPathQuery($xpath, array $args = array()) {
+    // Replace placeholders.
+    foreach ($args as $placeholder => $value) {
+      // XPath 1.0 doesn't support a way to escape single or double quotes in a
+      // string literal. We split double quotes out of the string, and encode
+      // them separately.
+      if (is_string($value)) {
+        // Explode the text at the quote characters.
+        $parts = explode('"', $value);
+
+        // Quote the parts.
+        foreach ($parts as &$part) {
+          $part = '"' . $part . '"';
+        }
+
+        // Return the string.
+        $value = count($parts) > 1 ? 'concat(' . implode(', \'"\', ', $parts) . ')' : $parts[0];
+      }
+      $xpath = preg_replace('/' . preg_quote($placeholder) . '\b/', $value, $xpath);
+    }
+    return $xpath;
+  }
+
+  /**
    * Perform an xpath search on the contents of the internal browser. The search
    * is relative to the root element (HTML tag normally) of the page.
    *
@@ -1886,11 +2034,14 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   format and return values see the SimpleXML documentation,
    *   http://us.php.net/manual/function.simplexml-element-xpath.php.
    */
-  protected function xpath($xpath) {
+  protected function xpath($xpath, array $arguments = array()) {
     if ($this->parse()) {
+      $xpath = $this->buildXPathQuery($xpath, $arguments);
       return $this->elements->xpath($xpath);
     }
-    return FALSE;
+    else {
+      return FALSE;
+    }
   }
 
   /**
@@ -1933,7 +2084,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertLink($label, $index = 0, $message = '', $group = 'Other') {
-    $links = $this->xpath('//a[text()="' . $label . '"]');
+    $links = $this->xpath('//a[text()=:label]', array(':label' => $label));
     $message = ($message ?  $message : t('Link with label %label found.', array('%label' => $label)));
     return $this->assert(isset($links[$index]), $message, $group);
   }
@@ -1953,7 +2104,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertNoLink($label, $message = '', $group = 'Other') {
-    $links = $this->xpath('//a[text()="' . $label . '"]');
+    $links = $this->xpath('//a[text()=:label]', array(':label' => $label));
     $message = ($message ?  $message : t('Link with label %label not found.', array('%label' => $label)));
     return $this->assert(empty($links), $message, $group);
   }
@@ -1974,7 +2125,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertLinkByHref($href, $index = 0, $message = '', $group = 'Other') {
-    $links = $this->xpath('//a[contains(@href, "' . $href . '")]');
+    $links = $this->xpath('//a[contains(@href, :href)]', array(':href' => $href));
     $message = ($message ?  $message : t('Link containing href %href found.', array('%href' => $href)));
     return $this->assert(isset($links[$index]), $message, $group);
   }
@@ -1993,7 +2144,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE if the assertion succeeded, FALSE otherwise.
    */
   protected function assertNoLinkByHref($href, $message = '', $group = 'Other') {
-    $links = $this->xpath('//a[contains(@href, "' . $href . '")]');
+    $links = $this->xpath('//a[contains(@href, :href)]', array(':href' => $href));
     $message = ($message ?  $message : t('No link containing href %href found.', array('%href' => $href)));
     return $this->assert(empty($links), $message, $group);
   }
@@ -2015,7 +2166,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    */
   protected function clickLink($label, $index = 0) {
     $url_before = $this->getUrl();
-    $urls = $this->xpath('//a[text()="' . $label . '"]');
+    $urls = $this->xpath('//a[text()=:label]', array(':label' => $label));
 
     if (isset($urls[$index])) {
       $url_target = $this->getAbsoluteUrl($urls[$index]['href']);
@@ -2633,7 +2784,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertFieldChecked($id, $message = '') {
-    $elements = $this->xpath('//input[@id="' . $id . '"]');
+    $elements = $this->xpath('//input[@id=:id]', array(':id' => $id));
     return $this->assertTrue(isset($elements[0]) && !empty($elements[0]['checked']), $message ? $message : t('Checkbox field @id is checked.', array('@id' => $id)), t('Browser'));
   }
 
@@ -2648,7 +2799,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertNoFieldChecked($id, $message = '') {
-    $elements = $this->xpath('//input[@id="' . $id . '"]');
+    $elements = $this->xpath('//input[@id=:id]', array(':id' => $id));
     return $this->assertTrue(isset($elements[0]) && empty($elements[0]['checked']), $message ? $message : t('Checkbox field @id is not checked.', array('@id' => $id)), t('Browser'));
   }
 
@@ -2665,7 +2816,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertOptionSelected($id, $option, $message = '') {
-    $elements = $this->xpath('//select[@id="' . $id . '"]//option[@value="' . $option . '"]');
+    $elements = $this->xpath('//select[@id=:id]//option[@value=:option]', array(':id' => $id, ':option' => $option));
     return $this->assertTrue(isset($elements[0]) && !empty($elements[0]['selected']), $message ? $message : t('Option @option for field @id is selected.', array('@option' => $option, '@id' => $id)), t('Browser'));
   }
 
@@ -2682,7 +2833,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertNoOptionSelected($id, $option, $message = '') {
-    $elements = $this->xpath('//select[@id="' . $id . '"]//option[@value="' . $option . '"]');
+    $elements = $this->xpath('//select[@id=:id]//option[@value=:option]', array(':id' => $id, ':option' => $option));
     return $this->assertTrue(isset($elements[0]) && empty($elements[0]['selected']), $message ? $message : t('Option @option for field @id is not selected.', array('@option' => $option, '@id' => $id)), t('Browser'));
   }
 
@@ -2719,6 +2870,36 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
+   * Assert that each HTML ID is used for just a single element.
+   *
+   * @param $message
+   *   Message to display.
+   * @param $group
+   *   The group this message belongs to.
+   * @param $ids_to_skip
+   *   An optional array of ids to skip when checking for duplicates. It is
+   *   always a bug to have duplicate HTML IDs, so this parameter is to enable
+   *   incremental fixing of core code. Whenever a test passes this parameter,
+   *   it should add a "todo" comment above the call to this function explaining
+   *   the legacy bug that the test wishes to ignore and including a link to an
+   *   issue that is working to fix that legacy bug.
+   * @return
+   *   TRUE on pass, FALSE on fail.
+   */
+  protected function assertNoDuplicateIds($message = '', $group = 'Other', $ids_to_skip = array()) {
+    $status = TRUE;
+    foreach ($this->xpath('//*[@id]') as $element) {
+      $id = (string) $element['id'];
+      if (isset($seen_ids[$id]) && !in_array($id, $ids_to_skip)) {
+        $this->fail(t('The HTML ID %id is unique.', array('%id' => $id)), $group);
+        $status = FALSE;
+      }
+      $seen_ids[$id] = TRUE;
+    }
+    return $this->assert($status, $message, $group);
+  }
+
+  /**
    * Helper function: construct an XPath for the given set of attributes and value.
    *
    * @param $attribute
@@ -2729,7 +2910,8 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   XPath for specified values.
    */
   protected function constructFieldXpath($attribute, $value) {
-    return '//textarea[@' . $attribute . '="' . $value . '"]|//input[@' . $attribute . '="' . $value . '"]|//select[@' . $attribute . '="' . $value . '"]';
+    $xpath = '//textarea[@' . $attribute . '=:value]|//input[@' . $attribute . '=:value]|//select[@' . $attribute . '=:value]';
+    return $this->buildXPathQuery($xpath, array(':value' => $value));
   }
 
   /**

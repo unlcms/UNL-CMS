@@ -1,5 +1,5 @@
 <?php
-// $Id: poll.module,v 1.339 2010/03/12 15:56:29 dries Exp $
+// $Id: poll.module,v 1.345 2010/04/24 14:49:14 dries Exp $
 
 /**
  * @file
@@ -139,10 +139,8 @@ function _poll_menu_access($node, $perm, $inspect_allowvotes) {
  * Implements hook_block_info().
  */
 function poll_block_info() {
-  if (user_access('access content')) {
-    $blocks['recent']['info'] = t('Most recent poll');
-    return $blocks;
-  }
+  $blocks['recent']['info'] = t('Most recent poll');
+  return $blocks;
 }
 
 /**
@@ -480,17 +478,17 @@ function poll_load($nodes) {
     $poll->allowvotes = FALSE;
     if (user_access('vote on polls') && $poll->active) {
       if ($user->uid) {
-        $result = db_query('SELECT chid FROM {poll_vote} WHERE nid = :nid AND uid = :uid', array(':nid' => $node->nid, ':uid' => $user->uid))->fetchObject();
+        $poll->vote = db_query('SELECT chid FROM {poll_vote} WHERE nid = :nid AND uid = :uid', array(':nid' => $node->nid, ':uid' => $user->uid))->fetchField();
+        if (empty($poll->vote)) {
+          $poll->vote = -1;
+          $poll->allowvotes = TRUE;
+        }
+      }
+      elseif (!empty($_SESSION['poll_vote'][$node->nid])) {
+        $poll->vote = $_SESSION['poll_vote'][$node->nid];
       }
       else {
-        $result = db_query("SELECT chid FROM {poll_vote} WHERE nid = :nid AND hostname = :hostname", array(':nid' => $node->nid, ':hostname' => ip_address()))->fetchObject();
-      }
-      if ($result) {
-        $poll->vote = $result->chid;
-      }
-      else {
-        $poll->vote = -1;
-        $poll->allowvotes = TRUE;
+        $poll->allowvotes = !db_query("SELECT 1 FROM {poll_vote} WHERE nid = :nid AND hostname = :hostname", array(':nid' => $node->nid, ':hostname' => ip_address()))->fetchField();
       }
     }
     foreach ($poll as $key => $value) {
@@ -732,6 +730,16 @@ function poll_vote($form, &$form_state) {
     ->execute();
 
   cache_clear_all();
+
+  if (!$user->uid) {
+    // The vote is recorded so the user gets the result view instead of the
+    // voting form when viewing the poll. Saving a value in $_SESSION has the
+    // convenient side effect of preventing the user from hitting the page
+    // cache. When anonymous voting is allowed, the page cache should only
+    // contain the voting form, not the results.
+    $_SESSION['poll_vote'][$node->nid] = $choice;
+  }
+
   drupal_set_message(t('Your vote was recorded.'));
 
   // Return the user to whatever page they voted from.
@@ -781,7 +789,11 @@ function poll_view_results($node, $view_mode, $block = FALSE) {
 
 
 /**
- * Theme the admin poll form for choices.
+ * Returns HTML for an admin poll form for choices.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: A render element representing the form.
  *
  * @ingroup themeable
  */
@@ -838,13 +850,13 @@ function theme_poll_choices($variables) {
  * are left in with a different name for that purpose.
  *
  * @see poll-results.tpl.php
- * @see poll-results-block.tpl.php
- * @see theme_poll_results()
+ * @see poll-results--block.tpl.php
  */
 function template_preprocess_poll_results(&$variables) {
   $variables['links'] = theme('links__poll_results', array('links' => $variables['raw_links']));
   if (isset($variables['vote']) && $variables['vote'] > -1 && user_access('cancel own vote')) {
-    $variables['cancel_form'] = drupal_render(drupal_get_form('poll_cancel_form', $variables['nid']));
+    $elements = drupal_get_form('poll_cancel_form', $variables['nid']);
+    $variables['cancel_form'] = drupal_render($elements);
   }
   $variables['title'] = check_plain($variables['raw_title']);
 
@@ -859,7 +871,7 @@ function template_preprocess_poll_results(&$variables) {
  * Inputs: $title, $votes, $total_votes, $voted, $block
  *
  * @see poll-bar.tpl.php
- * @see poll-bar-block.tpl.php
+ * @see poll-bar--block.tpl.php
  * @see theme_poll_bar()
  */
 function template_preprocess_poll_bar(&$variables) {
@@ -882,7 +894,8 @@ function poll_cancel_form($form, &$form_state, $nid) {
   // Store the nid so we can get to it in submit functions.
   $form['#nid'] = $nid;
 
-  $form['submit'] = array(
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Cancel your vote'),
     '#submit' => array('poll_cancel')
@@ -908,6 +921,8 @@ function poll_cancel($form, &$form_state) {
     ->expression('chvotes', 'chvotes - 1')
     ->condition('chid', $node->vote)
     ->execute();
+
+  unset($_SESSION['poll_vote'][$node->nid]);
 
   drupal_set_message(t('Your vote was cancelled.'));
 }

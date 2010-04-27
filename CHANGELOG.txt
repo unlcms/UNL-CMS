@@ -1,6 +1,6 @@
-// $Id: CHANGELOG.txt,v 1.360 2010/03/21 16:51:26 webchick Exp $
+// $Id: CHANGELOG.txt,v 1.363 2010/04/26 21:24:54 webchick Exp $
 
-Drupal 7.0 alpha 3, 2010-03-21
+Drupal 7.0 alpha 4, 2010-04-26
 ----------------------
 - Database:
     * Fully rewritten database layer utilizing PHP 5's PDO abstraction layer.
@@ -84,6 +84,8 @@ Drupal 7.0 alpha 3, 2010-03-21
     * If your site is being upgraded from Drupal 6 and you do not have the
       contributed date or event modules installed, user time zone settings will
       fallback to the system time zone and will have to be reconfigured by each user.
+    * User-configured time zones now serve as the default time zone for PHP
+      date/time functions.
 - Filter system:
     * Revamped the filter API and text format storage.
     * Added support for default text formats to be assigned on a per-role basis.

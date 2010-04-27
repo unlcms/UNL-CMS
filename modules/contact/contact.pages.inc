@@ -1,5 +1,5 @@
 <?php
-// $Id: contact.pages.inc,v 1.41 2010/02/17 08:48:18 dries Exp $
+// $Id: contact.pages.inc,v 1.43 2010/04/24 14:49:13 dries Exp $
 
 /**
  * @file
@@ -101,10 +101,7 @@ function contact_site_form($form, &$form_state) {
     '#title' => t('Send yourself a copy.'),
     '#access' => $user->uid,
   );
-  $form['actions'] = array(
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-actions')),
-  );
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Send message'),
@@ -139,7 +136,7 @@ function contact_site_form_submit($form, &$form_state) {
 
   // Save the anonymous user information to a cookie for reuse.
   if (!$user->uid) {
-    user_cookie_save($values);
+    user_cookie_save(array_intersect_key($values, array_flip(array('name', 'mail'))));
   }
 
   // Get the to and from e-mail addresses.
@@ -235,10 +232,7 @@ function contact_personal_form($form, &$form_state, $recipient) {
     '#title' => t('Send yourself a copy.'),
     '#access' => $user->uid,
   );
-  $form['actions'] = array(
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-actions')),
-  );
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Send message'),
@@ -272,7 +266,7 @@ function contact_personal_form_submit($form, &$form_state) {
 
   // Save the anonymous user information to a cookie for reuse.
   if (!$user->uid) {
-    user_cookie_save($values);
+    user_cookie_save(array_intersect_key($values, array_flip(array('name', 'mail'))));
   }
 
   // Get the to and from e-mail addresses.
