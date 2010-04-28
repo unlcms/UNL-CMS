@@ -1,0 +1,41 @@
+
+ul.primary li a {
+    border-width: 0px;
+    margin-right:0;
+}
+
+ul.secondary li {
+    border-width: 0;
+    padding:0;
+}
+#maincontent {
+    width: 940px;
+}
+
+/* begin nested nav UL fixes */
+#navigation ul li ul {
+    overflow:hidden;
+}
+
+#navigation ul li ul li ul li{
+    margin-left: 10px;
+    overflow:hidden;
+}
+/* end nested nav UL fixes */
+
+li.leaf {
+    list-style-image:none;
+}
+#edit-body-wrapper {
+    margin-left: -23px;
+    width: 986px;
+}
+html.tinyMceEditor#maincontent {
+    width: inherit;
+    padding: 0;
+}
+.tinyMceEditor body {
+    width: 940px;
+    margin: 0px 23px 0px 23px;
+    line-height: inherit;
+}
