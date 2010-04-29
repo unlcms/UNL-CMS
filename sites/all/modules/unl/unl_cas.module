@@ -1,0 +1,59 @@
+<?php
+
+function unl_cas_init()
+{
+    require_once dirname(__FILE__) . '/lib/CAS/CAS.php';
+    phpCAS::client(CAS_VERSION_2_0,'login.unl.edu',443,'/cas');
+    phpCAS::setNoCasServerValidation();
+    
+    if (!array_key_exists('last_sso_check', $_SESSION)) {
+        $_SESSION['unl']['last_sso_check'] = 0;
+    }
+    
+    if (array_key_exists('unl_sso', $_COOKIE)) {
+        $auth = phpCAS::checkAuthentication();
+        if ($auth) {
+            $username = phpCAS::getUser();
+            $user = user_load_by_name($username);
+            if (!$user) {
+                $user = unl_cas_import_user($username);
+            }
+            $GLOBALS['user'] = $user;
+            user_login_finalize();
+        }
+    }
+}
+
+function unl_cas_form_alter(&$form, $form_state, $form_id)
+{
+    if ($form_id == 'user_login') {
+        $auth = phpCAS::forceAuthentication();
+    }
+}
+
+function unl_cas_user_logout($account)
+{
+    phpCAS::logout(array('url' => url('<front>', array('absolute' => TRUE))));
+}
+
+function unl_cas_import_user($username)
+{
+    $xml = @file_get_contents('http://peoplefinder.unl.edu/service.php?format=xml&uid=' . $username);
+    if ($xml) {
+	    $dom = DOMDocument::loadXML($xml);
+	    $firstName = $dom->getElementsByTagName('givenName')->item(0)->textContent;
+	    $lastName = $dom->getElementsByTagName('sn')->item(0)->textContent;
+	    $email = $dom->getElementsByTagName('mail')->item(0)->textContent;
+	    $displayName = $dom->getElementsByTagName('displayName')->item(0)->textContent;
+    } else {
+    	$email = $username . '@unl.edu';
+    }
+    
+    $userData = array(
+        'name' => $username,
+        'mail' => $email
+    );
+    
+    $user = user_save(NULL, $userData);
+    return $user;
+}
