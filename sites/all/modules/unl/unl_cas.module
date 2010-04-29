@@ -2,7 +2,7 @@
 
 function unl_cas_init()
 {
-    require_once 'CAS/CAS.php';
+    require_once dirname(__FILE__) . '/lib/CAS/CAS.php';
     phpCAS::client(CAS_VERSION_2_0,'login.unl.edu',443,'/cas');
     phpCAS::setNoCasServerValidation();
     
