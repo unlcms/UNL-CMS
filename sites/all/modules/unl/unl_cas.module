@@ -51,7 +51,8 @@ function unl_cas_import_user($username)
     
     $userData = array(
         'name' => $username,
-        'mail' => $email
+        'mail' => $email,
+        'status' => 1
     );
     
     $user = user_save(NULL, $userData);
