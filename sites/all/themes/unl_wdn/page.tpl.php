@@ -86,23 +86,6 @@ if (isset($site_slogan) && $site_slogan) {
 }
 
 
-if ($messages) {
-    $messages = <<<EOF
-<script type="text/javascript">
-WDN.initializePlugin('notice');
-</script>
-<div class="wdn_notice">
-	<div class="close">
-		<a href="#" title="Close this notice">Close this notice</a>
-	</div>
-	<div class="message">
-		$messages
-	</div>
-</div>
-EOF;
-    
-}
-
 $t->maincontentarea = $messages . PHP_EOL
                     . render($tabs) . PHP_EOL
                     . render($action_links) . PHP_EOL

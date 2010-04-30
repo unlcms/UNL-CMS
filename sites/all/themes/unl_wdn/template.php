@@ -125,12 +125,19 @@ function unl_wdn_menu_local_task($variables)
     return '<li' . (!empty($variables['element']['#active']) ? ' class="selected"' : '') . '>' . l($link_text, $link['href'], $link['localized_options']) . "</li>\n";
 }
 
-
-function unl_wdn_status_messages($display)
+function unl_wdn_status_messages()
 {
     $output = '';
     foreach (drupal_get_messages($display) as $type => $messages) {
-        $output .= '<div>' . PHP_EOL;
+        $type = ucfirst($type);
+        $output .= <<<EOF
+<div class="wdn_notice">
+	<div class="close">
+		<a href="#" title="Close this notice">Close this notice</a>
+	</div>
+	<div class="message">
+	    <h3>$type</h3>
+EOF;
         if (count($messages) > 1) {
             $output .= '<ul>' . PHP_EOL;
             foreach ($messages as $message) {
@@ -140,7 +147,22 @@ function unl_wdn_status_messages($display)
         } else {
             $output .= $messages[0];
         }
-        $output .= '</div>' . PHP_EOL;
+        $output .= <<<EOF
+    </div>
+</div>
+EOF;
     }
+    
+    if (!$output) {
+        return '';
+    }
+    
+    $output = <<<EOF
+<script type="text/javascript">
+WDN.initializePlugin('notice');
+</script>
+$output
+EOF;
+    
     return $output;
 }
