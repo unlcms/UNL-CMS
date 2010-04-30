@@ -125,8 +125,10 @@ function unl_wdn_menu_local_task($variables)
     return '<li' . (!empty($variables['element']['#active']) ? ' class="selected"' : '') . '>' . l($link_text, $link['href'], $link['localized_options']) . "</li>\n";
 }
 
-function unl_wdn_status_messages()
+function unl_wdn_status_messages($variables)
 {
+    $display = $variables['display'];
+    
     $output = '';
     foreach (drupal_get_messages($display) as $type => $messages) {
         $type = ucfirst($type);
