@@ -128,6 +128,7 @@ function unl_wdn_menu_local_task($variables)
 
 function unl_wdn_status_messages($display)
 {
+    $output = '';
     foreach (drupal_get_messages($display) as $type => $messages) {
         $output .= '<div>' . PHP_EOL;
         if (count($messages) > 1) {
