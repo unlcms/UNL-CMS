@@ -18,8 +18,10 @@ function unl_cas_init()
             if (!$user) {
                 $user = unl_cas_import_user($username);
             }
-            $GLOBALS['user'] = $user;
-            user_login_finalize();
+            if ($GLOBALS['user']->uid != $user->uid) {
+                $GLOBALS['user'] = $user;
+                user_login_finalize();
+            }
         }
     }
 }
