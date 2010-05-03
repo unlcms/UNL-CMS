@@ -5,22 +5,29 @@ function unl_cas_init()
     require_once dirname(__FILE__) . '/lib/CAS/CAS.php';
     phpCAS::client(CAS_VERSION_2_0,'login.unl.edu',443,'/cas');
     phpCAS::setNoCasServerValidation();
+    phpCAS::handleLogoutRequests();
     
     if (!array_key_exists('last_sso_check', $_SESSION)) {
         $_SESSION['unl']['last_sso_check'] = 0;
     }
     
+    $auth = FALSE;
     if (array_key_exists('unl_sso', $_COOKIE)) {
         $auth = phpCAS::checkAuthentication();
-        if ($auth) {
-            $username = phpCAS::getUser();
-            $user = user_load(array("name" => $username));
-            if (!$user) {
-                $user = unl_cas_import_user($username);
-            }
+    }
+    if ($auth) {
+        $username = phpCAS::getUser();
+        $user = user_load(array("name" => $username));
+        if (!$user) {
+            $user = unl_cas_import_user($username);
+        }
+        if ($GLOBALS['user']->uid != $user->uid) {
             $GLOBALS['user'] = $user;
             user_authenticate_finalize();
         }
+    } else if (!user_is_anonymous()) {
+        $GLOBALS['user'] = drupal_anonymous_user();
+        user_login_finalize();
     }
 }
 
