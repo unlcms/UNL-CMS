@@ -3,6 +3,7 @@ description = UNL DWN theme for Drupal
 screenshot = screenshot.png
 core = 7.x
 engine = phptemplate
+stylesheets[all][] = style.css
 regions[content] = Main Content
 regions[navlinks] = Navigation Links
 regions[leftcollinks] = Related Links
