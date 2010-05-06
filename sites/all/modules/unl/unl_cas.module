@@ -5,16 +5,20 @@ function unl_cas_init()
     require_once dirname(__FILE__) . '/lib/CAS/CAS.php';
     phpCAS::client(CAS_VERSION_2_0,'login.unl.edu',443,'/cas');
     phpCAS::setNoCasServerValidation();
-    phpCAS::handleLogoutRequests();
     
-    if (!array_key_exists('last_sso_check', $_SESSION)) {
-        $_SESSION['unl']['last_sso_check'] = 0;
+    // Force a real CAS attempt every hour or whenever the unl_sso cookie disappears.
+    if ($_SESSION['unl']['last_sso_check'] < time() - 60*60 || 
+        !array_key_exists('unl_sso', $_COOKIE) && phpCAS::isSessionAuthenticated())
+    {
+        unset($_SESSION['phpCAS']['user']);
+        $_SESSION['unl']['last_sso_check'] = time();
     }
     
     $auth = FALSE;
     if (array_key_exists('unl_sso', $_COOKIE)) {
         $auth = phpCAS::checkAuthentication();
     }
+    
     if ($auth) {
         $username = phpCAS::getUser();
         $user = user_load(array("name" => $username));
@@ -27,7 +31,7 @@ function unl_cas_init()
         }
     } else if (!user_is_anonymous()) {
         $GLOBALS['user'] = drupal_anonymous_user();
-        user_login_finalize();
+        user_authenticate_finalize();
     }
 }
 
@@ -65,4 +69,15 @@ function unl_cas_import_user($username)
     
     $user = user_save(NULL, $userData);
     return $user;
+}
+
+function unl_cas_footer()
+{
+    $logoutUrl = url('logout');
+    $ssoScript = <<<EOF
+<script type="text/javascript">
+    WDN.idm.setLogoutURL('$logoutUrl');
+</script>
+EOF;
+    return $ssoScript;
 }
