@@ -1,0 +1,55 @@
+<?php
+// $Id: imce.install,v 1.4 2010/03/17 21:36:38 ufku Exp $
+
+/**
+ * @file
+ * Installs, updates, and uninstalls IMCE.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function imce_install() {
+  module_load_include('inc', 'imce', 'inc/imce.core.profiles');
+  imce_install_profiles();
+  drupal_set_message(st('!module has been installed.', array('!module' => l(st('IMCE'), 'admin/config/media/imce'))));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function imce_uninstall() {
+  variable_del('imce_profiles');
+  variable_del('imce_roles_profiles');
+  variable_del('imce_settings_textarea');
+  variable_del('imce_settings_replace');
+  variable_del('imce_settings_thumb_method');
+  variable_del('imce_custom_content');
+  variable_del('imce_custom_process');
+  variable_del('imce_custom_scan');
+}
+
+/**
+ * Updates from 6.x to 7.x.
+ */
+function imce_update_7000() {
+  //update role-profile assignments
+  $roles_profiles = variable_get('imce_roles_profiles', array());
+  if (!empty($roles_profiles)) {
+    $scheme = variable_get('file_default_scheme', 'public');
+    foreach ($roles_profiles as $rid => &$role) {
+      $role[$scheme . '_pid'] = $role['pid'];
+      unset($role['pid']);
+    }
+    variable_set('imce_roles_profiles', $roles_profiles);
+  }
+  //update textarea ids
+  $ids = str_replace(' ', '', variable_get('imce_settings_textarea', ''));
+  if ($ids != '') {
+    $ids = explode(',', $ids);
+    foreach ($ids as &$id) {
+      $id += '*';
+    }
+    variable_set('imce_settings_textarea', implode(', ', $ids));
+  }
+}
