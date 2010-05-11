@@ -14,8 +14,7 @@ function unl_wdn_get_instance()
     return $instance;
 }
 
-
-//include dirname(__FILE__) . '/includes/form.inc';
+require_once dirname(__FILE__) . '/includes/form.inc';
 
 function unl_wdn_breadcrumb($variables)
 {
@@ -83,11 +82,6 @@ function unl_wdn_menu_tree($variables)
 {
     $tree = $variables['tree'];
     return '<ul>' . $tree . '</ul>' . PHP_EOL;
-}
-
-function unl_wdn_theme()
-{
-	return array('page_node_form' => array('arguments' => array('form' => NULL),));
 }
 
 function unl_wdn_menu_local_tasks()
