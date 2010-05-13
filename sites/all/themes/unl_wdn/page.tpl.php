@@ -16,8 +16,10 @@ $t->doctitle = '<title>'. unl_wdn_head_title() .'</title>';
 if (isset($site_name)) {
     $t->titlegraphic = '<h1>' . $site_name . '</h1>';
 }
-if (isset($site_slogan)) {
-    $t->pagetitle = '<h2>' . $site_slogan . '</h2>';
+if (isset($title)) {
+    $t->pagetitle = '<h2>' . $title . '</h2>';
+} else {
+    $t->pagetitle = '';
 }
 
 if (isset($breadcrumb)) {
@@ -30,7 +32,6 @@ $t->maincontentarea = $maincontentprefix . PHP_EOL
                     . str_replace(array('"tabs', 'active'),
                                   array('"wdn_tabs disableSwitching', 'selected'),
                                   theme_menu_local_tasks()) . PHP_EOL
-                    . '<h1>'. $title .'</h1>' . PHP_EOL
                     . str_replace(array('sticky-enabled'),
                                   array('zentable cool'),
                                   $content) . PHP_EOL
