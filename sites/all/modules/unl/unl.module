@@ -54,3 +54,19 @@ function unl_wysiwyg_plugin($editor)
         );
     }
 }
+
+function unl_menu()
+{
+    $access = array();
+    $items['admin/content/unl/migration'] = array(
+        'title' => 'UNL Migration Tool',
+        'description' => 'Migrate a static UNL template page into drupal',
+        'access arguments' => array('administer comments'),
+        'page callback' => 'unl_migration_page',
+        'type' => MENU_LOCAL_TASK,
+        'file' => 'unl_migration.php'
+    );
+    
+    return $items;
+}
+
