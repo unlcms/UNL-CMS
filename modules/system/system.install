@@ -1,5 +1,5 @@
 <?php
-// $Id: system.install,v 1.461 2010/04/10 17:30:15 dries Exp $
+// $Id: system.install,v 1.469 2010/05/19 19:14:43 dries Exp $
 
 /**
  * @file
@@ -264,8 +264,10 @@ function system_requirements($phase) {
   // Test files directories.
   $directories = array(
     variable_get('file_public_path', conf_path() . '/files'),
-    variable_get('file_private_path', conf_path() . '/private/files'),
-    variable_get('file_temporary_path', conf_path() . '/private/temp'),
+    // By default no private files directory is configured. For private files
+    // to be secure the admin needs to provide a path outside the webroot.
+    variable_get('file_private_path', FALSE),
+    variable_get('file_temporary_path', sys_get_temp_dir()),
   );
   $requirements['file system'] = array(
     'title' => $t('File system'),
@@ -274,6 +276,9 @@ function system_requirements($phase) {
   $error = '';
   // For installer, create the directories if possible.
   foreach ($directories as $directory) {
+    if (!$directory) {
+      continue;
+    }
     if ($phase == 'install') {
       file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
     }
@@ -353,6 +358,62 @@ function system_requirements($phase) {
     $requirements['update access']['title'] = $t('Access to update.php');
   }
 
+  // Display an error if a newly introduced dependency in a module is not resolved.
+  if ($phase == 'update') {
+    $files = system_rebuild_module_data();
+    foreach ($files as $module => $file) {
+      // Ignore disabled modules.
+      if (!$file->status) {
+        continue;
+      }
+      // Check the module's PHP version.
+      $name = $file->info['name'];
+      $php = $file->info['php'];
+      if (version_compare($php, PHP_VERSION, '>')) {
+        $requirements['php']['description'] .= $t('@name requires at least PHP @version.', array('@name' => $name, '@version' => $php));
+        $requirements['php']['severity'] = REQUIREMENT_ERROR;
+      }
+      // Check the module's required modules.
+      foreach ($file->requires as $requirement) {
+        $required_module = $requirement['name'];
+        // Check if the module exists.
+        if (!isset($files[$required_module])) {
+          $requirements["$module-$required_module"] = array(
+            'title' => $t('Unresolved dependency'),
+            'description' => $t('@name requires this module.', array('@name' => $name)),
+            'value' => t('@required_name (Missing)', array('@required_name' => $required_module)),
+            'severity' => REQUIREMENT_ERROR,
+          );
+          continue;
+        }
+        // Check for an incompatible version.
+        $required_file = $files[$required_module];
+        $required_name = $required_file->info['name'];
+        $version = str_replace(DRUPAL_CORE_COMPATIBILITY . '-', '', $required_file->info['version']);
+        $compatibility = drupal_check_incompatibility($requirement, $version);
+        if ($compatibility) {
+          $compatibility = rtrim(substr($compatibility, 2), ')');
+          $requirements["$module-$required_module"] = array(
+            'title' => $t('Unresolved dependency'),
+            'description' => $t('@name requires this module and version. Currently using @required_name version @version', array('@name' => $name, '@required_name' => $required_name, '@version' => $version)),
+            'value' => t('@required_name (Version @compatibility required)', array('@required_name' => $required_name, '@compatibility' => $compatibility)),
+            'severity' => REQUIREMENT_ERROR,
+          );
+          continue;
+        }
+        // Check for a disabled dependency.
+        if (!$required_file->status) {
+          $requirements["$module-$required_module"] = array(
+            'title' => $t('Unresolved dependency'),
+            'description' => $t('@name requires this module.', array('@name' => $name)),
+            'value' => $t('@required_name (Disabled)', array('@required_name' => $required_name)),
+            'severity' => REQUIREMENT_ERROR,
+          );
+        }
+      }
+    }
+  }
+
   // Test Unicode library
   include_once DRUPAL_ROOT . '/includes/unicode.inc';
   $requirements = array_merge($requirements, unicode_requirements());
@@ -414,7 +475,7 @@ function system_install() {
     ->execute();
 
   // Populate the cron key variable.
-  $cron_key = md5(mt_rand());
+  $cron_key = drupal_hash_base64(drupal_random_bytes(55));
   variable_set('cron_key', $cron_key);
 }
 
@@ -572,11 +633,6 @@ function system_schema() {
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
-      ),
-      'headers' => array(
-        'description' => 'Any custom HTTP headers to be added to cached data.',
-        'type' => 'text',
-        'not null' => FALSE,
       ),
       'serialized' => array(
         'description' => 'A flag to indicate whether content is serialized (1) or not (0).',
@@ -1513,106 +1569,8 @@ function system_schema() {
 // Updates for core.
 
 function system_update_last_removed() {
-  return 6047;
+  return 6055;
 }
-
-/**
- * @defgroup updates-6.x-extra Extra system updates for 6.x
- * @{
- */
-
-/**
-* Increase the size of the 'load_functions' and 'to_arg_functions' fields in table 'menu_router'.
-*/
-function system_update_6048() {
-  db_change_field('menu_router', 'load_functions', 'load_functions', array('type' => 'text', 'not null' => TRUE,));
-  db_change_field('menu_router', 'to_arg_functions', 'to_arg_functions', array('type' => 'text', 'not null' => TRUE,));
-}
-
-/**
- * Replace src index on the {url_alias} table with src, language.
- */
-function system_update_6049() {
-  db_drop_index('url_alias', 'src');
-  db_add_index('url_alias', 'src_language', array('src', 'language'));
-}
-
-/**
- * Clear any menu router blobs stored in the cache table.
- */
-function system_update_6050() {
-  cache_clear_all('router:', 'cache_menu', TRUE);
-}
-
-/**
- * Create a signature_format column.
- */
-function system_update_6051() {
-
-  if (!db_field_exists('users', 'signature_format')) {
-
-    // Set future text formats to FILTER_FORMAT_DEFAULT to ensure a safe default
-    // when incompatible modules insert into the users table. An actual format
-    // will be assigned when users save their signature.
-
-    $schema = array(
-      'type' => 'int',
-      'size' => 'small',
-      'not null' => TRUE,
-      'default' => FILTER_FORMAT_DEFAULT,
-      'description' => 'The {filter_formats}.format of the signature.',
-    );
-
-    db_add_field('users', 'signature_format', $schema);
-
-    // Set the format of existing signatures to the current default text format.
-    if ($current_default_filter = variable_get('filter_default_format', 0)) {
-      db_update('users')
-        ->fields(array(
-          'signature_format' => $current_default_filter,
-        ))
-        ->execute();
-    }
-
-    drupal_set_message("User signatures no longer inherit comment text formats. Each user's signature now has its own associated format that can be selected on the user's account page. Existing signatures have been set to your site's default text format.");
-  }
-}
-
-/**
- * Add a missing index on the {menu_router} table.
- */
-function system_update_6052() {
-  db_add_index('menu_router', 'tab_root_weight_title', array(array('tab_root', 64), 'weight', 'title'));
-}
-
-/**
- * Add a {system} index on type and name.
- */
-function system_update_6053() {
-  db_add_index('system', 'type_name', array(array('type', 12), 'name'));
-}
-
-/**
- * Improve indexes on the {url_alias} table.
- */
-function system_update_6055() {
-  db_drop_index('url_alias', 'src_language');
-  db_drop_unique_key('url_alias', 'dst_language');
-  db_add_index('url_alias', 'src_language_pid', array('src', 'language', 'pid'));
-  db_add_unique_key('url_alias', 'dst_language_pid', array('dst', 'language', 'pid'));
-}
-
-/**
- * Add semaphore table.
- */
-function system_update_6054() {
-  // Lives in update_fix_d7_requirements()
-}
-
-/**
- * @} End of "defgroup updates-6.x-extra"
- * The next series of updates should start at 7000.
- */
 
 /**
  * @defgroup updates-6.x-to-7.x System updates from 6.x to 7.x
@@ -1650,7 +1608,7 @@ function system_update_7000() {
  * Generate a cron key and save it in the variables table.
  */
 function system_update_7001() {
-  variable_set('cron_key', md5(mt_rand()));
+  variable_set('cron_key', drupal_hash_base64(drupal_random_bytes(55)));
 }
 
 /**
@@ -2088,7 +2046,7 @@ function system_update_7032() {
  */
 function system_update_7033() {
   if (variable_get('cache') == 2) {
-    variable_set('cache', CACHE_NORMAL);
+    variable_set('cache', 1);
     return t('Aggressive caching was disabled and replaced with normal caching. Read the page caching section in default.settings.php for more information on how to enable similar functionality.');
   }
 }
@@ -2395,6 +2353,37 @@ function system_update_7051() {
  */
 function system_update_7052() {
   db_change_field('menu_router', 'file', 'include_file', array('type' => 'text', 'size' => 'medium'));
+}
+
+/**
+ * Upgrade standard blocks and menus.
+ */
+function system_update_7053() {
+  // Navigation block is now defined in system module.
+  db_update('block')
+    ->fields(array('module' => 'system'))
+    ->condition('module', 'user')
+    ->condition('delta', 'navigation')
+    ->execute();
+
+  // Create the same menus as in menu_install().
+  db_insert('menu_custom')
+    ->fields(array('menu_name' => 'user-menu', 'title' => 'User Menu', 'description' => "The <em>User</em> menu contains links related to the user's account, as well as the 'Log out' link."))
+    ->execute();
+
+  db_insert('menu_custom')
+    ->fields(array('menu_name' => 'management', 'title' => 'Management', 'description' => "The <em>Management</em> menu contains links for administrative tasks."))
+    ->execute();
+}
+
+/**
+ * Remove {cache_*}.headers columns.
+ */
+function system_update_7054() {
+  $cache_tables = array('cache', 'cache_filter', 'cache_form', 'cache_menu', 'cache_page', 'cache_path');
+  foreach ($cache_tables as $table) {
+    db_drop_field($table, 'headers');
+  }
 }
 
 /**

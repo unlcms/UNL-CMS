@@ -1,5 +1,5 @@
 <?php
-// $Id: statistics.module,v 1.333 2010/03/30 07:17:19 webchick Exp $
+// $Id: statistics.module,v 1.335 2010/05/18 18:26:30 dries Exp $
 
 /**
  * @file
@@ -51,7 +51,12 @@ function statistics_help($path, $arg) {
 function statistics_exit() {
   global $user;
 
-  drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+  // When serving cached pages with the 'page_cache_without_database'
+  // configuration, system variables need to be loaded. This is a major
+  // performance decrease for non-database page caches, but with Statistics
+  // module, it is likely to also have 'statistics_enable_access_log' enabled,
+  // in which case we need to bootstrap to the session phase anyway.
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES);
 
   if (variable_get('statistics_count_content_views', 0)) {
     // We are counting content views.
@@ -70,6 +75,7 @@ function statistics_exit() {
     }
   }
   if (variable_get('statistics_enable_access_log', 0)) {
+    drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
     // Log this page access.
     db_insert('accesslog')
       ->fields(array(
@@ -304,12 +310,14 @@ function statistics_get($nid) {
  * Implements hook_block_info().
  */
 function statistics_block_info() {
+  $blocks = array();
+
   if (variable_get('statistics_count_content_views', 0)) {
     $blocks['popular']['info'] = t('Popular content');
     // Too dynamic to cache.
     $blocks['popular']['cache'] = DRUPAL_NO_CACHE;
-    return $blocks;
   }
+  return $blocks;
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: select.inc,v 1.35 2010/04/11 18:33:43 dries Exp $
+// $Id: select.inc,v 1.41 2010/05/15 07:04:21 dries Exp $
 
 /**
  * @ingroup database
@@ -232,7 +232,9 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   this clause should use a named placeholder and the value or values to
    *   insert should be passed in the 4th parameter. For the first table joined
    *   on a query, this value is ignored as the first table is taken as the base
-   *   table.
+   *   table. The token %alias can be used in this string to be replaced with
+   *   the actual alias. This is useful when $alias is modified by the database
+   *   system, for example, when joining the same table more than once.
    * @param $arguments
    *   An array of arguments to replace into the $condition of this join.
    * @return
@@ -253,7 +255,9 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   this clause should use a named placeholder and the value or values to
    *   insert should be passed in the 4th parameter. For the first table joined
    *   on a query, this value is ignored as the first table is taken as the base
-   *   table.
+   *   table. The token %alias can be used in this string to be replaced with
+   *   the actual alias. This is useful when $alias is modified by the database
+   *   system, for example, when joining the same table more than once.
    * @param $arguments
    *   An array of arguments to replace into the $condition of this join.
    * @return
@@ -274,7 +278,9 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   this clause should use a named placeholder and the value or values to
    *   insert should be passed in the 4th parameter. For the first table joined
    *   on a query, this value is ignored as the first table is taken as the base
-   *   table.
+   *   table. The token %alias can be used in this string to be replaced with
+   *   the actual alias. This is useful when $alias is modified by the database
+   *   system, for example, when joining the same table more than once.
    * @param $arguments
    *   An array of arguments to replace into the $condition of this join.
    * @return
@@ -295,7 +301,9 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   this clause should use a named placeholder and the value or values to
    *   insert should be passed in the 4th parameter. For the first table joined
    *   on a query, this value is ignored as the first table is taken as the base
-   *   table.
+   *   table. The token %alias can be used in this string to be replaced with
+   *   the actual alias. This is useful when $alias is modified by the database
+   *   system, for example, when joining the same table more than once.
    * @param $arguments
    *   An array of arguments to replace into the $condition of this join.
    * @return
@@ -324,7 +332,9 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   this clause should use a named placeholder and the value or values to
    *   insert should be passed in the 4th parameter. For the first table joined
    *   on a query, this value is ignored as the first table is taken as the base
-   *   table.
+   *   table. The token %alias can be used in this string to be replaced with
+   *   the actual alias. This is useful when $alias is modified by the database
+   *   system, for example, when joining the same table more than once.
    * @param $arguments
    *   An array of arguments to replace into the $condition of this join.
    * @return
@@ -443,6 +453,29 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    *   TRUE if the validation was successful, FALSE if not.
    */
   public function preExecute(SelectQueryInterface $query = NULL);
+
+  /**
+   * Helper function to build most common HAVING conditional clauses.
+   *
+   * This method can take a variable number of parameters. If called with two
+   * parameters, they are taken as $field and $value with $operator having a value
+   * of IN if $value is an array and = otherwise.
+   *
+   * @param $field
+   *   The name of the field to check. If you would like to add a more complex
+   *   condition involving operators or functions, use having().
+   * @param $value
+   *   The value to test the field against. In most cases, this is a scalar. For more
+   *   complex options, it is an array. The meaning of each element in the array is
+   *   dependent on the $operator.
+   * @param $operator
+   *   The comparison operator, such as =, <, or >=. It also accepts more complex
+   *   options such as IN, LIKE, or BETWEEN. Defaults to IN if $value is an array
+   *   = otherwise.
+   * @return QueryConditionInterface
+   *   The called object.
+   */
+  public function havingCondition($field, $value = NULL, $operator = NULL);
 
   /**
    * Clone magic method.
@@ -727,7 +760,7 @@ class SelectQueryExtender implements SelectQueryInterface {
   }
 
   public function __toString() {
-    return (string)$this->query;
+    return (string) $this->query;
   }
 
   public function __clone() {
@@ -906,10 +939,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
   /* Implementations of QueryConditionInterface for the WHERE clause. */
 
   public function condition($field, $value = NULL, $operator = NULL) {
-    if (!isset($num_args)) {
-      $num_args = func_num_args();
-    }
-    $this->where->condition($field, $value, $operator, $num_args);
+    $this->where->condition($field, $value, $operator);
     return $this;
   }
 
@@ -942,11 +972,8 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
   /* Implementations of QueryConditionInterface for the HAVING clause. */
 
-  public function havingCondition($field, $value = NULL, $operator = '=') {
-    if (!isset($num_args)) {
-      $num_args = func_num_args();
-    }
-    $this->having->condition($field, $value, $operator, $num_args);
+  public function havingCondition($field, $value = NULL, $operator = NULL) {
+    $this->having->condition($field, $value, $operator);
     return $this;
   }
 
@@ -1069,10 +1096,11 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
     // Modules may alter all queries or only those having a particular tag.
     if (isset($this->alterTags)) {
-      drupal_alter('query', $query);
+      $hooks = array('query');
       foreach ($this->alterTags as $tag => $value) {
-        drupal_alter("query_$tag", $query);
+        $hooks[] = 'query_' . $tag;
       }
+      drupal_alter($hooks, $query);
     }
     return $this->prepared = TRUE;
   }
@@ -1085,7 +1113,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
     }
 
     $args = $this->getArguments();
-    return $this->connection->query((string)$this, $args, $this->queryOptions);
+    return $this->connection->query((string) $this, $args, $this->queryOptions);
   }
 
   public function distinct($distinct = TRUE) {
@@ -1192,6 +1220,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
     }
     $alias = $alias_candidate;
 
+    if (is_string($condition)) {
+      $condition = str_replace('%alias', $alias, $condition);
+    }
+
     $this->tables[$alias] = array(
       'join type' => $type,
       'table' => $table,
@@ -1285,8 +1317,11 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
   public function __toString() {
 
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
+
     // SELECT
-    $query = 'SELECT ';
+    $query = $comments . 'SELECT ';
     if ($this->distinct) {
       $query .= 'DISTINCT ';
     }
@@ -1295,13 +1330,13 @@ class SelectQuery extends Query implements SelectQueryInterface {
     $fields = array();
     foreach ($this->tables as $alias => $table) {
       if (!empty($table['all_fields'])) {
-        $fields[] = $alias . '.*';
+        $fields[] = $this->connection->escapeTable($alias) . '.*';
       }
     }
     foreach ($this->fields as $alias => $field) {
       // Always use the AS keyword for field aliases, as some
       // databases require it (e.g., PostgreSQL).
-      $fields[] = (isset($field['table']) ? $field['table'] . '.' : '') . $field['field'] . ' AS ' . $field['alias'];
+      $fields[] = (isset($field['table']) ? $this->connection->escapeTable($field['table']) . '.' : '') . $this->connection->escapeField($field['field']) . ' AS ' . $this->connection->escapeField($field['alias']);
     }
     foreach ($this->expressions as $alias => $expression) {
       $fields[] = $expression['expression'] . ' AS ' . $expression['alias'];
@@ -1319,7 +1354,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
       // If the table is a subquery, compile it and integrate it into this query.
       if ($table['table'] instanceof SelectQueryInterface) {
-        $table_string = '(' . (string)$table['table'] . ')';
+        // Run preparation steps on this sub-query before converting to string.
+        $subquery = $table['table'];
+        $subquery->preExecute();
+        $table_string = '(' . (string) $subquery . ')';
       }
       else {
         $table_string = '{' . $this->connection->escapeTable($table['table']) . '}';
@@ -1327,7 +1365,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
 
       // Don't use the AS keyword for table aliases, as some
       // databases don't support it (e.g., Oracle).
-      $query .=  $table_string . ' ' . $table['alias'];
+      $query .=  $table_string . ' ' . $this->connection->escapeTable($table['alias']);
 
       if (!empty($table['condition'])) {
         $query .= ' ON ' . $table['condition'];

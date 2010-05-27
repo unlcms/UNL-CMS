@@ -1,5 +1,5 @@
 <?php
-// $Id: database_test.test,v 1.87 2010/04/11 18:33:44 dries Exp $
+// $Id: database_test.test,v 1.92 2010/05/15 07:04:21 dries Exp $
 
 /**
  * Dummy class for fetching into a class.
@@ -456,7 +456,7 @@ class DatabaseInsertTestCase extends DatabaseTestCase {
     $query->execute();
 
     $num_records_after = db_query('SELECT COUNT(*) FROM {test}')->fetchField();
-    $this->assertIdentical($num_records_before + 1, (int)$num_records_after, t('Record inserts correctly.'));
+    $this->assertIdentical($num_records_before + 1, (int) $num_records_after, t('Record inserts correctly.'));
     $saved_age = db_query('SELECT age FROM {test} WHERE name = :name', array(':name' => 'Yoko'))->fetchField();
     $this->assertIdentical($saved_age, '29', t('Can retrieve after inserting.'));
   }
@@ -1015,7 +1015,6 @@ class DatabaseDeleteTruncateTestCase extends DatabaseTestCase {
     $this->assertEqual($num_records_before, $num_records_after + $num_deleted, t('Deletion adds up.'));
   }
 
-
   /**
    * Confirm that we can truncate a whole table successfully.
    */
@@ -1272,6 +1271,27 @@ class DatabaseSelectTestCase extends DatabaseTestCase {
     }
 
     $this->assertEqual($num_records, 4, t('Returned the correct number of rows.'));
+  }
+
+  /**
+   * Test rudimentary SELECT statement with a COMMENT.
+   */
+  function testSimpleComment() {
+    $query = db_select('test')->comment('Testing query comments');
+    $name_field = $query->addField('test', 'name');
+    $age_field = $query->addField('test', 'age', 'age');
+    $result = $query->execute();
+
+    $num_records = 0;
+    foreach ($result as $record) {
+      $num_records++;
+    }
+
+    $query = (string)$query;
+    $expected = "/* Testing query comments */ SELECT test.name AS name, test.age AS age\nFROM \n{test} test";
+
+    $this->assertEqual($num_records, 4, t('Returned the correct number of rows.'));
+    $this->assertEqual($query, $expected, t('The flattened query contains the comment string.'));
   }
 
   /**
@@ -1835,7 +1855,7 @@ class DatabaseSelectComplexTestCase extends DatabaseTestCase {
     $task_field = $query->addField('t', 'task');
     $query->orderBy($count_field);
     $query->groupBy($task_field);
-    $query->havingCondition('COUNT(task)', 2, '>=');
+    $query->having('COUNT(task) >= 2');
     $result = $query->execute();
 
     $num_records = 0;
@@ -1971,6 +1991,20 @@ class DatabaseSelectComplexTestCase extends DatabaseTestCase {
 
     $job = $query->execute()->fetchField();
     $this->assertEqual($job, 'Songwriter', t('Correct data retrieved.'));
+  }
+
+  /**
+   * Confirm we can join on a single table twice with a dynamic alias.
+   */
+  function testJoinTwice() {
+    $query = db_select('test')->fields('test');
+    $alias = $query->join('test', 'test', 'test.job = %alias.job');
+    $query->addField($alias, 'name', 'othername');
+    $query->addField($alias, 'job', 'otherjob');
+    $query->where("$alias.name <> test.name");
+    $crowded_job = $query->execute()->fetch();
+    $this->assertEqual($crowded_job->job, $crowded_job->otherjob, t('Correctly joined same table twice.'));
+    $this->assertNotEqual($crowded_job->name, $crowded_job->othername, t('Correctly joined same table twice.'));
   }
 }
 
@@ -2326,22 +2360,6 @@ class DatabaseAlterTestCase extends DatabaseTestCase {
     $this->assertEqual($records[0]->$pid_field, 1, t('Correct data retrieved.'));
     $this->assertEqual($records[0]->$task_field, 'sleep', t('Correct data retrieved.'));
   }
-}
-
-/**
- * Select alter tests, part 2.
- *
- * @see database_test_query_alter()
- */
-class DatabaseAlter2TestCase extends DatabaseTestCase {
-
-  public static function getInfo() {
-    return array(
-      'name' => 'Query altering tests, part 2',
-      'description' => 'Test the hook_query_alter capabilities of the Select builder.',
-      'group' => 'Database',
-    );
-  }
 
   /**
    * Test that we can alter the fields of a query.
@@ -2389,6 +2407,31 @@ class DatabaseAlter2TestCase extends DatabaseTestCase {
     $num_records = count($query->execute()->fetchAll());
 
     $this->assertEqual($num_records, 4, t('Returned the correct number of rows.'));
+  }
+
+  /**
+   * Test that we can do basic alters on subqueries.
+   */
+  function testSimpleAlterSubquery() {
+    // Create a sub-query with an alter tag.
+    $subquery = db_select('test', 'p');
+    $subquery->addField('p', 'name');
+    $subquery->addField('p', 'id');
+    // Pick out George.
+    $subquery->condition('age', 27);
+    $subquery->addExpression("age*2", 'double_age');
+    // This query alter should change it to age * 3.
+    $subquery->addTag('database_test_alter_change_expressions');
+
+    // Create a main query and join to sub-query.
+    $query = db_select('test_task', 'tt');
+    $query->join($subquery, 'pq', 'pq.id = tt.pid');
+    $age_field = $query->addField('pq', 'double_age');
+    $name_field = $query->addField('pq', 'name');
+
+    $record = $query->execute()->fetch();
+    $this->assertEqual($record->$name_field, 'George', t('Fetched name is correct.'));
+    $this->assertEqual($record->$age_field, 27*3, t('Fetched age expression is correct.'));
   }
 }
 
@@ -3227,5 +3270,4 @@ class DatabaseEmptyStatementTestCase extends DrupalWebTestCase {
 
     $this->assertEqual($result->fetchAll(), array(), t('Empty array returned from empty result set.'));
   }
-
 }

@@ -1,4 +1,4 @@
-// $Id: tabledrag.js,v 1.36 2010/03/31 19:22:00 dries Exp $
+// $Id: tabledrag.js,v 1.38 2010/05/18 06:46:45 dries Exp $
 (function ($) {
 
 /**
@@ -516,7 +516,7 @@ Drupal.tableDrag.prototype.getMouseOffset = function (target, event) {
  *   The y coordinate of the mouse on the page (not the screen).
  */
 Drupal.tableDrag.prototype.findDropTargetRow = function (x, y) {
-  var rows = this.table.tBodies[0].rows;
+  var rows = $(this.table.tBodies[0].rows).not(':hidden');
   for (var n = 0; n < rows.length; n++) {
     var row = rows[n];
     var indentDiff = 0;
@@ -998,7 +998,7 @@ Drupal.tableDrag.prototype.row.prototype.findSiblings = function (rowSettings) {
   var siblings = [];
   var directions = ['prev', 'next'];
   var rowIndentation = this.indents;
-  for (var d in directions) {
+  for (var d = 0; d < directions.length; d++) {
     var checkRow = $(this.element)[directions[d]]();
     while (checkRow.length) {
       // Check that the sibling contains a similar target field.

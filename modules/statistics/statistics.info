@@ -12,8 +12,8 @@ files[] = statistics.test
 files[] = statistics.tokens.inc
 configure = admin/config/system/statistics
 
-; Information added by drupal.org packaging script on 2010-04-26
-version = "7.0-alpha4"
+; Information added by drupal.org packaging script on 2010-05-23
+version = "7.0-alpha5"
 project = "drupal"
-datestamp = "1272318008"
+datestamp = "1274628610"
 

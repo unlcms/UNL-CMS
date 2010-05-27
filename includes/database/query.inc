@@ -1,5 +1,5 @@
 <?php
-// $Id: query.inc,v 1.46 2010/04/19 04:43:05 webchick Exp $
+// $Id: query.inc,v 1.49 2010/05/15 07:04:21 dries Exp $
 
 /**
  * @ingroup database
@@ -21,10 +21,11 @@ interface QueryConditionInterface {
    *
    * This method can take a variable number of parameters. If called with two
    * parameters, they are taken as $field and $value with $operator having a value
-   * of =.
+   * of IN if $value is an array and = otherwise.
    *
    * @param $field
-   *   The name of the field to check.
+   *   The name of the field to check. If you would like to add a more complex
+   *   condition involving operators or functions, use where().
    * @param $value
    *   The value to test the field against. In most cases, this is a scalar. For more
    *   complex options, it is an array. The meaning of each element in the array is
@@ -239,6 +240,13 @@ abstract class Query implements QueryPlaceholderInterface {
    */
   protected $nextPlaceholder = 0;
 
+  /**
+   * An array of comments that can be prepended to a query.
+   *
+   * @var array
+   */
+  protected $comments = array();
+
   public function __construct(DatabaseConnection $connection, $options) {
     $this->connection = $connection;
     $this->queryOptions = $options;
@@ -261,6 +269,44 @@ abstract class Query implements QueryPlaceholderInterface {
 
   public function nextPlaceholder() {
     return $this->nextPlaceholder++;
+  }
+
+  /**
+   * Adds a comment to the query.
+   *
+   * By adding a comment to a query, you can more easily find it in your
+   * query log or the list of active queries on an sql server. This allows
+   * for easier debugging and allows you to more easily find where a query
+   * with a performance problem is being generated.
+   *
+   * @param $comment
+   *   The comment string to be inserted into the query.
+   * @return Query
+   *   The called object.
+   */
+  public function comment($comment) {
+    $this->comments[] = $comment;
+    return $this;
+  }
+
+  /**
+   * Returns a reference to the comments array for the query.
+   *
+   * Because this method returns by reference, alter hooks may edit the comments
+   * array directly to make their changes. If just adding comments, however, the
+   * use of comment() is preferred.
+   *
+   * Note that this method must be called by reference as well:
+   *
+   * @code
+   * $comments =& $query->getComments();
+   * @endcode
+   *
+   * @return
+   *   A reference to the comments array structure.
+   */
+  public function &getComments() {
+    return $this->comments;
   }
 }
 
@@ -441,7 +487,7 @@ class InsertQuery extends Query {
     // If we're selecting from a SelectQuery, finish building the query and
     // pass it back, as any remaining options are irrelevant.
     if (!empty($this->fromQuery)) {
-      $sql = (string)$this;
+      $sql = (string) $this;
       // The SelectQuery may contain arguments, load and pass them through.
       return $this->connection->query($sql, $this->fromQuery->getArguments(), $this->queryOptions);
     }
@@ -452,7 +498,7 @@ class InsertQuery extends Query {
     // we wrap it in a transaction so that it is atomic where possible. On many
     // databases, such as SQLite, this is also a notable performance boost.
     $transaction = $this->connection->startTransaction();
-    $sql = (string)$this;
+    $sql = (string) $this;
     foreach ($this->insertValues as $insert_values) {
       $last_insert_id = $this->connection->query($sql, $insert_values, $this->queryOptions);
     }
@@ -467,11 +513,14 @@ class InsertQuery extends Query {
 
   public function __toString() {
 
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
+
     // Default fields are always placed first for consistency.
     $insert_fields = array_merge($this->defaultFields, $this->insertFields);
 
     if (!empty($this->fromQuery)) {
-      return "INSERT INTO {" . $this->table . '} (' . implode(', ', $insert_fields) . ') ' . $this->fromQuery;
+      return $comments . 'INSERT INTO {' . $this->table . '} (' . implode(', ', $insert_fields) . ') ' . $this->fromQuery;
     }
 
     // For simplicity, we will use the $placeholders array to inject
@@ -481,7 +530,7 @@ class InsertQuery extends Query {
     $placeholders = array_pad($placeholders, count($this->defaultFields), 'default');
     $placeholders = array_pad($placeholders, count($this->insertFields), '?');
 
-    return 'INSERT INTO {' . $this->table . '} (' . implode(', ', $insert_fields) . ') VALUES (' . implode(', ', $placeholders) . ')';
+    return $comments . 'INSERT INTO {' . $this->table . '} (' . implode(', ', $insert_fields) . ') VALUES (' . implode(', ', $placeholders) . ')';
   }
 
   /**
@@ -779,7 +828,7 @@ class MergeQuery extends Query {
     }
 
     $select = $select->countQuery();
-    $sql = (string)$select;
+    $sql = (string) $select;
     $arguments = $select->getArguments();
     $num_existing = $this->connection->query($sql, $arguments)->fetchField();
 
@@ -895,11 +944,15 @@ class DeleteQuery extends Query implements QueryConditionInterface {
       $values = $this->condition->arguments();
     }
 
-    return $this->connection->query((string)$this, $values, $this->queryOptions);
+    return $this->connection->query((string) $this, $values, $this->queryOptions);
   }
 
   public function __toString() {
-    $query = 'DELETE FROM {' . $this->connection->escapeTable($this->table) . '} ';
+
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
+
+    $query = $comments . 'DELETE FROM {' . $this->connection->escapeTable($this->table) . '} ';
 
     if (count($this->condition)) {
 
@@ -935,11 +988,14 @@ class TruncateQuery extends Query {
   }
 
   public function execute() {
-    return $this->connection->query((string)$this, array(), $this->queryOptions);
+    return $this->connection->query((string) $this, array(), $this->queryOptions);
   }
 
   public function __toString() {
-    return 'TRUNCATE {' . $this->connection->escapeTable($this->table) . '} ';
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
+
+    return $comments . 'TRUNCATE {' . $this->connection->escapeTable($this->table) . '} ';
   }
 }
 
@@ -1095,10 +1151,14 @@ class UpdateQuery extends Query implements QueryConditionInterface {
       $update_values = array_merge($update_values, $this->condition->arguments());
     }
 
-    return $this->connection->query((string)$this, $update_values, $this->queryOptions);
+    return $this->connection->query((string) $this, $update_values, $this->queryOptions);
   }
 
   public function __toString() {
+
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
+
     // Expressions take priority over literal fields, so we process those first
     // and remove any literal fields that conflict.
     $fields = $this->fields;
@@ -1113,7 +1173,7 @@ class UpdateQuery extends Query implements QueryConditionInterface {
       $update_fields[] = $field . '=:db_update_placeholder_' . ($max_placeholder++);
     }
 
-    $query = 'UPDATE {' . $this->connection->escapeTable($this->table) . '} SET ' . implode(', ', $update_fields);
+    $query = $comments . 'UPDATE {' . $this->connection->escapeTable($this->table) . '} SET ' . implode(', ', $update_fields);
 
     if (count($this->condition)) {
       $this->condition->compile($this->connection, $this);
@@ -1217,7 +1277,7 @@ class DatabaseCondition implements QueryConditionInterface, Countable {
           if ($condition['field'] instanceof QueryConditionInterface) {
             // Compile the sub-condition recursively and add it to the list.
             $condition['field']->compile($connection, $queryPlaceholder);
-            $condition_fragments[] = '(' . (string)$condition['field'] . ')';
+            $condition_fragments[] = '(' . (string) $condition['field'] . ')';
             $arguments += $condition['field']->arguments();
           }
           else {
@@ -1239,7 +1299,7 @@ class DatabaseCondition implements QueryConditionInterface, Countable {
             $placeholders = array();
             if ($condition['value'] instanceof SelectQueryInterface) {
               $condition['value']->compile($connection, $queryPlaceholder);
-              $placeholders[] = (string)$condition['value'];
+              $placeholders[] = (string) $condition['value'];
               $arguments += $condition['value']->arguments();
             }
             // We assume that if there is a delimiter, then the value is an
@@ -1255,7 +1315,7 @@ class DatabaseCondition implements QueryConditionInterface, Countable {
                 $placeholders[] = $placeholder;
               }
             }
-            $condition_fragments[] = ' (' . $condition['field'] . ' ' . $operator['operator'] . ' ' . $operator['prefix'] . implode($operator['delimiter'], $placeholders) . $operator['postfix'] . ') ';
+            $condition_fragments[] = ' (' . $connection->escapeField($condition['field']) . ' ' . $operator['operator'] . ' ' . $operator['prefix'] . implode($operator['delimiter'], $placeholders) . $operator['postfix'] . ') ';
           }
         }
       }

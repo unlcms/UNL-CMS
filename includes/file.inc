@@ -1,5 +1,5 @@
 <?php
-// $Id: file.inc,v 1.207 2010/04/10 17:30:15 dries Exp $
+// $Id: file.inc,v 1.209 2010/05/11 10:56:04 dries Exp $
 
 /**
  * @file
@@ -343,9 +343,21 @@ function file_create_url($uri) {
   $scheme = file_uri_scheme($uri);
 
   if (!$scheme) {
-    // If this is not a properly formatted stream, then it is a shipped file.
-    // Therefor, return the URI with the base URL prepended.
-    return $GLOBALS['base_url'] . '/' . $uri;
+    // Allow for:
+    // - root-relative URIs (e.g. /foo.jpg in http://example.com/foo.jpg)
+    // - protocol-relative URIs (e.g. //bar.jpg, which is expanded to
+    //   http://example.com/bar.jpg by the browser when viewing a page over
+    //   HTTP and to https://example.com/bar.jpg when viewing a HTTPS page)
+    // Both types of relative URIs are characterized by a leading slash, hence
+    // we can use a single check.
+    if (drupal_substr($uri, 0, 1) == '/') {
+      return $uri;
+    }
+    else {
+      // If this is not a properly formatted stream, then it is a shipped file.
+      // Therefor, return the URI with the base URL prepended.
+      return $GLOBALS['base_url'] . '/' . $uri;
+    }
   }
   elseif ($scheme == 'http' || $scheme == 'https') {
     // Check for http so that we don't have to implement getExternalUrl() for
@@ -409,7 +421,9 @@ function file_prepare_directory(&$directory, $options = FILE_MODIFY_PERMISSIONS)
  */
 function file_ensure_htaccess() {
   file_create_htaccess('public://', FALSE);
-  file_create_htaccess('private://', TRUE);
+  if (variable_get('file_private_path', FALSE)) {
+    file_create_htaccess('private://', TRUE);
+  }
   file_create_htaccess('temporary://', TRUE);
 }
 
@@ -1586,8 +1600,7 @@ function file_download() {
   $scheme = array_shift($args);
   $target = implode('/', $args);
   $uri = $scheme . '://' . $target;
-
-  if (file_exists($uri)) {
+  if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
     // Let other modules provide headers and controls access to the file.
     $headers = module_invoke_all('file_download', $uri);
     if (in_array(-1, $headers)) {

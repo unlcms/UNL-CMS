@@ -1,5 +1,5 @@
 <?php
-// $Id: update.module,v 1.65 2010/04/13 15:23:03 dries Exp $
+// $Id: update.module,v 1.67 2010/05/18 18:26:30 dries Exp $
 
 /**
  * @file
@@ -159,7 +159,7 @@ function update_menu() {
     'description' => 'Get a status report about available updates for your installed modules and themes.',
     'page callback' => 'update_status',
     'access arguments' => array('administer site configuration'),
-    'weight' => 10,
+    'weight' => -50,
     'file' => 'update.report.inc',
   );
   $items['admin/reports/updates/list'] = array(
@@ -653,9 +653,6 @@ function theme_update_last_check($variables) {
 /**
  * Store data in the private update status cache table.
  *
- * Note: this function completely ignores the {cache_update}.headers field
- * since that is meaningless for the kinds of data we're caching.
- *
  * @param $cid
  *   The cache ID to save the data with.
  * @param $data
@@ -671,7 +668,6 @@ function _update_cache_set($cid, $data, $expire) {
   $fields = array(
     'created' => REQUEST_TIME,
     'expire' => $expire,
-    'headers' => NULL,
   );
   if (!is_string($data)) {
     $fields['data'] = serialize($data);

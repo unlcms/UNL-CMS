@@ -1,5 +1,5 @@
 <?php
-// $Id: form.inc,v 1.454 2010/04/24 14:49:13 dries Exp $
+// $Id: form.inc,v 1.464 2010/05/19 19:22:24 dries Exp $
 
 /**
  * @defgroup forms Form builder functions
@@ -203,7 +203,7 @@ function drupal_build_form($form_id, &$form_state) {
       }
 
       $form = drupal_retrieve_form($form_id, $form_state);
-      $form_build_id = 'form-' . md5(uniqid(mt_rand(), TRUE));
+      $form_build_id = 'form-' . drupal_hash_base64(uniqid(mt_rand(), TRUE) . mt_rand());
       $form['#build_id'] = $form_build_id;
 
       // Fix the form method, if it is 'get' in $form_state, but not in $form.
@@ -331,7 +331,7 @@ function drupal_rebuild_form($form_id, &$form_state, $old_form = NULL) {
   // Otherwise, a new #build_id is generated, to not clobber the previous
   // build's data in the form cache; also allowing the user to go back to an
   // earlier build, make changes, and re-submit.
-  $form['#build_id'] = isset($old_form['#build_id']) ? $old_form['#build_id'] : 'form-' . md5(mt_rand());
+  $form['#build_id'] = isset($old_form['#build_id']) ? $old_form['#build_id'] : 'form-' . drupal_hash_base64(uniqid(mt_rand(), TRUE) . mt_rand());
 
   // #action defaults to request_uri(), but in case of AJAX and other partial
   // rebuilds, the form is submitted to an alternate URL, and the original
@@ -491,7 +491,7 @@ function form_state_keys_no_cache() {
  * $form_state['values']['body'] = 'This is the body text!';
  * $form_state['values']['name'] = 'robo-user';
  * $form_state['values']['op'] = t('Save');
- * drupal_form_submit('story_node_form', $form_state, (object)$node);
+ * drupal_form_submit('story_node_form', $form_state, (object) $node);
  * @endcode
  */
 function drupal_form_submit($form_id, &$form_state) {
@@ -651,7 +651,7 @@ function drupal_process_form($form_id, &$form, &$form_state) {
       // We'll clear out the cached copies of the form and its stored data
       // here, as we've finished with them. The in-memory copies are still
       // here, though.
-      if (variable_get('cache', CACHE_DISABLED) == CACHE_DISABLED && !empty($form_state['values']['form_build_id'])) {
+      if (!variable_get('cache', 0) && !empty($form_state['values']['form_build_id'])) {
         cache_clear_all('form_' . $form_state['values']['form_build_id'], 'cache_form');
         cache_clear_all('storage_' . $form_state['values']['form_build_id'], 'cache_form');
       }
@@ -774,11 +774,8 @@ function drupal_prepare_form($form_id, &$form, &$form_state) {
     }
   }
 
-  // Invoke hook_form_FORM_ID_alter() implementations.
-  drupal_alter('form_' . $form_id, $form, $form_state);
-
-  // Invoke hook_form_alter() implementations.
-  drupal_alter('form', $form, $form_state, $form_id);
+  // Invoke hook_form_alter() and hook_form_FORM_ID_alter() implementations.
+  drupal_alter(array('form', 'form_' . $form_id), $form, $form_state, $form_id);
 }
 
 
@@ -1294,6 +1291,13 @@ function form_builder($form_id, $element, &$form_state) {
   // Recurse through all child elements.
   $count = 0;
   foreach (element_children($element) as $key) {
+    // Prior to checking properties of child elements, their default properties
+    // need to be loaded.
+    if (isset($element[$key]['#type']) && empty($element[$key]['#defaults_loaded']) && ($info = element_info($element[$key]['#type']))) {
+      $element[$key] += $info;
+      $element[$key]['#defaults_loaded'] = TRUE;
+    }
+
     // Don't squash an existing tree value.
     if (!isset($element[$key]['#tree'])) {
       $element[$key]['#tree'] = $element['#tree'];
@@ -1314,12 +1318,6 @@ function form_builder($form_id, $element, &$form_state) {
     $array_parents = isset($element['#array_parents']) ? $element['#array_parents'] : array();
     $array_parents[] = $key;
     $element[$key]['#array_parents'] = $array_parents;
-
-    // Prior to handling #weight, default element properties need to be applied.
-    if (isset($element[$key]['#type']) && empty($element[$key]['#defaults_loaded']) && ($info = element_info($element[$key]['#type']))) {
-      $element[$key] += $info;
-      $element[$key]['#defaults_loaded'] = TRUE;
-    }
 
     // Assign a decimal placeholder weight to preserve original array order.
     if (!isset($element[$key]['#weight'])) {
@@ -1869,7 +1867,7 @@ function form_type_textfield_value($element, $input = FALSE) {
  */
 function form_type_token_value($element, $input = FALSE) {
   if ($input !== FALSE) {
-    return (string)$input;
+    return (string) $input;
   }
 }
 
@@ -2001,8 +1999,8 @@ function form_select_options($element, $choices = NULL) {
       $options .= form_select_options($element, $choice->option);
     }
     else {
-      $key = (string)$key;
-      if ($value_valid && (!$value_is_array && (string)$element['#value'] === $key || ($value_is_array && in_array($key, $element['#value'])))) {
+      $key = (string) $key;
+      if ($value_valid && (!$value_is_array && (string) $element['#value'] === $key || ($value_is_array && in_array($key, $element['#value'])))) {
         $selected = ' selected="selected"';
       }
       else {
@@ -2177,8 +2175,8 @@ function form_process_password_confirm($element) {
  */
 function password_confirm_validate($element, &$element_state) {
   $pass1 = trim($element['pass1']['#value']);
-  if (!empty($pass1)) {
-    $pass2 = trim($element['pass2']['#value']);
+  $pass2 = trim($element['pass2']['#value']);
+  if (!empty($pass1) || !empty($pass2)) {
     if (strcmp($pass1, $pass2)) {
       form_error($element, t('The specified passwords do not match.'));
     }
@@ -2544,8 +2542,10 @@ function theme_tableselect($variables) {
     }
     // Add an empty header or a "Select all" checkbox to provide room for the
     // checkboxes/radios in the first table column.
-    $first_col = $element['#js_select'] ? array(theme('table_select_header_cell')) : array('');
-    $header = array_merge($first_col, $header);
+    if ($element['#js_select']) {
+      drupal_add_js('misc/tableselect.js');
+      array_unshift($header, array('class' => array('select-all')));
+    }
   }
   return theme('table', array('header' => $header, 'rows' => $rows, 'empty' => $element['#empty'], 'attributes' => $element['#attributes']));
 }
@@ -2652,13 +2652,16 @@ function form_process_fieldset(&$element, &$form_state) {
   // Contains form element summary functionalities.
   $element['#attached']['js']['misc/form.js'] = array('weight' => JS_LIBRARY + 1);
 
+  // The .form-wrapper class is required for #states to treat fieldsets like
+  // containers.
+  if (!isset($element['#attributes']['class'])) {
+    $element['#attributes']['class'] = array();
+  }
+  $element['#attributes']['class'][] = 'form-wrapper';
+
   // Collapsible fieldsets
   if (!empty($element['#collapsible'])) {
     $element['#attached']['js'][] = 'misc/collapse.js';
-    if (!isset($element['#attributes']['class'])) {
-      $element['#attributes']['class'] = array();
-    }
-    $element['#attributes']['class'][] = 'form-wrapper';
     $element['#attributes']['class'][] = 'collapsible';
     if (!empty($element['#collapsed'])) {
       $element['#attributes']['class'][] = 'collapsed';
@@ -3029,47 +3032,44 @@ function theme_form_element($variables) {
   // This is also used in the installer, pre-database setup.
   $t = get_t();
 
+  // Add element #id for #type 'item'.
+  if (isset($element['#markup']) && !empty($element['#id'])) {
+    $attributes['id'] = $element['#id'];
+  }
   // Add element's #type and #name as class to aid with JS/CSS selectors.
-  $class = array('form-item');
+  $attributes['class'] = array('form-item');
   if (!empty($element['#type'])) {
-    $class[] = 'form-type-' . strtr($element['#type'], '_', '-');
+    $attributes['class'][] = 'form-type-' . strtr($element['#type'], '_', '-');
   }
   if (!empty($element['#name'])) {
-    $class[] = 'form-item-' . strtr($element['#name'], array(' ' => '-', '_' => '-', '[' => '-', ']' => ''));
+    $attributes['class'][] = 'form-item-' . strtr($element['#name'], array(' ' => '-', '_' => '-', '[' => '-', ']' => ''));
   }
+  $output = '<div' . drupal_attributes($attributes) . '>' . "\n";
 
   // If #title is not set, we don't display any label or required marker.
   if (!isset($element['#title'])) {
     $element['#title_display'] = 'none';
   }
-
-  $output = '<div class="' . implode(' ', $class) . '">' . "\n";
-
-  if (isset($element['#field_prefix'])) {
-    $output .= '<span class="field-prefix">' . $element['#field_prefix'] . '</span> ';
-  }
+  $prefix = isset($element['#field_prefix']) ? '<span class="field-prefix">' . $element['#field_prefix'] . '</span> ' : '';
+  $suffix = isset($element['#field_suffix']) ? ' <span class="field-suffix">' . $element['#field_suffix'] . '</span>' : '';
 
   switch ($element['#title_display']) {
     case 'before':
       $output .= ' ' . theme('form_element_label', $variables);
-      $output .= ' ' . $element['#children'] . "\n";
+      $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
       break;
 
     case 'invisible':
     case 'after':
-      $output .= ' ' . $element['#children'];
+      $output .= ' ' . $prefix . $element['#children'] . $suffix;
       $output .= ' ' . theme('form_element_label', $variables) . "\n";
       break;
 
     case 'none':
     case 'attribute':
       // Output no label and no required marker, only the children.
-      $output .= ' ' . $element['#children'] . "\n";
+      $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
       break;
-  }
-
-  if (isset($element['#field_suffix'])) {
-    $output .= ' <span class="field-suffix">' . $element['#field_suffix'] . '</span>';
   }
 
   if (!empty($element['#description'])) {

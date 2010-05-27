@@ -1,5 +1,5 @@
 <?php
-// $Id: book.admin.inc,v 1.33 2010/04/13 15:23:02 dries Exp $
+// $Id: book.admin.inc,v 1.35 2010/05/01 08:12:22 dries Exp $
 
 /**
  * @file
@@ -154,7 +154,7 @@ function _book_admin_table($node, &$form) {
   $tree = book_menu_subtree_data($node->book);
   $tree = array_shift($tree); // Do not include the book item itself.
   if ($tree['below']) {
-    $hash = sha1(serialize($tree['below']));
+    $hash = drupal_hash_base64(serialize($tree['below']));
     // Store the hash value as a hidden form element so that we can detect
     // if another user changed the book hierarchy.
     $form['tree_hash'] = array(
@@ -246,8 +246,8 @@ function theme_book_admin_table($variables) {
       drupal_render($form[$key]['weight']),
       drupal_render($form[$key]['plid']) . drupal_render($form[$key]['mlid']),
       l(t('view'), $href),
-      $access ? l(t('edit'), 'node/' . $nid . '/edit', array('query' => $destination)) : '&nbsp',
-      $access ? l(t('delete'), 'node/' . $nid . '/delete', array('query' => $destination) )  : '&nbsp',
+      $access ? l(t('edit'), 'node/' . $nid . '/edit', array('query' => $destination)) : '&nbsp;',
+      $access ? l(t('delete'), 'node/' . $nid . '/delete', array('query' => $destination) )  : '&nbsp;',
     );
     $row = array('data' => $data);
     if (isset($form[$key]['#attributes'])) {

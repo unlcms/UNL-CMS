@@ -1,5 +1,5 @@
 <?php
-// $Id: drupal_web_test_case.php,v 1.211 2010/04/23 05:46:01 webchick Exp $
+// $Id: drupal_web_test_case.php,v 1.217 2010/05/10 06:38:23 dries Exp $
 
 /**
  * Base class for Drupal tests.
@@ -837,11 +837,12 @@ class DrupalWebTestCase extends DrupalTestCase {
       'locked' => 0,
     );
     $type = $forced + $settings + $defaults;
-    $type = (object)$type;
+    $type = (object) $type;
 
     $saved_type = node_type_save($type);
     node_types_rebuild();
     menu_rebuild();
+    node_add_body_field($type);
 
     $this->assertEqual($saved_type, SAVED_NEW, t('Created content type %type.', array('%type' => $type->type)));
 
@@ -1075,7 +1076,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    */
   protected function drupalGetToken($value = '') {
     $private_key = drupal_get_private_key();
-    return md5($this->session_id . $value . $private_key);
+    return drupal_hmac_base64($value, $this->session_id . $private_key);
   }
 
   /*
@@ -1158,6 +1159,11 @@ class DrupalWebTestCase extends DrupalTestCase {
 
     $this->preloadRegistry();
 
+    // Set path variables.
+    variable_set('file_public_path', $public_files_directory);
+    variable_set('file_private_path', $private_files_directory);
+    variable_set('file_temporary_path', $temp_files_directory);
+
     // Include the default profile.
     variable_set('install_profile', 'standard');
     $profile_details = install_profile_info('standard', 'en');
@@ -1211,11 +1217,6 @@ class DrupalWebTestCase extends DrupalTestCase {
     // Set up English language.
     unset($GLOBALS['conf']['language_default']);
     $language = language_default();
-
-    // Set path variables
-    variable_set('file_public_path', $public_files_directory);
-    variable_set('file_private_path', $private_files_directory);
-    variable_set('file_temporary_path', $temp_files_directory);
 
     // Use the test mail class instead of the default mail handler class.
     variable_set('mail_system', array('default-system' => 'TestingMailSystem'));
@@ -1359,15 +1360,20 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Performs a cURL exec with the specified options after calling curlConnect().
+   * Initializes and executes a cURL request.
    *
    * @param $curl_options
-   *   Custom cURL options.
+   *   An associative array of cURL options to set, where the keys are constants
+   *   defined by the cURL library. For a list of valid options, see
+   *   http://www.php.net/manual/function.curl-setopt.php
    * @param $redirect
-   *   FALSE if this is an initial request, TRUE if this request is the result of
-   *   a redirect.
+   *   FALSE if this is an initial request, TRUE if this request is the result
+   *   of a redirect.
+   *
    * @return
-   *   Content returned from the exec.
+   *   The content returned from the call to curl_exec().
+   *
+   * @see curlInitialize()
    */
   protected function curlExec($curl_options, $redirect = FALSE) {
     $this->curlInitialize();
@@ -1860,8 +1866,8 @@ class DrupalWebTestCase extends DrupalTestCase {
       $name = (string) $element['name'];
       // This can either be the type of <input> or the name of the tag itself
       // for <select> or <textarea>.
-      $type = isset($element['type']) ? (string)$element['type'] : $element->getName();
-      $value = isset($element['value']) ? (string)$element['value'] : '';
+      $type = isset($element['type']) ? (string) $element['type'] : $element->getName();
+      $value = isset($element['value']) ? (string) $element['value'] : '';
       $done = FALSE;
       if (isset($edit[$name])) {
         switch ($type) {
@@ -1900,7 +1906,7 @@ class DrupalWebTestCase extends DrupalTestCase {
                 $index = 0;
                 $key = preg_replace('/\[\]$/', '', $name);
                 foreach ($options as $option) {
-                  $option_value = (string)$option['value'];
+                  $option_value = (string) $option['value'];
                   if (in_array($option_value, $new_value)) {
                     $post[$key . '[' . $index++ . ']'] = $option_value;
                     $done = TRUE;
@@ -1936,7 +1942,7 @@ class DrupalWebTestCase extends DrupalTestCase {
       if (!isset($post[$name]) && !$done) {
         switch ($type) {
           case 'textarea':
-            $post[$name] = (string)$element;
+            $post[$name] = (string) $element;
             break;
           case 'select':
             $single = empty($element['multiple']);
@@ -1950,10 +1956,10 @@ class DrupalWebTestCase extends DrupalTestCase {
               if ($option['selected'] || ($first && $single)) {
                 $first = FALSE;
                 if ($single) {
-                  $post[$name] = (string)$option['value'];
+                  $post[$name] = (string) $option['value'];
                 }
                 else {
-                  $post[$key . '[' . $index++ . ']'] = (string)$option['value'];
+                  $post[$key . '[' . $index++ . ']'] = (string) $option['value'];
                 }
               }
             }
@@ -3003,7 +3009,7 @@ function simpletest_verbose($message, $original_file_directory = NULL, $test_cla
   if ($original_file_directory) {
     $file_directory = $original_file_directory;
     $class = $test_class;
-    $verbose = variable_get('simpletest_verbose', FALSE);
+    $verbose = variable_get('simpletest_verbose', TRUE);
     $directory = $file_directory . '/simpletest/verbose';
     $writable = file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
     if ($writable && !file_exists($directory . '/.htaccess')) {

@@ -1,5 +1,5 @@
 <?php
-// $Id: book.module,v 1.539 2010/04/13 15:23:02 dries Exp $
+// $Id: book.module,v 1.542 2010/05/06 05:59:31 webchick Exp $
 
 /**
  * @file
@@ -540,7 +540,7 @@ function _book_add_form_elements(&$form, &$form_state, $node) {
     '#title' => t('Book'),
     '#default_value' => $node->book['bid'],
     '#options' => $options,
-    '#access' => (bool)$options,
+    '#access' => (bool) $options,
     '#description' => t('Your page will be a part of the selected book.'),
     '#weight' => -5,
     '#attributes' => array('class' => array('book-title-select')),
@@ -1019,7 +1019,26 @@ function template_preprocess_book_navigation(&$variables) {
 }
 
 /**
- * A recursive helper function for book_toc().
+ * Recursively processes and formats menu items for book_toc().
+ *
+ * This helper function recursively modifies the $toc array for each item in
+ * $tree, ignoring items in the exclude array or at a depth greater than the
+ * limit.  Truncates titles over thirty characters and appends an indentation
+ * string incremented by depth.
+ *
+ * @param $tree
+ *   The data structure of the book's menu tree.  Includes hidden links.
+ * @param $indent
+ *   A string appended to each menu item title. Increments by '--' per depth
+ *   level.
+ * @param $toc
+ *   Reference to the table of contents array. This is modified in place, so the
+ *   function does not have a return value.
+ * @param $exclude
+ *   Optional array of mlid values. Any link whose mlid is in this array will be
+ *   excluded (along with its children).
+ * @param $depth_limit
+ *   Any link deeper than this value will be excluded (along with its children).
  */
 function _book_toc_recurse($tree, $indent, &$toc, $exclude, $depth_limit) {
   foreach ($tree as $data) {
@@ -1254,7 +1273,7 @@ function book_menu_subtree_data($link) {
       $data['node_links'] = array();
       menu_tree_collect_node_links($data['tree'], $data['node_links']);
       // Compute the real cid for book subtree data.
-      $tree_cid = 'links:' . $item['menu_name'] . ':subtree-data:' . md5(serialize($data));
+      $tree_cid = 'links:' . $item['menu_name'] . ':subtree-data:' . hash('sha256', serialize($data));
       // Cache the data, if it is not already in the cache.
 
       if (!cache_get($tree_cid, 'cache_menu')) {

@@ -1,5 +1,5 @@
 <?php
-// $Id: node.pages.inc,v 1.123 2010/04/24 14:49:14 dries Exp $
+// $Id: node.pages.inc,v 1.126 2010/05/10 06:34:39 dries Exp $
 
 /**
  * @file
@@ -66,7 +66,7 @@ function node_add($type) {
   // If a node type has been specified, validate its existence.
   if (isset($types[$type])) {
     // Initialize settings:
-    $node = (object)array('uid' => $user->uid, 'name' => (isset($user->name) ? $user->name : ''), 'type' => $type, 'language' => LANGUAGE_NONE);
+    $node = (object) array('uid' => $user->uid, 'name' => (isset($user->name) ? $user->name : ''), 'type' => $type, 'language' => LANGUAGE_NONE);
 
     drupal_set_title(t('Create @name', array('@name' => $types[$type]->name)), PASS_THROUGH);
     $output = drupal_get_form($type . '_node_form', $node);
@@ -76,7 +76,7 @@ function node_add($type) {
 }
 
 function node_form_validate($form, &$form_state) {
-  $node = (object)$form_state['values'];
+  $node = (object) $form_state['values'];
   node_validate($node, $form);
 
   // Field validation. Requires access to $form_state, so this cannot be
@@ -95,7 +95,7 @@ function node_form($form, &$form_state, $node) {
   }
 
   if (isset($form_state['node'])) {
-    $node = (object)($form_state['node'] + (array)$node);
+    $node = (object) ($form_state['node'] + (array) $node);
   }
   if (isset($form_state['node_preview'])) {
     $form['#prefix'] = $form_state['node_preview'];
@@ -196,7 +196,13 @@ function node_form($form, &$form_state, $node) {
     '#collapsed' => TRUE,
     '#group' => 'additional_settings',
     '#attached' => array(
-      'js' => array(drupal_get_path('module', 'node') . '/node.js'),
+      'js' => array(
+        drupal_get_path('module', 'node') . '/node.js',
+        array(
+          'type' => 'setting',
+          'data' => array('anonymous' => variable_get('anonymous', t('Anonymous'))),
+        ),
+      ),
     ),
     '#weight' => 90,
   );
@@ -271,7 +277,6 @@ function node_form($form, &$form_state, $node) {
     );
   }
   $form['#validate'][] = 'node_form_validate';
-  $form['#theme'] = array($node->type . '_node_form', 'node_form');
 
   $form['#builder_function'] = 'node_form_submit_build_node';
   field_attach_form('node', $node, $form, $form_state, $node->language);
@@ -415,11 +420,11 @@ function node_form_submit_build_node($form, &$form_state) {
   // functions to process the form values into an updated node.
   unset($form_state['submit_handlers']);
   form_execute_handlers('submit', $form, $form_state);
-  $node = node_submit((object)$form_state['values']);
+  $node = node_submit((object) $form_state['values']);
 
   field_attach_submit('node', $node, $form, $form_state);
 
-  $form_state['node'] = (array)$node;
+  $form_state['node'] = (array) $node;
   $form_state['rebuild'] = TRUE;
   return $node;
 }

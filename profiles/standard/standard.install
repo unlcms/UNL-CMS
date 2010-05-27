@@ -1,5 +1,5 @@
 <?php
-// $Id: standard.install,v 1.13 2010/04/22 09:55:32 webchick Exp $
+// $Id: standard.install,v 1.15 2010/05/16 10:41:04 dries Exp $
 
 /**
  * Implements hook_install().
@@ -227,6 +227,7 @@ function standard_install() {
   foreach ($types as $type) {
     $type = node_type_set_defaults($type);
     node_type_save($type);
+    node_add_body_field($type);
   }
 
   // Insert default pre-defined RDF mapping into the database.
@@ -413,6 +414,11 @@ function standard_install() {
   user_role_grant_permissions($admin_role->rid, array_keys(module_invoke_all('permission')));
   // Set this as the administrator role.
   variable_set('user_admin_role', $admin_role->rid);
+
+  // Assign user 1 the "administrator" role.
+  db_insert('users_roles')
+    ->fields(array('uid' => 1, 'rid' => $admin_role->rid))
+    ->execute();
 
   // Update the menu router information.
   menu_rebuild();

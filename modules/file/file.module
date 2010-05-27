@@ -1,5 +1,5 @@
 <?php
-// $Id: file.module,v 1.25 2010/04/13 15:23:03 dries Exp $
+// $Id: file.module,v 1.28 2010/05/09 19:34:26 dries Exp $
 
 /**
  * @file
@@ -351,7 +351,6 @@ function file_managed_file_process($element, &$form_state, $form) {
   $ajax_settings = array(
     'path' => 'file/ajax/' . implode('/', $element['#parents']) . '/' . $form['form_build_id']['#value'],
     'wrapper' => $element['#id'] . '-ajax-wrapper',
-    'method' => 'replace',
     'effect' => 'fade',
     'progress' => array(
       'type' => $element['#progress_indicator'],
@@ -411,7 +410,7 @@ function file_managed_file_process($element, &$form_state, $form) {
 
   // Add progress bar support to the upload if possible.
   if ($element['#progress_indicator'] == 'bar' && $implementation = file_progress_implementation()) {
-    $upload_progress_key = md5(mt_rand());
+    $upload_progress_key = mt_rand();
 
     if ($implementation == 'uploadprogress') {
       $element['UPLOAD_IDENTIFIER'] = array(
@@ -651,10 +650,10 @@ function theme_file_link($variables) {
 
   // Use the description as the link text if available.
   if (empty($file->description)) {
-    $link_text = check_plain($file->filename);
+    $link_text = $file->filename;
   }
   else {
-    $link_text = check_plain($file->description);
+    $link_text = $file->description;
     $options['attributes']['title'] = check_plain($file->filename);
   }
 

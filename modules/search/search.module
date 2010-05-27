@@ -1,5 +1,5 @@
 <?php
-// $Id: search.module,v 1.345 2010/04/24 14:49:14 dries Exp $
+// $Id: search.module,v 1.348 2010/05/09 19:46:11 dries Exp $
 
 /**
  * @file
@@ -103,12 +103,25 @@ define('PREG_CLASS_PUNCTUATION',
   '\x{ff65}');
 
 /**
- * Matches all CJK characters that are candidates for auto-splitting
- * (Chinese, Japanese, Korean).
- * Contains kana and BMP ideographs.
+ * Matches CJK (Chinese, Japanese, Korean) letter-like characters.
+ *
+ * This list is derived from the "East Asian Scripts" section of
+ * http://www.unicode.org/charts/index.html, as well as a comment on
+ * http://unicode.org/reports/tr11/tr11-11.html listing some character
+ * ranges that are reserved for additional CJK ideographs.
+ *
+ * The character ranges do not include numbers, punctuation, or symbols, since
+ * these are handled separately in search. Note that radicals and strokes are
+ * considered symbols. (See
+ * http://www.unicode.org/Public/UNIDATA/extracted/DerivedGeneralCategory.txt)
+ *
+ * @see search_expand_cjk()
  */
-define('PREG_CLASS_CJK', '\x{3041}-\x{30ff}\x{31f0}-\x{31ff}\x{3400}-\x{4db5}' .
-'\x{4e00}-\x{9fbb}\x{f900}-\x{fad9}');
+define('PREG_CLASS_CJK', '\x{1100}-\x{11FF}\x{3040}-\x{309F}\x{30A1}-\x{318E}' .
+  '\x{31A0}-\x{31B7}\x{31F0}-\x{31FF}\x{3400}-\x{4DBF}\x{4E00}-\x{9FCF}' .
+  '\x{A000}-\x{A48F}\x{A4D0}-\x{A4FD}\x{A960}-\x{A97F}\x{AC00}-\x{D7FF}' .
+  '\x{F900}-\x{FAFF}\x{FF21}-\x{FF3A}\x{FF41}-\x{FF5A}\x{FF66}-\x{FFDC}' .
+  '\x{20000}-\x{2FFFD}\x{30000}-\x{3FFFD}');
 
 /**
  * Implements hook_help().
@@ -124,7 +137,9 @@ function search_help($path, $arg) {
       $output .= '<dt>' . t('Searching content and users') . '</dt>';
       $output .= '<dd>' . t('Users with <em>Use search</em> permission can use the search block and <a href="@search">Search page</a>. Users with the <em>View published content</em> permission can search for content containing exact keywords. Users with the <em>View user profiles</em> permission can search for users containing the keyword anywhere in the user name, and users with the <em>Administer users</em> permission can search for users by email address. Additionally, users with <em>Use advanced search</em> permission can find content using more complex search methods and filtering by choosing the <em>Advanced search</em> option on the <a href="@search">Search page</a>.', array('@search' => url('search'))) . '</dd>';
       $output .= '<dt>' . t('Indexing content with cron') . '</dt>';
-      $output .= '<dd>' . t('To provide keyword searching, the search engine maintains an index of words found in the content. To build and maintain this index, a correctly configured <a href="@cron">cron maintenance task</a> is required. Users with <em>Administer search</em> permission can further configure the cron settings on the <a href="@searchsettings">Search settings page</a>.', array('@cron' => 'http://drupal.org/cron', '@searchsettings' => url('admin/config/search/settings'))) . '</dd>';
+      $output .= '<dd>' . t('To provide keyword searching, the search engine maintains an index of words found in the content and its fields, along with text added to your content by other modules (such as comments from the core Comment module, and taxonomy terms from the core Taxonomy module). To build and maintain this index, a correctly configured <a href="@cron">cron maintenance task</a> is required. Users with <em>Administer search</em> permission can further configure the cron settings on the <a href="@searchsettings">Search settings page</a>.', array('@cron' => 'http://drupal.org/cron', '@searchsettings' => url('admin/config/search/settings'))) . '</dd>';
+      $output .= '<dt>' . t('Content reindexing') . '</dt>';
+      $output .= '<dd>' . t('Content-related actions on your site (creating, editing, or deleting content and comments) automatically cause affected content items to be marked for indexing or reindexing at the next cron run. When content is marked for reindexing, the previous content remains in the index until cron runs, at which time it is replaced by the new content. Unlike content-related actions, actions related to the structure of your site do not cause affected content to be marked for reindexing. Examples of structure-related actions that affect content include deleting or editing taxonomy terms, enabling or disabling modules that add text to content (such as Taxonomy, Comment, and field-providing modules), and modifying the fields or display parameters of your content types. If you take one of these actions and you want to ensure that the search index is updated to reflect your changed site structure, you can mark all content for reindexing by clicking the "Re-index site" button on the <a href="@searchsettings">Search settings page</a>. If you have a lot of content on your site, it may take several cron runs for the content to be reindexed.', array('@searchsettings' => url('admin/config/search/settings'))) . '</dd>';
       $output .= '<dt>' . t('Configuring search settings') . '</dt>';
       $output .= '<dd>' . t('Indexing behavior can be adjusted using the <a href="@searchsettings">Search settings page</a>. Users with <em>Administer search</em> permission can control settings such as the <em>Number of items to index per cron run</em>, <em>Indexing settings</em> (word length), <em>Active search modules</em>, and <em>Content ranking</em>, which lets you adjust the priority in which indexed content is returned in results.', array('@searchsettings' => url('admin/config/search/settings'))) . '</dd>';
       $output .= '<dt>' . t('Search block') . '</dt>';
@@ -244,18 +259,43 @@ function search_menu() {
     'file path' => drupal_get_path('module', 'dblog'),
     'file' => 'dblog.admin.inc',
   );
+
+  // Add paths for searching. We add each module search path twice: once without
+  // and once with %menu_tail appended. The reason for this is that we want to
+  // preserve keywords when switching tabs, and also to have search tabs
+  // highlighted properly. The only way to do that within the Drupal menu
+  // system appears to be having two sets of tabs. See discussion on issue
+  // http://drupal.org/node/245103 for details.
+
   drupal_static_reset('search_get_info');
-  $search_hooks = search_get_info();
-  foreach(variable_get('search_active_modules', array('node', 'user')) as $module) {
-    if (isset($search_hooks[$module])) {
-      $items['search/' . $search_hooks[$module]['path'] . '/%menu_tail'] = array(
-        'title' => $search_hooks[$module]['title'],
+  if ($active = variable_get('search_active_modules', array('node', 'user'))) {
+    foreach (array_intersect_key(search_get_info(), array_flip($active)) as $module => $search_info) {
+      $path = 'search/' . $search_info['path'];
+      $items[$path] = array(
+        'title' => $search_info['title'],
         'page callback' => 'search_view',
         'page arguments' => array($module),
         'access callback' => '_search_menu_access',
         'access arguments' => array($module),
+        'type' => $module == 'node' ? MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+        'file' => 'search.pages.inc',
+        'weight' => $module == 'node' ? -10 : 0,
+      );
+      $items["$path/%menu_tail"] = array(
+        'title' => $search_info['title'],
+        'page callback' => 'search_view',
+        'page arguments' => array($module),
+        'access callback' => '_search_menu_access',
+        'access arguments' => array($module),
+        // The default local task points to its parent, but this item points to
+        // where it should so it should not be changed.
         'type' => MENU_LOCAL_TASK,
         'file' => 'search.pages.inc',
+        'weight' => 0,
+        // These tabs are not subtabs.
+        'tab_root' => 'search/node/%',
+        // These tabs need to display at the same level.
+        'tab_parent' => 'search',
       );
     }
   }
@@ -420,28 +460,45 @@ function search_simplify($text) {
 }
 
 /**
- * Basic CJK tokenizer. Simply splits a string into consecutive, overlapping
- * sequences of characters ('minimum_word_size' long).
+ * Splits CJK (Chinese, Japanese, Korean) text into tokens.
+ *
+ * The Search module matches exact words, where a word is defined to be a
+ * sequence of characters delimited by spaces or punctuation. CJK languages are
+ * written in long strings of characters, though, not split up into words. So
+ * in order to allow search matching, we split up CJK text into tokens
+ * consisting of consecutive, overlapping sequences of characters whose length
+ * is equal to the 'minimum_word_size' variable. This tokenizing is only done if
+ * the 'overlap_cjk' variable is TRUE.
+ *
+ * @param $matches
+ *   This function is a callback for preg_replace_callback(), which is called
+ *   from search_simplify(). So, $matches is an array of regular expression
+ *   matches, which means that $matches[0] contains the matched text -- a string
+ *   of CJK characters to tokenize.
+ *
+ * @return
+ *   Tokenized text, starting and ending with a space character.
  */
 function search_expand_cjk($matches) {
   $min = variable_get('minimum_word_size', 3);
   $str = $matches[0];
-  $l = drupal_strlen($str);
-  // Passthrough short words
-  if ($l <= $min) {
+  $length = drupal_strlen($str);
+  // If the text is shorter than the minimum word size, don't tokenize it.
+  if ($length <= $min) {
     return ' ' . $str . ' ';
   }
   $tokens = ' ';
-  // FIFO queue of characters
+  // Build a FIFO queue of characters.
   $chars = array();
-  // Begin loop
-  for ($i = 0; $i < $l; ++$i) {
-    // Grab next character
+  for ($i = 0; $i < $length; $i++) {
+    // Add the next character off the beginning of the string to the queue.
     $current = drupal_substr($str, 0, 1);
     $str = substr($str, strlen($current));
     $chars[] = $current;
     if ($i >= $min - 1) {
+      // Make a token of $min characters, and add it to the token string.
       $tokens .= implode('', $chars) . ' ';
+      // Shift out the first character in the queue.
       array_shift($chars);
     }
   }

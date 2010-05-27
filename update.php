@@ -1,5 +1,5 @@
 <?php
-// $Id: update.php,v 1.320 2010/04/24 14:49:13 dries Exp $
+// $Id: update.php,v 1.323 2010/05/18 18:11:12 dries Exp $
 
 /**
  * Root directory of Drupal installation.
@@ -226,7 +226,7 @@ function update_info_page() {
   update_task_list('info');
   drupal_set_title('Drupal database update');
   $token = drupal_get_token('update');
-  $output = '<p>Use this utility to update your database whenever a new release of Drupal or a module is installed.</p><p>For more detailed information, see the <a href="http://drupal.org/node/258">Installation and upgrading handbook</a>. If you are unsure what these terms mean you should probably contact your hosting provider.</p>';
+  $output = '<p>Use this utility to update your database whenever a new release of Drupal or a module is installed.</p><p>For more detailed information, see the <a href="http://drupal.org/upgrade">upgrading handbook</a>. If you are unsure what these terms mean you should probably contact your hosting provider.</p>';
   $output .= "<ol>\n";
   $output .= "<li><strong>Back up your database</strong>. This process will change your database values and in case of emergency you may need to revert to a backup.</li>\n";
   $output .= "<li><strong>Back up your code</strong>. Hint: when backing up module code, do not leave that backup in the 'modules' or 'sites/*/modules' directories as this may confuse Drupal's auto-discovery mechanism.</li>\n";
@@ -268,7 +268,7 @@ function update_access_allowed() {
   // Calls to user_access() might fail during the Drupal 6 to 7 update process,
   // so we fall back on requiring that the user be logged in as user #1.
   try {
-    require_once drupal_get_path('module', 'user') . '/user.module';
+    require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'user') . '/user.module';
     return user_access('administer software updates');
   }
   catch (Exception $e) {
@@ -333,6 +333,7 @@ ini_set('display_errors', FALSE);
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
 require_once DRUPAL_ROOT . '/includes/update.inc';
 require_once DRUPAL_ROOT . '/includes/common.inc';
+require_once DRUPAL_ROOT . '/includes/file.inc';
 require_once DRUPAL_ROOT . '/includes/entity.inc';
 require_once DRUPAL_ROOT . '/includes/unicode.inc';
 update_prepare_d7_bootstrap();
@@ -346,7 +347,6 @@ drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
 $op = isset($_REQUEST['op']) ? $_REQUEST['op'] : '';
 if (empty($op) && update_access_allowed()) {
   require_once DRUPAL_ROOT . '/includes/install.inc';
-  require_once DRUPAL_ROOT . '/includes/file.inc';
   require_once DRUPAL_ROOT . '/modules/system/system.install';
 
   // Load module basics.

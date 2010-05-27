@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.test,v 1.77 2010/04/22 10:12:25 webchick Exp $
+// $Id: comment.test,v 1.80 2010/05/06 05:59:31 webchick Exp $
 
 class CommentHelperCase extends DrupalWebTestCase {
   protected $admin_user;
@@ -879,6 +879,11 @@ class CommentApprovalTest extends CommentHelperCase {
     ));
     $this->drupalLogin($this->admin_user);
     $this->setCommentAnonymous('0'); // Ensure that doesn't require contact info.
+
+    // Test that the comments page loads correctly when there are no comments
+    $this->drupalGet('admin/content/comment');
+    $this->assertText(t('No comments available.'));
+
     $this->drupalLogout();
 
     // Post anonymous comment without contact info.
@@ -1141,7 +1146,7 @@ class CommentRdfaTestCase extends CommentHelperCase {
 
     // Tests number of comments in teaser view.
     $this->drupalGet('node');
-    $comment_count_teaser = $this->xpath('//div[contains(@typeof, "sioc:Item")]//li[contains(@class, "comment_comments")]/a[contains(@property, "sioc:num_replies") and contains(@content, "2") and @datatype="xsd:integer"]');
+    $comment_count_teaser = $this->xpath('//div[contains(@typeof, "sioc:Item")]//li[contains(@class, "comment-comments")]/a[contains(@property, "sioc:num_replies") and contains(@content, "2") and @datatype="xsd:integer"]');
     $this->assertTrue(!empty($comment_count_teaser), t('RDFa markup for the number of comments found on teaser view.'));
 
     // Tests number of comments in full node view.
@@ -1243,15 +1248,15 @@ class CommentRdfaTestCase extends CommentHelperCase {
     $comment_container = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]');
     $this->assertTrue(!empty($comment_container), t("Comment RDF type for comment found."));
     $comment_title = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//h3[@property="dc:title"]');
-    $this->assertEqual((string)$comment_title[0]->a, $comment->subject, t("RDFa markup for the comment title found."));
+    $this->assertEqual((string) $comment_title[0]->a, $comment->subject, t("RDFa markup for the comment title found."));
     $comment_date = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//*[contains(@property, "dc:date") and contains(@property, "dc:created")]');
     $this->assertTrue(!empty($comment_date), t("RDFa markup for the date of the comment found."));
     // The author tag can be either a or span
     $comment_author = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//span[@rel="sioc:has_creator"]/*[contains(@class, "username") and @typeof="sioc:UserAccount" and @property="foaf:name"]');
     $name = empty($account["name"]) ? $this->web_user->name : $account["name"] . " (not verified)";
-    $this->assertEqual((string)$comment_author[0], $name, t("RDFa markup for the comment author found."));
+    $this->assertEqual((string) $comment_author[0], $name, t("RDFa markup for the comment author found."));
     $comment_body = $this->xpath('//div[contains(@class, "comment") and contains(@typeof, "sioct:Comment")]//div[@class="content"]//div[contains(@class, "comment-body")]//div[@property="content:encoded"]');
-    $this->assertEqual((string)$comment_body[0]->p, $comment->comment, t("RDFa markup for the comment body found."));
+    $this->assertEqual((string) $comment_body[0]->p, $comment->comment, t("RDFa markup for the comment body found."));
   }
 }
 

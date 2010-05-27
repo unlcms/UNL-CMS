@@ -1,4 +1,4 @@
-// $Id: dashboard.js,v 1.9 2010/03/28 11:29:27 dries Exp $
+// $Id: dashboard.js,v 1.11 2010/05/18 12:07:39 dries Exp $
 (function ($) {
 
 /**
@@ -8,9 +8,6 @@ Drupal.behaviors.dashboard = {
   attach: function () {
     $('#dashboard').prepend('<div class="customize"><ul class="action-links"><li><a href="#">' + Drupal.t('Customize dashboard') + '</a></li></ul><div class="canvas"></div></div>');
     $('#dashboard .customize .action-links a').click(Drupal.behaviors.dashboard.enterCustomizeMode);
-    if ($('#dashboard .region .block').length == 0) {
-      Drupal.settings.dashboard.launchCustomize = true;
-    }
     Drupal.behaviors.dashboard.addPlaceholders();
     if (Drupal.settings.dashboard.launchCustomize) {
       Drupal.behaviors.dashboard.enterCustomizeMode();
@@ -172,16 +169,15 @@ Drupal.behaviors.dashboard = {
       // Load the newly enabled block's content.
       $.get(Drupal.settings.dashboard.blockContent + '/' + module + '/' + delta, {},
         function (block) {
-          var blockContent = "";
           if (block) {
-            blockContent = $("div.content", $(block));
+            item.html(block);
           }
 
-          if (!blockContent) {
-            blockContent = $('<div class="content">' + Drupal.settings.dashboard.emptyBlockText + '</div>');
+          if (item.find('div.content').is(':empty')) {
+            item.find('div.content').html(Drupal.settings.dashboard.emptyBlockText);
           }
 
-          $("div.content", item).after(blockContent).remove();
+          Drupal.attachBehaviors(item);
         },
         'html'
       );

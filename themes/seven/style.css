@@ -1,4 +1,4 @@
-/* $Id: style.css,v 1.52 2010/04/26 13:33:43 dries Exp $ */
+/* $Id: style.css,v 1.57 2010/05/05 16:41:57 dries Exp $ */
 
 /**
  * Generic elements.
@@ -28,7 +28,12 @@ hr {
 legend {
   font-weight: bold;
 }
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: bold;
   margin: 10px 0;
 }
@@ -67,10 +72,13 @@ blockquote {
 address {
   font-style: italic;
 }
-u, ins {
+u,
+ins {
   text-decoration: underline;
 }
-s, strike, del {
+s,
+strike,
+del {
   text-decoration: line-through;
 }
 big {
@@ -92,15 +100,21 @@ sup {
 nobr {
   white-space: nowrap;
 }
-abbr, acronym {
+abbr,
+acronym {
   border-bottom: dotted 1px;
 }
-ul, .block ul, .item-list ul, .item-list ul {
+ul,
+.block ul,
+.item-list ul,
+.item-list ul {
   list-style-type: disc;
   list-style-image: none;
-  margin: 0.25em 0 0.25em 1.5em;
+  margin: 0.25em 0 0.25em 1.5em; /* LTR */
 }
-.item-list ul li, li.leaf, ul.menu li {
+.item-list ul li,
+li.leaf,
+ul.menu li {
   list-style-type: disc;
   list-style-image: none;
 }
@@ -111,18 +125,23 @@ ol {
   list-style-type: decimal;
   margin: 0.25em 0 0.25em 2em;
 }
-.item-list ul li.collapsed, ul.menu li.collapsed {
+.item-list ul li.collapsed,
+ul.menu li.collapsed {
   list-style-image:url(../../misc/menu-collapsed.png);
   list-style-type:disc;
 }
-.item-list ul li.expanded, ul.menu li.expanded {
+.item-list ul li.expanded,
+ul.menu li.expanded {
   list-style-image:url(../../misc/menu-expanded.png);
   list-style-type:circle;
 }
-quote, code {
+quote,
+code {
   margin: .5em 0;
 }
-code, pre, kbd {
+code,
+pre,
+kbd {
   font-size: 1.25em;
 }
 
@@ -325,27 +344,28 @@ ul.secondary {
   clear: both;
   font-size: 12px;
   text-align: right;
-  padding: 5px 10px 4px;
-  line-height: 20px;
+  padding: 4px 10px 10px;
+  line-height: 18px;
   overflow: hidden;
-  border-bottom: 1px solid #ccc;
-  background: #fff;
+  background-color: #fff;
 }
 ul.secondary li {
   padding-left: 10px;
 }
 ul.secondary li a {
-  color: #05a;
+  background-color: #ddd;
+  color: #000;
 }
 ul.secondary li a,
 ul.secondary li a:hover,
 ul.secondary li.active a,
 ul.secondary li.active a.active {
-  padding: 0 10px;
+  padding: 2px 10px;
   border-radius: 7px;
-  -moz-border-radius: 10px;
+  -moz-border-radius: 7px;
   -webkit-border-radius: 7px;
 }
+ul.secondary li a:hover,
 ul.secondary li.active a,
 ul.secondary li.active a.active {
   color: #fff;
@@ -430,7 +450,8 @@ ul.admin-list li:last-child {
 ul.node-type-list .label {
   font-size: 15px;
 }
-ul.node-type-list li a, ul.admin-list li a {
+ul.node-type-list li a,
+ul.admin-list li a {
   margin-left: -30px;
   padding: 0px 0 4px 30px;
   min-height: 0;
@@ -439,7 +460,8 @@ ul.admin-list.compact li a {
   margin-left: 0;
   padding: 0;
 }
-ul.node-type-list li div.description a, ul.admin-list li div.description a {
+ul.node-type-list li div.description a,
+ul.admin-list li div.description a {
   margin-left: 0px;
   padding: 0px;
   min-height: inherit;
@@ -454,28 +476,15 @@ table {
   margin: 0 0 10px;
   border: 1px solid #bebfb9;
 }
-table.system-status-report th,
 table td,
 table th {
   vertical-align: middle;
   padding: 8px 10px;
+  border: 0;
+  color: #000;
 }
-table.system-status-report th {
-  padding-left: 30px;
-}
-table.system-status-report tr.ok > * {
-  background-color: #dfd;
-}
-table.system-status-report tr.info > * {
-  background-color: #bdf;
-}
-table.system-status-report tr.warning > * {
-  background-color: #ffd;
-}
-table.system-status-report tr.error > * {
-  background-color: #fdd;
-}
-tr.even, tr.odd {
+tr.even,
+tr.odd {
   border-width: 0 1px 0 1px;
   border-style: solid;
   border-color: #bebfb9;
@@ -500,7 +509,6 @@ table th {
   border-color: #bebfb9;
   padding: 3px 10px;
 }
-
 table th.active {
   background: #bdbeb9;
 }
@@ -524,7 +532,21 @@ table tr.selected td {
   background: #ffc;
   border-color: #eeb;
 }
-
+table.system-status-report tr {
+ border-bottom: 1px solid #bebfb9;
+}
+table.system-status-report tr.ok td {
+  background-color: #dfd;
+}
+table.system-status-report tr.info td {
+  background-color: #bdf;
+}
+table.system-status-report tr.warning td {
+  background-color: #ffd;
+}
+table.system-status-report tr.error td {
+  background-color: #fdd;
+}
 /**
  * Fieldsets.
  *
@@ -632,10 +654,12 @@ div.description,
 ul.tips li {
   margin: 0.25em 0 0.25em 1.5em;
 }
-body div.form-type-radio div.description, body div.form-type-checkbox div.description {
+body div.form-type-radio div.description,
+body div.form-type-checkbox div.description {
   margin-left: 1.5em;
 }
-input.form-submit, a.button {
+input.form-submit,
+a.button {
   cursor: pointer;
   padding: 4px 17px;
   margin-bottom: 1em;
@@ -653,7 +677,10 @@ input.form-submit, a.button {
   -moz-border-radius: 20px;
   -webkit-border-radius: 15px;
 }
-a.button:link, a.button:visited, a.button:hover, a.button:active {
+a.button:link,
+a.button:visited,
+a.button:hover,
+a.button:active {
   text-decoration: none;
   color: #5a5a5a;
 }
@@ -881,8 +908,7 @@ ol.task-list li.done {
 }
 .overlay ul.secondary {
   background: transparent none;
-  margin: -2.4em 0 0.5em 0;
-  padding: 3px 10px;
+  margin: -2.4em 0 0.3em 0;
 }
 .overlay #content {
   padding: 0;
@@ -924,4 +950,12 @@ div.add-or-remove-shortcuts {
 }
 #block-node-recent .more-link {
   padding: 0 5px 5px 0;
+}
+
+/* User login block */
+#user-login-form .openid-links {
+  margin-left: 0; /* LTR */
+}
+#user-login-form .openid-links .user-link {
+  margin-left: 1.5em; /* LTR */
 }

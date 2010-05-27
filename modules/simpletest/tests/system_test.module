@@ -1,5 +1,5 @@
 <?php
-// $Id: system_test.module,v 1.25 2010/02/17 22:44:52 webchick Exp $
+// $Id: system_test.module,v 1.28 2010/05/20 08:51:24 dries Exp $
 
 /**
  * Implements hook_menu().
@@ -40,13 +40,6 @@ function system_test_menu() {
   );
   $items['system-test/redirect-invalid-scheme'] = array(
     'page callback' => 'system_test_redirect_invalid_scheme',
-    'access arguments' => array('access content'),
-    'type' => MENU_CALLBACK,
-  );
-  $items['system-test/destination'] = array(
-    'title' => 'Redirect',
-    'page callback' => 'system_test_destination',
-    'page arguments' => array(2),
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
@@ -115,9 +108,10 @@ function system_test_basic_auth_page() {
 }
 
 function system_test_redirect($code) {
-  $code = (int)$code;
+  $code = (int) $code;
   if ($code != 200) {
-    header("Location: " . url('system-test/redirect/200', array('absolute' => TRUE)), TRUE, $code);
+    // Header names are case-insensitive.
+    header("locaTION: " . url('system-test/redirect/200', array('absolute' => TRUE)), TRUE, $code);
     exit;
   }
   return '';
@@ -141,11 +135,6 @@ function system_test_redirect_noparse() {
 function system_test_redirect_invalid_scheme() {
   header("Location: ftp://localhost/path", TRUE, 301);
   exit;
-}
-
-function system_test_destination() {
-  $destination = drupal_get_destination();
-  return 'The destination: ' . $destination['destination'];
 }
 
 /**

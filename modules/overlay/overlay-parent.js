@@ -1,4 +1,4 @@
-// $Id: overlay-parent.js,v 1.38 2010/04/24 07:14:29 dries Exp $
+// $Id: overlay-parent.js,v 1.41 2010/05/14 07:45:54 dries Exp $
 
 (function ($) {
 
@@ -31,6 +31,17 @@ Drupal.behaviors.overlayParent = {
 
 /**
  * Overlay object for parent windows.
+ *
+ * Events
+ * Overlay triggers a number of events that can be used by other scripts.
+ * - drupalOverlayOpen: This event is triggered when the overlay is opened.
+ * - drupalOverlayBeforeClose: This event is triggered when the overlay attempts
+ *   to close. If an event handler returns false, the close will be prevented.
+ * - drupalOverlayClose: This event is triggered when the overlay is closed.
+ * - drupalOverlayBeforeLoad: This event is triggered right before a new URL
+ *   is loaded into the overlay.
+ * - drupalOverlayLoad: This event is triggered when the overlay is finished
+ *   loading.
  */
 Drupal.overlay = Drupal.overlay || {
   options: {},
@@ -66,10 +77,6 @@ Drupal.overlay = Drupal.overlay || {
  *   - height: height of the overlay in pixels.
  *   - autoFit: boolean indicating whether the overlay should be resized to
  *     fit the contents of the document loaded.
- *   - onOverlayOpen: callback to invoke when the overlay is opened.
- *   - onOverlayCanClose: callback to allow external scripts to decide if the
- *     overlay can be closed.
- *   - onOverlayClose: callback to invoke when the overlay is closed.
  *   - customDialogOptions: an object with custom jQuery UI Dialog options.
  *
  * @return
@@ -89,9 +96,6 @@ Drupal.overlay.open = function (options) {
     width: options.width,
     height: options.height,
     autoFit: (options.autoFit == undefined || options.autoFit),
-    onOverlayOpen: options.onOverlayOpen,
-    onOverlayCanClose: options.onOverlayCanClose,
-    onOverlayClose: options.onOverlayClose,
     customDialogOptions: options.customDialogOptions || {}
   };
 
@@ -102,6 +106,9 @@ Drupal.overlay.open = function (options) {
 
   // Open the dialog.
   self.$container.dialog('open');
+
+  // Allow other scripts to respond to this event.
+  $(document).trigger('drupalOverlayOpen');
 
   return true;
 };
@@ -182,10 +189,12 @@ Drupal.overlay.create = function () {
       return false;
     }
 
-    // Allow external scripts to decide if the overlay can be closed.
-    // The external script should call Drupal.overlay.close() again when it is
-    // ready for closing.
-    if ($.isFunction(self.options.onOverlayCanClose) && self.options.onOverlayCanClose(self) === false) {
+    // Allow other scripts to decide if the overlay can be closed. If an event-
+    // handler returns false the overlay won't be closed. The external script
+    // should call Drupal.overlay.close() again when it is ready for closing.
+    var event = $.Event('drupalOverlayBeforeClose');
+    $(document).trigger(event);
+    if (event.isDefaultPrevented()) {
       return false;
     }
 
@@ -216,9 +225,8 @@ Drupal.overlay.create = function () {
 
     self.lastHeight = 0;
 
-    if ($.isFunction(self.options.onOverlayClose)) {
-      self.options.onOverlayClose();
-    }
+    // Allow other scripts to respond to this event.
+    $(document).trigger('drupalOverlayClose');
   };
 
   // Default jQuery UI Dialog options.
@@ -319,18 +327,24 @@ Drupal.overlay.load = function (url) {
   // No need to resize while loading.
   clearTimeout(self.resizeTimeoutID);
 
+  // Allow other scripts to respond to this event.
+  $(document).trigger('drupalOverlayBeforeLoad');
+
   // While the overlay is loading, we remove the loaded class from the dialog.
   // After the loading is finished, the loaded class is added back. The loaded
   // class is being used to hide the iframe while loading.
   // See overlay-parent.css .overlay-loaded #overlay-element.
   self.$dialog.removeClass('overlay-loaded');
-  self.$iframe
+  self.$iframe.once('overlay-event-load')
     .bind('load.overlay-event', function () {
       self.isLoading = false;
 
       // Only continue when overlay is still open and not closing.
       if (self.isOpen && !self.isClosing) {
         self.$dialog.addClass('overlay-loaded');
+
+        // Allow other scripts to respond to this event.
+        $(document).trigger('drupalOverlayLoad');
       }
       else {
         self.destroy();
@@ -636,15 +650,9 @@ Drupal.overlay.outerResize = function () {
     return;
   }
 
-  // Consider any region that should be visible above the overlay (such as
-  // an admin toolbar).
-  var $displaceTop = $('.overlay-displace-top');
-  var displaceTopHeight = 0;
-  $displaceTop.each(function () {
-    displaceTopHeight += $(this).height();
-  });
+  var displaceTop = Drupal.displace ? Drupal.displace.getDisplacement('top') : 0;
 
-  self.$wrapper.css('top', displaceTopHeight);
+  self.$wrapper.css('top', displaceTop);
 
   // When the overlay has no height yet, make it fit exactly in the window,
   // or the configured height when autoFit is disabled.
@@ -652,7 +660,7 @@ Drupal.overlay.outerResize = function () {
     var titleBarHeight = self.$dialogTitlebar.outerHeight(true);
 
     if (self.options.autoFit || self.options.height == undefined ||!isNan(self.options.height)) {
-      self.lastHeight = parseInt($(window).height() - displaceTopHeight - titleBarHeight - 45);
+      self.lastHeight = parseInt($(window).height() - displaceTop - titleBarHeight - 45);
     }
     else {
       self.lastHeight = self.options.height;
@@ -689,11 +697,11 @@ Drupal.overlay.clickHandler = function (event) {
 
   var $target = $(event.target);
 
-  if (self.isOpen && $target.closest('.overlay-displace-top, .overlay-displace-bottom').length) {
+  if (self.isOpen && $target.closest('.displace-top, .displace-bottom').length) {
     // Click events in displaced regions could potentionally change the size of
     // that region (e.g. the toggle button of the toolbar module). Trigger the
     // resize event to force a recalculation of overlay's size/position.
-    $(window).triggerHandler('resize.overlay-event');
+    $(window).triggerHandler('resize');
   }
 
   // Only continue by left-click or right-click.
@@ -810,14 +818,13 @@ Drupal.overlay.hashchangeHandler = function (event) {
     else {
       // There is not an overlay opened yet; we should open a new one.
       var overlayOptions = {
-        url: linkURL,
-        onOverlayClose: function () {
-          // Clear the overlay URL fragment.
-          $.bbq.pushState();
-
-          self.resetActiveClass(self.getPath(window.location));
-        }
+        url: linkURL
       };
+      $(document).one('drupalOverlayClose', function () {
+        // Clear the overlay URL fragment.
+        $.bbq.pushState();
+        self.resetActiveClass(self.getPath(window.location));
+      });
       self.open(overlayOptions);
     }
   }
@@ -916,7 +923,7 @@ Drupal.overlay.resetActiveClass = function(activePath) {
   var self = this;
   var windowDomain = window.location.protocol + window.location.hostname;
 
-  $('.overlay-displace-top, .overlay-displace-bottom')
+  $('.displace-top, .displace-bottom')
   .find('a[href]')
   // Remove active class from all links in displaced regions.
   .removeClass('active')

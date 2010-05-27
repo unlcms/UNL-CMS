@@ -1,5 +1,5 @@
 <?php
-// $Id: install.core.inc,v 1.13 2010/04/24 14:49:13 dries Exp $
+// $Id: install.core.inc,v 1.19 2010/05/18 18:11:13 dries Exp $
 
 /**
  * @file
@@ -1011,7 +1011,7 @@ function install_settings_form_submit($form, &$form_state) {
     'required' => TRUE,
   );
   $settings['drupal_hash_salt'] = array(
-    'value'    => sha1(drupal_random_bytes(64)),
+    'value'    => drupal_hash_base64(drupal_random_bytes(55)),
     'required' => TRUE,
   );
   drupal_rewrite_settings($settings);
@@ -1082,7 +1082,7 @@ function _install_select_profile($profiles) {
   if (sizeof($profiles) == 1) {
     $profile = array_pop($profiles);
     // TODO: is this right?
-    require_once $profile->uri;
+    require_once DRUPAL_ROOT . '/' . $profile->uri;
     return $profile->name;
   }
   else {
@@ -1332,11 +1332,7 @@ function install_load_profile(&$install_state) {
  *   An array of information about the current installation state.
  */
 function install_bootstrap_full(&$install_state) {
-  // Bootstrap newly installed Drupal, while preserving existing messages.
-  $messages = isset($_SESSION['messages']) ? $_SESSION['messages'] : '';
-
   drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
-  $_SESSION['messages'] = $messages;
 }
 
 /**
@@ -1478,11 +1474,6 @@ function install_finished(&$install_state) {
   $messages = drupal_set_message();
   $output = '<p>' . st('Congratulations, you installed @drupal!', array('@drupal' => drupal_install_profile_distribution_name())) . '</p>';
   $output .= '<p>' . (isset($messages['error']) ? st('Review the messages above before visiting <a href="@url">your new site</a>.', array('@url' => url(''))) : st('<a href="@url">Visit your new site</a>.', array('@url' => url('')))) . '</p>';
-
-  // Rebuild the module and theme data, in case any newly-installed modules
-  // need to modify it via hook_system_info_alter().
-  system_rebuild_module_data();
-  system_rebuild_theme_data();
 
   // Flush all caches to ensure that any full bootstraps during the installer
   // do not leave stale cached data, and that any content types or other items
@@ -1736,21 +1727,13 @@ function install_configure_form_submit($form, &$form_state) {
     }
   }
 
-  // Turn this off temporarily so that we can pass a password through.
-  variable_set('user_email_verification', FALSE);
-  $form_state['old_values'] = $form_state['values'];
-  $form_state['values'] = $form_state['values']['account'];
-
   // We precreated user 1 with placeholder values. Let's save the real values.
   $account = user_load(1);
-  $merge_data = array('init' => $form_state['values']['mail'], 'roles' => array(), 'status' => 1);
-  user_save($account, array_merge($form_state['values'], $merge_data));
+  $merge_data = array('init' => $form_state['values']['account']['mail'], 'roles' => !empty($account->roles) ? $account->roles : array(), 'status' => 1);
+  user_save($account, array_merge($form_state['values']['account'], $merge_data));
   // Load global $user and perform final login tasks.
   $user = user_load(1);
   user_login_finalize();
-  $form_state['values'] = $form_state['old_values'];
-  unset($form_state['old_values']);
-  variable_set('user_email_verification', TRUE);
 
   if (isset($form_state['values']['clean_url'])) {
     variable_set('clean_url', $form_state['values']['clean_url']);

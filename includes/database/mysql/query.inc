@@ -1,5 +1,5 @@
 <?php
-// $Id: query.inc,v 1.15 2010/04/19 04:43:05 webchick Exp $
+// $Id: query.inc,v 1.17 2010/05/15 07:04:21 dries Exp $
 
 /**
  * @ingroup database
@@ -34,7 +34,7 @@ class InsertQuery_mysql extends InsertQuery {
       $values = $this->fromQuery->getArguments();
     }
 
-    $last_insert_id = $this->connection->query((string)$this, $values, $this->queryOptions);
+    $last_insert_id = $this->connection->query((string) $this, $values, $this->queryOptions);
 
     // Re-initialize the values array so that we can re-use this query.
     $this->insertValues = array();
@@ -43,6 +43,8 @@ class InsertQuery_mysql extends InsertQuery {
   }
 
   public function __toString() {
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
 
     // Default fields are always placed first for consistency.
     $insert_fields = array_merge($this->defaultFields, $this->insertFields);
@@ -50,10 +52,10 @@ class InsertQuery_mysql extends InsertQuery {
     // If we're selecting from a SelectQuery, finish building the query and
     // pass it back, as any remaining options are irrelevant.
     if (!empty($this->fromQuery)) {
-      return "INSERT INTO {" . $this->table . '} (' . implode(', ', $insert_fields) . ') ' . $this->fromQuery;
+      return $comments . 'INSERT INTO {' . $this->table . '} (' . implode(', ', $insert_fields) . ') ' . $this->fromQuery;
     }
 
-    $query = "INSERT INTO {" . $this->table . '} (' . implode(', ', $insert_fields) . ') VALUES ';
+    $query = $comments . 'INSERT INTO {' . $this->table . '} (' . implode(', ', $insert_fields) . ') VALUES ';
 
     $max_placeholder = 0;
     $values = array();
@@ -138,11 +140,13 @@ class MergeQuery_mysql extends MergeQuery {
     //
     // @link http ://dev.mysql.com/doc/refman/5.0/en/mysql-affected-rows.html
     $this->queryOptions['return'] = Database::RETURN_AFFECTED;
-    return $this->connection->query((string)$this, $values, $this->queryOptions);
+    return $this->connection->query((string) $this, $values, $this->queryOptions);
   }
 
 
   public function __toString() {
+    // Create a comments string to prepend to the query.
+    $comments = (!empty($this->comments)) ? '/* ' . implode('; ', $this->comments) . ' */ ' : '';
 
     // Set defaults.
     if ($this->updateFields) {
@@ -164,7 +168,7 @@ class MergeQuery_mysql extends MergeQuery {
 
     $insert_fields = $this->insertFields + $this->keyFields;
 
-    $query = "INSERT INTO {" . $this->table . '} (' . implode(', ', array_keys($insert_fields)) . ') VALUES ';
+    $query = $comments . 'INSERT INTO {' . $this->table . '} (' . implode(', ', array_keys($insert_fields)) . ') VALUES ';
 
     $max_placeholder = 0;
     $values = array();

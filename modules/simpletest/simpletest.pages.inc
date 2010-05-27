@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.pages.inc,v 1.28 2010/04/13 15:23:03 dries Exp $
+// $Id: simpletest.pages.inc,v 1.30 2010/05/19 19:22:24 dries Exp $
 
 /**
  * @file
@@ -71,10 +71,11 @@ function theme_simpletest_test_table($variables) {
 
   drupal_add_css(drupal_get_path('module', 'simpletest') . '/simpletest.css');
   drupal_add_js(drupal_get_path('module', 'simpletest') . '/simpletest.js');
+  drupal_add_js('misc/tableselect.js');
 
   // Create header for test selection table.
   $header = array(
-    theme('table_select_header_cell'),
+    array('class' => array('select-all')),
     array('data' => t('Test'), 'class' => array('simpletest_test')),
     array('data' => t('Description'), 'class' => array('simpletest_description')),
   );
@@ -276,7 +277,7 @@ function simpletest_result_form($form, &$form_state, $test_id) {
 
     // Set summary information.
     $group_summary['#ok'] = $group_summary['#fail'] + $group_summary['#exception'] == 0;
-    $form['result']['results'][$group]['#collapsed'] = $group_summary['#ok'] && !$group_summary['#debug'];
+    $form['result']['results'][$group]['#collapsed'] = $group_summary['#ok'];
 
     // Store test group (class) as for use in filter.
     $filter[$group_summary['#ok'] ? 'pass' : 'fail'][] = $group;
@@ -444,7 +445,7 @@ function simpletest_settings_form($form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Provide verbose information when running tests'),
     '#description' => t('The verbose data will be printed along with the standard assertions and is useful for debugging. The verbose data will be erased between each test suite run. The verbose data output is very detailed and should only be used when debugging.'),
-    '#default_value' => variable_get('simpletest_verbose', FALSE),
+    '#default_value' => variable_get('simpletest_verbose', TRUE),
   );
 
   $form['httpauth'] = array(

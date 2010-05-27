@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.inc,v 1.251 2010/04/09 12:14:25 dries Exp $
+// $Id: locale.inc,v 1.254 2010/05/01 08:12:22 dries Exp $
 
 /**
  * @file
@@ -683,7 +683,7 @@ function _locale_import_one_string($op, $value = NULL, $mode = NULL, $lang = NUL
         $languages = language_list();
         if (($mode != LOCALE_IMPORT_KEEP) || empty($languages[$lang]->plurals)) {
           // Since we only need to parse the header if we ought to update the
-          // plural formula, only run this if we don't need to keep existing 
+          // plural formula, only run this if we don't need to keep existing
           // data untouched or if we don't have an existing plural formula.
           $header = _locale_import_parse_header($value['msgstr']);
 
@@ -1391,7 +1391,7 @@ function _locale_export_po($language = NULL, $output = NULL) {
   header("Content-Disposition: attachment; filename=$filename");
   header("Content-Type: text/plain; charset=utf-8");
   print $output;
-  exit();
+  drupal_exit();
 }
 
 /**
@@ -1680,7 +1680,7 @@ function _locale_rebuild_js($langcode = NULL) {
     }
 
     $data .= "'strings': " . drupal_json_encode($translations) . " };";
-    $data_hash = md5($data);
+    $data_hash = drupal_hash_base64($data);
   }
 
   // Construct the filepath where JS translation files are stored.

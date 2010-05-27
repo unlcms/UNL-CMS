@@ -1,5 +1,5 @@
 <?php
-// $Id: update.inc,v 1.44 2010/04/21 07:05:44 webchick Exp $
+// $Id: update.inc,v 1.50 2010/05/21 11:53:26 dries Exp $
 
 /**
  * @file
@@ -99,6 +99,23 @@ function update_prepare_d7_bootstrap() {
   // that occur by creating a static list.
   $GLOBALS['conf']['blocked_ips'] = array();
 
+  // Check that PDO is available and that the correct PDO database driver is
+  // loaded. Bootstrapping to DRUPAL_BOOTSTRAP_DATABASE will result in a fatal
+  // error otherwise.
+  $message = '';
+  // Check that PDO is loaded.
+  if (!extension_loaded('pdo')) {
+    $message = '<h2>PDO is required!</h2><p>Drupal 7 requires PHP ' . DRUPAL_MINIMUM_PHP . ' or higher with the PHP Data Objects (PDO) extension enabled.</p>';
+  }
+  // Check that the correct driver is loaded for the database being updated.
+  elseif (!in_array($databases['default']['default']['driver'], PDO::getAvailableDrivers())) {
+      $message = '<h2>A PDO database driver is required!</h2><p>You need to enable the PDO_' . strtoupper($databases['default']['default']['driver']) . ' database driver for PHP ' . DRUPAL_MINIMUM_PHP . ' or higher so that Drupal 7 can access the database.</p>';
+  }
+  if ($message) {
+    print $message . '<p>See the <a href="http://drupal.org/requirements">system requirements page</a> for more information.</p>';
+    exit();
+  }
+  
   // Allow the database system to work even if the registry has not been
   // created yet.
   drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
@@ -164,11 +181,6 @@ function update_prepare_d7_bootstrap() {
           'not null' => TRUE,
           'default' => 0,
         ),
-        'headers' => array(
-          'description' => 'Any custom HTTP headers to be added to cached data.',
-          'type' => 'text',
-          'not null' => FALSE,
-        ),
         'serialized' => array(
           'description' => 'A flag to indicate whether content is serialized (1) or not (0).',
           'type' => 'int',
@@ -183,6 +195,12 @@ function update_prepare_d7_bootstrap() {
       'primary key' => array('cid'),
     );
     db_create_table('cache_bootstrap', $cache_bootstrap);
+  }
+
+  // Set a valid timezone for 6 -> 7 upgrade process.
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES);
+  if (is_numeric(variable_get('date_default_timezone', 0))) {
+    $GLOBALS['conf']['date_default_timezone'] = 'UTC';
   }
 }
 
@@ -223,11 +241,11 @@ function update_fix_d7_block_deltas(&$sandbox, $renamed_deltas) {
           ))
           ->fetchField();
           if ($block_exists) {
-          	db_update($table)
-          	  ->fields(array('delta' => $new_delta))
-          	  ->condition('module', $module)
-          	  ->condition('delta', $old_delta)
-          	  ->execute();
+            db_update($table)
+              ->fields(array('delta' => $new_delta))
+              ->condition('module', $module)
+              ->condition('delta', $old_delta)
+              ->execute();
           }
         }
       }
@@ -294,7 +312,7 @@ function update_fix_d7_requirements() {
   global $update_rewrite_settings, $db_url;
   if (!empty($update_rewrite_settings)) {
     $databases = update_parse_db_url($db_url);
-    $salt = sha1(drupal_random_bytes(64));
+    $salt = drupal_hash_base64(drupal_random_bytes(55));
     file_put_contents(conf_path() . '/settings.php', "\n" . '$databases = ' . var_export($databases, TRUE) . ";\n\$drupal_hash_salt = '$salt';", FILE_APPEND);
   }
   if (drupal_get_installed_schema_version('system') < 7000 && !variable_get('update_d7_requirements', FALSE)) {
@@ -1100,16 +1118,10 @@ function update_build_dependency_graph($update_functions) {
   }
 
   // Now add any explicit update dependencies declared by modules.
-  $update_dependencies = update_invoke_all('update_dependencies');
+  $update_dependencies = update_retrieve_dependencies();
   foreach ($graph as $function => $data) {
     if (!empty($update_dependencies[$data['module']][$data['number']])) {
       foreach ($update_dependencies[$data['module']][$data['number']] as $module => $number) {
-        // If we have an explicit dependency on more than one update from a
-        // particular module, choose the highest one, since that contains the
-        // actual direct dependency.
-        if (is_array($number)) {
-          $number = max($number);
-        }
         $dependency = $module . '_update_' . $number;
         $graph[$dependency]['edges'][$function] = TRUE;
         $graph[$dependency]['module'] = $module;
@@ -1158,39 +1170,66 @@ function update_already_performed($module, $number) {
 }
 
 /**
- * Invoke an update system hook in all installed modules.
+ * Invoke hook_update_dependencies() in all installed modules.
  *
- * This function is similar to module_invoke_all(), except it does not require
- * that a module be enabled to invoke its hook, only that it be installed. This
- * allows the update system to properly perform updates even on modules that
- * are currently disabled.
- *
- * @param $hook
- *   The name of the hook to invoke.
- * @param ...
- *   Arguments to pass to the hook.
+ * This function is similar to module_invoke_all(), with the main difference
+ * that it does not require that a module be enabled to invoke its hook, only
+ * that it be installed. This allows the update system to properly perform
+ * updates even on modules that are currently disabled.
  *
  * @return
- *   An array of return values of the hook implementations. If modules return
- *   arrays from their implementations, those are merged into one array.
+ *   An array of return values obtained by merging the results of the
+ *   hook_update_dependencies() implementations in all installed modules.
  *
  * @see module_invoke_all()
+ * @see hook_update_dependencies()
  */
-function update_invoke_all() {
-  $args = func_get_args();
-  $hook = $args[0];
-  unset($args[0]);
+function update_retrieve_dependencies() {
   $return = array();
-  $modules = db_query("SELECT name FROM {system} WHERE type = 'module' AND schema_version != :schema", array(':schema' => SCHEMA_UNINSTALLED))->fetchCol();
+  // Get a list of installed modules, arranged so that we invoke their hooks in
+  // the same order that module_invoke_all() does.
+  $modules = db_query("SELECT name FROM {system} WHERE type = 'module' AND schema_version != :schema ORDER BY weight ASC, name ASC", array(':schema' => SCHEMA_UNINSTALLED))->fetchCol();
   foreach ($modules as $module) {
-    $function = $module . '_' . $hook;
+    $function = $module . '_update_dependencies';
     if (function_exists($function)) {
-      $result = call_user_func_array($function, $args);
+      $result = $function();
+      // Each implementation of hook_update_dependencies() returns a
+      // multidimensional, associative array containing some keys that
+      // represent module names (which are strings) and other keys that
+      // represent update function numbers (which are integers). We cannot use
+      // array_merge_recursive() to properly merge these results, since it
+      // treats strings and integers differently. Therefore, we have to
+      // explicitly loop through the expected array structure here and perform
+      // the merge manually.
       if (isset($result) && is_array($result)) {
-        $return = array_merge_recursive($return, $result);
-      }
-      elseif (isset($result)) {
-        $return[] = $result;
+        foreach ($result as $module => $module_data) {
+          foreach ($module_data as $update => $update_data) {
+            foreach ($update_data as $module_dependency => $update_dependency) {
+              // If there are redundant dependencies declared for the same
+              // update function (so that it is declared to depend on more than
+              // one update from a particular module), record the dependency on
+              // the highest numbered update here, since that automatically
+              // implies the previous ones. For example, if one module's
+              // implementation of hook_update_dependencies() required this
+              // ordering:
+              //
+              // system_update_7001 ---> user_update_7000
+              //
+              // but another module's implementation of the hook required this
+              // one:
+              //
+              // system_update_7002 ---> user_update_7000
+              //
+              // we record the second one, since system_update_7001() is always
+              // guaranteed to run before system_update_7002() anyway (within
+              // an individual module, updates are always run in numerical
+              // order).
+              if (!isset($return[$module][$update][$module_dependency]) || $update_dependency > $return[$module][$update][$module_dependency]) {
+                $return[$module][$update][$module_dependency] = $update_dependency;
+              }
+            }
+          }
+        }
       }
     }
   }

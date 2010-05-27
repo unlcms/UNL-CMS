@@ -1,5 +1,5 @@
 <?php
-// $Id: node.test,v 1.81 2010/04/20 09:48:06 webchick Exp $
+// $Id: node.test,v 1.85 2010/05/07 15:00:56 dries Exp $
 
 /**
  * Test the node_load_multiple() function.
@@ -260,7 +260,7 @@ class PageEditTestCase extends DrupalWebTestCase {
 
     // Check that the title and body fields are displayed with the correct values.
     $active = '<span class="element-invisible">' . t('(active tab)') . '</span>';
-    $link_text = t('!local-task-title !active', array('!local-task-title' => t('Edit'), '!active' => $active));
+    $link_text = t('!local-task-title!active', array('!local-task-title' => t('Edit'), '!active' => $active));
     $this->assertText(strip_tags($link_text), 0, t('Edit tab found and marked active.'));
     $this->assertFieldByName($title_key, $edit[$title_key], t('Title field displayed.'));
     $this->assertFieldByName($body_key, $edit[$body_key], t('Body field displayed.'));
@@ -1087,39 +1087,33 @@ class NodeTypeTestCase extends DrupalWebTestCase {
     $this->assertRaw('Title', t('Title field was found.'));
     $this->assertRaw('Body', t('Body field was found.'));
 
-    // Rename the title field and remove the body field.
+    // Rename the title field.
     $edit = array(
       'title_label' => 'Foo',
-      'body_label' => '',
     );
     $this->drupalPost('admin/structure/types/manage/page', $edit, t('Save content type'));
+    // Refresh the field information for the rest of the test.
     field_info_cache_clear();
 
-    $this->assertFalse(field_info_instance('node', 'body', 'page'), t('Body field was removed.'));
     $this->drupalGet('node/add/page');
     $this->assertRaw('Foo', t('New title label was displayed.'));
     $this->assertNoRaw('Title', t('Old title label was not displayed.'));
-    $this->assertNoRaw('Full text', t('Body field was not found.'));
 
-    // Add the body field again and change the name, machine name and description.
+    // Change the name, machine name and description.
     $edit = array(
       'name' => 'Bar',
       'type' => 'bar',
       'description' => 'Lorem ipsum.',
-      'body_label' => 'Baz',
     );
     $this->drupalPost('admin/structure/types/manage/page', $edit, t('Save content type'));
-    field_info_cache_clear();
 
-    $instance = field_info_instance('node', 'body', 'bar');
-    $this->assertEqual($instance['label'], 'Baz', t('Body field was added.'));
     $this->drupalGet('node/add');
     $this->assertRaw('Bar', t('New name was displayed.'));
     $this->assertRaw('Lorem ipsum', t('New description was displayed.'));
     $this->clickLink('Bar');
     $this->assertEqual(url('node/add/bar', array('absolute' => TRUE)), $this->getUrl(), t('New machine name was used in URL.'));
     $this->assertRaw('Foo', t('Title field was found.'));
-    $this->assertRaw('Baz', t('Body field was found.'));
+    $this->assertRaw('Body', t('Body field was found.'));
   }
 }
 
@@ -1297,9 +1291,11 @@ class NodeTitleTestCase extends DrupalWebTestCase {
    *  Create one node and test if the node title has the correct value.
    */
   function testNodeTitle() {
-    // Create "Basic page" content with title
+    // Create "Basic page" content with title.
+    // Add the node to the frontpage so we can test if teaser links are clickable.
     $settings = array(
       'title' => $this->randomName(8),
+      'promote' => 1,
     );
     $node = $this->drupalCreateNode($settings);
 
@@ -1315,11 +1311,15 @@ class NodeTitleTestCase extends DrupalWebTestCase {
 
     // Test node title in comment preview.
     $this->assertEqual(current($this->xpath('//div[@id=:id]/h2/a', array(':id' => 'node-' . $node->nid))), $node->title, 'Node preview title is equal to node title.', 'Node');
+
+    // Test node title is clickable on teaser list (/node).
+    $this->drupalGet('node');
+    $this->clickLink($node->title);
   }
 }
 
 /**
- * Test the node_feed() functionality
+ * Test the node_feed() functionality.
  */
 class NodeFeedTestCase extends DrupalWebTestCase {
   public static function getInfo() {
@@ -1661,7 +1661,7 @@ class NodeQueryAlter extends DrupalWebTestCase {
     }
     catch (Exception $e) {
       $this->fail($e->getMessage());
-      $this->fail((string)$query);
+      $this->fail((string) $query);
       $this->fail(t('Altered query is malformed'));
     }
   }
@@ -1699,7 +1699,7 @@ class NodeTokenReplaceTestCase extends DrupalWebTestCase {
     );
     $node = $this->drupalCreateNode($settings);
 
-    // Load node so that the body and summary fields are structured properly. 
+    // Load node so that the body and summary fields are structured properly.
     $node = node_load($node->nid);
     $instance = field_info_instance('node', 'body', $node->type);
 

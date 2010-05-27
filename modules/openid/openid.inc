@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.inc,v 1.31 2010/04/24 14:49:14 dries Exp $
+// $Id: openid.inc,v 1.33 2010/05/13 17:37:24 dries Exp $
 
 /**
  * @file
@@ -66,11 +66,6 @@ define('OPENID_NS_AX', 'http://openid.net/srv/ax/1.0');
 define('OPENID_NS_XRD', 'xri://$xrd*($v*2.0)');
 
 /**
- * OpenID IDP for Google hosted domains.
- */
-define('OPENID_NS_GOOGLE', 'http://namespace.google.com/openid/xmlns');
-
-/**
  * Performs an HTTP 302 redirect (for the 1.x protocol).
  */
 function openid_redirect_http($url, $message) {
@@ -89,11 +84,20 @@ function openid_redirect_http($url, $message) {
  * Creates a js auto-submit redirect for (for the 2.x protocol)
  */
 function openid_redirect($url, $message) {
-  $output = '<html><head><title>' . t('OpenID redirect') . "</title></head>\n<body>";
+  global $language;
+  
+  $output = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">' . "\n";
+  $output .= '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="' . $language->language . '" lang="' . $language->language . '">' . "\n";
+  $output .= "<head>\n";
+  $output .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
+  $output .= "<title>" . t('OpenID redirect') . "</title>\n";
+  $output .= "</head>\n";
+  $output .= "<body>\n";
   $elements = drupal_get_form('openid_redirect_form', $url, $message);
   $output .= drupal_render($elements);
-  $output .= '<script type="text/javascript">document.getElementById("openid-redirect-form").submit();</script>';
-  $output .= "</body></html>\n";
+  $output .= '<script type="text/javascript">document.getElementById("openid-redirect-form").submit();</script>' . "\n";
+  $output .= "</body>\n";
+  $output .= "</html>\n";
   print $output;
 
   drupal_exit();
@@ -112,8 +116,8 @@ function openid_redirect_form($form, &$form_state, $url, $message) {
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
-    '#prefix' => '<noscript>',
-    '#suffix' => '</noscript>',
+    '#prefix' => '<noscript><div>',
+    '#suffix' => '</div></noscript>',
     '#value' => t('Send'),
   );
 
@@ -289,34 +293,6 @@ function _openid_url_normalize($url) {
   }
 
   return $normalized_url;
-}
-
-/**
- * OpenID normalization method: Normalize Google identifiers.
- *
- * This transforms a Google identifier (user@domain) into an XRDS URL.
- *
- * @see http://sites.google.com/site/oauthgoog/fedlogininterp/openiddiscovery#TOC-IdP-Discovery
- */
-function _openid_google_idp_normalize($identifier) {
-  if (!valid_email_address($identifier)) {
-    return;
-  }
-
-  // If the identifier is a valid email address, try to discover the domain
-  // with Google Federated Login. We only use the generic URL, because the
-  // domain-specific URL (http://example.com/.well-known/host-meta) cannot
-  // be trusted.
-  list($name, $domain) = explode('@', $identifier, 2);
-  $response = drupal_http_request('https://www.google.com/accounts/o8/.well-known/host-meta?hd=' . rawurlencode($domain));
-  if (isset($response->error) || $response->code != 200) {
-    return;
-  }
-
-  if (preg_match('/Link: <(.*)>/', $response->data, $matches)) {
-    $xrds_url = $matches[1];
-    return $xrds_url;
-  }
 }
 
 /**

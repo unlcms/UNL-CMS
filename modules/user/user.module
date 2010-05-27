@@ -1,5 +1,5 @@
 <?php
-// $Id: user.module,v 1.1163 2010/04/24 14:51:49 dries Exp $
+// $Id: user.module,v 1.1170 2010/05/12 08:35:39 dries Exp $
 
 /**
  * @file
@@ -187,6 +187,15 @@ function user_field_extra_fields() {
   return $return;
 }
 
+/**
+ * Fetches a user object based on an external authentication source.
+ *
+ * @param string $authname
+ *   The external authentication username.
+ *
+ * @return
+ *   A fully-loaded user object if the user is found or FALSE if not found.
+ */
 function user_external_load($authname) {
   $uid = db_query("SELECT uid FROM {authmap} WHERE authname = :authname", array(':authname' => $authname))->fetchField();
 
@@ -273,14 +282,24 @@ class UserController extends DrupalDefaultEntityController {
 }
 
 /**
- * Fetch a user object.
+ * Loads a user object.
+ *
+ * Drupal has a global $user object, which represents the currently-logged-in
+ * user. So to avoid confusion and to avoid clobbering the global $user object,
+ * it is a good idea to assign the result of this function to a different local
+ * variable, generally $account. If you actually do want to act as the user you
+ * are loading, it is essential to call @code session_save_session(FALSE);
+ * @endcode first. See @link http://drupal.org/node/218104 Safely impersonating
+ * another user @endlink for more information.
  *
  * @param $uid
- *   Integer specifying the user id.
+ *   Integer specifying the user ID to load.
  * @param $reset
- *   A boolean indicating that the internal cache should be reset.
+ *   TRUE to reset the internal cache and load from the database; FALSE
+ *   (default) to load from the internal cache, if set.
+ *
  * @return
- *   A fully-loaded $user object upon successful user load or FALSE if user
+ *   A fully-loaded user object upon successful user load, or FALSE if the user
  *   cannot be loaded.
  *
  * @see user_load_multiple()
@@ -565,6 +584,19 @@ function user_validate_name($name) {
   }
 }
 
+/**
+ * Validates a user's email address.
+ *
+ * Checks that a user's email address exists and follows all standard
+ * validation rules. Returns error messages when the address is invalid.
+ *
+ * @param $mail
+ *   A user's email address.
+ *
+ * @return
+ *   If the address is invalid, a human-readable error message is returned.
+ *   If the address is valid, nothing is returned.
+ */
 function user_validate_mail($mail) {
   $mail = trim($mail);
   if (!$mail) {
@@ -575,6 +607,11 @@ function user_validate_mail($mail) {
   }
 }
 
+/**
+ * Validates an image uploaded by a user.
+ *
+ * @see user_account_form()
+ */
 function user_validate_picture(&$form, &$form_state) {
   // If required, validate the uploaded picture.
   $validators = array(
@@ -817,9 +854,10 @@ function user_search_execute($keys = NULL) {
   // Replace wildcards with MySQL/PostgreSQL wildcards.
   $keys = preg_replace('!\*+!', '%', $keys);
   $query = db_select('users')->extend('PagerDefault');
-  $query->fields('users', array('name', 'uid', 'mail'));
+  $query->fields('users', array('name', 'uid'));
   if (user_access('administer users')) {
     // Administrators can also search in the otherwise private email field.
+    $query->fields('users', array('mail'));
     $query->condition(db_or()->
       condition('name', '%' . db_like($keys) . '%', 'LIKE')->
       condition('mail', '%' . db_like($keys) . '%', 'LIKE'));
@@ -830,8 +868,15 @@ function user_search_execute($keys = NULL) {
   $result = $query
     ->limit(15)
     ->execute();
-  foreach ($result as $account) {
-    $find[] = array('title' => $account->name . ' (' . $account->mail . ')', 'link' => url('user/' . $account->uid, array('absolute' => TRUE)));
+  if (user_access('administer users')) {
+    foreach ($result as $account) {
+      $find[] = array('title' => $account->name . ' (' . $account->mail . ')', 'link' => url('user/' . $account->uid, array('absolute' => TRUE)));
+    }
+  }
+  else {
+    foreach ($result as $account) {
+      $find[] = array('title' => $account->name, 'link' => url('user/' . $account->uid, array('absolute' => TRUE)));
+    }
   }
   return $find;
 }
@@ -875,6 +920,11 @@ function user_user_view($account) {
 
 /**
  * Helper function to add default user account fields to user registration and edit form.
+ * 
+ * @see user_account_form_validate()
+ * @see user_validate_current_pass()
+ * @see user_validate_picture()
+ * @see user_validate_email()
  */
 function user_account_form(&$form, &$form_state) {
   global $user;
@@ -1048,6 +1098,8 @@ function user_account_form(&$form, &$form_state) {
 
 /**
  * Form validation handler for the current password on the user_account_form().
+ * 
+ * @see user_account_form()
  */
 function user_validate_current_pass(&$form, &$form_state) {
   global $user;
@@ -1072,6 +1124,8 @@ function user_validate_current_pass(&$form, &$form_state) {
 
 /**
  * Form validation handler for user_account_form().
+ * 
+ * @see user_account_form()
  */
 function user_account_form_validate($form, &$form_state) {
   if ($form['#user_category'] == 'account' || $form['#user_category'] == 'register') {
@@ -1368,7 +1422,7 @@ function user_is_anonymous() {
 }
 
 function user_is_logged_in() {
-  return (bool)$GLOBALS['user']->uid;
+  return (bool) $GLOBALS['user']->uid;
 }
 
 function user_register_access() {
@@ -2082,8 +2136,7 @@ function user_cancel_url($account) {
 }
 
 function user_pass_rehash($password, $timestamp, $login) {
-  // A single md5() is vulnerable to length-extension attacks, so use it twice.
-  return md5(drupal_get_hash_salt() . md5($timestamp . $password . $login));
+  return drupal_hmac_base64($timestamp . $login, drupal_get_hash_salt() . $password);
 }
 
 /**
@@ -3001,8 +3054,8 @@ function _user_categories() {
 }
 
 function _user_sort($a, $b) {
-  $a = (array)$a + array('weight' => 0, 'title' => '');
-  $b = (array)$b + array('weight' => 0, 'title' => '');
+  $a = (array) $a + array('weight' => 0, 'title' => '');
+  $b = (array) $b + array('weight' => 0, 'title' => '');
   return $a['weight'] < $b['weight'] ? -1 : ($a['weight'] > $b['weight'] ? 1 : ($a['title'] < $b['title'] ? -1 : 1));
 }
 

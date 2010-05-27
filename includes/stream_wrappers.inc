@@ -1,5 +1,5 @@
 <?php
-// $Id: stream_wrappers.inc,v 1.13 2010/03/26 17:14:45 dries Exp $
+// $Id: stream_wrappers.inc,v 1.15 2010/05/06 05:59:30 webchick Exp $
 
 /**
  * @file
@@ -336,11 +336,11 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
     $path = $this->getLocalPath();
     $this->handle = ($options & STREAM_REPORT_ERRORS) ? fopen($path, $mode) : @fopen($path, $mode);
 
-    if ((bool)$this->handle && $options & STREAM_USE_PATH) {
+    if ((bool) $this->handle && $options & STREAM_USE_PATH) {
       $opened_url = $path;
     }
 
-    return (bool)$this->handle;
+    return (bool) $this->handle;
   }
 
   /**
@@ -506,7 +506,7 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
    */
   public function mkdir($uri, $mode, $options) {
     $this->uri = $uri;
-    $recursive = (bool)($options & STREAM_MKDIR_RECURSIVE);
+    $recursive = (bool) ($options & STREAM_MKDIR_RECURSIVE);
     if ($recursive) {
       // $this->getLocalPath() fails if $uri has multiple levels of directories
       // that do not yet exist.
@@ -581,7 +581,7 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
     $this->uri = $uri;
     $this->handle = opendir($this->getLocalPath());
 
-    return (bool)$this->handle;
+    return (bool) $this->handle;
   }
 
   /**
@@ -657,7 +657,7 @@ class DrupalPrivateStreamWrapper extends DrupalLocalStreamWrapper {
    * Implements abstract public function getDirectoryPath()
    */
   public function getDirectoryPath() {
-    return variable_get('file_private_path', conf_path() . '/private/files');
+    return variable_get('file_private_path', '');
   }
 
   /**
@@ -684,7 +684,7 @@ class DrupalTemporaryStreamWrapper extends DrupalLocalStreamWrapper {
    * Implements abstract public function getDirectoryPath()
    */
   public function getDirectoryPath() {
-    return variable_get('file_temporary_path', conf_path() . '/private/temp');
+    return variable_get('file_temporary_path', sys_get_temp_dir());
   }
 
   /**

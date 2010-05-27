@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.module,v 1.84 2010/04/07 16:35:03 dries Exp $
+// $Id: openid.module,v 1.89 2010/05/20 08:51:24 dries Exp $
 
 /**
  * @file
@@ -136,7 +136,9 @@ function _openid_user_login_form_alter(&$form, &$form_state) {
   );
 
   $form['openid_links'] = array(
-    '#markup' => theme('item_list', array('items' => $items)),
+    '#theme' => 'item_list',
+    '#items' => $items,
+    '#attributes' => array('class' => array('openid-links')),
     '#weight' => 1,
   );
 
@@ -385,12 +387,10 @@ function openid_openid_discovery_method_info() {
   // The discovery process will stop as soon as one discovery method succeed.
   // We first attempt to discover XRI-based identifiers, then standard XRDS
   // identifiers via Yadis and HTML-based discovery, conforming to the OpenID 2.0
-  // specification. If those fail, we attempt to discover services based on
-  // the Google user discovery scheme.
+  // specification.
   return array(
     'xri' => '_openid_xri_discovery',
     'xrds' => '_openid_xrds_discovery',
-    'google' => '_openid_google_user_discovery',
   );
 }
 
@@ -437,14 +437,14 @@ function _openid_xrds_discovery($claimed_id) {
     $result = drupal_http_request($xrds_url, array('headers' => $headers));
 
     if (!isset($result->error)) {
-      if (isset($result->headers['Content-Type']) && preg_match("/application\/xrds\+xml/", $result->headers['Content-Type'])) {
+      if (isset($result->headers['content-type']) && preg_match("/application\/xrds\+xml/", $result->headers['content-type'])) {
         // Parse XML document to find URL
         $services = _openid_xrds_parse($result->data);
       }
       else {
         $xrds_url = NULL;
-        if (isset($result->headers['X-XRDS-Location'])) {
-          $xrds_url = $result->headers['X-XRDS-Location'];
+        if (isset($result->headers['x-xrds-location'])) {
+          $xrds_url = $result->headers['x-xrds-location'];
         }
         else {
           // Look for meta http-equiv link in HTML head
@@ -486,51 +486,15 @@ function _openid_xrds_discovery($claimed_id) {
 }
 
 /**
- * OpenID discovery method: Perform an user discovery using Google Discovery protocol.
- *
- * This transforms a OpenID identifier into an OpenID endpoint.
- *
- * @see http://sites.google.com/site/oauthgoog/fedlogininterp/openiddiscovery#TOC-User-Discovery
- * @see hook_openid_discovery_method_info()
- */
-function _openid_google_user_discovery($claimed_id) {
-  $xrds_url = $claimed_id;
-  $url = @parse_url($xrds_url);
-  if (empty($url['scheme']) || ($url['scheme'] != 'http' && $scheme['scheme'] != 'https') || empty($url['host'])) {
-    return;
-  }
-
-  $response = drupal_http_request('https://www.google.com/accounts/o8/.well-known/host-meta?hd=' . rawurlencode($url['host']));
-  if (isset($response->error) || $response->code != 200) {
-    return;
-  }
-
-  if (preg_match('/Link: <(.*)>/', $response->data, $matches)) {
-    $xrds_url = $matches[1];
-    $services = _openid_xrds_discovery($xrds_url);
-
-    foreach ($services as $i => $service) {
-      if (in_array('http://www.iana.org/assignments/relation/describedby', $service['types']) && $service['service']->children(OPENID_NS_GOOGLE)->URITemplate) {
-        $template = (string)$service['service']->children(OPENID_NS_GOOGLE)->URITemplate;
-        $xrds_url = str_replace('{%uri}', rawurlencode($claimed_id), $template);
-        return _openid_xrds_discovery($xrds_url);
-      }
-    }
-  }
-}
-
-/**
  * Implementation of hook_openid_normalization_method_info().
  *
  * Define standard normalization methods.
  */
 function openid_openid_normalization_method_info() {
-  // We first try to normalize Google Identifiers (user@domain) into their
-  // corresponding XRDS URL. If this fail, we proceed with standard OpenID
-  // normalization by normalizing XRI idenfiers. Finally, normalize the identifier
-  // into a canonical URL.
+  // OpenID Authentication 2.0, section 7.2:
+  // If the User-supplied Identifier looks like an XRI, treat it as such;
+  // otherwise treat it as an HTTP URL.
   return array(
-    'google_idp' => '_openid_google_idp_normalize',
     'xri' => '_openid_xri_normalize',
     'url' => '_openid_url_normalize',
   );
@@ -548,7 +512,7 @@ function openid_association($op_endpoint) {
 
   // Remove Old Associations:
   db_delete('openid_association')
-    ->condition('created + expires_in', REQUEST_TIME, '<')
+    ->where('created + expires_in < :request_time', array(':request_time' => REQUEST_TIME))
     ->execute();
 
   // Check to see if we have an association for this IdP already
@@ -687,6 +651,8 @@ function openid_association_request($public) {
 }
 
 function openid_authentication_request($claimed_id, $identity, $return_to = '', $assoc_handle = '', $service) {
+  global $base_url;
+
   module_load_include('inc', 'openid');
 
   $request =  array(
@@ -699,10 +665,10 @@ function openid_authentication_request($claimed_id, $identity, $return_to = '', 
   if ($service['version'] == 2) {
     $request['openid.ns'] = OPENID_NS_2_0;
     $request['openid.claimed_id'] = $claimed_id;
-    $request['openid.realm'] = url('', array('absolute' => TRUE));
+    $request['openid.realm'] = $base_url .'/';
   }
   else {
-    $request['openid.trust_root'] = url('', array('absolute' => TRUE));
+    $request['openid.trust_root'] = $base_url .'/';
   }
 
   // Always request Simple Registration. The specification doesn't mandate

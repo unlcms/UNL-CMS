@@ -1,5 +1,5 @@
 <?php
-// $Id: field_test.entity.inc,v 1.7 2010/03/27 18:41:14 dries Exp $
+// $Id: field_test.entity.inc,v 1.9 2010/05/23 07:30:56 dries Exp $
 
 /**
  * @file
@@ -164,11 +164,19 @@ function field_test_create_stub_entity($id = 1, $vid = 1, $bundle = 'test_bundle
 function field_test_entity_test_load($ftid, $ftvid = NULL) {
   // Load basic strucure.
   $query = db_select('test_entity', 'fte', array())
-    ->fields('fte')
-    ->condition('ftid', $ftid);
+    ->condition('fte.ftid', $ftid);
+
   if ($ftvid) {
-    $query->condition('ftvid', $ftvid);
+    $query->join('test_entity_revision', 'fter', 'fte.ftid = fter.ftid');
+    $query->addField('fte', 'ftid');
+    $query->addField('fte', 'fttype');
+    $query->addField('fter', 'ftvid');
+    $query->condition('fter.ftvid', $ftvid);
   }
+  else {
+    $query->fields('fte');
+  }
+
   $entities = $query->execute()->fetchAllAssoc('ftid');
 
   // Attach fields.
@@ -255,9 +263,9 @@ function field_test_entity_edit($entity) {
  */
 function field_test_entity_form($form, &$form_state, $entity, $add = FALSE) {
   if (isset($form_state['test_entity'])) {
-    $entity = $form_state['test_entity'] + (array)$entity;
+    $entity = $form_state['test_entity'] + (array) $entity;
   }
-  $entity = (object)$entity;
+  $entity = (object) $entity;
 
   foreach (array('ftid', 'ftvid', 'fttype') as $key) {
     $form[$key] = array(
@@ -325,7 +333,7 @@ function field_test_entity_form_submit_builder($form, &$form_state) {
   $entity->revision = !empty($form_state['values']['revision']);
   field_attach_submit('test_entity', $entity, $form, $form_state);
 
-  $form_state['test_entity'] = (array)$entity;
+  $form_state['test_entity'] = (array) $entity;
   $form_state['rebuild'] = TRUE;
 
   return $entity;

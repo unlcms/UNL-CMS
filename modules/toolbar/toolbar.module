@@ -1,5 +1,5 @@
 <?php
-// $Id: toolbar.module,v 1.36 2010/04/04 17:11:20 dries Exp $
+// $Id: toolbar.module,v 1.39 2010/05/14 16:52:27 dries Exp $
 
 /**
  * @file
@@ -153,12 +153,15 @@ function toolbar_preprocess_html(&$vars) {
 /**
  * Implements hook_system_info_alter().
  *
- * If the overlay module is enabled, indicate that the 'page_top' region (in
- * which the toolbar will be displayed) is one of the overlay supplemental
- * regions that should be refreshed whenever its content is updated.
+ * Indicate that the 'page_top' region (in which the toolbar will be displayed)
+ * is an overlay supplemental region that should be refreshed whenever its
+ * content is updated.
+ *
+ * This information is provided for any module that might need to use it, not
+ * just the core Overlay module.
  */
 function toolbar_system_info_alter(&$info, $file, $type) {
-  if (module_exists('overlay') && $type == 'theme') {
+  if ($type == 'theme') {
     $info['overlay_supplemental_regions'][] = 'page_top';
   }
 }
@@ -174,12 +177,9 @@ function toolbar_view() {
     '#theme' => 'toolbar',
     '#attached'=> array(
       'js' => array(
-        $module_path . '/toolbar.js',
+        array('data' => 'misc/displace.js', 'weight' => JS_LIBRARY - 1),
         array('data' => 'misc/jquery.cookie.js', 'weight' => JS_LIBRARY + 2),
-        array(
-          'data' => array('tableHeaderOffset' => 'Drupal.toolbar.height'),
-          'type' => 'setting'
-        ),
+        $module_path . '/toolbar.js',
       ),
       'css' => array(
         $module_path . '/toolbar.css',
@@ -282,14 +282,13 @@ function toolbar_get_menu_tree() {
 /**
  * Generate a links array from a menu tree array.
  *
- * Based on menu_navigation_links(). Adds in path based IDs, icon placeholders
- * and overlay classes for the links.
+ * Based on menu_navigation_links(). Adds path based IDs and icon placeholders
+ * to the links.
  */
 function toolbar_menu_navigation_links($tree) {
   $links = array();
   foreach ($tree as $item) {
     if (!$item['link']['hidden'] && $item['link']['access']) {
-      $class = '';
       // Make sure we have a path specific ID in place, so we can attach icons
       // and behaviors to the items.
       $id = str_replace(array('/', '<', '>'), array('-', '', ''), $item['link']['href']);
@@ -298,8 +297,8 @@ function toolbar_menu_navigation_links($tree) {
       $link['href'] = $item['link']['href'];
       // Add icon placeholder.
       $link['title'] = '<span class="icon"></span>' . $item['link']['title'];
-      // Add admin link ID and to-overlay class for the overlay.
-      $link['attributes'] = array('id' => 'toolbar-link-' . $id, 'class' => array('to-overlay'));
+      // Add admin link ID.
+      $link['attributes'] = array('id' => 'toolbar-link-' . $id);
       if (!empty($item['link']['description'])) {
         $link['title'] .= ' <span class="element-invisible">(' . $item['link']['description'] . ')</span>';
         $link['attributes']['title'] = $item['link']['description'];

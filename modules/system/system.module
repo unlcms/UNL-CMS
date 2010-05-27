@@ -1,5 +1,5 @@
 <?php
-// $Id: system.module,v 1.923 2010/04/24 14:49:14 dries Exp $
+// $Id: system.module,v 1.933 2010/05/20 08:47:00 dries Exp $
 
 /**
  * @file
@@ -93,9 +93,9 @@ function system_help($path, $arg) {
       $output = '<p>' . t('Set and configure the default theme for your website.  Alternative <a href="@themes">themes</a> are available.', array('@themes' => 'http://drupal.org/project/themes')) . '</p>';
       return $output;
     case 'admin/appearance/settings/' . $arg[3]:
-      $reference = explode('.', $arg[3], 2);
-      $theme = array_pop($reference);
-      return '<p>' . t('These options control the display settings for the <code>%template</code> theme. When your site is displayed using this theme, these settings will be used.', array('%template' => $theme)) . '</p>';
+      $theme_list = list_themes();
+      $theme = $theme_list[$arg[3]];
+      return '<p>' . t('These options control the display settings for the %name theme. When your site is displayed using this theme, these settings will be used.', array('%name' => $theme->info['name'])) . '</p>';
     case 'admin/appearance/settings':
       return '<p>' . t('These options control the default display settings for your entire site, across all themes. Unless they have been overridden by a specific theme, these settings will be used.') . '</p>';
     case 'admin/modules':
@@ -217,7 +217,8 @@ function system_permission() {
       'title' => t('Administer themes'),
     ),
     'administer software updates' => array(
-      'title' => t('Run software updates'),
+      'title' => t('Administer software updates'),
+      'restrict access' => TRUE,
     ),
     'administer actions' => array(
       'title' => t('Administer actions'),
@@ -383,7 +384,6 @@ function system_element_info() {
   );
   $types['checkboxes'] = array(
     '#input' => TRUE,
-    '#tree' => TRUE,
     '#process' => array('form_process_checkboxes'),
     '#theme_wrappers' => array('checkboxes'),
     '#pre_render' => array('form_pre_render_conditional_form_element'),
@@ -957,7 +957,7 @@ function system_menu() {
   );
   $items['admin/config/system/site-information'] = array(
     'title' => 'Site information',
-    'description' => 'Change basic site name, e-mail address, slogan, default front page, number of posts per page, error pages and cron.',
+    'description' => 'Change site name, e-mail address, slogan, default front page, number of posts per page, error pages and cron.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_site_information_settings'),
     'access arguments' => array('administer site configuration'),
@@ -1008,7 +1008,7 @@ function system_menu() {
     'title' => 'Status report',
     'description' => "Get a status report about your site's operation and any detected problems.",
     'page callback' => 'system_status',
-    'weight' => 10,
+    'weight' => -60,
     'access arguments' => array('administer site configuration'),
     'file' => 'system.admin.inc',
   );
@@ -1517,24 +1517,30 @@ function system_library() {
  * Implements hook_stream_wrappers().
  */
 function system_stream_wrappers() {
-  return array(
+  $wrappers = array(
     'public' => array(
       'name' => t('Public files'),
       'class' => 'DrupalPublicStreamWrapper',
       'description' => t('Public local files served by the webserver.'),
-    ),
-    'private' => array(
-      'name' => t('Private files'),
-      'class' => 'DrupalPrivateStreamWrapper',
-      'description' => t('Private local files served by Drupal.'),
     ),
     'temporary' => array(
       'name' => t('Temporary files'),
       'class' => 'DrupalTemporaryStreamWrapper',
       'description' => t('Temporary local files for upload and previews.'),
       'type' => STREAM_WRAPPERS_HIDDEN,
-    )
+    ),
   );
+
+  // Only register the private file stream wrapper if a file path has been set.
+  if (variable_get('file_private_path', FALSE)) {
+    $wrappers['private'] = array(
+      'name' => t('Private files'),
+      'class' => 'DrupalPrivateStreamWrapper',
+      'description' => t('Private local files served by Drupal.'),
+    );
+  }
+
+  return $wrappers;
 }
 
 /**
@@ -2046,6 +2052,9 @@ function system_admin_menu_block($item) {
  */
 function system_check_directory($form_element) {
   $directory = $form_element['#value'];
+  if (strlen($directory) == 0) {
+    return $form_element;
+  }
 
   if (!is_dir($directory) && !drupal_mkdir($directory, NULL, TRUE)) {
     // If the directory does not exists and cannot be created.
@@ -2058,7 +2067,7 @@ function system_check_directory($form_element) {
     form_set_error($form_element['#parents'][0], t('The directory %directory exists but is not writable and could not be made writable.', array('%directory' => $directory)));
     watchdog('file system', 'The directory %directory exists but is not writable and could not be made writable.', array('%directory' => $directory), WATCHDOG_ERROR);
   }
-  else {
+  elseif (is_dir($directory)) {
     if ($form_element['#name'] == 'file_public_path') {
       // Create public .htaccess file.
       file_create_htaccess($directory, FALSE);
@@ -2173,6 +2182,11 @@ function system_update_files_database(&$files, $type) {
     }
   }
   $query->execute();
+
+  // If any module or theme was moved to a new location, we need to reset the
+  // system_list() cache or we will continue to load the old copy, look for
+  // schema updates in the wrong place, etc.
+  system_list_reset();
 }
 
 /**
@@ -2542,7 +2556,7 @@ function system_system_info_alter(&$info, $file, $type) {
  *   A string that is the region name.
  */
 function system_default_region($theme) {
-  $regions = array_keys(system_region_list($theme));
+  $regions = array_keys(system_region_list($theme, REGIONS_VISIBLE));
   return isset($regions[0]) ? $regions[0] : '';
 }
 
@@ -2635,41 +2649,46 @@ function _system_sort_requirements($a, $b) {
 }
 
 /**
- * Output a confirmation form
+ * Generates a form array for a confirmation form.
  *
- * This function returns a complete form for confirming an action. A link is
- * offered to go back to the item that is being changed in case the user changes
- * his/her mind.
+ * This function returns a complete form array for confirming an action. The
+ * form contains a confirm button as well as a cancellation link that allows a
+ * user to abort the action.
  *
- * If the submit handler for this form is invoked, the user successfully
- * confirmed the action. You should never directly inspect $_POST to see if an
- * action was confirmed.
+ * If the submit handler for a form that implements confirm_form() is invoked,
+ * the user successfully confirmed the action. You should never directly
+ * inspect $_POST to see if an action was confirmed.
  *
  * Note - if the parameters $question, $description, $yes, or $no could contain
  * any user input (such as node titles or taxonomy terms), it is the
  * responsibility of the code calling confirm_form() to sanitize them first with
  * a function like check_plain() or filter_xss().
  *
- * @ingroup forms
  * @param $form
- *   Additional elements to inject into the form, for example hidden elements.
+ *   Additional elements to add to the form; for example, hidden elements.
  * @param $question
  *   The question to ask the user (e.g. "Are you sure you want to delete the
- *   block <em>foo</em>?").
+ *   block <em>foo</em>?"). The page title will be set to this value.
  * @param $path
- *   The page to go to if the user denies the action.
- *   Can be either a drupal path, or an array with the keys 'path', 'query', 'fragment'.
+ *   The page to go to if the user cancels the action. This can be either:
+ *   - A string containing a Drupal path.
+ *   - An associative array with a 'path' key. Additional array values are
+ *     passed as the $options parameter to l().
+ *   If the 'destination' query parameter is set in the URL when viewing a
+ *   confirmation form, that value will be used instead of $path.
  * @param $description
- *   Additional text to display (defaults to "This action cannot be undone.").
+ *   Additional text to display. Defaults to t('This action cannot be undone.').
  * @param $yes
- *   A caption for the button which confirms the action (e.g. "Delete",
- *   "Replace", ...).
+ *   A caption for the button that confirms the action (e.g. "Delete",
+ *   "Replace", ...). Defaults to t('Confirm').
  * @param $no
- *   A caption for the link which denies the action (e.g. "Cancel").
+ *   A caption for the link which cancels the action (e.g. "Cancel"). Defaults
+ *   to t('Cancel').
  * @param $name
  *   The internal name used to refer to the confirmation item.
+ *
  * @return
- *   The form.
+ *   The form array.
  */
 function confirm_form($form, $question, $path, $description = NULL, $yes = NULL, $no = NULL, $name = 'confirm') {
   $description = isset($description) ? $description : t('This action cannot be undone.');
@@ -2918,9 +2937,9 @@ function system_send_email_action_form($context) {
 function system_send_email_action_validate($form, $form_state) {
   $form_values = $form_state['values'];
   // Validate the configuration form.
-  if (!valid_email_address($form_values['recipient']) && $form_values['recipient'] != '%author') {
+  if (!valid_email_address($form_values['recipient']) && strpos($form_values['recipient'], ':mail') === FALSE) {
     // We want the literal %author placeholder to be emphasized in the error message.
-    form_set_error('recipient', t('Enter a valid email address or %author.', array('%author' => '%author')));
+    form_set_error('recipient', t('Enter a valid email address or use a token e-mail address such as %author.', array('%author' => '[node:author:mail]')));
   }
 }
 

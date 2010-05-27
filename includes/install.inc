@@ -1,5 +1,5 @@
 <?php
-// $Id: install.inc,v 1.132 2010/04/24 14:53:59 dries Exp $
+// $Id: install.inc,v 1.135 2010/05/18 18:11:13 dries Exp $
 
 /**
  * Indicates that a module has not been installed yet.
@@ -367,7 +367,7 @@ abstract class DatabaseTasks {
       }
     }
     if (!empty($message)) {
-      $message = '<p>In order for Drupal to work, and to continue with the installation process, you must resolve all issues reported below. For more help with configuring your database server, see the <a href="http://drupal.org/node/258">Installation and upgrading handbook</a>. If you are unsure what any of this means you should probably contact your hosting provider.</p>' . $message;
+      $message = '<p>In order for Drupal to work, and to continue with the installation process, you must resolve all issues reported below. For more help with configuring your database server, see the <a href="http://drupal.org/getting-started/install">installation handbook</a>. If you are unsure what any of this means you should probably contact your hosting provider.</p>' . $message;
       throw new DatabaseTaskException($message);
     }
   }
@@ -384,7 +384,7 @@ abstract class DatabaseTasks {
       $this->pass('Drupal can CONNECT to the database ok.');
     }
     catch (Exception $e) {
-      $this->fail(st('Failed to connect to your %name database server. %name reports the following message: %error.<ul><li>Are you sure you have the correct username and password?</li><li>Are you sure that you have typed the correct database hostname?</li><li>Are you sure that the database server is running?</li></ul>For more help, see the <a href="http://drupal.org/node/258">Installation and upgrading handbook</a>. If you are unsure what these terms mean you should probably contact your hosting provider.', array('%error' => $e->getMessage(), '%name' => $this->name())));
+      $this->fail(st('Failed to connect to your %name database server. %name reports the following message: %error.<ul><li>Are you sure you have the correct username and password?</li><li>Are you sure that you have typed the correct database hostname?</li><li>Are you sure that the database server is running?</li></ul>For more help, see the <a href="http://drupal.org/getting-started/install">installation handbook</a>. If you are unsure what these terms mean you should probably contact your hosting provider.', array('%error' => $e->getMessage(), '%name' => $this->name())));
       return FALSE;
     }
     return TRUE;
@@ -547,7 +547,7 @@ function drupal_verify_profile($install_state) {
  * functions can be made available while other modules are installed.
  */
 function drupal_install_system() {
-  $system_path = dirname(drupal_get_filename('module', 'system', NULL));
+  $system_path = drupal_get_path('module', 'system');
   require_once DRUPAL_ROOT . '/' . $system_path . '/system.install';
   module_invoke('system', 'install');
 
@@ -849,9 +849,13 @@ function install_goto($path) {
  * @see t()
  * @ingroup sanitization
  */
-function st($string, $args = array()) {
+function st($string, array $args = array(), array $options = array()) {
   static $locale_strings = NULL;
   global $install_state;
+
+  if (empty($options['context'])) {
+    $options['context'] = '';
+  }
 
   if (!isset($locale_strings)) {
     $locale_strings = array();
@@ -883,7 +887,7 @@ function st($string, $args = array()) {
       case '!':
     }
   }
-  return strtr((!empty($locale_strings[$string]) ? $locale_strings[$string] : $string), $args);
+  return strtr((!empty($locale_strings[$options['context']][$string]) ? $locale_strings[$options['context']][$string] : $string), $args);
 }
 
 /**

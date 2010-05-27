@@ -1,5 +1,5 @@
 <?php
-// $Id: user.pages.inc,v 1.70 2010/04/24 14:49:14 dries Exp $
+// $Id: user.pages.inc,v 1.72 2010/05/06 05:59:31 webchick Exp $
 
 /**
  * @file
@@ -134,7 +134,7 @@ function user_pass_reset($form, &$form_state, $uid, $timestamp, $hashed_pass, $a
           user_login_finalize();
           drupal_set_message(t('You have just used your one-time login link. It is no longer necessary to use this link to log in. Please change your password.'));
           // Let the user's password be changed without the current password check.
-          $token = md5(drupal_random_bytes(55));
+          $token = drupal_hash_base64(drupal_random_bytes(55));
           $_SESSION['pass_reset_' . $user->uid] = $token;
           drupal_goto('user/' . $user->uid . '/edit', array('query' => array('pass-reset-token' => $token)));
         }
@@ -278,7 +278,7 @@ function user_profile_form($form, &$form_state, $account, $category = 'account')
  * Validation function for the user account and profile editing form.
  */
 function user_profile_form_validate($form, &$form_state) {
-  $edit = (object)$form_state['values'];
+  $edit = (object) $form_state['values'];
   field_attach_form_validate('user', $edit, $form, $form_state);
 }
 
@@ -291,9 +291,9 @@ function user_profile_form_submit($form, &$form_state) {
   // Remove unneeded values.
   form_state_values_clean($form_state);
 
-  $edit = (object)$form_state['values'];
+  $edit = (object) $form_state['values'];
   field_attach_submit('user', $edit, $form, $form_state);
-  $edit = (array)$edit;
+  $edit = (array) $edit;
 
   user_save($account, $edit, $category);
   $form_state['values']['uid'] = $account->uid;

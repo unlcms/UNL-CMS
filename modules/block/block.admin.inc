@@ -1,5 +1,5 @@
 <?php
-// $Id: block.admin.inc,v 1.78 2010/04/24 14:49:13 dries Exp $
+// $Id: block.admin.inc,v 1.80 2010/05/13 07:53:02 dries Exp $
 
 /**
  * @file
@@ -170,10 +170,12 @@ function _block_compare($a, $b) {
   if ((!empty($a['region']) && !empty($b['region'])) && ($place = ($regions[$a['region']] - $regions[$b['region']]))) {
     return $place;
   }
-  // Sort by weight.
-  $weight = $a['weight'] - $b['weight'];
-  if ($weight) {
-    return $weight;
+  // Sort by weight, unless disabled.
+  if ($a['region'] != BLOCK_REGION_NONE) {
+    $weight = $a['weight'] - $b['weight'];
+    if ($weight) {
+      return $weight;
+    }
   }
   // Sort by title.
   return strcmp($a['info'], $b['info']);
@@ -440,9 +442,9 @@ function block_add_block_form_validate($form, &$form_state) {
 function block_add_block_form_submit($form, &$form_state) {
   $delta = db_insert('block_custom')
     ->fields(array(
-      'body' => $form_state['values']['body'],
+      'body' => $form_state['values']['body']['value'],
       'info' => $form_state['values']['info'],
-      'format' => $form_state['values']['format'],
+      'format' => $form_state['values']['body']['format'],
     ))
     ->execute();
   // Store block delta to allow other modules to work with new block.

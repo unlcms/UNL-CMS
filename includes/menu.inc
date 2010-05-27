@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.inc,v 1.387 2010/04/26 14:06:23 dries Exp $
+// $Id: menu.inc,v 1.392 2010/05/17 18:47:25 dries Exp $
 
 /**
  * @file
@@ -407,9 +407,9 @@ function menu_get_item($path = NULL, $router_item = NULL) {
     $parts = array_slice($original_map, 0, MENU_MAX_PARTS);
     $ancestors = menu_get_ancestors($parts);
 
-    // Since there is no limit to the length of $path, but the cids are
-    // restricted to 255 characters, use md5() to keep it short yet unique.
-    $cid = 'menu_item:' . md5($path);
+    // Since there is no limit to the length of $path, use a hash to keep it
+    // short yet unique.
+    $cid = 'menu_item:' . hash('sha256', $path);
     if ($cached = cache_get($cid, 'cache_menu')) {
       $router_item = $cached->data;
     }
@@ -574,7 +574,7 @@ function _menu_check_access(&$item, $map) {
   $callback = empty($item['access_callback']) ? 0 : trim($item['access_callback']);
   // Check for a TRUE or FALSE value.
   if (is_numeric($callback)) {
-    $item['access'] = (bool)$callback;
+    $item['access'] = (bool) $callback;
   }
   else {
     $arguments = menu_unserialize($item['access_arguments'], $map);
@@ -978,7 +978,7 @@ function menu_tree_all_data($menu_name, $link = NULL, $max_depth = NULL) {
   // Use $mlid as a flag for whether the data being loaded is for the whole tree.
   $mlid = isset($link['mlid']) ? $link['mlid'] : 0;
   // Generate a cache ID (cid) specific for this $menu_name, $link, $language, and depth.
-  $cid = 'links:' . $menu_name . ':all-cid:' . $mlid . ':' . $GLOBALS['language']->language . ':' . (int)$max_depth;
+  $cid = 'links:' . $menu_name . ':all-cid:' . $mlid . ':' . $GLOBALS['language']->language . ':' . (int) $max_depth;
 
   if (!isset($tree[$cid])) {
     // If the static variable doesn't have the data, check {cache_menu}.
@@ -1090,7 +1090,7 @@ function menu_tree_page_data($menu_name, $max_depth = NULL) {
       $max_depth = min($max_depth, MENU_MAX_DEPTH);
     }
     // Generate a cache ID (cid) specific for this page.
-    $cid = 'links:' . $menu_name . ':page-cid:' . $item['href'] . ':' . $GLOBALS['language']->language . ':' . (int)$item['access'] . ':' . (int)$max_depth;
+    $cid = 'links:' . $menu_name . ':page-cid:' . $item['href'] . ':' . $GLOBALS['language']->language . ':' . (int) $item['access'] . ':' . (int) $max_depth;
 
     if (!isset($tree[$cid])) {
       // If the static variable doesn't have the data, check {cache_menu}.
@@ -1238,7 +1238,7 @@ function menu_tree_page_data($menu_name, $max_depth = NULL) {
  * Helper function - compute the real cache ID for menu tree data.
  */
 function _menu_tree_cid($menu_name, $data) {
-  return 'links:' . $menu_name . ':tree-data:' . $GLOBALS['language']->language . ':' . md5(serialize($data));
+  return 'links:' . $menu_name . ':tree-data:' . $GLOBALS['language']->language . ':' . hash('sha256', serialize($data));
 }
 
 /**
@@ -1438,7 +1438,7 @@ function theme_menu_local_task($variables) {
       $link['title'] = check_plain($link['title']);
     }
     $link['localized_options']['html'] = TRUE;
-    $link_text = t('!local-task-title !active', array('!local-task-title' => $link['title'], '!active' => $active));
+    $link_text = t('!local-task-title!active', array('!local-task-title' => $link['title'], '!active' => $active));
   }
 
   return '<li' . (!empty($variables['element']['#active']) ? ' class="active"' : '') . '>' . l($link_text, $link['href'], $link['localized_options']) . "</li>\n";
@@ -1685,9 +1685,19 @@ function menu_local_tasks($level = 0) {
     $tabs = array();
 
     $router_item = menu_get_item();
+
+    // If this router item points to its parent, start from the parents to
+    // compute tabs and actions.
+    if ($router_item && ($router_item['type'] & MENU_LINKS_TO_PARENT)) {
+      $router_item = menu_get_item($router_item['tab_parent']);
+    }
+
+    // If we failed to fetch a router item or the current user doesn't have
+    // access to it, don't bother computing the tabs.
     if (!$router_item || !$router_item['access']) {
       return $empty;
     }
+
     // Get all tabs and the root page.
     $result = db_select('menu_router', NULL, array('fetch' => PDO::FETCH_ASSOC))
       ->fields('menu_router')
@@ -1710,8 +1720,9 @@ function menu_local_tasks($level = 0) {
       // Store the translated item for later use.
       $tasks[$item['path']] = $item;
     }
+
     // Find all tabs below the current path.
-    $path = ($router_item['type'] == MENU_DEFAULT_LOCAL_TASK ? $router_item['tab_parent'] : $router_item['path']);
+    $path = $router_item['path'];
     // Tab parenting may skip levels, so the number of parts in the path may not
     // equal the depth. Thus we use the $depth counter (offset by 1000 for ksort).
     $depth = 1001;
@@ -2130,7 +2141,7 @@ function menu_set_active_trail($new_trail = NULL) {
     // Make sure the current page is in the trail (needed for the page title),
     // but exclude tabs and the front page.
     $last = count($trail) - 1;
-    if ($trail[$last]['href'] != $item['href'] && !(bool)($item['type'] & MENU_IS_LOCAL_TASK) && !drupal_is_front_page()) {
+    if ($trail[$last]['href'] != $item['href'] && !(bool) ($item['type'] & MENU_IS_LOCAL_TASK) && !drupal_is_front_page()) {
       $trail[] = $item;
     }
   }
@@ -2181,7 +2192,7 @@ function menu_get_active_title() {
   $active_trail = menu_get_active_trail();
 
   foreach (array_reverse($active_trail) as $item) {
-    if (!(bool)($item['type'] & MENU_IS_LOCAL_TASK)) {
+    if (!(bool) ($item['type'] & MENU_IS_LOCAL_TASK)) {
       return $item['title'];
     }
   }
@@ -3096,8 +3107,8 @@ function _menu_router_build($callbacks) {
       '_fit' => $fit,
     );
     $item += array(
-      '_visible' => (bool)($item['type'] & MENU_VISIBLE_IN_BREADCRUMB),
-      '_tab' => (bool)($item['type'] & MENU_IS_LOCAL_TASK),
+      '_visible' => (bool) ($item['type'] & MENU_VISIBLE_IN_BREADCRUMB),
+      '_tab' => (bool) ($item['type'] & MENU_IS_LOCAL_TASK),
     );
     if ($move) {
       $new_path = implode('/', $item['_parts']);
@@ -3134,7 +3145,7 @@ function _menu_router_build($callbacks) {
           // previous iteration assigned one already), try to find the menu name
           // of the parent item in the currently stored menu links.
           if (!isset($parent['menu_name'])) {
-            $menu_name = db_query("SELECT menu_name FROM {menu_links} WHERE router_path = :router_path", array(':router_path' => $parent_path))->fetchField();
+            $menu_name = db_query("SELECT menu_name FROM {menu_links} WHERE router_path = :router_path AND module = 'system'", array(':router_path' => $parent_path))->fetchField();
             if ($menu_name) {
               $parent['menu_name'] = $menu_name;
             }

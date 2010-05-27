@@ -1,5 +1,5 @@
 <?php
-// $Id: update.fetch.inc,v 1.26 2009/12/29 07:21:34 webchick Exp $
+// $Id: update.fetch.inc,v 1.28 2010/05/06 05:59:31 webchick Exp $
 
 /**
  * @file
@@ -137,7 +137,7 @@ function _update_process_fetch_task($project) {
 
   $success = FALSE;
   $available = array();
-  $site_key = md5($base_url . drupal_get_private_key());
+  $site_key = drupal_hmac_base64($base_url, drupal_get_private_key());
   $url = _update_build_fetch_url($project, $site_key);
   $fetch_url_base = _update_get_fetch_url_base($project);
   $project_name = $project['name'];
@@ -361,26 +361,26 @@ function update_parse_xml($raw_xml) {
   if (!isset($xml->short_name)) {
     return;
   }
-  $short_name = (string)$xml->short_name;
+  $short_name = (string) $xml->short_name;
   $data = array();
   foreach ($xml as $k => $v) {
-    $data[$k] = (string)$v;
+    $data[$k] = (string) $v;
   }
   $data['releases'] = array();
   if (isset($xml->releases)) {
     foreach ($xml->releases->children() as $release) {
-      $version = (string)$release->version;
+      $version = (string) $release->version;
       $data['releases'][$version] = array();
       foreach ($release->children() as $k => $v) {
-        $data['releases'][$version][$k] = (string)$v;
+        $data['releases'][$version][$k] = (string) $v;
       }
       $data['releases'][$version]['terms'] = array();
       if ($release->terms) {
         foreach ($release->terms->children() as $term) {
-          if (!isset($data['releases'][$version]['terms'][(string)$term->name])) {
-            $data['releases'][$version]['terms'][(string)$term->name] = array();
+          if (!isset($data['releases'][$version]['terms'][(string) $term->name])) {
+            $data['releases'][$version]['terms'][(string) $term->name] = array();
           }
-          $data['releases'][$version]['terms'][(string)$term->name][] = (string)$term->value;
+          $data['releases'][$version]['terms'][(string) $term->name][] = (string) $term->value;
         }
       }
     }

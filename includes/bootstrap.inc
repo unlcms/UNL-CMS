@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.377 2010/04/26 21:24:54 webchick Exp $
+// $Id: bootstrap.inc,v 1.391 2010/05/23 15:26:38 webchick Exp $
 
 /**
  * @file
@@ -9,7 +9,7 @@
 /**
  * The current system version.
  */
-define('VERSION', '7.0-alpha4');
+define('VERSION', '7.0-alpha5');
 
 /**
  * Core API compatibility.
@@ -19,7 +19,7 @@ define('DRUPAL_CORE_COMPATIBILITY', '7.x');
 /**
  * Minimum supported version of PHP.
  */
-define('DRUPAL_MINIMUM_PHP',    '5.2.0');
+define('DRUPAL_MINIMUM_PHP',    '5.2.1');
 
 /**
  * Minimum recommended value of PHP memory_limit.
@@ -49,17 +49,10 @@ define('CACHE_PERMANENT', 0);
 define('CACHE_TEMPORARY', -1);
 
 /**
- * Indicates that page caching is disabled.
- */
-define('CACHE_DISABLED', 0);
-
-/**
- * Indicates that page caching is enabled, using "normal" mode.
- */
-define('CACHE_NORMAL', 1);
-
-/**
  * Log message severity -- Emergency: system is unusable.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
  *
  * @see watchdog()
  * @see watchdog_severity_levels()
@@ -69,6 +62,9 @@ define('WATCHDOG_EMERGENCY', 0);
 /**
  * Log message severity -- Alert: action must be taken immediately.
  *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
  * @see watchdog()
  * @see watchdog_severity_levels()
  */
@@ -76,6 +72,9 @@ define('WATCHDOG_ALERT', 1);
 
 /**
  * Log message severity -- Critical: critical conditions.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
  *
  * @see watchdog()
  * @see watchdog_severity_levels()
@@ -85,6 +84,9 @@ define('WATCHDOG_CRITICAL', 2);
 /**
  * Log message severity -- Error: error conditions.
  *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
  * @see watchdog()
  * @see watchdog_severity_levels()
  */
@@ -92,6 +94,9 @@ define('WATCHDOG_ERROR', 3);
 
 /**
  * Log message severity -- Warning: warning conditions.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
  *
  * @see watchdog()
  * @see watchdog_severity_levels()
@@ -101,6 +106,9 @@ define('WATCHDOG_WARNING', 4);
 /**
  * Log message severity -- Notice: normal but significant condition.
  *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
  * @see watchdog()
  * @see watchdog_severity_levels()
  */
@@ -109,6 +117,9 @@ define('WATCHDOG_NOTICE', 5);
 /**
  * Log message severity -- Informational: informational messages.
  *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
  * @see watchdog()
  * @see watchdog_severity_levels()
  */
@@ -116,6 +127,9 @@ define('WATCHDOG_INFO', 6);
 
 /**
  * Log message severity -- Debug: debug-level messages.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
  *
  * @see watchdog()
  * @see watchdog_severity_levels()
@@ -622,7 +636,7 @@ function drupal_settings_initialize() {
     ini_set('session.cookie_secure', TRUE);
   }
   $prefix = ini_get('session.cookie_secure') ? 'SSESS' : 'SESS';
-  session_name($prefix . md5($session_name));
+  session_name($prefix . substr(hash('sha256', $session_name), 0, 32));
 }
 
 /**
@@ -1079,14 +1093,14 @@ function drupal_serve_page_from_cache(stdClass $cache) {
   // drupal_add_http_headers(). Keys are mixed-case.
   $default_headers = array();
 
-  foreach ($cache->headers as $name => $value) {
+  foreach ($cache->data['headers'] as $name => $value) {
     // In the case of a 304 response, certain headers must be sent, and the
     // remaining may not (see RFC 2616, section 10.3.5). Do not override
     // headers set in hook_boot().
     $name_lower = strtolower($name);
     if (in_array($name_lower, array('content-location', 'expires', 'cache-control', 'vary')) && !isset($hook_boot_headers[$name_lower])) {
       drupal_add_http_header($name, $value);
-      unset($cache->headers[$name]);
+      unset($cache->data['headers'][$name]);
     }
   }
 
@@ -1096,7 +1110,7 @@ function drupal_serve_page_from_cache(stdClass $cache) {
   // do not bother caching the page in a public proxy, because the cached copy
   // will only be served to that particular user due to Vary: Cookie, unless
   // the Vary header has been replaced or unset in hook_boot() (see below).
-  $max_age = !variable_get('page_cache_invoke_hooks', TRUE) && (!isset($_COOKIE[session_name()]) || isset($hook_boot_headers['vary'])) ? variable_get('cache_lifetime', 0) : 0;
+  $max_age = !variable_get('page_cache_invoke_hooks', TRUE) && (!isset($_COOKIE[session_name()]) || isset($hook_boot_headers['vary'])) ? variable_get('page_cache_maximum_age', 0) : 0;
   $default_headers['Cache-Control'] = 'public, max-age=' . $max_age;
 
   // Entity tag should change if the output changes.
@@ -1116,7 +1130,7 @@ function drupal_serve_page_from_cache(stdClass $cache) {
   }
 
   // Send the remaining headers.
-  foreach ($cache->headers as $name => $value) {
+  foreach ($cache->data['headers'] as $name => $value) {
     drupal_add_http_header($name, $value);
   }
 
@@ -1144,19 +1158,20 @@ function drupal_serve_page_from_cache(stdClass $cache) {
     header('Vary: Accept-Encoding', FALSE);
     // If page_compression is enabled, the cache contains gzipped data.
     if ($return_compressed) {
-      // $cache->data is already gzip'ed, so make sure zlib.output_compression
-      // does not compress it once more.
+      // $cache->data['body'] is already gzip'ed, so make sure
+      // zlib.output_compression does not compress it once more.
       ini_set('zlib.output_compression', '0');
       header('Content-Encoding: gzip');
     }
     else {
       // The client does not support compression, so unzip the data in the
       // cache. Strip the gzip header and run uncompress.
-      $cache->data = gzinflate(substr(substr($cache->data, 10), 0, -8));
+      $cache->data['body'] = gzinflate(substr(substr($cache->data['body'], 10), 0, -8));
     }
   }
 
-  print $cache->data;
+  // Print the page.
+  print $cache->data['body'];
 }
 
 /**
@@ -1177,7 +1192,7 @@ function bootstrap_hooks() {
 function drupal_unpack($obj, $field = 'data') {
   if ($obj->$field && $data = unserialize($obj->$field)) {
     foreach ($data as $key => $value) {
-      if (!isset($obj->$key)) {
+      if (!empty($key) && !isset($obj->$key)) {
         $obj->$key = $value;
       }
     }
@@ -1186,12 +1201,13 @@ function drupal_unpack($obj, $field = 'data') {
 }
 
 /**
- * Translate strings to the page language or a given language.
+ * Translates a string to the current language or to a given language.
  *
- * Human-readable text that will be displayed somewhere within a page should
- * be run through the t() function.
+ * All human-readable text that will be displayed on the site or sent to a user
+ * should be passed through the t() function. This ensures that sites can be
+ * fully translated into other languages.
  *
- * Examples:
+ * Here are some examples of translating static text using t():
  * @code
  *   if (!$info || !$info['extension']) {
  *     form_set_error('picture_upload', t('The uploaded file was not an image.'));
@@ -1203,94 +1219,84 @@ function drupal_unpack($obj, $field = 'data') {
  *   );
  * @endcode
  *
- * Any text within t() can be extracted by translators and changed into
- * the equivalent text in their native language.
- *
- * Special variables called "placeholders" are used to signal dynamic
- * information in a string which should not be translated. Placeholders
- * can also be used for text that may change from time to time (such as
- * link paths) to be changed without requiring updates to translations.
- *
- * For example:
- * @code
- *   $output = t('There are currently %members and %visitors online.', array(
- *     '%members' => format_plural($total_users, '1 user', '@count users'),
- *     '%visitors' => format_plural($guests->count, '1 guest', '@count guests')));
- * @endcode
- *
- * There are three styles of placeholders:
- * - !variable, which indicates that the text should be inserted as-is. This is
- *   useful for inserting variables into things like e-mail.
+ * In addition to translating static text, t() can handle text that should not
+ * be translated or that might change from time to time (such as link paths)
+ * and dynamic text from variables, using special "placeholders". There are
+ * three styles of placeholders:
+ * - !variable: Indicates that the text should be inserted as-is. This is
+ *   useful for inserting variables into things like e-mail. Example:
  *   @code
  *     $message[] = t("If you don't want to receive such e-mails, you can change your settings at !url.", array('!url' => url("user/$account->uid", array('absolute' => TRUE))));
  *   @endcode
- *
- * - @variable, which indicates that the text should be run through
- *   check_plain, to escape HTML characters. Use this for any output that's
- *   displayed within a Drupal page.
+ * - @variable: Indicates that the text should be run through check_plain(), to
+ *   escape HTML characters. Use this for any output that is displayed within a
+ *   Drupal page. Example:
  *   @code
  *     drupal_set_title($title = t("@name's blog", array('@name' => format_username($account))), PASS_THROUGH);
  *   @endcode
- *
- * - %variable, which indicates that the string should be HTML escaped and
- *   highlighted with theme_placeholder() which shows up by default as
- *   <em>emphasized</em>.
+ * - %variable: Indicates that the string should be HTML-escaped and highlighted
+ *   with theme_placeholder(), which shows up by default as <em>emphasized</em>.
  *   @code
  *     $message = t('%name-from sent %name-to an e-mail.', array('%name-from' => format_username($user), '%name-to' => format_username($account)));
  *   @endcode
  *
- * When using t(), try to put entire sentences and strings in one t() call.
- * This makes it easier for translators, as it provides context as to what
- * each word refers to. HTML markup within translation strings is allowed, but
- * should be avoided if possible. The exception are embedded links; link
- * titles add a context for translators, so should be kept in the main string.
+ * When using t(), try to put entire paragraphs in one t() call. This makes it
+ * easier for translators, as it provides context as to what each word refers
+ * to (and also allows translators to adjust word order, which may not be the
+ * same in all languages). HTML markup within translation strings is allowed,
+ * but should be avoided if possible. The exception is embedded links: link
+ * titles add context for translators and need to be translated, so they should
+ * be kept in the main string, while link URLs should be generated using
+ * placeholders.
+ * - Incorrect HTML in t():
+ *   @code
+ *     $output .= t('<p>Go to the @contact-page.</p>', array('@contact-page' => l(t('contact page'), 'contact')));
+ *   @endcode
+ * - Correct HTML in t():
+ *   @code
+ *     $output .= '<p>' . t('Go to the <a href="@contact-page">contact page</a>.', array('@contact-page' => url('contact'))) . '</p>';
+ *   @endcode
  *
- * Here is an example of incorrect usage of t():
- * @code
- *   $output .= t('<p>Go to the @contact-page.</p>', array('@contact-page' => l(t('contact page'), 'contact')));
- * @endcode
+ * Another thing that is helpful is to avoid escaping quotation marks wherever
+ * possible, because it can be confusing to translation teams.
+ * - Less desirable quotation mark escaping:
+ *   @code
+ *     $output .= t('Don\'t click me.');
+ *   @endcode
+ * - Better way to use quotation marks:
+ *   @code
+ *     $output .= t("Don't click me.");
+ *   @endcode
  *
- * Here is an example of t() used correctly:
- * @code
- *   $output .= '<p>' . t('Go to the <a href="@contact-page">contact page</a>.', array('@contact-page' => url('contact'))) . '</p>';
- * @endcode
- *
- * Avoid escaping quotation marks wherever possible.
- *
- * Incorrect:
- * @code
- *   $output .= t('Don\'t click me.');
- * @endcode
- *
- * Correct:
- * @code
- *   $output .= t("Don't click me.");
- * @endcode
- *
- * Because t() is designed for handling code-based strings, in almost all
- * cases, the actual string and not a variable must be passed through t().
- *
- * Extraction of translations is done based on the strings contained in t()
- * calls. If a variable is passed through t(), the content of the variable
- * cannot be extracted from the file for translation.
- *
- * Incorrect:
- * @code
- *   $message = 'An error occurred.';
- *   drupal_set_message(t($message), 'error');
- *   $output .= t($message);
- * @endcode
- *
- * Correct:
- * @code
- *   $message = t('An error occurred.');
- *   drupal_set_message($message, 'error');
- *   $output .= $message;
- * @endcode
+ * It is important that all translation uses the t() mechanism, because in
+ * addition to actually translating the text at run-time, the t() function is
+ * also used by text-extraction routines to find text that needs to be
+ * translated, and build databases of text to be translated for translation
+ * teams. For that reason, you must put the actual string into the t() function,
+ * in most cases, and not a variable.
+ * - Incorrect use of a variable in t():
+ *   @code
+ *     $message = 'An error occurred.';
+ *     drupal_set_message(t($message), 'error');
+ *     $output .= t($message);
+ *   @endcode
+ * - Correct translation of a variable with t():
+ *   @code
+ *     $message = t('An error occurred.');
+ *     drupal_set_message($message, 'error');
+ *     $output .= $message;
+ *   @endcode
  *
  * The only case in which variables can be passed safely through t() is when
  * code-based versions of the same strings will be passed through t() (or
  * otherwise extracted) elsewhere.
+ *
+ * Also, you cannot use t() early in the bootstrap process, prior to the
+ * DRUPAL_BOOTSTRAP_LANGUAGE phase. The language variables will not be
+ * initialized yet, so the string will not be translated into the correct
+ * language. Examples of places where t() cannot be used include:
+ * - In a PHP define() statement.
+ * - In a hook_boot() implementation.
  *
  * In some cases, modules may include strings in code that can't use t()
  * calls. For example, a module may use an external PHP application that
@@ -1308,7 +1314,7 @@ function drupal_unpack($obj, $field = 'data') {
  *   }
  * @endcode
  *
- * Sample dummy file.
+ * Sample dummy file:
  * @code
  *   // Dummy function included in example.potx.inc.
  *   function example_potx() {
@@ -1322,9 +1328,7 @@ function drupal_unpack($obj, $field = 'data') {
  * @endcode
  *
  * Having passed strings through t() in a dummy function, it is then
- * okay to pass variables through t().
- *
- * Correct (if a dummy file was used):
+ * possible to pass variables through t():
  * @code
  *   $time = new Time();
  *   $output .= t($time->today);
@@ -1334,7 +1338,7 @@ function drupal_unpack($obj, $field = 'data') {
  * sources should not be passed through t(). Doing so leads to the following
  * problems and errors:
  *  - The t() system doesn't support updates to existing strings. When user
- *    data is updated, the next time it's passed through t() a new record is
+ *    data is updated, the next time it's passed through t(), a new record is
  *    created instead of an update. The database bloats over time and any
  *    existing translations are orphaned with each update.
  *  - The t() system assumes any data it receives is in English. User data may
@@ -1344,6 +1348,9 @@ function drupal_unpack($obj, $field = 'data') {
  *    passed through t(), they are added to this text group, which is rendered
  *    inaccurate since it is a mix of actual interface strings and various user
  *    input strings of uncertain origin.
+ * Instead, translation of these data can be done through the locale system,
+ * either directly through hook_local() or through helper functions provided by
+ * contributed modules.
  *
  * Incorrect:
  * @code
@@ -1351,16 +1358,9 @@ function drupal_unpack($obj, $field = 'data') {
  *   $output .= check_plain(t($item['title']));
  * @endcode
  *
- * Instead, translation of these data can be done through the locale system,
- * either directly or through helper functions provided by contributed
- * modules.
- * @see hook_locale()
- *
  * During installation, st() is used in place of t(). Code that may be called
  * during installation or during normal operation should use the get_t()
  * helper function.
- * @see st()
- * @see get_t()
  *
  * @param $string
  *   A string containing the English string to translate.
@@ -1369,15 +1369,16 @@ function drupal_unpack($obj, $field = 'data') {
  *   of any key in this array are replaced with the corresponding value. Based
  *   on the first character of the key, the value is escaped and/or themed:
  *    - !variable: inserted as is
- *    - @variable: escape plain text to HTML (check_plain)
+ *    - @variable: escape plain text to HTML (using check_plain())
  *    - %variable: escape text and theme as a placeholder for user-submitted
- *      content (check_plain + theme_placeholder)
+ *      content (using check_plain() + theme_placeholder())
  * @param $options
  *   An associative array of additional options, with the following keys:
- *     - 'langcode' (default to the current language) The language code to
+ *     - 'langcode' (defaults to the current language) The language code to
  *       translate to a language other than what is used to display the page.
- *     - 'context' (default to the empty context) The context the source string
+ *     - 'context' (defaults to the empty context) The context the source string
  *       belongs to.
+ *
  * @return
  *   The translated string.
  *
@@ -1464,7 +1465,7 @@ function check_plain($text) {
   // drupal_validate_utf8() here. This avoids the overhead of an additional
   // function call, since check_plain() may be called hundreds of times during
   // a request. For PHP 5.2.5+, this check for valid UTF-8 should be handled
-  // internally by PHP in htmlspecialchars(). 
+  // internally by PHP in htmlspecialchars().
   // See http://www.php.net/releases/5_2_5.php.
   // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
 
@@ -1663,6 +1664,48 @@ function drupal_get_messages($type = NULL, $clear_queue = TRUE) {
 }
 
 /**
+ * Get the title of the current page, for display on the page and in the title bar.
+ *
+ * @return
+ *   The current page's title.
+ */
+function drupal_get_title() {
+  $title = drupal_set_title();
+
+  // During a bootstrap, menu.inc is not included and thus we cannot provide a title.
+  if (!isset($title) && function_exists('menu_get_active_title')) {
+    $title = check_plain(menu_get_active_title());
+  }
+
+  return $title;
+}
+
+/**
+ * Set the title of the current page, for display on the page and in the title bar.
+ *
+ * @param $title
+ *   Optional string value to assign to the page title; or if set to NULL
+ *   (default), leaves the current title unchanged.
+ * @param $output
+ *   Optional flag - normally should be left as CHECK_PLAIN. Only set to
+ *   PASS_THROUGH if you have already removed any possibly dangerous code
+ *   from $title using a function like check_plain() or filter_xss(). With this
+ *   flag the string will be passed through unchanged.
+ *
+ * @return
+ *   The updated title of the current page.
+ */
+function drupal_set_title($title = NULL, $output = CHECK_PLAIN) {
+  $stored_title = &drupal_static(__FUNCTION__);
+
+  if (isset($title)) {
+    $stored_title = ($output == PASS_THROUGH) ? $title : check_plain($title);
+  }
+
+  return $stored_title;
+}
+
+/**
  * Check to see if an IP address has been blocked.
  *
  * Blocked IP addresses are stored in the database by default. However for
@@ -1709,6 +1752,91 @@ function drupal_block_denied($ip) {
     print 'Sorry, ' . check_plain(ip_address()) . ' has been banned.';
     exit();
   }
+}
+
+/**
+ * Returns a string of highly randomized bytes (over the full 8-bit range).
+ *
+ * This function is better than simply calling mt_rand() or any other built-in
+ * PHP function because it can return a long string of bytes (compared to < 4
+ * bytes normally from mt_rand()) and uses the best available pseudo-random source.
+ *
+ * @param $count
+ *   The number of characters (bytes) to return in the string.
+ */
+function drupal_random_bytes($count)  {
+  // $random_state does not use drupal_static as it stores random bytes.
+  static $random_state, $bytes;
+  // Initialize on the first call. The contents of $_SERVER includes a mix of
+  // user-specific and system information that varies a little with each page.
+  if (!isset($random_state)) {
+    $random_state = print_r($_SERVER, TRUE);
+    if (function_exists('getmypid')) {
+      // Further initialize with the somewhat random PHP process ID.
+      $random_state .= getmypid();
+    }
+    $bytes = '';
+  }
+  if (strlen($bytes) < $count) {
+    // /dev/urandom is available on many *nix systems and is considered the
+    // best commonly available pseudo-random source.
+    if ($fh = @fopen('/dev/urandom', 'rb')) {
+      // PHP only performs buffered reads, so in reality it will always read
+      // at least 4096 bytes. Thus, it costs nothing extra to read and store
+      // that much so as to speed any additional invocations.
+      $bytes .= fread($fh, max(4096, $count));
+      fclose($fh);
+    }
+    // If /dev/urandom is not available or returns no bytes, this loop will
+    // generate a good set of pseudo-random bytes on any system.
+    // Note that it may be important that our $random_state is passed
+    // through hash() prior to being rolled into $output, that the two hash()
+    // invocations are different, and that the extra input into the first one -
+    // the microtime() - is prepended rather than appended. This is to avoid
+    // directly leaking $random_state via the $output stream, which could
+    // allow for trivial prediction of further "random" numbers.
+    while (strlen($bytes) < $count) {
+      $random_state = hash('sha256', microtime() . mt_rand() . $random_state);
+      $bytes .= hash('sha256', mt_rand() . $random_state, TRUE);
+    }
+  }
+  $output = substr($bytes, 0, $count);
+  $bytes = substr($bytes, $count);
+  return $output;
+}
+
+/**
+ * Calculate a base-64 encoded, URL-safe sha-256 hmac.
+ *
+ * @param $data
+ *   String to be validated with the hmac.
+ * @param $key
+ *   A secret string key.
+ *
+ * @return
+ *   A base-64 encoded sha-256 hmac, with + replaced with -, / with _ and
+ *   any = padding characters removed.
+ */
+function drupal_hmac_base64($data, $key) {
+  $hmac = base64_encode(hash_hmac('sha256', $data, $key, TRUE));
+  // Modify the hmac so it's safe to use in URLs.
+  return strtr($hmac, array('+' => '-', '/' => '_', '=' => ''));
+}
+
+/**
+ * Calculate a base-64 encoded, URL-safe sha-256 hash.
+ *
+ * @param $data
+ *   String to be hashed.
+ *
+ * @return
+ *   A base-64 encoded sha-256 hash, with + replaced with -, / with _ and
+ *   any = padding characters removed.
+ */
+function drupal_hash_base64($data) {
+  $hash = base64_encode(hash('sha256', $data, TRUE));
+  // Modify the hash so it's safe to use in URLs.
+  return strtr($hash, array('+' => '-', '/' => '_', '=' => ''));
 }
 
 /**
@@ -1911,16 +2039,16 @@ function _drupal_bootstrap_page_cache() {
   }
   // Check for a cache mode force from settings.php.
   if (variable_get('page_cache_without_database')) {
-    $cache_mode = CACHE_NORMAL;
+    $cache_enabled = TRUE;
   }
   else {
     drupal_bootstrap(DRUPAL_BOOTSTRAP_VARIABLES, FALSE);
-    $cache_mode = variable_get('cache');
+    $cache_enabled = variable_get('cache');
   }
   drupal_block_denied(ip_address());
   // If there is no session cookie and cache is enabled (or forced), try
   // to serve a cached page.
-  if (!isset($_COOKIE[session_name()]) && $cache_mode == CACHE_NORMAL) {
+  if (!isset($_COOKIE[session_name()]) && $cache_enabled) {
     // Make sure there is a user object because it's timestamp will be
     // checked, hook_boot might check for anonymous user etc.
     $user = drupal_anonymous_user();
@@ -1928,13 +2056,16 @@ function _drupal_bootstrap_page_cache() {
     $cache = drupal_page_get_cache();
     // If there is a cached page, display it.
     if (is_object($cache)) {
+      header('X-Drupal-Cache: HIT');
+      // Restore the metadata cached with the page.
+      $_GET['q'] = $cache->data['path'];
+      drupal_set_title($cache->data['title'], PASS_THROUGH);
       date_default_timezone_set(drupal_get_user_timezone());
       // If the skipping of the bootstrap hooks is not enforced, call
       // hook_boot.
       if (variable_get('page_cache_invoke_hooks', TRUE)) {
         bootstrap_invoke_all('boot');
       }
-      header('X-Drupal-Cache: HIT');
       drupal_serve_page_from_cache($cache);
       // If the skipping of the bootstrap hooks is not enforced, call
       // hook_exit.
@@ -1943,6 +2074,9 @@ function _drupal_bootstrap_page_cache() {
       }
       // We are done.
       exit;
+    }
+    else {
+      header('X-Drupal-Cache: MISS');
     }
   }
 }
@@ -1958,6 +2092,15 @@ function _drupal_bootstrap_database() {
     header($_SERVER['SERVER_PROTOCOL'] . ' 403 Forbidden');
     exit;
   }
+
+  // Redirect the user to the installation script if Drupal has not been
+  // installed yet (i.e., if no $databases array has been defined in the
+  // settings.php file) and we are not already installing.
+  if (empty($GLOBALS['databases']) && !drupal_installation_attempted()) {
+    include_once DRUPAL_ROOT . '/includes/install.inc';
+    install_goto('install.php');
+  }
+
   // Initialize the database system. Note that the connection
   // won't be initialized until it is actually requested.
   require_once DRUPAL_ROOT . '/includes/database/database.inc';
@@ -1992,9 +2135,6 @@ function _drupal_bootstrap_variables() {
  */
 function _drupal_bootstrap_page_header() {
   bootstrap_invoke_all('boot');
-  if (!drupal_page_get_cache(TRUE) && drupal_page_is_cacheable()) {
-    header('X-Drupal-Cache: MISS');
-  }
 
   // Prepare for non-cached page workflow.
   require_once DRUPAL_ROOT . '/' . variable_get('lock_inc', 'includes/lock.inc');
@@ -2029,9 +2169,9 @@ function drupal_valid_test_ua($user_agent) {
   // the database is not yet initialized and we can't access any Drupal variables.
   // The file properties add more entropy not easily accessible to others.
   $filepath = DRUPAL_ROOT . '/includes/bootstrap.inc';
-  $key = sha1(serialize($databases) . filectime($filepath) . fileinode($filepath), TRUE);
+  $key = serialize($databases) . filectime($filepath) . fileinode($filepath);
   // The HMAC must match.
-  return $hmac == base64_encode(hash_hmac('sha1', $check_string, $key, TRUE));
+  return $hmac == drupal_hmac_base64($check_string, $key);
 }
 
 /**
@@ -2046,12 +2186,12 @@ function drupal_generate_test_ua($prefix) {
     // check the HMAC before the database is initialized. filectime()
     // and fileinode() are not easily determined from remote.
     $filepath = DRUPAL_ROOT . '/includes/bootstrap.inc';
-    $key = sha1(serialize($databases) . filectime($filepath) . fileinode($filepath), TRUE);
+    $key = serialize($databases) . filectime($filepath) . fileinode($filepath);
   }
    // Generate a moderately secure HMAC based on the database credentials.
    $salt = uniqid('', TRUE);
    $check_string = $prefix . ';' . time() . ';' . $salt;
-   return  $check_string . ';' . base64_encode(hash_hmac('sha1', $check_string, $key, TRUE));
+   return  $check_string . ';' . drupal_hmac_base64($check_string, $key);
 }
 
 /**
@@ -2235,6 +2375,54 @@ function request_path() {
   $path = trim($path, '/');
 
   return $path;
+}
+
+/**
+ * Return a component of the current Drupal path.
+ *
+ * When viewing a page at the path "admin/structure/types", for example, arg(0)
+ * returns "admin", arg(1) returns "structure", and arg(2) returns "types".
+ *
+ * Avoid use of this function where possible, as resulting code is hard to read.
+ * In menu callback functions, attempt to use named arguments. See the explanation
+ * in menu.inc for how to construct callbacks that take arguments. When attempting
+ * to use this function to load an element from the current path, e.g. loading the
+ * node on a node page, please use menu_get_object() instead.
+ *
+ * @param $index
+ *   The index of the component, where each component is separated by a '/'
+ *   (forward-slash), and where the first component has an index of 0 (zero).
+ * @param $path
+ *   A path to break into components. Defaults to the path of the current page.
+ *
+ * @return
+ *   The component specified by $index, or NULL if the specified component was
+ *   not found.
+ */
+function arg($index = NULL, $path = NULL) {
+  // Even though $arguments doesn't need to be resettable for any functional
+  // reasons (the result of explode() does not depend on any run-time
+  // information), it should be resettable anyway in case a module needs to
+  // free up the memory used by it.
+  // Use the advanced drupal_static() pattern, since this is called very often.
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['arguments'] = &drupal_static(__FUNCTION__);
+  }
+  $arguments = &$drupal_static_fast['arguments'];
+
+  if (!isset($path)) {
+    $path = $_GET['q'];
+  }
+  if (!isset($arguments[$path])) {
+    $arguments[$path] = explode('/', $path);
+  }
+  if (!isset($index)) {
+    return $arguments[$path];
+  }
+  if (isset($arguments[$path][$index])) {
+    return $arguments[$path][$index];
+  }
 }
 
 /**
@@ -2440,7 +2628,7 @@ function _registry_check_code($type, $name = NULL) {
     if ($lookup_cache[$cache_key]) {
       require DRUPAL_ROOT . '/' . $lookup_cache[$cache_key];
     }
-    return (bool)$lookup_cache[$cache_key];
+    return (bool) $lookup_cache[$cache_key];
   }
 
   // This function may get called when the default database is not active, but
