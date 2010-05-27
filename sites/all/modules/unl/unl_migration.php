@@ -45,6 +45,12 @@ class Unl_Migration_Tool
     private $_baseUrl;
     private $_siteMap;
     private $_processedPages;
+    private $_curl;
+    private $_content;
+    private $_hrefTransform;
+    private $_hrefTransformFiles;
+    private $_menu;
+    private $_nodeMap;
     
     private function __construct($baseUrl)
     {
@@ -55,20 +61,62 @@ class Unl_Migration_Tool
         }
         $this->_siteMap = array();
         $this->_processedPages = array();
+        $this->_content = array();
+        $this->_hrefTransform = array();
+        $this->_hrefTransformFiles = array();
+        $this->_menu = array();
+        $this->_nodeMap = array();
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
+        $this->_curl = curl_init();
     }
     
     private function _migrate()
     {
+    	ini_set('memory_limit', -1);
+    	
+    	// Parse the menu
+    	$this->_processMenu();
+    	
+    	// Process all of the pages on the site
         do {
             $pagesToProcess = $this->_getPagesToProcess();
             foreach ($pagesToProcess as $pageToProcess) {
                 $this->_processPage($pageToProcess);
             }
-            if ($i++ == 1) exit;
+            //if ($i++ == 2) break;
+            echo PHP_EOL . 'I = ' . $i++ . PHP_EOL;
         } while (count($pagesToProcess) > 0);
+        
+        // Fix any links to files that got moved to sites/<site>/files
+        foreach ($this->_hrefTransform as $path => &$transforms) {
+        	if (array_key_exists('', $transforms)) {
+        		unset($transforms['']);
+        	}
+            foreach ($transforms as $oldPath => &$newPath) {
+	        	if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
+	        		$newPath = $this->_hrefTransformFiles[$newPath];
+	        	}
+	        	$newPath = url($newPath);
+            }
+        }
+    
+        // Update links and then create new page nodes.
+        foreach ($this->_content as $path => $content) {
+            echo 'PATH: ' . $path . PHP_EOL;
+        	$hrefTransform = $this->_hrefTransform[$path];
+        	
+        	if (is_array($hrefTransform)) {
+                $content = strtr($content, $hrefTransform);
+        	}
+            $this->_createPage('Testing', $content, $path, '' == $path);
+        }
+        
+        print_r($this->_nodeMap);
+        
+        $this->_createMenu();
+        
         exit;
     }
     
@@ -94,60 +142,213 @@ class Unl_Migration_Tool
         $this->_processedPages[hash('SHA256', $path)] = $path;
     }
     
+    private function _processMenu()
+    {
+    	$content = $this->_getUrl($this->_baseUrl);
+        $html = $content['content'];
+        
+        $dom = new DOMDocument();
+        $dom->loadHTML($html);
+        $navlinksNode = $dom->getElementById('navigation');
+    
+        $linkNodes = $navlinksNode->getElementsByTagName('a');
+        foreach ($linkNodes as $linkNode) {
+            $this->_processLinks($linkNode->getAttribute('href'), $path);
+        }
+        
+        $navlinksUlNode = $navlinksNode->getElementsByTagName('ul')->item(0);
+        foreach ($navlinksUlNode->childNodes as $primaryLinkLiNode) {
+        	if (strtolower($primaryLinkLiNode->nodeName) != 'li') {
+        		continue;
+        	}
+        	$primaryLinkNode = $primaryLinkLiNode->getElementsByTagName('a')->item(0);
+        	$menuItem = array('text' => $primaryLinkNode->textContent,
+        	                  'href' => $this->_makeLinkAbsolute($primaryLinkNode->getAttribute('href')), '');
+            
+        	$childLinksUlNode = $primaryLinkLiNode->getElementsByTagName('ul')->item(0);
+        	if (!$childLinksUlNode) {
+                $this->_menu[] = $menuItem;
+        		continue;
+        	}
+        	$childMenu = array();
+        	foreach ($childLinksUlNode->childNodes as $childLinkLiNode) {
+        		if (strtolower($childLinkLiNode->nodeName) != 'li') {
+        			continue;
+        		}
+        		$childLinkNode = $childLinkLiNode->getElementsByTagName('a')->item(0);
+	            $childMenu[] = array('text' => $childLinkNode->textContent,
+	                                 'href' => $this->_makeLinkAbsolute($childLinkNode->getAttribute('href')), '');
+        	}
+        	$menuItem['children'] = $childMenu;
+            $this->_menu[] = $menuItem;
+        }
+    }
+
+    private function _createMenu()
+    {
+        foreach ($this->_menu as $primaryMenu) {
+            $item = array(
+                'expanded' => TRUE,
+                'menu_name' => 'main-menu',
+                'link_title' => $primaryMenu['text']
+            );
+            $href = $primaryMenu['href'];
+        	if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+        		$path = substr($href, strlen($this->_baseUrl));
+        		$nodeId = array_search($path, $this->_nodeMap, TRUE);
+        		$item['link_path'] = 'node/' . $nodeId;
+        		echo '[' . $nodeId . '] => ' . $path . PHP_EOL;  
+        	} else {
+                $item['link_path'] = $href;
+        	}
+            menu_link_save($item);
+            print_r($item);
+            
+            if (!array_key_exists('children', $primaryMenu)) {
+            	continue;
+            }
+            
+            $plid = $item['mlid'];
+            foreach ($primaryMenu['children'] as $childMenu) {
+	            $item = array(
+	                'menu_name' => 'main-menu',
+	                'link_title' => $childMenu['text'],
+	                'plid' => $plid
+	            );
+	            $href = $childMenu['href'];
+	            if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+	                $path = substr($href, strlen($this->_baseUrl));
+	                $nodeId = array_search($path, $this->_nodeMap, TRUE);
+	                $item['link_path'] = 'node/' . $nodeId;
+                    echo '[' . $nodeId . '] => ' . $path . PHP_EOL;
+	            } else {
+	                $item['link_path'] = $href;
+	            }
+	            menu_link_save($item);
+                print_r($item);
+            }
+        }
+    }
+    
     private function _processPage($path)
     {
+    	if ($path == 'ace/assessmentplanning.shtml') {
+    		$debug = true;
+    	}
+    	$this->_addProcessedPage($path);
+    	
         $url = $this->_baseUrl . $path;
         $startToken = '<!-- InstanceBeginEditable name="maincontentarea" -->';
         $endToken = '<!-- InstanceEndEditable -->';
     
-        $html = file_get_contents($url);
+        $data = $this->_getUrl($url);
+        if (!$data['content']) {
+        	return;
+        }
+        if (strpos($data['contentType'], 'html') === FALSE) {
+        	if (!$data['contentType']) {
+        		return;
+        	}
+        	drupal_mkdir('public://' . dirname($path), NULL, TRUE);
+        	$file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
+        	echo 'Uploaded file: ' . $path. PHP_EOL;
+        	$this->_hrefTransformFiles[$path] = file_directory_path() . '/' . $path;
+        	return;
+        }
+        $html = $data['content'];
+        
+        if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
+        	$charset = $matches[1];
+        	$html = iconv($charset, 'UTF8', $html);
+        }
+        
         $contentStart = strpos($html, $startToken);
         $contentEnd = strpos($html, $endToken, $contentStart);
         $maincontentarea = substr($html,
                                   $contentStart + strlen($startToken),
                                   $contentEnd - $contentStart - strlen($startToken));
         $maincontentarea = trim($maincontentarea);
+        if (!$maincontentarea) {
+            return;
+        }
         
         $dom = new DOMDocument();
         $dom->loadHTML($html);
         $maincontentNode = $dom->getElementById('maincontent');
-        $linkNodes = $maincontentNode->getElementsByTagName('a');
-        echo PHP_EOL . 'Path: ' . $path . PHP_EOL; ob_flush(); flush();
-        foreach ($linkNodes as $linkNode) {
-            $href = $linkNode->getAttribute('href');
-            echo $href  . ' => ';
-            $href = $this->_makeLinkAbsolute($href, dirname($path));
-            echo $href . PHP_EOL;
-            if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
-                $newPath = substr($href, strlen($this->_baseUrl));
-                $this->_addSitePath($newPath);
-            }
+        if (!$maincontentNode) {
+        	return;
         }
-        //$this->_createPage('Test', $maincontentarea);
-        $this->_addProcessedPage($path);
+        
+        $linkNodes = $maincontentNode->getElementsByTagName('a');
+        foreach ($linkNodes as $linkNode) {
+            $this->_processLinks($linkNode->getAttribute('href'), $path);
+        }
+    
+        $linkNodes = $maincontentNode->getElementsByTagName('img');
+        foreach ($linkNodes as $linkNode) {
+            $this->_processLinks($linkNode->getAttribute('src'), $path);
+        }
+        
+        $this->_content[$path] = $maincontentarea;
     }
     
-    private function _makeLinkAbsolute($href, $intermediatePath)
+    private function _processLinks($originalHref, $path)
     {
+        $href = $this->_makeLinkAbsolute($originalHref, $path);
+        if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+            $newPath = substr($href, strlen($this->_baseUrl));
+            $this->_hrefTransform[$path][$originalHref] = $newPath;
+            $this->_addSitePath($newPath);
+        }
+    }
+    
+    private function _makeLinkAbsolute($href, $path)
+    {
+        if (substr($path, -1) == '/') {
+            $intermediatePath = $path;
+        } else {
+        	$intermediatePath = dirname($path);
+        }
+    	if ($intermediatePath == '.') {
+    		$intermediatePath = '';
+    	}
         if (strlen($intermediatePath) > 0 && substr($intermediatePath, -1) != '/') {
             $intermediatePath .= '/';
         }
+        
         $parts = parse_url($href);
         if ($parts['scheme']) {
-            return $href;
-        }
-        if (substr($parts['path'], 0, 1) == '/') {
+            $absoluteUrl = $href;
+        } else if (substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
-            return $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
+            $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
+        } else if (substr($href, 0, 1) == '#') {
+        	$absoluteUrl = $this->_baseUrl . $path;
+        } else {
+            $absoluteUrl = $this->_baseUrl . $intermediatePath . $href;
         }
-        return $this->_baseUrl . $intermediatePath . $href;
+        $parts = parse_url($absoluteUrl);
+        while (strpos($parts['path'], '/./') !== FALSE) {
+            $parts['path'] = strtr($parts['path'], array('/./', '/'));
+        }
+        while (strpos($parts['path'], '/../') !== FALSE) {
+            $parts['path'] = preg_replace('/\\/[^\\/]*\\/\\.\\.\\//', '/', $parts['path']);
+        }
+        
+        return $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
     }
     
-    private function _createPage($title, $content)
+    private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
     {
+    	if (substr($alias, -1) == '/') {
+    		$alias = substr($alias, 0, -1);
+    	}
+    	
         $node = new StdClass();
         $node->type = 'page';
         $node->title = $title;
+        $node->language = 'und';
+        $node->path['alias'] = $alias;
         $node->body = array(
             'und' => array(
                 array(
@@ -156,10 +357,36 @@ class Unl_Migration_Tool
                 )
             )
         );
-//        print_r($node); exit;
+        
         node_submit($node);
-//        print_r($node); exit;
         node_save($node);
+        
+        $this->_nodeMap[$node->nid] = $alias;
+        
+        if ($makeFrontPage) {
+        	variable_set('site_frontpage', 'node/' . $node->nid);
+        }
+    }
+    
+    private function _getUrl($url)
+    {
+    	curl_setopt($this->_curl, CURLOPT_URL, $url);
+    	curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
+    	curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
+    	echo 'Retreiving ' . $url . PHP_EOL;
+    	$content = curl_exec($this->_curl);
+    	$meta = curl_getinfo($this->_curl);
+        $content = substr($content, $meta['header_size']);
+        
+    	if ($meta['http_code'] == 301) {
+    		preg_match('/Location: (.*)/', $content, $matches);
+    		$location = $matches[1];
+    		$path = substr($location, strlen($this->_baseUrl));
+    		$this->_addSitePath($path); 
+            return FALSE;
+    	}
+        
+        return array('contentType' => $meta['content_type'], 'content' => $content);
     }
 }
 
