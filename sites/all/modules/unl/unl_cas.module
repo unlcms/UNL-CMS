@@ -1,5 +1,10 @@
 <?php
 
+function unl_cas_enable()
+{
+    variable_set('user_register', 0);
+}
+
 function unl_cas_init()
 {
     require_once dirname(__FILE__) . '/lib/CAS/CAS.php';
