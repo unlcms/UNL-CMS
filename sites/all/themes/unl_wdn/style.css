@@ -8,8 +8,9 @@ ul.secondary li {
     border-width: 0;
     padding:0;
 }
-#maincontent {
+body.fixed #maincontent {
     width: 940px;
+    overflow: visible;
 }
 
 /* begin nested nav UL fixes */
@@ -19,7 +20,7 @@ ul.secondary li {
 
 #navigation ul li ul li ul li{
     margin-left: 10px;
-    overflow:hidden;
+    overflow: hidden;
 }
 /* end nested nav UL fixes */
 
@@ -38,4 +39,13 @@ html.tinyMceEditor#maincontent {
     width: 940px;
     margin: 0px 23px 0px 23px;
     line-height: inherit;
+}
+
+#maincontent ul.vertical-tabs-list {
+    list-style: none;
+    padding: 0px;
+}
+.element-invisible {
+    display: none;
+}
 }
