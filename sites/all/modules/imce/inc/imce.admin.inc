@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.admin.inc,v 1.2 2010/03/17 21:36:38 ufku Exp $
+// $Id: imce.admin.inc,v 1.4 2010/05/29 02:09:05 ufku Exp $
 
 /**
  * @file
@@ -58,6 +58,12 @@ function imce_admin_form($form, &$form_state) {
     '#title' => t('Common settings'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
+  );
+  $form['common']['disable_private'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable serving of private files'),
+    '#default_value' => variable_get('imce_settings_disable_private', 1),
+    '#description' => t('IMCE serves all files under private files directory without applying any access restrictions. This allows anonymous access to any file(/system/files/filename) unless there is a module restricting access to the files. Here you can switch this behavior.'),
   );
   $form['common']['textarea'] = array(
     '#type' => 'textfield',
@@ -146,6 +152,7 @@ function imce_admin_submit($form, &$form_state) {
   variable_set('imce_settings_textarea', $form_state['values']['textarea']);
   variable_set('imce_settings_replace', $form_state['values']['replace']);
   variable_set('imce_settings_thumb_method', $form_state['values']['thumb_method']);
+  variable_set('imce_settings_disable_private', $form_state['values']['disable_private']);
   drupal_set_message(t('Changes have been saved.'));
 }
 
@@ -200,6 +207,11 @@ function imce_profile_form($form, &$form_state, $pid = 0) {
   );
   $form['import'] = array(
     '#markup' => imce_profile_import_html($pid),
+  );
+  $form['usertab'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display file browser tab in user profile pages.'),
+    '#default_value' => $profile['usertab'],
   );
   $form['filesize'] = array(
     '#type' => 'textfield',

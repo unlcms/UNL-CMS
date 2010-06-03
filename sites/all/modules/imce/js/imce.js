@@ -1,4 +1,4 @@
-// $Id: imce.js,v 1.16 2010/03/17 20:55:38 ufku Exp $
+// $Id: imce.js,v 1.19 2010/05/29 08:24:01 ufku Exp $
 
 (function($) {
 //Global container.
@@ -442,7 +442,7 @@ uploadValidate: function (data, form, options) {
 
 //settings for upload
 uploadSettings: function () {
-  return {beforeSubmit: imce.uploadValidate, success: function (response) {imce.processResponse(Drupal.parseJson(response));}, complete: function () {imce.fopLoading('upload', false);}, resetForm: true};
+  return {beforeSubmit: imce.uploadValidate, success: function (response) {imce.processResponse($.parseJSON(response));}, complete: function () {imce.fopLoading('upload', false);}, resetForm: true};
 },
 
 /**************** FILE OPS  ********************/
@@ -521,18 +521,18 @@ setPreview: function (fid) {
 
 //default file send function. sends the file to the new window.
 send: function (fid) {
-  if (fid) window.open(imce.getURL(fid));
+  fid && window.open(imce.getURL(fid));
 },
 
 //add an operation for an external application to which the files are send.
 setSendTo: function (title, func) {
-  imce.send = function (fid) { if(fid) func(imce.fileGet(fid), window);};
+  imce.send = function (fid) { fid && func(imce.fileGet(fid), window);};
   var opFunc = function () {
     if (imce.selcount != 1) return imce.setMessage(Drupal.t('Please select a file.'), 'error');
     imce.send(imce.vars.prvfid);
   };
   imce.vars.prvtitle = title;
-  return imce.opAdd({'title': title, func: opFunc});
+  return imce.opAdd({name: 'sendto', title: title, func: opFunc});
 },
 
 /**************** LOG MESSAGES  ********************/
@@ -752,6 +752,8 @@ updateUI: function() {
   //log
   $('#log-prv-wrapper').before($('#log-prv-wrapper > #preview-wrapper')).remove();
   $('#log-clearer').remove();
+  //content resizer
+  $('#content-resizer').remove();
   //message-box
   imce.msgBox = imce.el('message-box') || $('<div id="message-box"></div>').prependTo('#imce-content')[0];
   //help box & ie fix

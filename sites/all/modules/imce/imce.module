@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.module,v 1.26 2010/03/17 22:07:09 ufku Exp $
+// $Id: imce.module,v 1.32 2010/05/29 08:23:20 ufku Exp $
 
 /**
  * @file
@@ -18,6 +18,16 @@ function imce_menu() {
     'access callback' => 'imce_access',
     'file' => 'inc/imce.page.inc',
     'type' => MENU_CALLBACK,
+  );
+  $items['user/%user/imce'] = array(
+    'title' => 'File browser',
+    'page callback' => 'imce_user_page',
+    'page arguments' => array(1),
+    'access callback' => 'imce_user_page_access',
+    'access arguments' => array(1),
+    'file' => 'inc/imce.page.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
   );
   $items['admin/config/media/imce'] = array(
     'title' => 'IMCE',
@@ -43,7 +53,7 @@ function imce_permission() {
   return array(
     'administer imce' => array(
       'title' => t('Administer IMCE'),
-      'description' => t('Warning: Give to trusted roles only; this permission has security implications.'),
+      'restrict access' => TRUE,
     ),
   );
 }
@@ -58,6 +68,9 @@ function imce_theme() {
   $theme['imce_thumbnails'] = array('function' => 'imce_thumbnails_theme', 'render element' => 'form');
   $theme['imce_root_text'] = array(
     'variables' => array('imce_ref' => NULL),
+  );
+  $theme['imce_user_page'] = array(
+    'variables' => array('account' => NULL),
   );
   $theme['imce_file_list'] = array(
     'template' => 'imce-file-list',
@@ -79,12 +92,36 @@ function imce_theme() {
 
 /**
  * Implements hook_file_download().
+ * Support private downloads if not disabled.
  */
 function imce_file_download($uri) {
-  return array(
-    'Content-type' => file_get_mimetype($uri),
-    'Content-Length' => filesize($uri),
-  );
+  $serve = file_uri_scheme($uri) == 'private' && !variable_get('imce_settings_disable_private', 1) &&  file_exists($uri);
+  if ($serve) {
+    return array(
+      'Content-type' => file_get_mimetype($uri),
+      'Content-Length' => filesize($uri),
+    );
+  }
+}
+
+/**
+ * Implements hook_file_delete().
+ */
+function imce_file_delete($file) {
+  db_delete('imce_files')->condition('fid', $file->fid)->execute();
+}
+
+/**
+ * Implements of hook_file_references().
+ */
+function imce_file_references($file) {
+  //do not report reference count on internal file deletion
+  if (isset($file->imce_noref) && $file->imce_noref) {
+    return;
+  }
+  if (db_query('SELECT 1 FROM {imce_files} WHERE fid = :fid', array(':fid' => $file->fid))->fetchField()) {
+    return array('imce' => 1);
+  }
 }
 
 /**
@@ -98,11 +135,7 @@ function imce_element_info() {
  * Inline image/link insertion to textareas.
  */
 function imce_textarea($element) {
-  static $regexp, $done = array();
-  if (isset($done[$element['#id']])) {
-    return $element;
-  }
-  $done[$element['#id']] = TRUE;
+  static $regexp;
   if (!isset($regexp)) {
     $regexp = FALSE;
     if (imce_access() && $regexp = str_replace(' ', '', variable_get('imce_settings_textarea', ''))) {
@@ -207,16 +240,19 @@ function imce_access($user = FALSE) {
 }
 
 /**
+ * Checks access to user/{$account->uid}/imce for the $user.
+ */
+function imce_user_page_access($account, $user = FALSE) {
+  if ($user === FALSE) {
+    global $user;
+  }
+
+  return $account->uid == $user->uid && ($profile = imce_user_profile($user)) && $profile['usertab'];
+}
+
+/**
  * Check if the directory name is regular.
  */
 function imce_reg_dir($dirname) {
   return $dirname == '.' || (is_string($dirname) && $dirname != '' && !preg_match('@(^\s)|(^/)|(^\./)|(\s$)|(/$)|(/\.$)|(\.\.)|(//)|(\\\\)|(/\./)@', $dirname));
-}
-
-/**
- * Returns the text for the root directory in a directory tree.
- */
-function theme_imce_root_text($variables) {
-  //$imce = &$variables['imce_ref']['imce'];
-  return '&lt;' . t('root') . '&gt;';
 }
