@@ -7,49 +7,98 @@ function unl_cas_enable()
 
 function unl_cas_init()
 {
-    require_once dirname(__FILE__) . '/lib/CAS/CAS.php';
-    phpCAS::client(CAS_VERSION_2_0,'login.unl.edu',443,'/cas');
-    phpCAS::setNoCasServerValidation();
+	drupal_flush_all_caches();
+	
+	set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../libraries' );
+	require_once 'Zend/Loader/Autoloader.php';
+	$autoloader = Zend_Loader_Autoloader::getInstance();
+	$autoloader->registerNamespace('Unl_');
+	
+	$cas = unl_cas_get_adapter();
+	
+	// If this is a request to the validation URL, or if the CAS ticket is not expired, don't redirect.
+	if (request_path() == 'user/cas' || !$cas->isTicketExpired()) {
+		return;
+	}
+	
+	// At this point, we know the ticket has expired.
+	// If we think a user is supposed to be logged in, attempt to renew the service ticket.
+	if (array_key_exists('unl_sso', $_COOKIE) || !user_is_anonymous()) 
+	{
+        $_SESSION['unl_cas']['previous_path'] = request_path();
+        $cas->setGateway();
+		drupal_goto($cas->getLoginUrl());
+	}
+}
+
+/**
+ * @return Unl_Cas
+ */
+function unl_cas_get_adapter()
+{
+	static $adapter;
+	if (!$adapter) {
+		$adapter = new Unl_Cas(url('user/cas', array('absolute' => TRUE)), 'https://login.unl.edu/cas');
+	}
+	return $adapter;
+}
+
+function unl_cas_menu()
+{
+    $items['user/cas'] = array(
+        'title' => 'UNL CAS Validation',
+        'page callback' => 'unl_cas_validate',
+        'access callback' => TRUE
+    );
     
-    // Force a real CAS attempt every hour or whenever the unl_sso cookie disappears.
-    if ($_SESSION['unl']['last_sso_check'] < time() - 60*60 || 
-        !array_key_exists('unl_sso', $_COOKIE) && phpCAS::isSessionAuthenticated())
-    {
-        unset($_SESSION['phpCAS']['user']);
-        $_SESSION['unl']['last_sso_check'] = time();
+    return $items;
+}
+
+function unl_cas_validate()
+{
+	$cas = unl_cas_get_adapter();
+
+    if ($_POST['logoutRequest']) {
+        $cas->handleLogoutRequest($_POST['logoutRequest']);
     }
-    
-    $auth = FALSE;
-    if (array_key_exists('unl_sso', $_COOKIE)) {
-        $auth = phpCAS::checkAuthentication();
-    }
-    
-    if ($auth) {
-        $username = phpCAS::getUser();
-        $user = user_load_by_name($username);
-        if (!$user) {
-            $user = unl_cas_import_user($username);
+	
+	$auth = $cas->validateTicket();
+	
+	if ($auth) {
+		$username = $cas->getUsername();
+		$user = user_load_by_name($username);
+		if (!$user) {
+			$user = unl_cas_import_user($username);
+		}
+		if ($GLOBALS['user']->uid != $user->uid) {
+			$GLOBALS['user'] = $user;
+			user_login_finalize();
+		}
+	} else {
+        if (!user_is_anonymous()) {
+			$GLOBALS['user'] = drupal_anonymous_user();
+			user_login_finalize();
         }
-        if ($GLOBALS['user']->uid != $user->uid) {
-            $GLOBALS['user'] = $user;
-            user_login_finalize();
-        }
-    } else if (!user_is_anonymous()) {
-        $GLOBALS['user'] = drupal_anonymous_user();
-        user_login_finalize();
-    }
+        setcookie('unl_sso', 'fake', time() - 60*60*24, '/', '.unl.edu');
+	}
+	
+	drupal_goto($_SESSION['unl_cas']['previous_path']);
 }
 
 function unl_cas_form_alter(&$form, $form_state, $form_id)
 {
     if ($form_id == 'user_login') {
-        $auth = phpCAS::forceAuthentication();
+        $_SESSION['unl_cas']['previous_path'] = request_path();
+    	$cas = unl_cas_get_adapter();
+    	$cas->setRenew();
+    	drupal_goto($cas->getLoginUrl());
     }
 }
 
 function unl_cas_user_logout($account)
 {
-    phpCAS::logout(array('url' => url('<front>', array('absolute' => TRUE))));
+	$cas = unl_cas_get_adapter();
+    drupal_goto($cas->getLogoutUrl());
 }
 
 function unl_cas_import_user($username)
