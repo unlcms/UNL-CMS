@@ -86,7 +86,7 @@ function unl_cas_form_alter(&$form, $form_state, $form_id)
     if ($form_id == 'user_login') {
         $_SESSION['unl_cas']['previous_path'] = request_path();
     	$cas = unl_cas_get_adapter();
-    	$cas->setRenew();
+    	//$cas->setRenew();
     	drupal_goto($cas->getLoginUrl());
     }
 }
