@@ -58,7 +58,7 @@ function unl_cas_validate()
 {
 	$cas = unl_cas_get_adapter();
 
-    if ($_POST['logoutRequest']) {
+    if (array_key_exists('logoutRequest', $_POST)) {
         $cas->handleLogoutRequest($_POST['logoutRequest']);
     }
 	
