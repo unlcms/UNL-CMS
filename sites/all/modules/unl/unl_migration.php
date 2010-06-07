@@ -122,6 +122,11 @@ class Unl_Migration_Tool
     
     private function _addSitePath($path)
     {
+    	if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
+    		echo 'Changing ' . $path;
+            $path = substr($path, 0, $fragmentStart);
+            echo ' to ' . $path . PHP_EOL;
+    	}
         $this->_siteMap[hash('SHA256', $path)] = $path;
     }
     
@@ -186,15 +191,20 @@ class Unl_Migration_Tool
 
     private function _createMenu()
     {
+        $primaryWeights = 1;
         foreach ($this->_menu as $primaryMenu) {
             $item = array(
                 'expanded' => TRUE,
                 'menu_name' => 'main-menu',
-                'link_title' => $primaryMenu['text']
+                'link_title' => $primaryMenu['text'],
+                'weight' => $primaryWeights++
             );
             $href = $primaryMenu['href'];
         	if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
         		$path = substr($href, strlen($this->_baseUrl));
+                if ($fragmentPos = strrpos($path, '#') !== FALSE) {
+                    $path = substr($path, 0, $fragmentPos);
+                }
         		$nodeId = array_search($path, $this->_nodeMap, TRUE);
         		$item['link_path'] = 'node/' . $nodeId;
         		echo '[' . $nodeId . '] => ' . $path . PHP_EOL;  
@@ -209,17 +219,23 @@ class Unl_Migration_Tool
             }
             
             $plid = $item['mlid'];
+            $childWeights = 1;
             foreach ($primaryMenu['children'] as $childMenu) {
 	            $item = array(
 	                'menu_name' => 'main-menu',
 	                'link_title' => $childMenu['text'],
-	                'plid' => $plid
+	                'plid' => $plid,
+                    'weight' => $childWeights++
 	            );
 	            $href = $childMenu['href'];
 	            if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
 	                $path = substr($href, strlen($this->_baseUrl));
-	                $nodeId = array_search($path, $this->_nodeMap, TRUE);
-	                $item['link_path'] = 'node/' . $nodeId;
+	                if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
+	                	echo "strrpos() = $fragmentPos\n";
+	                	$path = substr($path, 0, $fragmentPos);
+	                }
+                    $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                    $item['link_path'] = 'node/' . $nodeId;
                     echo '[' . $nodeId . '] => ' . $path . PHP_EOL;
 	            } else {
 	                $item['link_path'] = $href;
@@ -259,7 +275,7 @@ class Unl_Migration_Tool
         
         if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
         	$charset = $matches[1];
-        	$html = iconv($charset, 'UTF8', $html);
+        	$html = iconv($charset, 'UTF-8', $html);
         }
         
         $contentStart = strpos($html, $startToken);
@@ -294,6 +310,9 @@ class Unl_Migration_Tool
     
     private function _processLinks($originalHref, $path)
     {
+    	if (substr($originalHref, 0, 1) == '#') {
+    		return;
+    	}
         $href = $this->_makeLinkAbsolute($originalHref, $path);
         if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
             $newPath = substr($href, strlen($this->_baseUrl));
@@ -304,6 +323,7 @@ class Unl_Migration_Tool
     
     private function _makeLinkAbsolute($href, $path)
     {
+    	echo $href . ' => ';
         if (substr($path, -1) == '/') {
             $intermediatePath = $path;
         } else {
@@ -322,8 +342,11 @@ class Unl_Migration_Tool
         } else if (substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
             $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
+            if ($parts['fragment']) {
+            	$absoluteUrl .= '#' . $parts['fragment'];
+            }
         } else if (substr($href, 0, 1) == '#') {
-        	$absoluteUrl = $this->_baseUrl . $path;
+        	$absoluteUrl = $this->_baseUrl . $path . $href;
         } else {
             $absoluteUrl = $this->_baseUrl . $intermediatePath . $href;
         }
@@ -335,7 +358,12 @@ class Unl_Migration_Tool
             $parts['path'] = preg_replace('/\\/[^\\/]*\\/\\.\\.\\//', '/', $parts['path']);
         }
         
-        return $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
+        $absoluteUrl = $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
+        if ($parts['fragment']) {
+            $absoluteUrl .= '#' . $parts['fragment'];
+        }            
+        echo $absoluteUrl . PHP_EOL;
+        return $absoluteUrl;
     }
     
     private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
