@@ -3,3 +3,4 @@ name = UNL CAS
 description = Enables UNL CAS authentication/registration of users.
 core = 7.x
 files[] = unl_cas.module
+files[] = unl_loader.php

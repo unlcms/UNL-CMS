@@ -7,12 +7,8 @@ function unl_cas_enable()
 
 function unl_cas_init()
 {
-	drupal_flush_all_caches();
-	
-	set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../libraries' );
-	require_once 'Zend/Loader/Autoloader.php';
-	$autoloader = Zend_Loader_Autoloader::getInstance();
-	$autoloader->registerNamespace('Unl_');
+    require_once dirname(__FILE__) . '/unl_loader.php';
+    unl_load_zend_framework();
 	
 	$cas = unl_cas_get_adapter();
 	
