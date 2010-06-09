@@ -14,3 +14,4 @@ regions[optionalfooter] = Optional Footer
 regions[footercontent] = Footer Content
 plugins[panels][layouts] = layouts
 settings[zen_forms] = 0
+settings[use_base] = 1

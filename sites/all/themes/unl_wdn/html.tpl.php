@@ -40,6 +40,10 @@ $t->head .= PHP_EOL
           . $scripts . PHP_EOL
           ;
 
+if (theme_get_setting('use_base')) {
+	$t->head .= '<base href="' . url('<front>', array('absolute' => TRUE)) . '" />' . PHP_EOL;
+}
+
 $t->doctitle = '<title>'. unl_wdn_head_title() .'</title>';
 
 $html = $t->toHtml();
