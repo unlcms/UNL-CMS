@@ -1,49 +1,9 @@
 <?php
+require_once(dirname(__FILE__)).'/includes/form.inc';
 
-function unl_wdn_get_instance()
-{
-    static $instance;
-    if (!$instance) {
-        set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/lib');
-        require_once "UNL/Templates.php";
-        
-        UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
-        $instance = UNL_Templates::factory('Fixed');
-    }
-    
-    return $instance;
-}
-
-require_once dirname(__FILE__) . '/includes/form.inc';
-
-function unl_wdn_breadcrumb($variables)
-{
-    $breadcrumbs = $variables['breadcrumb'];
-
-	if (count($breadcrumbs) == 0) {
-		$breadcrumbs[] = variable_get('site_name', 'Department');
-	} else {
-	    //Change 'Home' to be $site_name
-	    array_unshift($breadcrumbs,
-	                  str_replace('Home', variable_get('site_name', 'Department'),
-	                  array_shift($breadcrumbs)));
-	}
-    //Prepend UNL
-    array_unshift($breadcrumbs, '<a href="http://www.unl.edu/">UNL</a>');
-    
-    //Append title of current page -- http://drupal.org/node/133242
-    $breadcrumbs[] = drupal_get_title();
-    
-    $html = '<ul>' . PHP_EOL;
-    foreach ($breadcrumbs as $breadcrumb) {
-        $html .= '<li>' .  $breadcrumb . '</li>';
-    }
-    $html .= '</ul>';
-    
-    return $html;
-}
-
-function unl_wdn_head_title()
+//This is supposed to be how we change $head_title in the <title> tag in html.tpl.php but as of 7.0-alpha5 it don't work for eric
+//TODO: fix this
+function unl_wdn_preprocess_html(&$vars)
 {
     // Based on
     // http://api.drupal.org/api/function/menu_get_active_breadcrumb/5
@@ -66,7 +26,34 @@ function unl_wdn_head_title()
     //Prepend UNL
     array_unshift($path, 'UNL');
     
-    return implode(' | ', $path);
+    $vars['head_title'] = implode(' | ', $path);
+}
+
+function unl_wdn_breadcrumb($variables)
+{
+    $breadcrumbs = $variables['breadcrumb'];
+    
+    if (count($breadcrumbs) == 0) {
+        $breadcrumbs[] = variable_get('site_name', 'Department');
+    } else {
+        //Change 'Home' to be $site_name
+        array_unshift($breadcrumbs,
+                      str_replace('Home', variable_get('site_name', 'Department'),
+                      array_shift($breadcrumbs)));
+    }
+    //Prepend UNL
+    array_unshift($breadcrumbs, '<a href="http://www.unl.edu/">UNL</a>');
+    
+    //Append title of current page -- http://drupal.org/node/133242
+    $breadcrumbs[] = drupal_get_title();
+    
+    $html = '<ul>' . PHP_EOL;
+    foreach ($breadcrumbs as $breadcrumb) {
+        $html .= '<li>' .  $breadcrumb . '</li>';
+    }
+    $html .= '</ul>';
+    
+    return $html;
 }
 
 function unl_wdn_menu_item($link, $has_children, $menu = '', $in_active_trail = FALSE, $extra_class = NULL)
