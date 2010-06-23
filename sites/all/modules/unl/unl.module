@@ -7,7 +7,6 @@ function unl_node_prepare($node)
 
 function unl_wysiwyg_plugin($editor)
 {
-//    echo 'unl_wysiwyg_plugin()' . PHP_EOL;
     switch ($editor) {
     case 'tinymce':
         return array(
@@ -48,6 +47,7 @@ function unl_wysiwyg_plugin($editor)
                                    'unlLayout'  => 'UNL Layout (Menu)'
                 ),
                 'options' => array(
+                    'skin' => 'unl',
                     'doctype' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
                 )
             )
@@ -69,4 +69,3 @@ function unl_menu()
     
     return $items;
 }
-
