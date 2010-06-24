@@ -51,6 +51,7 @@ class Unl_Migration_Tool
     private $_hrefTransformFiles;
     private $_menu;
     private $_nodeMap;
+    private $_pageTitles;
     
     private function __construct($baseUrl)
     {
@@ -66,6 +67,7 @@ class Unl_Migration_Tool
         $this->_hrefTransformFiles = array();
         $this->_menu = array();
         $this->_nodeMap = array();
+        $this->_pageTitles = array();
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
@@ -100,7 +102,7 @@ class Unl_Migration_Tool
 	        	}
             }
         }
-    
+        
         // Update links and then create new page nodes.
         foreach ($this->_content as $path => $content) {
             echo 'PATH: ' . $path . PHP_EOL;
@@ -109,7 +111,8 @@ class Unl_Migration_Tool
         	if (is_array($hrefTransform)) {
                 $content = strtr($content, $hrefTransform);
         	}
-            $this->_createPage('Testing', $content, $path, '' == $path);
+        	$pageTitle = $this->_pageTitles[$path];
+            $this->_createPage($pageTitle, $content, $path, '' == $path);
         }
         
         var_dump($this->_nodeMap);
@@ -257,6 +260,7 @@ class Unl_Migration_Tool
     	
         $url = $this->_baseUrl . $path;
         $startToken = '<!-- InstanceBeginEditable name="maincontentarea" -->';
+        $pageTitleStartToken = '<!-- InstanceBeginEditable name="pagetitle" -->';
         $endToken = '<!-- InstanceEndEditable -->';
     
         $data = $this->_getUrl($url);
@@ -285,13 +289,24 @@ class Unl_Migration_Tool
         $maincontentarea = substr($html,
                                   $contentStart + strlen($startToken),
                                   $contentEnd - $contentStart - strlen($startToken));
-        $maincontentarea = trim($maincontentarea);
-        if (!$maincontentarea) {
+        if (!$maincontentarea || $contentStart === FALSE) {
             return;
         }
+        $maincontentarea = trim($maincontentarea);
         
         $dom = new DOMDocument();
         $dom->loadHTML($html);
+        
+        $pageTitle = 'Untitled';
+        $pageTitleNode = $dom->getElementById('pagetitle');
+        if ($pageTitleNode) {
+        	$pageTitleH2Nodes = $pageTitleNode->getElementsByTagName('h2');
+        	if ($pageTitleH2Nodes->length > 0) {
+        		$pageTitle = $pageTitleH2Nodes->item(0)->textContent;
+        	}
+        }
+        echo 'Page Title: ' . $pageTitle . PHP_EOL;
+        
         $maincontentNode = $dom->getElementById('maincontent');
         if (!$maincontentNode) {
         	return;
@@ -308,6 +323,7 @@ class Unl_Migration_Tool
         }
         
         $this->_content[$path] = $maincontentarea;
+        $this->_pageTitles[$path] = $pageTitle;
     }
     
     private function _processLinks($originalHref, $path)
@@ -421,7 +437,9 @@ class Unl_Migration_Tool
     		$path = substr($location, strlen($this->_baseUrl));
     		$this->_addSitePath($path); 
             return FALSE;
-    	}
+    	} else if ($meta['http_code'] != 200) {
+    		return FALSE;
+    	} 
         
         return array('contentType' => $meta['content_type'], 'content' => $content);
     }
