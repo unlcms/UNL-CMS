@@ -1,5 +1,5 @@
 name = UNL WDN
-description = UNL DWN theme for Drupal
+description = UNL WDN Theme
 screenshot = screenshot.png
 core = 7.x
 engine = phptemplate
