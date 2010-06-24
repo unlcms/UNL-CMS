@@ -98,7 +98,6 @@ class Unl_Migration_Tool
 	        	if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
 	        		$newPath = $this->_hrefTransformFiles[$newPath];
 	        	}
-	        	$newPath = url($newPath);
             }
         }
     
@@ -113,7 +112,7 @@ class Unl_Migration_Tool
             $this->_createPage('Testing', $content, $path, '' == $path);
         }
         
-        print_r($this->_nodeMap);
+        var_dump($this->_nodeMap);
         
         $this->_createMenu();
         
@@ -202,6 +201,9 @@ class Unl_Migration_Tool
             $href = $primaryMenu['href'];
         	if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
         		$path = substr($href, strlen($this->_baseUrl));
+        		if (!$path) {
+        			$path = '';
+        		}
                 if ($fragmentPos = strrpos($path, '#') !== FALSE) {
                     $path = substr($path, 0, $fragmentPos);
                 }
@@ -230,6 +232,9 @@ class Unl_Migration_Tool
 	            $href = $childMenu['href'];
 	            if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
 	                $path = substr($href, strlen($this->_baseUrl));
+	                if (!$path) {
+	                    $path = '';
+	                }
 	                if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
 	                	echo "strrpos() = $fragmentPos\n";
 	                	$path = substr($path, 0, $fragmentPos);
@@ -248,9 +253,6 @@ class Unl_Migration_Tool
     
     private function _processPage($path)
     {
-    	if ($path == 'ace/assessmentplanning.shtml') {
-    		$debug = true;
-    	}
     	$this->_addProcessedPage($path);
     	
         $url = $this->_baseUrl . $path;
@@ -316,6 +318,9 @@ class Unl_Migration_Tool
         $href = $this->_makeLinkAbsolute($originalHref, $path);
         if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
             $newPath = substr($href, strlen($this->_baseUrl));
+            if ($newPath === FALSE) {
+            	$newPath = '';
+            }
             $this->_hrefTransform[$path][$originalHref] = $newPath;
             $this->_addSitePath($newPath);
         }
@@ -368,6 +373,9 @@ class Unl_Migration_Tool
     
     private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
     {
+    	echo 'Alias: ' . PHP_EOL;
+        var_dump($alias);
+        
     	if (substr($alias, -1) == '/') {
     		$alias = substr($alias, 0, -1);
     	}
@@ -389,6 +397,7 @@ class Unl_Migration_Tool
         node_submit($node);
         node_save($node);
         
+        var_dump($alias);
         $this->_nodeMap[$node->nid] = $alias;
         
         if ($makeFrontPage) {
