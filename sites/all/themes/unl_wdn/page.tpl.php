@@ -81,15 +81,14 @@ $t->navlinks = render($page['navlinks']);
 if (isset($site_name) && $site_name) {
     $t->titlegraphic = '<h1>' . $site_name . '</h1>';
 }
-if (isset($site_slogan) && $site_slogan) {
-    $t->pagetitle = '<h2>' . $site_slogan . '</h2>';
+if (isset($title) && $title) {
+    $t->pagetitle = '<h2>' . render($title_prefix) . $title . render($title_suffix) . '</h2>';
 }
 
 
 $t->maincontentarea = $messages . PHP_EOL
                     . render($tabs) . PHP_EOL
                     . render($action_links) . PHP_EOL
-                    . '<h3>' . render($title_prefix) . $title . render($title_suffix) . '</h3>' . PHP_EOL
                     . strtr(render($page['content']), array('sticky-enabled' => 'zentable cool')) . PHP_EOL
                     ;
 
@@ -100,12 +99,9 @@ if ($page['leftcollinks']) {
 } else {
     $leftcollinks = <<<EOF
 <ul>
-    <li class="first"><a href="http://ucomm.unl.edu/">University Communications</a>
-        <ul>
-            <li><a href="http://ucomm.unl.edu/resources.shtml">Print Resources </a></li>
-        </ul>
-    </li>
-    <li><a href="http://www.unl.edu/ucomm/chancllr/">Office of the Chancellor</a>  </li>
+    <li><a href="http://events.unl.edu/">UNL Events Calendar</a></li>
+    <li><a href="http://ucomm.unl.edu/">University Communications</a></li>
+    <li><a href="http://www.unl.edu/ucomm/chancllr/">Office of the Chancellor</a></li>
 </ul>
 EOF;
 }
@@ -122,11 +118,10 @@ if ($page['contactinfo']) {
 } else {
     $contactinfo = <<<EOF
 <p>
-    The WDN is coordinated by:<br />
-    <strong>University Communications</strong><br />
-    Internet and Interactive Media<br />
-    WICK 17<br />
-    Lincoln, NE 68583-0218
+    <strong>University of Nebraska-Lincoln</strong><br />
+    1400 R Street<br />
+    Lincoln, NE 68588<br />
+    402-472-7211
 </p>
 EOF;
 }
@@ -144,8 +139,13 @@ if ($page['optionalfooter']) {
 
 
 
-$t->footercontent = '';
 if ($page['footercontent']) {
-    $t->footercontent .= '<div>' . render($page['footercontent']) . '</div>';
+    $t->footercontent = render($page['footercontent']);
+} else {
+    $year = date("Y");
+    $t->footercontent = <<<EOF
+    &copy; {$year} University of Nebraska&ndash;Lincoln | Lincoln, NE 68588 | 402-472-7211 | <a href="http://www.unl.edu/ucomm/aboutunl/" title="Click here to know more about UNL">About UNL</a> | <a href="http://www1.unl.edu/comments/" title="Click here to direct your comments and questions">comments?</a><br />
+    UNL is an equal opportunity employer with a comprehensive plan for diversity. Find out more: <a href="https://employment.unl.edu/" target="_blank" title="Employment at UNL">employment.unl.edu</a><br />
+EOF;
 }
-
+$t->footercontent .= '<p style="margin:0.5em 0 -1.4em 0">This site is an instance of <a href="http://unlcms.unl.edu/" title="Go to the UNL CMS website">UNL CMS</a> powered by <a href="http://drupal.org/" title="Go to the official website of Drupal">Drupal</a></p>';

@@ -48,9 +48,11 @@ $t->doctitle = '<title>'. unl_wdn_head_title() .'</title>';
 
 $html = $t->toHtml();
 
-$html = strtr($html, array('<div id="maincontent">' => $page_top . PHP_EOL . '<div id="maincontent">',
-                           '<div id="footer">'      => $page_bottom . PHP_EOL . '<div id="footer">'));
+$html = strtr($html, array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' => '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>',
+                           '<head>'                 => '<head profile="'.$grddl_profile.'">',
+                           '<body class="fixed">'   => '<body class="fixed '.$classes.'" '.$attributes.'>',
+                           '<p class="skipnav">'    => $page_top . PHP_EOL . '<p class="skipnav">',
+                           '</body>'                => $page_bottom . PHP_EOL . '</body>',
+                          ));
 
 echo $html;
-
-
