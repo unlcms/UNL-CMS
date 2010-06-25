@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.page.inc,v 1.5 2010/05/29 08:23:20 ufku Exp $
+// $Id: imce.page.inc,v 1.9 2010/06/19 15:13:35 ufku Exp $
 
 /**
  * @file
@@ -385,10 +385,21 @@ function imce_process_files($filenames, &$imce, $function, $args = array()) {
 }
 
 /**
- * Delete a file in the file list.
+ * Deletes a file in the file list.
  */
 function imce_delete_file($filename, &$imce) {
   $uri = imce_dir_uri($imce) . $filename;
+  if (!imce_delete_filepath($uri)) {
+    return FALSE;
+  }
+  imce_remove_file($filename, $imce);
+  return TRUE;
+}
+
+/**
+ * Deletes a file by uri.
+ */
+function imce_delete_filepath($uri) {
   $file = file_load_multiple(array(), array('uri' => $uri));
   $file = reset($file);
 
@@ -412,7 +423,6 @@ function imce_delete_file($filename, &$imce) {
     return FALSE;
   }
 
-  imce_remove_file($filename, $imce);
   return TRUE;
 }
 
@@ -688,9 +698,10 @@ function imce_initiate_profile($user, $scheme = NULL) {
   if ($imce = imce_user_profile($user, $scheme)) {
     imce_process_directories($imce, $user);
     if (!empty($imce['directories'])) {
-      $imce['uid'] = (int)$user->uid;
+      $imce['uid'] = (int) $user->uid;
       $imce['url'] = url($_GET['q']);
       $imce['clean'] = variable_get('clean_url', 0) == 1;
+      $imce['absurls'] = variable_get('imce_settings_absurls', 0) == 1;
       $imce['furl'] = file_create_url($imce['scheme'] . '://');
       $imce['filesize'] *= 1048576;//convert from Mb to byte
       $imce['quota'] *= 1048576;
@@ -1054,12 +1065,22 @@ function theme_imce_root_text($variables) {
  * Returns the html for user's file browser tab.
  */
 function theme_imce_user_page($variables) {
-  return '<iframe src="' . url('imce') . '" frameborder="0" style="border: 1px solid #eee; width: 99%; height: 520px" class="imce-frame"></iframe>';
+  global $user;
+  $account = $variables['account'];
+  $options = array();
+  //switch to account's active folder
+  if ($user->uid == 1 && $account->uid != 1) {
+    $imce = imce_initiate_profile($account);
+    $options['query'] = array('dir' => $imce['dir']);
+  }
+  return '<iframe src="' . url('imce', $options) . '" frameborder="0" style="border: 1px solid #eee; width: 99%; height: 520px" class="imce-frame"></iframe>';
 }
 
 /**
  * Registers the file as an IMCE file.
  */
 function imce_file_register($file) {
-  return $file->fid && @db_insert('imce_files')->fields(array('fid' => $file->fid))->execute();
+  if (!db_query('SELECT 1 FROM {imce_files} WHERE fid = :fid', array(':fid' => $file->fid))->fetchField()) {
+    return @db_insert('imce_files')->fields(array('fid' => $file->fid))->execute();
+  }
 }

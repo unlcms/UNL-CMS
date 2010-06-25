@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.module,v 1.32 2010/05/29 08:23:20 ufku Exp $
+// $Id: imce.module,v 1.34 2010/06/02 08:31:10 ufku Exp $
 
 /**
  * @file
@@ -95,7 +95,7 @@ function imce_theme() {
  * Support private downloads if not disabled.
  */
 function imce_file_download($uri) {
-  $serve = file_uri_scheme($uri) == 'private' && !variable_get('imce_settings_disable_private', 1) &&  file_exists($uri);
+  $serve = file_uri_scheme($uri) == 'private' && !variable_get('imce_settings_disable_private', 1) &&  file_exists($uri) && strpos(basename($uri), '.');
   if ($serve) {
     return array(
       'Content-type' => file_get_mimetype($uri),
@@ -247,7 +247,7 @@ function imce_user_page_access($account, $user = FALSE) {
     global $user;
   }
 
-  return $account->uid == $user->uid && ($profile = imce_user_profile($user)) && $profile['usertab'];
+  return ($user->uid == 1 || $account->uid == $user->uid) && ($profile = imce_user_profile($account)) && $profile['usertab'];
 }
 
 /**

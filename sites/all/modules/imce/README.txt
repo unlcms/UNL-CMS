@@ -1,4 +1,4 @@
-// $Id: README.txt,v 1.15 2010/04/10 12:36:20 ufku Exp $
+// $Id: README.txt,v 1.17 2010/06/19 15:12:34 ufku Exp $
 
 IMCE
 http://drupal.org/project/imce
@@ -30,10 +30,10 @@ FEATURES
 INSTALLATION
 -----------
 1) Copy imce directory to your modules directory
-2) Enable the module at: /admin/build/modules
+2) Enable the module at module administration page
 3) Create configuration profiles and assign them to user roles at /admin/config/media/imce
 4) Test it at /imce.
-5) See imce-content.tpl.php for some configuration options such as absolute URLs ad inline previewing.
+5) See imce-content.tpl.php for some configuration options such as inline previewing.
 6) See INTEGRATION METHODS to make IMCE collaborate with your application if it's not already integrated.
 Notes:
  - When you configure IMCE for inline image/file insertion into textareas there should appear an IMCE link under each textarea you specified.

@@ -9,9 +9,9 @@ files[] = "imce.module"
 files[] = "inc/imce.admin.inc"
 files[] = "inc/imce.page.inc"
 
-; Information added by drupal.org packaging script on 2010-05-29
-version = "7.x-1.0-alpha2"
+; Information added by drupal.org packaging script on 2010-06-21
+version = "7.x-1.0-alpha3"
 core = "7.x"
 project = "imce"
-datestamp = "1275125108"
+datestamp = "1277145015"
 

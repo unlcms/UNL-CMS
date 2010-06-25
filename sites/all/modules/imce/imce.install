@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.install,v 1.6 2010/05/29 08:23:20 ufku Exp $
+// $Id: imce.install,v 1.7 2010/06/02 08:27:00 ufku Exp $
 
 /**
  * @file
@@ -42,10 +42,13 @@ function imce_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'description' => 'The {files}.fid that belongs to IMCE.',
+        'description' => 'The {file_managed}.fid that belongs to IMCE.',
       ),
     ),
     'primary key' => array('fid'),
+    'foreign keys' => array(
+      'fid' => array('file_managed' => 'fid'),
+    ),
   );
   return $schema;
 }
