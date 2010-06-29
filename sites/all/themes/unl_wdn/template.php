@@ -20,14 +20,14 @@ function unl_wdn_breadcrumb($variables)
 {
     $breadcrumbs = $variables['breadcrumb'];
 
-	if (count($breadcrumbs) == 0) {
-		$breadcrumbs[] = variable_get('site_name', 'Department');
-	} else {
-	    //Change 'Home' to be $site_name
-	    array_unshift($breadcrumbs,
-	                  str_replace('Home', variable_get('site_name', 'Department'),
-	                  array_shift($breadcrumbs)));
-	}
+    if (count($breadcrumbs) == 0) {
+        $breadcrumbs[] = variable_get('site_name', 'Department');
+    } else {
+        //Change 'Home' to be $site_name
+        array_unshift($breadcrumbs,
+                      str_replace('Home', variable_get('site_name', 'Department'),
+                      array_shift($breadcrumbs)));
+    }
     //Prepend UNL
     array_unshift($breadcrumbs, '<a href="http://www.unl.edu/">UNL</a>');
     
@@ -65,6 +65,9 @@ function unl_wdn_head_title()
     
     //Prepend UNL
     array_unshift($path, 'UNL');
+    if (!drupal_is_front_page()) {
+        $path[] = drupal_get_title();
+    }
     
     return implode(' | ', $path);
 }
@@ -128,11 +131,11 @@ function unl_wdn_status_messages($variables)
         $type = ucfirst($type);
         $output .= <<<EOF
 <div class="wdn_notice">
-	<div class="close">
-		<a href="#" title="Close this notice">Close this notice</a>
-	</div>
-	<div class="message">
-	    <h3>$type</h3>
+    <div class="close">
+        <a href="#" title="Close this notice">Close this notice</a>
+    </div>
+    <div class="message">
+        <h3>$type</h3>
 EOF;
         if (count($messages) > 1) {
             $output .= '<ul>' . PHP_EOL;
