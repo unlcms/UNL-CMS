@@ -302,7 +302,7 @@ class Unl_Migration_Tool
         $dom = new DOMDocument();
         $dom->loadHTML($html);
         
-        $pageTitle = 'Untitled';
+        $pageTitle = '';
         $pageTitleNode = $dom->getElementById('pagetitle');
         if ($pageTitleNode) {
         	$pageTitleH2Nodes = $pageTitleNode->getElementsByTagName('h2');
@@ -310,6 +310,23 @@ class Unl_Migration_Tool
         		$pageTitle = $pageTitleH2Nodes->item(0)->textContent;
         	}
         }
+        
+        if (!$pageTitle) {
+        	$titleText = '';
+        	$titleNodes = $dom->getElementsByTagName('title');
+        	if ($titleNodes->length > 0) {
+        		$titleText = $titleNodes->item(0)->textContent; 
+        	}
+        	$titleParts = explode('|', $titleText);
+        	if (count($titleParts) > 2) {
+        		$pageTitle = trim(array_pop($titleParts));
+        	}
+        }
+        
+        if (!$pageTitle) {
+            $pageTitle = 'Untitled';
+        }
+        
         echo 'Page Title: ' . $pageTitle . PHP_EOL;
         
         $maincontentNode = $dom->getElementById('maincontent');
