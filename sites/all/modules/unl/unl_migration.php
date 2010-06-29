@@ -210,6 +210,9 @@ class Unl_Migration_Tool
                 if ($fragmentPos = strrpos($path, '#') !== FALSE) {
                     $path = substr($path, 0, $fragmentPos);
                 }
+                if (substr($path, -1) == '/') {
+                	$path = substr($path, 0, -1);
+                }
         		$nodeId = array_search($path, $this->_nodeMap, TRUE);
         		$item['link_path'] = 'node/' . $nodeId;
         		echo '[' . $nodeId . '] => ' . $path . PHP_EOL;  
@@ -239,8 +242,10 @@ class Unl_Migration_Tool
 	                    $path = '';
 	                }
 	                if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
-	                	echo "strrpos() = $fragmentPos\n";
 	                	$path = substr($path, 0, $fragmentPos);
+	                }
+	                if (substr($path, -1) == '/') {
+	                    $path = substr($path, 0, -1);
 	                }
                     $nodeId = array_search($path, $this->_nodeMap, TRUE);
                     $item['link_path'] = 'node/' . $nodeId;
