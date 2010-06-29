@@ -21,11 +21,11 @@ function unl_wdn_breadcrumb($variables)
     $breadcrumbs = $variables['breadcrumb'];
 
     if (count($breadcrumbs) == 0) {
-        $breadcrumbs[] = variable_get('site_name', 'Department');
+        $breadcrumbs[] = unl_get_site_name_abbreviated();
     } else {
         //Change 'Home' to be $site_name
         array_unshift($breadcrumbs,
-                      str_replace('Home', variable_get('site_name', 'Department'),
+                      str_replace('Home', unl_get_site_name_abbreviated(),
                       array_shift($breadcrumbs)));
     }
     //Prepend UNL
@@ -61,7 +61,7 @@ function unl_wdn_head_title()
     }
     
     // Change 'Home' to be $site_name
-    array_unshift($path, str_replace( 'Home', variable_get('site_name', 'Department'), array_shift($path)));
+    array_unshift($path, str_replace( 'Home', unl_get_site_name_abbreviated(), array_shift($path)));
     
     //Prepend UNL
     array_unshift($path, 'UNL');
@@ -164,4 +164,17 @@ $output
 EOF;
     
     return $output;
+}
+
+/**
+ * Return the abbreviated site name, assuming it has been set and we're not on the front page.
+ * Otherwise, it returns the full site name.
+ */
+function unl_get_site_name_abbreviated()
+{
+	if (!drupal_is_front_page() && theme_get_setting('site_name_abbreviation')) {
+        return theme_get_setting('site_name_abbreviation');
+	} else {
+        return variable_get('site_name', 'Department');
+	}
 }

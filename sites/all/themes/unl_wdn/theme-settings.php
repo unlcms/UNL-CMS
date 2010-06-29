@@ -2,6 +2,13 @@
 
 function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state)
 {
+    $form['site_name_abbreviation'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Site Name Abbreviation'),
+        '#default_value' => theme_get_setting('site_name_abbreviation'),
+        '#description' => t('An abbreviated version of your site\'s name to use in breadcrumbs.')
+    );
+    
     $form['zen_forms'] = array(
         '#type' => 'checkbox',
         '#title' => t('Use Zen Forms'),
