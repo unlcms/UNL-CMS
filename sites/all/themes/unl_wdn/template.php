@@ -8,7 +8,11 @@ function unl_wdn_get_instance()
         require_once "UNL/Templates.php";
         
         UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
-        $instance = UNL_Templates::factory('Fixed');
+        if (theme_get_setting('toggle_main_menu')) {
+            $instance = UNL_Templates::factory('Fixed');
+        } else {
+            $instance = UNL_Templates::factory('Document');
+        }
     }
     
     return $instance;
