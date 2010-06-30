@@ -449,9 +449,22 @@ class Unl_Migration_Tool
     	curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
     	curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
     	echo 'Retreiving ' . $url . PHP_EOL;
-    	$content = curl_exec($this->_curl);
+    	$data = curl_exec($this->_curl);
     	$meta = curl_getinfo($this->_curl);
-        $content = substr($content, $meta['header_size']);
+    	
+        $rawHeaders = substr($data, 0, $meta['header_size']);
+        $rawHeaders = trim($rawHeaders);
+        $rawHeaders = explode("\n", $rawHeaders);
+        array_shift($rawHeaders);
+        $headers = array();
+        foreach ($rawHeaders as $rawHeader) {
+        	$splitPos = strpos($rawHeader, ':');
+        	$headerKey = substr($rawHeader, 0, $splitPos);
+        	$headerValue = substr($rawHeader, $splitPos+1);
+        	$headers[$headerKey] = $headerValue;
+        }
+    	
+        $content = substr($data, $meta['header_size']);
         
     	if ($meta['http_code'] == 301) {
     		preg_match('/Location: (.*)/', $content, $matches);
