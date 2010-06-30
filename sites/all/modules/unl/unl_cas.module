@@ -93,6 +93,7 @@ function unl_cas_form_alter(&$form, $form_state, $form_id)
 
 function unl_cas_user_logout($account)
 {
+	session_destroy();
 	$cas = unl_cas_get_adapter();
     drupal_goto($cas->getLogoutUrl(url('<front>', array('absolute' => TRUE))));
 }
