@@ -39,6 +39,7 @@ $t->head .= PHP_EOL
           . $styles . PHP_EOL
           . $scripts . PHP_EOL
           . '<link href="' . url('<front>', array('absolute' => TRUE)) . '" rel="home" />' . PHP_EOL
+          . '<link rel="logout" href="user/logout" title="Log out of myapp" />' . PHP_EOL
           ;
 
 if (theme_get_setting('use_base')) {
