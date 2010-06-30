@@ -38,6 +38,7 @@ $t->head .= PHP_EOL
           . $head . PHP_EOL
           . $styles . PHP_EOL
           . $scripts . PHP_EOL
+          . '<link href="' . url('<front>', array('absolute' => TRUE)) . '" rel="home" />' . PHP_EOL
           ;
 
 if (theme_get_setting('use_base')) {

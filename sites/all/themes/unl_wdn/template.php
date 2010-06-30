@@ -19,20 +19,30 @@ require_once dirname(__FILE__) . '/includes/form.inc';
 function unl_wdn_breadcrumb($variables)
 {
     $breadcrumbs = $variables['breadcrumb'];
-
+    
     if (count($breadcrumbs) == 0) {
-        $breadcrumbs[] = unl_get_site_name_abbreviated();
+        $breadcrumbs[] = '<a href="">' . unl_get_site_name_abbreviated() . '</a>';
     } else {
         //Change 'Home' to be $site_name
         array_unshift($breadcrumbs,
                       str_replace('Home', unl_get_site_name_abbreviated(),
                       array_shift($breadcrumbs)));
     }
+    
+    //Add the intermediate breadcrumb if it exists
+    $intermediateBreadcrumbText = theme_get_setting('intermediate_breadcrumb_text');
+    $intermediateBreadcrumbHref = theme_get_setting('intermediate_breadcrumb_href');
+    if ($intermediateBreadcrumbText && $intermediateBreadcrumbHref) {
+        array_unshift($breadcrumbs, '<a href="' . $intermediateBreadcrumbHref . '">' . $intermediateBreadcrumbText . '</a>');
+    }
+    
     //Prepend UNL
     array_unshift($breadcrumbs, '<a href="http://www.unl.edu/">UNL</a>');
     
     //Append title of current page -- http://drupal.org/node/133242
-    $breadcrumbs[] = drupal_get_title();
+    if (!drupal_is_front_page()) {
+        $breadcrumbs[] = drupal_get_title();
+    }
     
     $html = '<ul>' . PHP_EOL;
     foreach ($breadcrumbs as $breadcrumb) {
