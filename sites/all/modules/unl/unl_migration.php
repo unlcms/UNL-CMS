@@ -419,6 +419,7 @@ class Unl_Migration_Tool
     	}
     	
         $node = new StdClass();
+        $node->uid = $GLOBALS['user']->uid;
         $node->type = 'page';
         $node->title = $title;
         $node->language = 'und';
