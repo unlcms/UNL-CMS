@@ -46,7 +46,7 @@ if (theme_get_setting('use_base')) {
 	$t->head .= '<base href="' . url('<front>', array('absolute' => TRUE)) . '" />' . PHP_EOL;
 }
 
-$t->doctitle = '<title>'. unl_wdn_head_title() .'</title>';
+$t->doctitle = '<title>'.$head_title.'</title>';
 
 $html = $t->toHtml();
 

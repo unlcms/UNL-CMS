@@ -1,5 +1,29 @@
 <?php
 
+function unl_wdn_preprocess_html(&$vars, $hook)
+{
+  /**
+   * Change the <title> tag to UNL format: UNL | Department | Section | Page
+   */
+  $head_title[] = 'Home';
+  
+  $trail = menu_get_active_trail();
+  
+  foreach ($trail as $item) {
+    if ($item['type'] & MENU_VISIBLE_IN_BREADCRUMB) {
+      $head_title[] = $item['title'];
+    }
+  }
+  
+  // Change 'Home' to be $site_name
+  array_unshift($head_title, str_replace( 'Home', variable_get('site_name', 'Department'), array_shift($head_title)));
+  
+  //Prepend UNL
+  array_unshift($head_title, 'UNL');
+  
+  $vars['head_title'] = implode(' | ', $head_title);
+}
+
 function unl_wdn_get_instance()
 {
     static $instance;
