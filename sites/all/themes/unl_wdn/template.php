@@ -81,35 +81,6 @@ function unl_wdn_breadcrumb($variables)
     return $html;
 }
 
-function unl_wdn_head_title()
-{
-    // Based on
-    // http://api.drupal.org/api/function/menu_get_active_breadcrumb/5
-    // We don't have to add the current page, as drupal normally drops it
-    $path[] = 'Home';
-    
-    //  $trail = _menu_get_active_trail();
-    $trail = array();
-    foreach ($trail as $mid) {
-        $item = menu_get_item($mid);
-        
-        if ($item['type'] & MENU_VISIBLE_IN_BREADCRUMB) {
-            $path[] = $item['title'];
-        }
-    }
-    
-    // Change 'Home' to be $site_name
-    array_unshift($path, str_replace( 'Home', unl_get_site_name_abbreviated(), array_shift($path)));
-    
-    //Prepend UNL
-    array_unshift($path, 'UNL');
-    if (!drupal_is_front_page()) {
-        $path[] = drupal_get_title();
-    }
-    
-    return implode(' | ', $path);
-}
-
 function unl_wdn_menu_item($link, $has_children, $menu = '', $in_active_trail = FALSE, $extra_class = NULL)
 {
     if ($extra_class) {
