@@ -7,6 +7,7 @@ engine = phptemplate
 stylesheets[all][] = style.css
 
 features[] = main_menu
+features[] = name
 features[] = node_user_picture
 features[] = comment_user_picture
 features[] = comment_user_verification
@@ -23,6 +24,5 @@ regions[footercontent] = Footer Content
 plugins[panels][layouts] = layouts
 
 settings[toggle_favicon] = 0
-settings[toggle_name] = 1
 settings[zen_forms] = 0
 settings[use_base] = 1
