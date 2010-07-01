@@ -23,5 +23,6 @@ regions[footercontent] = Footer Content
 plugins[panels][layouts] = layouts
 
 settings[toggle_favicon] = 0
+settings[toggle_name] = 1
 settings[zen_forms] = 0
 settings[use_base] = 1
