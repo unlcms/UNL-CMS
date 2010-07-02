@@ -182,7 +182,7 @@ class Unl_Migration_Tool
         	}
         	$primaryLinkNode = $primaryLinkLiNode->getElementsByTagName('a')->item(0);
         	$menuItem = array('text' => $primaryLinkNode->textContent,
-        	                  'href' => $this->_makeLinkAbsolute($primaryLinkNode->getAttribute('href')), '');
+        	                  'href' => $this->_makeLinkAbsolute($primaryLinkNode->getAttribute('href'), ''));
             
         	$childLinksUlNode = $primaryLinkLiNode->getElementsByTagName('ul')->item(0);
         	if (!$childLinksUlNode) {
@@ -196,7 +196,7 @@ class Unl_Migration_Tool
         		}
         		$childLinkNode = $childLinkLiNode->getElementsByTagName('a')->item(0);
 	            $childMenu[] = array('text' => $childLinkNode->textContent,
-	                                 'href' => $this->_makeLinkAbsolute($childLinkNode->getAttribute('href')), '');
+	                                 'href' => $this->_makeLinkAbsolute($childLinkNode->getAttribute('href'), ''));
         	}
         	$menuItem['children'] = $childMenu;
             $this->_menu[] = $menuItem;
@@ -220,6 +220,7 @@ class Unl_Migration_Tool
         			$path = '';
         		}
                 if ($fragmentPos = strrpos($path, '#') !== FALSE) {
+                    $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                     $path = substr($path, 0, $fragmentPos);
                 }
                 if (substr($path, -1) == '/') {
@@ -254,6 +255,7 @@ class Unl_Migration_Tool
 	                    $path = '';
 	                }
 	                if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
+                        $item['options']['fragment'] = substr($path, $fragmentPos + 1);
 	                	$path = substr($path, 0, $fragmentPos);
 	                }
 	                if (substr($path, -1) == '/') {
