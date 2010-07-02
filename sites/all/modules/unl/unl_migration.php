@@ -20,6 +20,13 @@ function unl_migration($form, &$form_state)
         '#required' => TRUE
     );
     
+    $form['root']['frontier_path'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Frontier FTP Path'),
+        '#description' => t('Full path to the root of your site on frontier (if applicable).'),
+        '#required' => FALSE
+    );
+    
     $form['submit'] = array(
         '#type' => 'submit',
         '#value' => 'Migrate'
@@ -30,39 +37,44 @@ function unl_migration($form, &$form_state)
 
 function unl_migration_submit($form, &$form_state)
 {
-    Unl_Migration_Tool::migrate($form_state['values']['site_url']);
+    Unl_Migration_Tool::migrate($form_state['values']['site_url'], $form_state['values']['frontier_path']);
 }
 
 
 class Unl_Migration_Tool
 {
-    static public function migrate($baseUrl)
+    static public function migrate($baseUrl, $frontierPath)
     {
-        $instance = new self($baseUrl);
+        $instance = new self($baseUrl, $frontierPath);
         return $instance->_migrate();
     }
     
     private $_baseUrl;
+    private $_frontierPath;
+    private $_frontier;
     private $_siteMap;
     private $_processedPages;
     private $_curl;
     private $_content;
+    private $_lastModifications;
     private $_hrefTransform;
     private $_hrefTransformFiles;
     private $_menu;
     private $_nodeMap;
     private $_pageTitles;
     
-    private function __construct($baseUrl)
+    private function __construct($baseUrl, $frontierPath)
     {
         header('Content-type: text/plain');
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
             $baseUrl .= '/';
         }
+        $this->_frontierPath = $frontierPath;
         $this->_siteMap = array();
         $this->_processedPages = array();
         $this->_content = array();
+        $this->_lastModifications = array();
         $this->_hrefTransform = array();
         $this->_hrefTransformFiles = array();
         $this->_menu = array();
@@ -272,6 +284,9 @@ class Unl_Migration_Tool
         if (!$data['content']) {
         	return;
         }
+        if ($data['lastModified']) {
+        	$this->_lastModifications[$path] = $data['lastModified'];
+        }
         if (strpos($data['contentType'], 'html') === FALSE) {
         	if (!$data['contentType']) {
         		return;
@@ -409,7 +424,7 @@ class Unl_Migration_Tool
         return $absoluteUrl;
     }
     
-    private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
+    private function _createPage($title, $content, $alias = '', $lastModified = NULL, $makeFrontPage = FALSE)
     {
     	echo 'Alias: ' . PHP_EOL;
         var_dump($alias);
@@ -435,6 +450,18 @@ class Unl_Migration_Tool
         
         node_submit($node);
         node_save($node);
+        
+        if ($this->_lastModifications[$alias]) {
+            $mtime = $this->_lastModifications[$alias];
+            $mtimes = array(
+                'created' => $mtime,
+                'changed' => $mtime
+            );
+	        $result = db_update('node')
+	            ->fields($mtimes)
+	            ->condition('nid', $node->nid)
+	            ->execute();
+        }
         
         var_dump($alias);
         $this->_nodeMap[$node->nid] = $alias;
@@ -475,9 +502,57 @@ class Unl_Migration_Tool
             return FALSE;
     	} else if ($meta['http_code'] != 200) {
     		return FALSE;
-    	} 
+    	}
+    	
+    	$data = array(
+            'content' => $content,
+            'contentType' => $meta['content_type'],
+        );
+    	
+    	if ($this->_frontierPath) {
+    		$mtime = $this->_getModifiedDate($url);
+    		if ($mtime) {
+    			$data['lastModified'] = $mtime;
+    		} else if ($headers['Last-Modified']) {
+    			$data['lastModified'] = strtotime($headers['Last-Modified']);
+    		}
+    	}
         
-        return array('contentType' => $meta['content_type'], 'content' => $content);
+        return $data;
+    }
+    
+    private function _getModifiedDate($url)
+    {
+        if (!$this->_frontierConnect()) {
+        	return NULL;
+        }
+        
+    	$ftpPath = $this->_frontierPath . substr($url, strlen($this->_baseUrl));
+    	if (substr($ftpPath, -1) == '/') {
+    		$ftpPath .= 'index.shtml';
+    	}
+    	echo $ftpPath . PHP_EOL;
+        $files = ftp_rawlist($this->_frontier, $ftpPath);
+        $mtime = substr($files[0], 43, 12);
+        $mtime = strtotime($mtime);
+        return $mtime;
+    }
+    
+    private function _frontierConnect()
+    {
+    	if (!$this->_frontierPath) {
+    		return NULL;
+    	}
+    	
+    	if (!$this->_frontier) {
+	        $this->_frontier = ftp_ssl_connect('frontier.unl.edu');
+	        //TODO: make this a login that only has read access to everything.
+	        $login = ftp_login($this->_frontier, 'nmc', '2n3m5n');
+	        if (!$login) {
+	        	$this->_frontier = NULL;
+	        }
+    	}
+    	return $this->_frontier;
     }
 }
 
