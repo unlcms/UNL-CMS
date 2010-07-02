@@ -26,6 +26,16 @@ function unl_migration($form, &$form_state)
         '#description' => t('Full path to the root of your site on frontier (if applicable).'),
         '#required' => FALSE
     );
+    $form['root']['frontier_user'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Frontier FTP Username'),
+        '#required' => FALSE
+    );
+    $form['root']['frontier_pass'] = array(
+        '#type' => 'password',
+        '#title' => t('Frontier FTP Password'),
+        '#required' => FALSE
+    );
     
     $form['submit'] = array(
         '#type' => 'submit',
@@ -37,20 +47,25 @@ function unl_migration($form, &$form_state)
 
 function unl_migration_submit($form, &$form_state)
 {
-    Unl_Migration_Tool::migrate($form_state['values']['site_url'], $form_state['values']['frontier_path']);
+    Unl_Migration_Tool::migrate($form_state['values']['site_url'],
+                                $form_state['values']['frontier_path'],
+                                $form_state['values']['frontier_user'],
+                                $form_state['values']['frontier_pass']);
 }
 
 
 class Unl_Migration_Tool
 {
-    static public function migrate($baseUrl, $frontierPath)
+    static public function migrate($baseUrl, $frontierPath, $frontierUser, $frontierPass)
     {
-        $instance = new self($baseUrl, $frontierPath);
+        $instance = new self($baseUrl, $frontierPath, $frontierUser, $frontierPass);
         return $instance->_migrate();
     }
     
     private $_baseUrl;
     private $_frontierPath;
+    private $_frontierUser;
+    private $_frontierPass;
     private $_frontier;
     private $_siteMap;
     private $_processedPages;
@@ -63,7 +78,7 @@ class Unl_Migration_Tool
     private $_nodeMap;
     private $_pageTitles;
     
-    private function __construct($baseUrl, $frontierPath)
+    private function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
     {
         header('Content-type: text/plain');
         $baseUrl = trim($baseUrl);
@@ -71,6 +86,8 @@ class Unl_Migration_Tool
             $baseUrl .= '/';
         }
         $this->_frontierPath = $frontierPath;
+        $this->_frontierUser = $frontierUser;
+        $this->_frontierPass = $frontierPass;
         $this->_siteMap = array();
         $this->_processedPages = array();
         $this->_content = array();
@@ -549,7 +566,7 @@ class Unl_Migration_Tool
     	if (!$this->_frontier) {
 	        $this->_frontier = ftp_ssl_connect('frontier.unl.edu');
 	        //TODO: make this a login that only has read access to everything.
-	        $login = ftp_login($this->_frontier, '***', '***');
+	        $login = ftp_login($this->_frontier, $this->_frontierUser, $this->_frontierPass);
 	        if (!$login) {
 	        	$this->_frontier = NULL;
 	        }
