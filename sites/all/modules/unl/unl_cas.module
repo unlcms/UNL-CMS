@@ -135,6 +135,6 @@ function unl_cas_preprocess_user_picture(&$variables)
 {
 	//Default image: http://planetred.unl.edu/mod/profile/graphics/defaulttopbar.gif
 	$username = $variables['account']->name;
-	$variables['user_picture'] = '<img src="http://planetred.unl.edu/pg/icon/unl_' . $username . '/large" alt="alt" />';
+	$variables['user_picture'] = '<img src="http://planetred.unl.edu/pg/icon/unl_' . $username . '/large" alt="' . $username . '\'s photo" />';
 }
 
