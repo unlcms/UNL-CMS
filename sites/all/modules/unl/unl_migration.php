@@ -549,7 +549,7 @@ class Unl_Migration_Tool
     	if (!$this->_frontier) {
 	        $this->_frontier = ftp_ssl_connect('frontier.unl.edu');
 	        //TODO: make this a login that only has read access to everything.
-	        $login = ftp_login($this->_frontier, 'nmc', '2n3m5n');
+	        $login = ftp_login($this->_frontier, '***', '***');
 	        if (!$login) {
 	        	$this->_frontier = NULL;
 	        }
