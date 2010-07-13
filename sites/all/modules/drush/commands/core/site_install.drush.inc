@@ -54,6 +54,8 @@ function drush_core_pre_site_install() {
 
   // Now we can bootstrap up to the specified site if not already there.
   drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_SITE);
+  // Don't drop databases.  No idea why they wanted to do that.
+  return;
 
   // Drop and create DB if needed.
   // TODO: support db-su like sql sync.
