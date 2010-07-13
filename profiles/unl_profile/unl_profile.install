@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * Implements hook_install().
+ *
+ * Perform actions to set up the site for this profile.
+ */
+function unl_profile_install()
+{
+    // Start out by calling the standard profile's setup.
+    require_once dirname(__FILE__) . '/../standard/standard.install';
+    standard_install();
+    
+    // Enable some standard blocks.
+    $values = array(
+        array(
+            'module' => 'system',
+            'delta' => 'main',
+            'theme' => 'unl_wdn',
+            'status' => 1,
+            'weight' => 0,
+            'region' => 'content',
+            'pages' => '',
+            'cache' => -1,
+        ),
+        array(
+            'module' => 'system',
+            'delta' => 'main-menu',
+            'theme' => 'unl_wdn',
+            'status' => 1,
+            'weight' => 0,
+            'region' => 'navlinks',
+            'pages' => '',
+            'cache' => -1,
+        ),
+    );
+    $query = db_insert('block')->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'));
+    foreach ($values as $record) {
+        $query->values($record);
+    }
+    $query->execute();
+    
+    
+    theme_enable(array('unl_wdn'));
+    variable_set('theme_default', 'unl_wdn');
+    
+    
+    // Update the settings file to use shared database tables (unless this is the default site)
+    if (conf_path() != 'sites/default') { 
+        $shared_prefix = unl_profile_get_default_site_db_prefix();
+        $settings['databases'] = array(
+            'value'    => $GLOBALS['databases'],
+            'required' => TRUE
+        );
+        $settings['databases']['value']['default']['default']['prefix'] = array(
+            'default'       => $GLOBALS['databases']['default']['default']['prefix'],
+            'authmap'       => $shared_prefix,
+            'filter'        => $shared_prefix,
+            'filter_format' => $shared_prefix,
+            'role'          => $shared_prefix,
+            'sessions'      => $shared_prefix,
+            'users'         => $shared_prefix,
+            'users_roles'   => $shared_prefix,
+            'wysiwyg'       => $shared_prefix
+        );
+        $settings['drupal_hash_salt'] = array(
+            'value'    => 'FOOBAR' . $GLOBALS['drupal_hash_salt'],
+            'required' => TRUE,
+        );
+        
+        $settings_dir = DRUPAL_ROOT . DIRECTORY_SEPARATOR . conf_path();
+        $settings_file = $settings_dir . '/settings.php';
+        $writable = drupal_verify_install_file($settings_file, FILE_READABLE|FILE_WRITABLE);
+        
+        drupal_rewrite_settings($settings);
+        
+        // Only enable CAS on subsites until we get some sort of bootstrap setup.
+        module_enable(array('unl_cas'));
+    }
+    
+    
+    //$permissions = array_keys(module_invoke_all('permission'));
+    //print_r($permissions);
+    //user_role_grant_permissions(3, array($permissions));
+    
+    echo "\nducks\n";
+    
+    return;
+}
+
+
+
+/**
+ * Load the default site's config file and return the db_prefix value from it.
+ */
+function unl_profile_get_default_site_db_prefix()
+{
+    $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
+    require $default_site_settings_file;
+    
+    return $databases['default']['default']['prefix'];
+}
+
