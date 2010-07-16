@@ -77,6 +77,7 @@ class Unl_Migration_Tool
     private $_menu;
     private $_nodeMap;
     private $_pageTitles;
+    private $_log;
     
     private function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
     {
@@ -97,10 +98,12 @@ class Unl_Migration_Tool
         $this->_menu = array();
         $this->_nodeMap = array();
         $this->_pageTitles = array();
+        $this->_log = array();
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
         $this->_curl = curl_init();
+        $this->_frontierScan();
     }
     
     private function _migrate()
@@ -112,12 +115,13 @@ class Unl_Migration_Tool
     	
     	// Process all of the pages on the site
         do {
+            set_time_limit(30);
+            
             $pagesToProcess = $this->_getPagesToProcess();
             foreach ($pagesToProcess as $pageToProcess) {
                 $this->_processPage($pageToProcess);
             }
             //if ($i++ == 2) break;
-            echo PHP_EOL . 'I = ' . $i++ . PHP_EOL;
         } while (count($pagesToProcess) > 0);
         
         // Fix any links to files that got moved to sites/<site>/files
@@ -134,7 +138,8 @@ class Unl_Migration_Tool
         
         // Update links and then create new page nodes.
         foreach ($this->_content as $path => $content) {
-            echo 'PATH: ' . $path . PHP_EOL;
+            set_time_limit(30);
+            
         	$hrefTransform = $this->_hrefTransform[$path];
         	
         	if (is_array($hrefTransform)) {
@@ -144,19 +149,16 @@ class Unl_Migration_Tool
             $this->_createPage($pageTitle, $content, $path, '' == $path);
         }
         
-        var_dump($this->_nodeMap);
-        
         $this->_createMenu();
         
+        print_r($this->_log);
         exit;
     }
     
     private function _addSitePath($path)
     {
     	if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
-    		echo 'Changing ' . $path;
             $path = substr($path, 0, $fragmentStart);
-            echo ' to ' . $path . PHP_EOL;
     	}
         $this->_siteMap[hash('SHA256', $path)] = $path;
     }
@@ -198,7 +200,7 @@ class Unl_Migration_Tool
         		continue;
         	}
         	$primaryLinkNode = $primaryLinkLiNode->getElementsByTagName('a')->item(0);
-        	$menuItem = array('text' => $primaryLinkNode->textContent,
+        	$menuItem = array('text' => trim($primaryLinkNode->textContent),
         	                  'href' => $this->_makeLinkAbsolute($primaryLinkNode->getAttribute('href'), ''));
             
         	$childLinksUlNode = $primaryLinkLiNode->getElementsByTagName('ul')->item(0);
@@ -212,11 +214,15 @@ class Unl_Migration_Tool
         			continue;
         		}
         		$childLinkNode = $childLinkLiNode->getElementsByTagName('a')->item(0);
-	            $childMenu[] = array('text' => $childLinkNode->textContent,
+	            $childMenu[] = array('text' => trim($childLinkNode->textContent),
 	                                 'href' => $this->_makeLinkAbsolute($childLinkNode->getAttribute('href'), ''));
         	}
         	$menuItem['children'] = $childMenu;
             $this->_menu[] = $menuItem;
+        }
+        
+        if (count($this->_menu) == 0) {
+            $this->_log('Could not find the navigation menu for your site!');
         }
     }
 
@@ -228,6 +234,7 @@ class Unl_Migration_Tool
                 'expanded' => TRUE,
                 'menu_name' => 'main-menu',
                 'link_title' => $primaryMenu['text'],
+                'link_path' => '',
                 'weight' => $primaryWeights++
             );
             $href = $primaryMenu['href'];
@@ -244,24 +251,33 @@ class Unl_Migration_Tool
                 	$path = substr($path, 0, -1);
                 }
         		$nodeId = array_search($path, $this->_nodeMap, TRUE);
-        		$item['link_path'] = 'node/' . $nodeId;
-        		echo '[' . $nodeId . '] => ' . $path . PHP_EOL;  
+        		if ($nodeId) {
+        		    $item['link_path'] = 'node/' . $nodeId;
+        		}  
         	} else {
                 $item['link_path'] = $href;
         	}
-            menu_link_save($item);
-            print_r($item);
+        	
+        	if ($item['link_path']) {
+                menu_link_save($item);
+                $this->_log('Created menu item "' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
+        	} else {
+        	    $this->_log('Error: could not find a node to link to the ' . $item['link_title'] . ' menu item.');
+        	    continue;
+        	}
             
             if (!array_key_exists('children', $primaryMenu)) {
             	continue;
             }
             
             $plid = $item['mlid'];
+            $parentTitle = $item['link_title'];
             $childWeights = 1;
             foreach ($primaryMenu['children'] as $childMenu) {
 	            $item = array(
 	                'menu_name' => 'main-menu',
 	                'link_title' => $childMenu['text'],
+	                'link_path' => '',
 	                'plid' => $plid,
                     'weight' => $childWeights++
 	            );
@@ -279,13 +295,19 @@ class Unl_Migration_Tool
 	                    $path = substr($path, 0, -1);
 	                }
                     $nodeId = array_search($path, $this->_nodeMap, TRUE);
-                    $item['link_path'] = 'node/' . $nodeId;
-                    echo '[' . $nodeId . '] => ' . $path . PHP_EOL;
+                    if ($nodeId) {
+                        $item['link_path'] = 'node/' . $nodeId;
+                    }
 	            } else {
 	                $item['link_path'] = $href;
 	            }
-	            menu_link_save($item);
-                print_r($item);
+	            
+	            if ($item['link_path']) {
+	                menu_link_save($item);
+                    $this->_log('Created menu item "' . $parentTitle . ' / ' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
+	            } else {
+            	    $this->_log('Error: could not find a node to link to the "' . $parentTitle . ' / ' . $item['link_title'] . '" menu.');
+            	}
             }
         }
     }
@@ -293,6 +315,7 @@ class Unl_Migration_Tool
     private function _processPage($path)
     {
     	$this->_addProcessedPage($path);
+    	$fullPath = $this->_baseUrl . $path;
     	
         $url = $this->_baseUrl . $path;
         $startToken = '<!-- InstanceBeginEditable name="maincontentarea" -->';
@@ -301,6 +324,7 @@ class Unl_Migration_Tool
     
         $data = $this->_getUrl($url);
         if (!$data['content']) {
+            $this->_log('The file at ' . $fullPath . ' was empty! Ignoring.');
         	return;
         }
         if ($data['lastModified']) {
@@ -308,11 +332,11 @@ class Unl_Migration_Tool
         }
         if (strpos($data['contentType'], 'html') === FALSE) {
         	if (!$data['contentType']) {
+        	    $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.');
         		return;
         	}
         	drupal_mkdir('public://' . dirname($path), NULL, TRUE);
         	$file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
-        	echo 'Uploaded file: ' . $path. PHP_EOL;
         	$this->_hrefTransformFiles[$path] = file_directory_path() . '/' . $path;
         	return;
         }
@@ -328,7 +352,8 @@ class Unl_Migration_Tool
         $maincontentarea = substr($html,
                                   $contentStart + strlen($startToken),
                                   $contentEnd - $contentStart - strlen($startToken));
-        if (!$maincontentarea || $contentStart === FALSE) {
+        if (!$maincontentarea || $contentStart === FALSE || $contentEnd === FALSE) {
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
             return;
         }
         $maincontentarea = trim($maincontentarea);
@@ -358,13 +383,13 @@ class Unl_Migration_Tool
         }
         
         if (!$pageTitle) {
+            $this->_log('No page title was found at ' . $fullPath . '.');
             $pageTitle = 'Untitled';
         }
         
-        echo 'Page Title: ' . $pageTitle . PHP_EOL;
-        
         $maincontentNode = $dom->getElementById('maincontent');
         if (!$maincontentNode) {
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
         	return;
         }
         
@@ -400,7 +425,6 @@ class Unl_Migration_Tool
     
     private function _makeLinkAbsolute($href, $path)
     {
-    	echo $href . ' => ';
         if (substr($path, -1) == '/') {
             $intermediatePath = $path;
         } else {
@@ -414,6 +438,9 @@ class Unl_Migration_Tool
         }
         
         $parts = parse_url($href);
+        if ($parts['scheme'] == 'mailto') {
+            return $href;
+        }
         if ($parts['scheme']) {
             $absoluteUrl = $href;
         } else if (substr($parts['path'], 0, 1) == '/') {
@@ -438,17 +465,14 @@ class Unl_Migration_Tool
         $absoluteUrl = $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
         if ($parts['fragment']) {
             $absoluteUrl .= '#' . $parts['fragment'];
-        }            
-        echo $absoluteUrl . PHP_EOL;
+        }
         return $absoluteUrl;
     }
     
     private function _createPage($title, $content, $alias = '', $lastModified = NULL, $makeFrontPage = FALSE)
     {
-    	echo 'Alias: ' . PHP_EOL;
-        var_dump($alias);
         
-    	if (substr($alias, -1) == '/') {
+        if (substr($alias, -1) == '/') {
     		$alias = substr($alias, 0, -1);
     	}
     	
@@ -468,7 +492,12 @@ class Unl_Migration_Tool
         );
         
         node_submit($node);
-        node_save($node);
+        try {
+            node_save($node);
+        } catch (Exception $e) {
+            $this->_log('Error saving page at ' . $alias . '. This is probably a case sensitivity conflict.');
+            return;
+        }
         
         if ($this->_lastModifications[$alias]) {
             $mtime = $this->_lastModifications[$alias];
@@ -482,20 +511,22 @@ class Unl_Migration_Tool
 	            ->execute();
         }
         
-        var_dump($alias);
         $this->_nodeMap[$node->nid] = $alias;
         
         if ($makeFrontPage) {
         	variable_set('site_frontpage', 'node/' . $node->nid);
         }
+        
+        $this->_log('Created page "' . $title . '" with node id ' . $node->nid . ' at ' . $alias . '.');
     }
     
     private function _getUrl($url)
     {
+        $url = strtr($url, array(' ' => '%20'));
     	curl_setopt($this->_curl, CURLOPT_URL, $url);
     	curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
     	curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
-    	echo 'Retreiving ' . $url . PHP_EOL;
+    	
     	$data = curl_exec($this->_curl);
     	$meta = curl_getinfo($this->_curl);
     	
@@ -508,18 +539,19 @@ class Unl_Migration_Tool
         	$splitPos = strpos($rawHeader, ':');
         	$headerKey = substr($rawHeader, 0, $splitPos);
         	$headerValue = substr($rawHeader, $splitPos+1);
-        	$headers[$headerKey] = $headerValue;
+        	$headers[$headerKey] = trim($headerValue);
         }
     	
         $content = substr($data, $meta['header_size']);
         
     	if ($meta['http_code'] == 301) {
-    		preg_match('/Location: (.*)/', $content, $matches);
-    		$location = $matches[1];
+    		$location = $headers['Location'];
     		$path = substr($location, strlen($this->_baseUrl));
-    		$this->_addSitePath($path); 
+    		$this->_addSitePath($path);
+    		$this->_log('Found a redirect from ' . $url . ' to ' . $location . '. Some links may need to be updated.');
             return FALSE;
     	} else if ($meta['http_code'] != 200) {
+    	    $this->_log('Error: HTTP ' . $meta['http_code'] . ' while fetching ' . $url . '. Possible dead link.');
     		return FALSE;
     	}
     	
@@ -550,7 +582,7 @@ class Unl_Migration_Tool
     	if (substr($ftpPath, -1) == '/') {
     		$ftpPath .= 'index.shtml';
     	}
-    	echo $ftpPath . PHP_EOL;
+    	
         $files = ftp_rawlist($this->_frontier, $ftpPath);
         $mtime = substr($files[0], 43, 12);
         $mtime = strtotime($mtime);
@@ -569,9 +601,41 @@ class Unl_Migration_Tool
 	        $login = ftp_login($this->_frontier, $this->_frontierUser, $this->_frontierPass);
 	        if (!$login) {
 	        	$this->_frontier = NULL;
+	        	$this->_log('Error: could not connect to frontier with user ' . $this->_frontierUser . '.');
 	        }
     	}
     	return $this->_frontier;
+    }
+    
+    private function _frontierScan($path)
+    {
+        if (!$this->_frontierConnect()) {
+            return;
+        }
+        
+        $ftpPath = $this->_frontierPath . $path;
+        $rawFileList = ftp_rawlist($this->_frontier, $ftpPath);
+        $fileList = ftp_nlist($this->_frontier, $ftpPath);
+        $files = array();
+        foreach ($rawFileList as $index => $rawListing) {
+            $file = substr($fileList[$index], strlen($ftpPath));
+            if (substr($rawListing, 0, 1) == 'd') {
+                //file is a directory
+                $this->_frontierScan($path . $file . '/');
+            } else {
+                $files[] = $file;
+                if ($file == 'index.shtml') {
+                    $this->_addSitePath($path);
+                } else {
+                    $this->_addSitePath($path . $file);
+                }
+            }
+        }
+    }
+    
+    private function _log($message)
+    {
+        $this->_log[] = $message;
     }
 }
 
