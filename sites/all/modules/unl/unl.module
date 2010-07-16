@@ -119,3 +119,11 @@ function unl_menu()
   
   return $items;
 }
+
+function unl_form_alter(&$form, $form_state, $form_id)
+{
+    // Make new menu items expanded by default.
+    if ($form_id == 'menu_edit_item' && $form['mlid']['#value'] == 0) {
+        $form['expanded']['#default_value'] = TRUE;
+    }
+}
