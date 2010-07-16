@@ -78,6 +78,21 @@ function unl_wysiwyg_plugin($editor)
 }
 
 
+function unl_permission()
+{
+	return array(
+        'unl migration' => array(
+            'title' => t('Migration'),
+            'description' => t('Migrate UNL Template based sites to drupal')
+	    ),
+	    
+	    'unl site creation' => array(
+            'title' => t('Site Creation'),
+            'description' => t('Create new drupal sites using the UNL profile')
+	    )
+	);
+}
+
 /**
  * Adds UNL Migration Tool to the Content menu for admin
  */
@@ -87,10 +102,19 @@ function unl_menu()
   $items['admin/content/unl/migration'] = array(
     'title' => 'UNL Migration Tool',
     'description' => 'Migrate a static UNL template page into drupal',
-    'access arguments' => array('administer comments'),
+    'access arguments' => array('unl migration'),
     'page callback' => 'unl_migration_page',
     'type' => MENU_LOCAL_TASK,
     'file' => 'unl_migration.php'
+  );
+  
+  $items['admin/sites/unl/add'] = array(
+    'title' => 'UNL Site Creation Tool',
+    'description' => 'Create a new UNL Drupal site',
+    'access arguments' => array('unl site creation'),
+    'page callback' => 'unl_site_creation_page',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'unl_site_creation.php'
   );
   
   return $items;
