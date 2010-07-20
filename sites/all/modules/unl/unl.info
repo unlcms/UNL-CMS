@@ -1,6 +1,8 @@
-; $Id$
 name = UNL WDN
 description = Adds features to allow wysiwyg editing of WDN Templated sites.
 core = 7.x
+version = "7.x-1.0-20100720"
+
 dependencies[] = wysiwyg
+files[] = unl.install
 files[] = unl.module

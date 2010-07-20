@@ -1,0 +1,89 @@
+<?php
+
+function unl_schema()
+{
+	$schema = array();
+    $schema['unl_sites'] = array(
+        'description' => 'Table of tables to be programatically created',
+        'fields' => array(
+            'site_id' => array(
+                'type'     => 'serial',
+                'unsigned' => TRUE,
+                'not null' => TRUE
+            ),
+            'site_path_prefix' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
+            'site_path' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
+            'uri' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
+           	'installed' => array(
+           		'type'	   => 'int',
+           		'not null' => TRUE,
+           		'default'  => 0
+           	)
+        ),
+        'primary key' => array('site_id'),
+        'unique keys' => array(
+            'sub_site' => array('site_path_prefix', 'site_path') 
+        )
+    );
+    
+    
+    return $schema;
+}
+
+function unl_update_7100()
+{
+	$table = array(
+        'description' => 'Table of tables to be programatically created',
+        'fields' => array(
+            'site_id' => array(
+                'type'     => 'serial',
+                'unsigned' => TRUE,
+                'not null' => TRUE
+            ),
+            'site_path_prefix' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
+            'site_path' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
+            'uri' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
+           	'installed' => array(
+           		'type'	   => 'int',
+           		'not null' => TRUE,
+           		'default'  => 0
+           	)
+        ),
+        'primary key' => array('site_id'),
+        'unique keys' => array(
+            'sub_site' => array('site_path_prefix', 'site_path') 
+        )
+    );
+    
+    db_create_table('unl_sites', $table);
+}
