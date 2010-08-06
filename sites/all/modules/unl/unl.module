@@ -17,7 +17,7 @@ function unl_wysiwyg_plugin($editor)
         // A URL to the plugin's homepage.
         'url' => 'http://gforge.unl.edu/gf/project/wdn_tinymce/',
         // The full path to the native editor plugin.
-        'path' => drupal_get_path('module', 'unl') . '/tinymce/editor_plugin.js',
+        'path' => $editor['library path'] . '/plugins/unl',
         // A list of editor extensions provided by this native plugin.
         // Extensions are not displayed as buttons and touch the editor's
         // internals, so you should know what you are doing.
@@ -25,7 +25,7 @@ function unl_wysiwyg_plugin($editor)
         // Boolean whether this plugin is a native plugin, i.e. shipped with
         // the editor. Definition must be ommitted for plugins provided by
         // other modules.
-        'internal' => FALSE,
+        'internal' => TRUE,
         // Boolean whether the editor needs to load this plugin. When TRUE,
         // the editor will automatically load the plugin based on the 'path'
         // variable provided. If FALSE, the plugin either does not need to
