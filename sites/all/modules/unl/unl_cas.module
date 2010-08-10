@@ -9,6 +9,7 @@ function unl_cas_init()
 {
     require_once dirname(__FILE__) . '/unl_loader.php';
     unl_load_zend_framework();
+    drupal_session_start();
 	
 	$cas = unl_cas_get_adapter();
 	
