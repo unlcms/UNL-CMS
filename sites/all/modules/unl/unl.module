@@ -38,7 +38,8 @@ function unl_wysiwyg_plugin($editor)
                 'buttons' => array(
                     'unlZenBox'   => 'UNL Zen Box',
                     'unlZenTable' => 'UNL Zen Table',
-                    'unlLayout'   => 'UNL Layout'
+                    'unlLayout'   => 'UNL Layout',
+                    'unlTooltip'  => 'UNL Tooltip'
                 ),
                 // A list of global, native editor configuration settings to
                 // override. To be used rarely and only when required.
