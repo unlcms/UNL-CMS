@@ -469,7 +469,7 @@ class Unl_Migration_Tool
         return $absoluteUrl;
     }
     
-    private function _createPage($title, $content, $alias = '', $lastModified = NULL, $makeFrontPage = FALSE)
+    private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
     {
         
         if (substr($alias, -1) == '/') {
