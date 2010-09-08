@@ -28,7 +28,7 @@ function unl_wdn_get_instance()
 {
     static $instance;
     if (!$instance) {
-        set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/lib');
+        set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/lib/php');
         require_once "UNL/Templates.php";
         
         UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
