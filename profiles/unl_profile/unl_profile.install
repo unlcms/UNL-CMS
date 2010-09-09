@@ -83,7 +83,7 @@ function unl_profile_install()
     //print_r($permissions);
     //user_role_grant_permissions(3, array($permissions));
     
-    echo "\nducks\n";
+    //echo "\nducks\n";
     
     return;
 }
