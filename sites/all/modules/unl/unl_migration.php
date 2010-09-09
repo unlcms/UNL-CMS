@@ -61,44 +61,51 @@ class Unl_Migration_Tool
         $instance = new self($baseUrl, $frontierPath, $frontierUser, $frontierPass);
         return $instance->_migrate();
     }
-    
+
+    /**
+     * base url to the site to migrate, eg: http://www.unl.edu/band/
+     *
+     * @var string
+     */
     private $_baseUrl;
+
+    /**
+     * base path to frontier dir, eg: /cwis/data/band
+     *
+     * @var string
+     */
     private $_frontierPath;
     private $_frontierUser;
     private $_frontierPass;
     private $_frontier;
-    private $_siteMap;
-    private $_processedPages;
+
     private $_curl;
-    private $_content;
-    private $_lastModifications;
-    private $_hrefTransform;
-    private $_hrefTransformFiles;
-    private $_menu;
-    private $_nodeMap;
-    private $_pageTitles;
-    private $_log;
+
+    private $_siteMap            = array();
+    private $_processedPages     = array();
+    private $_content            = array();
+    private $_lastModifications  = array();
+    private $_hrefTransform      = array();
+    private $_hrefTransformFiles = array();
+    private $_menu               = array();
+    private $_nodeMap            = array();
+    private $_pageTitles         = array();
+    private $_log                = array();
     
     private function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
     {
         header('Content-type: text/plain');
+
+        // Add trailing slash if necessary
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
             $baseUrl .= '/';
         }
+
         $this->_frontierPath = $frontierPath;
         $this->_frontierUser = $frontierUser;
         $this->_frontierPass = $frontierPass;
-        $this->_siteMap = array();
-        $this->_processedPages = array();
-        $this->_content = array();
-        $this->_lastModifications = array();
-        $this->_hrefTransform = array();
-        $this->_hrefTransformFiles = array();
-        $this->_menu = array();
-        $this->_nodeMap = array();
-        $this->_pageTitles = array();
-        $this->_log = array();
+
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
