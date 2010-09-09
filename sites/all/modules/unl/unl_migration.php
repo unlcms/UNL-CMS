@@ -445,12 +445,12 @@ class Unl_Migration_Tool
         }
         
         $parts = parse_url($href);
-        if ($parts['scheme'] == 'mailto') {
+        if (isset($parts['scheme']) && $parts['scheme'] == 'mailto') {
             return $href;
         }
-        if ($parts['scheme']) {
+        if (isset($parts['scheme'])) {
             $absoluteUrl = $href;
-        } else if (substr($parts['path'], 0, 1) == '/') {
+        } else if (isset($parts['path']) && substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
             $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
             if ($parts['fragment']) {
@@ -462,17 +462,30 @@ class Unl_Migration_Tool
             $absoluteUrl = $this->_baseUrl . $intermediatePath . $href;
         }
         $parts = parse_url($absoluteUrl);
-        while (strpos($parts['path'], '/./') !== FALSE) {
-            $parts['path'] = strtr($parts['path'], array('/./', '/'));
-        }
-        while (strpos($parts['path'], '/../') !== FALSE) {
-            $parts['path'] = preg_replace('/\\/[^\\/]*\\/\\.\\.\\//', '/', $parts['path']);
+        
+     /*   $this->_log('Absolute URL ' . $absoluteUrl . ' converted to parts:'
+            .' scheme:' . $parts['scheme']
+            .' host:' . $parts['host']
+            .' port:' . $parts['port']
+            .' user:' . $parts['user']
+            .' pass:' . $parts['pass']
+            .' path:' . $parts['path']
+            .' query:' . $parts['query']
+            .' fragment:' . $parts['fragment']); */
+        
+        if (isset($parts['path'])) {
+            while (strpos($parts['path'], '/./') !== FALSE) {
+                $parts['path'] = strtr($parts['path'], array('/./', '/'));
+            }
+            while (strpos($parts['path'], '/../') !== FALSE) {
+                $parts['path'] = preg_replace('/\\/[^\\/]*\\/\\.\\.\\//', '/', $parts['path']);
+            }
         }
         
-        $absoluteUrl = $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
-        if ($parts['fragment']) {
-            $absoluteUrl .= '#' . $parts['fragment'];
-        }
+        $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
+        $absoluteUrl .= isset($parts['path']) ? $parts['path'] : '';
+        $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+        
         return $absoluteUrl;
     }
     
