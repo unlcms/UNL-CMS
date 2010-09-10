@@ -25,7 +25,9 @@ function unl_wdn_preprocess_html(&$vars, $hook)
   array_unshift($head_title, str_replace( 'Home', variable_get('site_name', 'Department'), array_shift($head_title)));
   
   //Prepend UNL
-  array_unshift($head_title, 'UNL');
+  if (variable_get('site_name') != 'UNL') {
+    array_unshift($head_title, 'UNL');
+  }
   
   $vars['head_title'] = implode(' | ', $head_title);
 }
@@ -71,7 +73,9 @@ function unl_wdn_breadcrumb($variables)
     }
     
     //Prepend UNL
-    array_unshift($breadcrumbs, '<a href="http://www.unl.edu/">UNL</a>');
+    if (variable_get('site_name') != 'UNL') {
+        array_unshift($breadcrumbs, '<a href="http://www.unl.edu/">UNL</a>');
+    }
     
     //Append title of current page -- http://drupal.org/node/133242
     if (!drupal_is_front_page()) {
