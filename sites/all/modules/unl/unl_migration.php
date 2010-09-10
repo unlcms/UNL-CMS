@@ -110,7 +110,7 @@ class Unl_Migration_Tool
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
         $this->_curl = curl_init();
-        $this->_frontierScan();
+        $this->_frontierScan('/');
     }
     
     private function _migrate()
@@ -198,7 +198,7 @@ class Unl_Migration_Tool
     
         $linkNodes = $navlinksNode->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('href'), $path);
+            $this->_processLinks($linkNode->getAttribute('href'), '');
         }
         
         $navlinksUlNode = $navlinksNode->getElementsByTagName('ul')->item(0);
@@ -342,7 +342,7 @@ class Unl_Migration_Tool
                 $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.');
                 return;
             }
-            drupal_mkdir('public://' . dirname($path), NULL, TRUE);
+            @drupal_mkdir('public://' . dirname($path), NULL, TRUE);
             $file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
             $this->_hrefTransformFiles[$path] = file_directory_path() . '/' . $path;
             return;
@@ -598,7 +598,15 @@ class Unl_Migration_Tool
             return NULL;
         }
         
-        $ftpPath = $this->_frontierPath . substr($url, strlen($this->_baseUrl));
+        //Don't want url encoded chars like %20 in ftp file path 
+        $url = urldecode($url);
+        
+        $path = substr($url, strlen($this->_baseUrl));
+        if ($path[0] != '/') {
+            $path = '/'.$path;
+        }
+        
+        $ftpPath = $this->_frontierPath . $path;
         if (substr($ftpPath, -1) == '/') {
             $ftpPath .= 'index.shtml';
         }
