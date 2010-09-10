@@ -8,10 +8,16 @@ function unl_wdn_preprocess_html(&$vars, $hook)
   $head_title[] = 'Home';
   
   $trail = menu_get_active_trail();
-  
   foreach ($trail as $item) {
     if ($item['type'] & MENU_VISIBLE_IN_BREADCRUMB) {
-      $head_title[] = $item['title'];
+      if (isset($item['title']) && !empty($item['title'])) {
+          $head_title[] = $item['title'];
+      }
+      if (isset($item['page_arguments'],
+                $item['page_arguments'][0],
+                $item['page_arguments'][0]->title)) {
+          $head_title[] = $item['page_arguments'][0]->title;
+      }
     }
   }
   
