@@ -99,7 +99,7 @@ function unl_cas_form_alter(&$form, $form_state, $form_id)
         $form['account']['current_pass_required_values']['#type'] = 'hidden';
         $form['account']['current_pass']['#type'] = 'hidden';
         
-        $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $username .">Planet Red</a>.';
+        $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $username .'">Planet Red</a>.';
         $form['picture']['picture_delete']['#type'] = 'hidden';
         $form['picture']['picture_upload']['#type'] = 'hidden';
     }
