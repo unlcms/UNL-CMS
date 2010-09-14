@@ -120,7 +120,7 @@ function unl_wdn_form_element_label($variables)
     $output = '<label ' . drupal_attributes($attributes) . '>' . PHP_EOL
             . ($element['#required'] ? '<span class="required">*</span>' . PHP_EOL : '')
             . filter_xss_admin($element['#title']) . PHP_EOL
-            . ($element['#description'] ? '<span class="helper">' . $element['#description'] . '</span>' . PHP_EOL : '')
+            . (isset($element['#description']) ? '<span class="helper">' . $element['#description'] . '</span>' . PHP_EOL : '')
             .'</label>' . PHP_EOL;
     
     return $output;
