@@ -44,6 +44,8 @@ function unl_profile_install()
     theme_enable(array('unl_wdn'));
     variable_set('theme_default', 'unl_wdn');
     
+    //TODO: IMCE setup (currently cannot be shared between sites)
+    
     
     // Update the settings file to use shared database tables (unless this is the default site)
     if (conf_path() != 'sites/default') { 
@@ -83,7 +85,8 @@ function unl_profile_install()
     //print_r($permissions);
     //user_role_grant_permissions(3, array($permissions));
     
-    //echo "\nducks\n";
+    $files_dir = $settings_dir . '/files';
+    chmod($files_dir, 0777);
     
     return;
 }
