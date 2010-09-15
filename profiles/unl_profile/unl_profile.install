@@ -10,6 +10,13 @@ function unl_profile_install()
     // Start out by calling the standard profile's setup.
     require_once dirname(__FILE__) . '/../standard/standard.install';
     standard_install();
+
+    // Load the ini file (if it exists)
+    $ini_file = dirname(__FILE__) . '/unl_profile.ini';
+    $ini_settings = array();
+    if (file_exists($ini_file)) {
+    	$ini_settings = parse_ini_file($ini_file);
+    }
     
     // Enable some standard blocks.
     $values = array(
@@ -43,6 +50,10 @@ function unl_profile_install()
     
     theme_enable(array('unl_wdn'));
     variable_set('theme_default', 'unl_wdn');
+    
+    if (isset($ini_settings['temp_dir'])) {
+    	variable_set('file_temporary_path', $ini_settings['temp_dir']);
+    }
     
     //TODO: IMCE setup (currently cannot be shared between sites)
     
