@@ -50,6 +50,7 @@ function unl_profile_install()
     
     theme_enable(array('unl_wdn'));
     variable_set('theme_default', 'unl_wdn');
+    variable_set('node_admin_theme', 0);
     
     if (isset($ini_settings['temp_dir'])) {
     	variable_set('file_temporary_path', $ini_settings['temp_dir']);
