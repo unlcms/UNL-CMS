@@ -477,8 +477,12 @@ class Unl_Migration_Tool
             while (strpos($parts['path'], '/./') !== FALSE) {
                 $parts['path'] = strtr($parts['path'], array('/./', '/'));
             }
+            $i = 0;
             while (strpos($parts['path'], '/../') !== FALSE) {
                 $parts['path'] = preg_replace('/\\/[^\\/]*\\/\\.\\.\\//', '/', $parts['path']);
+                $parts['path'] = preg_replace('/^\\/\\.\\.\\//', '/', $parts['path']);
+                // Prevent infinite loops if we get some crazy url.
+                if ($i++ > 100) exit;
             }
         }
         
