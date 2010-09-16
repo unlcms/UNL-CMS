@@ -1,4 +1,16 @@
+/* This unl_wdn theme shouldn't have style rules as the css 
+   comes from all.css in the WDNTemplates project.
+   
+   However, there are some admin tweaks to make.  For example,
+   the Seven theme ahs some rules that define the admin toolbar
+   that need to be replicated here. */
 
+#toolbar {
+	font-size:11.5167px;
+}
+
+
+/* Older CSS from when we were going to use this theme for the admin interface
 ul.primary li a {
     border-width: 0px;
     margin-right:0;
@@ -13,7 +25,6 @@ body.fixed #maincontent {
     overflow: visible;
 }
 
-/* begin nested nav UL fixes */
 #navigation ul li ul {
     overflow:hidden;
 }
@@ -21,9 +32,7 @@ body.fixed #maincontent {
 #navigation ul li ul li ul li{
     margin-left: 10px;
     overflow: hidden;
-}
-/* end nested nav UL fixes */
-
+} 
 li.leaf {
     list-style-image:none;
 }
@@ -48,4 +57,4 @@ html.tinyMceEditor#maincontent {
 .element-invisible {
     display: none;
 }
-}
+*/
