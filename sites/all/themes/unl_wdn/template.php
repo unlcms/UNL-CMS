@@ -111,12 +111,12 @@ function unl_wdn_menu_local_tasks()
     $output = array();
     
     if ($primary = menu_primary_local_tasks()) {
-        $primary['#prefix'] = '<ul class="wdn_tabs disableSwitching">';
+        $primary['#prefix'] = '<ul class="wdn_tabs cms_tabs disableSwitching">';
         $primary['#suffix'] = '</ul>';
         $output[] = $primary;
     }
     if ($secondary = menu_secondary_local_tasks()) {
-        $secondary['#prefix'] = '<ul class="wdn_tabs disableSwitching">';
+        $secondary['#prefix'] = '<ul class="wdn_tabs cms_tabs disableSwitching">';
         $secondary['#suffix'] = '</ul>';
         $output[] = $secondary;
     }
