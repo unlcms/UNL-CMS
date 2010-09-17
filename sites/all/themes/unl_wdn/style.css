@@ -9,6 +9,7 @@
 	font-size:11.5167px;
 }
 #maincontent {
+	width:940px;
 	overflow:visible !important;
 }
 #maincontent ul.wdn_tabs.cms_tabs {
