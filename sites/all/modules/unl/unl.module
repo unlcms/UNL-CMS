@@ -45,6 +45,7 @@ function unl_wysiwyg_plugin($editor)
                 // override. To be used rarely and only when required.
                 'options' => array(
                     'skin' => 'unl',
+                    'table_styles' => 'ZenTable Bright (yellow)=zentable bright;ZenTable Cool (blue)=zentable cool;ZenTable Energetic (orange)=zentable energetic;ZenTable Soothing (green)=zentable soothing;ZenTable Primary (red)=zentable primary;ZenTable Neutral (gray)=zentable neutral;',
                     'doctype' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'
                 ),
                 // Wysiwyg wrapper plugin AJAX callback.
