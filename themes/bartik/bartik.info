@@ -1,4 +1,4 @@
-; $Id: bartik.info,v 1.1 2010/07/06 05:25:51 webchick Exp $
+; $Id: bartik.info,v 1.4 2010/09/05 02:21:38 dries Exp $
 
 name = Bartik
 description = A flexible, recolorable theme with many regions.
@@ -11,15 +11,12 @@ stylesheets[all][] = css/layout.css
 stylesheets[all][] = css/style.css
 stylesheets[all][] = css/colors.css
 stylesheets[print][] = css/print.css
-stylesheets[all][] = css/maintenance-page.css
-
-scripts[] = scripts/search.js
 
 regions[header] = Header
 regions[help] = Help
 regions[page_top] = Page top
 regions[page_bottom] = Page bottom
-regions[highlight] = Highlighted
+regions[highlighted] = Highlighted
 
 regions[featured] = Featured
 regions[content] = Content
@@ -39,8 +36,8 @@ regions[footer] = Footer
 settings[shortcut_module_link] = 0
 
 
-; Information added by drupal.org packaging script on 2010-07-09
-version = "7.0-alpha6"
+; Information added by drupal.org packaging script on 2010-09-16
+version = "7.0-alpha7"
 project = "drupal"
-datestamp = "1278634806"
+datestamp = "1284599761"
 

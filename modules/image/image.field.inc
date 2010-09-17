@@ -1,5 +1,5 @@
 <?php
-// $Id: image.field.inc,v 1.21 2010/04/30 12:53:47 dries Exp $
+// $Id: image.field.inc,v 1.27 2010/09/09 23:28:16 webchick Exp $
 
 /**
  * @file
@@ -15,7 +15,7 @@ function image_field_info() {
       'label' => t('Image'),
       'description' => t('This field stores the ID of an image file as an integer value.'),
       'settings' => array(
-        'uri_scheme' => 'public',
+        'uri_scheme' => variable_get('file_default_scheme', 'public'),
         'default_image' => 0,
       ),
       'instance_settings' => array(
@@ -29,37 +29,6 @@ function image_field_info() {
       ),
       'default_widget' => 'image_image',
       'default_formatter' => 'image',
-    ),
-  );
-}
-
-/**
- * Implements hook_field_schema().
- */
-function image_field_schema($field) {
-  return array(
-    'columns' => array(
-      'fid' => array(
-        'description' => 'The {files}.fid being referenced in this field.',
-        'type' => 'int',
-        'not null' => FALSE,
-        'unsigned' => TRUE,
-      ),
-      'alt' => array(
-        'description' => "Alternative image text, for the image's 'alt' attribute.",
-        'type' => 'varchar',
-        'length' => 128,
-        'not null' => FALSE,
-      ),
-      'title' => array(
-        'description' => "Image title text, for the image's 'title' attribute.",
-        'type' => 'varchar',
-        'length' => 128,
-        'not null' => FALSE,
-      ),
-    ),
-    'indexes' => array(
-      'fid' => array('fid'),
     ),
   );
 }
@@ -107,10 +76,12 @@ function image_field_instance_settings_form($field, $instance) {
   // Add maximum and minimum resolution settings.
   $max_resolution = explode('x', $settings['max_resolution']) + array('', '');
   $form['max_resolution'] = array(
+    '#type' => 'item',
     '#title' => t('Maximum image resolution'),
     '#element_validate' => array('_image_field_resolution_validate'),
-    '#theme_wrappers' => array('form_element'),
     '#weight' => 4.1,
+    '#field_prefix' => '<div class="container-inline">',
+    '#field_suffix' => '</div>',
     '#description' => t('The maximum allowed image size expressed as WIDTHxHEIGHT (e.g. 640x480). Leave blank for no restriction. If a larger image is uploaded, it will be resized to reflect the given width and height. Resizing images on upload will cause the loss of <a href="http://en.wikipedia.org/wiki/Exchangeable_image_file_format">EXIF data</a> in the image.'),
   );
   $form['max_resolution']['x'] = array(
@@ -119,7 +90,6 @@ function image_field_instance_settings_form($field, $instance) {
     '#size' => 5,
     '#maxlength' => 5,
     '#field_suffix' => ' x ',
-    '#theme_wrappers' => array(),
   );
   $form['max_resolution']['y'] = array(
     '#type' => 'textfield',
@@ -127,15 +97,16 @@ function image_field_instance_settings_form($field, $instance) {
     '#size' => 5,
     '#maxlength' => 5,
     '#field_suffix' => ' ' . t('pixels'),
-    '#theme_wrappers' => array(),
   );
 
   $min_resolution = explode('x', $settings['min_resolution']) + array('', '');
   $form['min_resolution'] = array(
+    '#type' => 'item',
     '#title' => t('Minimum image resolution'),
     '#element_validate' => array('_image_field_resolution_validate'),
-    '#theme_wrappers' => array('form_element'),
     '#weight' => 4.2,
+    '#field_prefix' => '<div class="container-inline">',
+    '#field_suffix' => '</div>',
     '#description' => t('The minimum allowed image size expressed as WIDTHxHEIGHT (e.g. 640x480). Leave blank for no restriction. If a smaller image is uploaded, it will be rejected.'),
   );
   $form['min_resolution']['x'] = array(
@@ -144,7 +115,6 @@ function image_field_instance_settings_form($field, $instance) {
     '#size' => 5,
     '#maxlength' => 5,
     '#field_suffix' => ' x ',
-    '#theme_wrappers' => array(),
   );
   $form['min_resolution']['y'] = array(
     '#type' => 'textfield',
@@ -152,7 +122,6 @@ function image_field_instance_settings_form($field, $instance) {
     '#size' => 5,
     '#maxlength' => 5,
     '#field_suffix' => ' ' . t('pixels'),
-    '#theme_wrappers' => array(),
   );
 
   // Remove the description option.
@@ -230,6 +199,13 @@ function image_field_prepare_view($entity_type, $entities, $field, $instances, $
  */
 function image_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
   file_field_presave($entity_type, $entity, $field, $instance, $langcode, $items);
+}
+
+/**
+ * Implements hook_field_insert().
+ */
+function image_field_insert($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  file_field_insert($entity_type, $entity, $field, $instance, $langcode, $items);
 }
 
 /**
@@ -428,33 +404,74 @@ function image_field_formatter_info() {
     'image' => array(
       'label' => t('Image'),
       'field types' => array('image'),
-    ),
-    'image_link_content' => array(
-      'label' => t('Image linked to content'),
-      'field types' => array('image'),
-    ),
-    'image_link_file' => array(
-      'label' => t('Image linked to file'),
-      'field types' => array('image'),
+      'settings' => array('image_style' => '', 'image_link' => ''),
     ),
   );
 
-  foreach (image_styles() as $style) {
-    $formatters['image__' . $style['name']] = array(
-      'label' => t('Image "@style"', array('@style' => $style['name'])),
-      'field types' => array('image'),
-    );
-    $formatters['image_link_content__' . $style['name']] = array(
-      'label' => t('Image "@style" linked to content', array('@style' => $style['name'])),
-      'field types' => array('image'),
-    );
-    $formatters['image_link_file__' . $style['name']] = array(
-      'label' => t('Image "@style" linked to file', array('@style' => $style['name'])),
-      'field types' => array('image'),
-    );
+  return $formatters;
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function image_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $image_styles = array('' => t('None (original image)')) + image_style_options(FALSE);
+  $form['image_style'] = array(
+    '#title' => t('Image style'),
+    '#type' => 'select',
+    '#default_value' => $settings['image_style'],
+    '#options' => $image_styles,
+  );
+
+  $link_types = array(
+    '' => t('<none>'),
+    'content' => t('Content'),
+    'file' => t('File'),
+  );
+  $form['image_link'] = array(
+    '#title' => t('Link image to'),
+    '#type' => 'select',
+    '#default_value' => $settings['image_link'],
+    '#options' => $link_types,
+  );
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function image_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = array();
+
+  $image_styles = image_style_options(FALSE);
+  // Unset possible 'No defined styles' option.
+  unset($image_styles['']);
+  // Styles could be lost because of enabled/disabled modules that defines
+  // their styles in code.
+  if (isset($image_styles[$settings['image_style']])) {
+    $summary[] = t('Image style: @style', array('@style' => $image_styles[$settings['image_style']]));
+  }
+  else {
+    $summary[] = t('Original image');
   }
 
-  return $formatters;
+  $link_types = array(
+    'content' => t('Linked to content'),
+    'file' => t('Linked to file'),
+  );
+  // Display this setting only if image is linked.
+  if (isset($link_types[$settings['image_link']])) {
+    $summary[] = $link_types[$settings['image_link']];
+  }
+
+  return implode('<br />', $summary);
 }
 
 /**
@@ -463,17 +480,11 @@ function image_field_formatter_info() {
 function image_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
   $element = array();
 
-  // Check if the formatter involves a particular image style.
-  $matches = array();
-  if (preg_match('/__([a-z0-9_]+)/', $display['type'], $matches)) {
-    $image_style = $matches[1];
-  }
-
   // Check if the formatter involves a link.
-  if (strpos($display['type'], 'image_link_content') === 0) {
+  if ($display['settings']['image_link'] == 'content') {
     $uri = entity_uri($entity_type, $entity);
   }
-  elseif (strpos($display['type'], 'image_link_file') === 0) {
+  elseif ($display['settings']['image_link'] == 'file') {
     $link_file = TRUE;
   }
 
@@ -487,7 +498,7 @@ function image_field_formatter_view($entity_type, $entity, $field, $instance, $l
     $element[$delta] = array(
       '#theme' => 'image_formatter',
       '#item' => $item,
-      '#image_style' => isset($image_style) ? $image_style : '',
+      '#image_style' => $display['settings']['image_style'],
       '#path' => isset($uri) ? $uri : '',
     );
   }

@@ -1,5 +1,5 @@
 <?php
-// $Id: module.inc,v 1.195 2010/06/26 12:34:44 dries Exp $
+// $Id: module.inc,v 1.198 2010/09/03 19:49:55 dries Exp $
 
 /**
  * @file
@@ -12,6 +12,7 @@
  * @param $bootstrap
  *   Whether to load only the reduced set of modules loaded in "bootstrap mode"
  *   for cached pages. See bootstrap.inc.
+ *
  * @return
  *   If $bootstrap is NULL, return a boolean indicating whether all modules
  *   have been loaded.
@@ -46,6 +47,7 @@ function module_load_all($bootstrap = FALSE) {
  * @param $fixed_list
  *   (Optional) Override the module list with the given modules. Stays until the
  *   next call with $refresh = TRUE.
+ *
  * @return
  *   An associative array whose keys and values are the names of all loaded
  *   modules.
@@ -70,7 +72,9 @@ function module_list($refresh = FALSE, $bootstrap = FALSE, $sort = FALSE, $fixed
         $list = system_list('bootstrap');
       }
       else {
-        $list = system_list('module_enabled');
+        // Not using drupal_map_assoc() here as that requires common.inc.
+        $list = array_keys(system_list('module_enabled'));
+        $list = (!empty($list) ? array_combine($list, $list) : array());
       }
     }
   }
@@ -94,9 +98,10 @@ function module_list($refresh = FALSE, $bootstrap = FALSE, $sort = FALSE, $fixed
  *   - theme: All themes.
  *
  * @return
- *   An associative array of modules or themes, keyed by name, and having the
- *   respective database row as value. For $type 'module_enabled' and
- *   'bootstrap', the array values equal the keys.
+ *   An associative array of modules or themes, keyed by name. For $type
+ *   'bootstrap', the array values equal the keys. For $type 'module_enabled'
+ *   or 'theme', the array values are objects representing the respective
+ *   database row, with the 'info' property already unserialized.
  *
  * @see module_list()
  * @see list_themes()
@@ -141,11 +146,12 @@ function system_list($type) {
       // Drupal installations, which might have modules installed in different
       // locations in the file system. The ordering here must also be
       // consistent with the one used in module_implements().
-      $result = db_query("SELECT * FROM {system} ORDER BY weight ASC, name ASC");
+      $result = db_query("SELECT * FROM {system} WHERE type = 'theme' OR (type = 'module' AND status = 1) ORDER BY weight ASC, name ASC");
       foreach ($result as $record) {
-        if ($record->type == 'module' && $record->status) {
-          // Build a list of all enabled modules.
-          $lists['module_enabled'][$record->name] = $record->name;
+        $record->info = unserialize($record->info);
+        // Build a list of all enabled modules.
+        if ($record->type == 'module') {
+          $lists['module_enabled'][$record->name] = $record;
         }
         // Build a list of themes.
         if ($record->type == 'theme') {
@@ -183,6 +189,7 @@ function system_list_reset() {
  *
  * @param $files
  *   The array of filesystem objects used to rebuild the cache.
+ *
  * @return
  *   The same array with the new keys for each module:
  *   - requires: An array with the keys being the modules that this module
@@ -192,18 +199,16 @@ function system_list_reset() {
  */
 function _module_build_dependencies($files) {
   require_once DRUPAL_ROOT . '/includes/graph.inc';
-  $roots = $files;
   foreach ($files as $filename => $file) {
     $graph[$file->name]['edges'] = array();
     if (isset($file->info['dependencies']) && is_array($file->info['dependencies'])) {
       foreach ($file->info['dependencies'] as $dependency) {
         $dependency_data = drupal_parse_dependency($dependency);
         $graph[$file->name]['edges'][$dependency_data['name']] = $dependency_data;
-        unset($roots[$dependency_data['name']]);
       }
     }
   }
-  drupal_depth_first_search($graph, array_keys($roots));
+  drupal_depth_first_search($graph);
   foreach ($graph as $module => $data) {
     $files[$module]->required_by = isset($data['reverse_paths']) ? $data['reverse_paths'] : array();
     $files[$module]->requires = isset($data['paths']) ? $data['paths'] : array();
@@ -217,6 +222,7 @@ function _module_build_dependencies($files) {
  *
  * @param $module
  *   The name of the module (without the .module extension).
+ *
  * @return
  *   TRUE if the module is both installed and enabled.
  */
@@ -305,6 +311,7 @@ function module_load_all_includes($type, $name = NULL) {
  *   - Invoke hook_enable().
  * - Invoke hook_modules_installed().
  * - Invoke hook_modules_enabled().
+ *
  * @param $module_list
  *   An array of module names.
  * @param $enable_dependencies
@@ -543,6 +550,7 @@ function module_disable($module_list, $disable_dependents = TRUE) {
  *   The name of the module (without the .module extension).
  * @param $hook
  *   The name of the hook (e.g. "help" or "menu").
+ *
  * @return
  *   TRUE if the module is both installed and enabled, and the hook is
  *   implemented in that module.
@@ -711,6 +719,7 @@ function module_implements_write_cache() {
  *   The name of the hook to invoke.
  * @param ...
  *   Arguments to pass to the hook implementation.
+ *
  * @return
  *   The return value of the hook implementation.
  */
@@ -730,6 +739,7 @@ function module_invoke() {
  *   The name of the hook to invoke.
  * @param ...
  *   Arguments to pass to the hook.
+ *
  * @return
  *   An array of return values of the hook implementations. If modules return
  *   arrays from their implementations, those are merged into one array.

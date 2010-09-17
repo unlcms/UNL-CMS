@@ -1,4 +1,4 @@
-// $Id: overlay-parent.js,v 1.49 2010/07/08 12:20:23 dries Exp $
+// $Id: overlay-parent.js,v 1.54 2010/08/18 02:25:50 dries Exp $
 
 (function ($) {
 
@@ -70,6 +70,8 @@ Drupal.overlay.open = function (url) {
     return this.load(url);
   }
   this.isOpening = true;
+  // Store the original document title.
+  this.originalTitle = document.title;
 
   // Create the dialog and related DOM elements.
   this.create();
@@ -184,6 +186,8 @@ Drupal.overlay.close = function () {
   this.isClosing = true;
   this.isOpen = false;
   $(document.documentElement).removeClass('overlay-open');
+  // Restore the original document title.
+  document.title = this.originalTitle;
 
   // Allow other scripts to respond to this event.
   $(document).trigger('drupalOverlayClose');
@@ -273,6 +277,9 @@ Drupal.overlay.loadChild = function (event) {
   if (this.isOpen && !this.isClosing) {
     // And child document is an actual overlayChild.
     if (iframeWindow.Drupal && iframeWindow.Drupal.overlayChild) {
+      // Replace the document title with title of iframe.
+      document.title = iframeWindow.document.title;
+
       this.activeFrame = $(iframe)
         .addClass('overlay-active')
         // Add a title attribute to the iframe for accessibility.
@@ -474,7 +481,12 @@ Drupal.overlay.eventhandlerOverrideLink = function (event) {
     }
     // Open admin links in the overlay.
     else if (this.isAdminLink(href)) {
-      href = this.fragmentizeLink($target.get(0));
+      // If the link contains the overlay-restore class and the overlay-context
+      // state is set, also update the parent window's location.
+      var parentLocation = ($target.hasClass('overlay-restore') && typeof $.bbq.getState('overlay-context') == 'string')
+        ? Drupal.settings.basePath + $.bbq.getState('overlay-context')
+        : null;
+      href = this.fragmentizeLink($target.get(0), parentLocation);
       // Only override default behavior when left-clicking and user is not
       // pressing the ALT, CTRL, META (Command key on the Macintosh keyboard)
       // or SHIFT key.
@@ -493,29 +505,34 @@ Drupal.overlay.eventhandlerOverrideLink = function (event) {
           .attr('href', href);
       }
     }
-    // Open external links in a new window.
-    else if (target.hostname != window.location.hostname) {
-      // Add a target attribute to the clicked link. This is being picked up by
-      // the default action handler.
-      if (!$target.attr('target')) {
-        $target.attr('target', '_new');
-      }
-    }
-    // Non-admin links should close the overlay and open in the main window.
-    // Only handle them if the overlay is open and the clicked link is inside
-    // the overlay iframe, else default action will do fine.
+    // Non-admin links should close the overlay and open in the main window,
+    // which is the default action for a link. We only need to handle them
+    // if the overlay is open and the clicked link is inside the overlay iframe.
     else if (this.isOpen && target.ownerDocument === this.iframeWindow.document) {
-      // When the link has a destination query parameter and that destination
-      // is an admin link we need to fragmentize it. This will make it reopen
-      // in the overlay.
-      var params = $.deparam.querystring(href);
-      if (params.destination && this.isAdminLink(params.destination)) {
-        var fragmentizedDestination = $.param.fragment(this.getPath(window.location), { overlay: params.destination });
-        $target.attr('href', $.param.querystring(href, { destination: fragmentizedDestination }));
+      // Open external links in the immediate parent of the frame, unless the
+      // link already has a different target.
+      if (target.hostname != window.location.hostname) {
+        if (!$target.attr('target')) {
+          $target.attr('target', '_parent');
+        }
       }
+      else {
+        // Add the overlay-context state to the link, so "overlay-restore" links
+        // can restore the context.
+        $target.attr('href', $.param.fragment(href, { 'overlay-context': this.getPath(window.location) + window.location.search }));
 
-      // Make the link to be opening in the immediate parent of the frame.
-      $target.attr('target', '_parent');
+        // When the link has a destination query parameter and that destination
+        // is an admin link we need to fragmentize it. This will make it reopen
+        // in the overlay.
+        var params = $.deparam.querystring(href);
+        if (params.destination && this.isAdminLink(params.destination)) {
+          var fragmentizedDestination = $.param.fragment(this.getPath(window.location), { overlay: params.destination });
+          $target.attr('href', $.param.querystring(href, { destination: fragmentizedDestination }));
+        }
+
+        // Make the link open in the immediate parent of the frame.
+        $target.attr('target', '_parent');
+      }
     }
   }
 };
@@ -657,12 +674,14 @@ Drupal.overlay.eventhandlerDispatchEvent = function (event) {
  *
  * @param link
  *   A Javascript Link object (i.e. an <a> element).
+ * @param parentLocation
+ *   (optional) URL to override the parent window's location with.
  *
  * @return
  *   A URL that will trigger the overlay (in the form
  *   /node/1#overlay=admin/config).
  */
-Drupal.overlay.fragmentizeLink = function (link) {
+Drupal.overlay.fragmentizeLink = function (link, parentLocation) {
   // Don't operate on links that are already overlay-ready.
   var params = $.deparam.fragment(link.href);
   if (params.overlay) {
@@ -678,7 +697,7 @@ Drupal.overlay.fragmentizeLink = function (link) {
   var destination = path + link.search.replace(/&?render=overlay/, '').replace(/\?$/, '') + link.hash;
 
   // Assemble and return the overlay-ready link.
-  return $.param.fragment(window.location.href, { overlay: destination });
+  return $.param.fragment(parentLocation || window.location.href, { overlay: destination });
 };
 
 /**
@@ -726,7 +745,9 @@ Drupal.overlay.resetActiveClass = function(activePath) {
     var linkDomain = this.protocol + this.hostname;
     var linkPath = self.getPath(this);
 
-    if (linkDomain == windowDomain && activePath.indexOf(linkPath) === 0) {
+    // A link matches if it is part of the active trail of activePath, except
+    // for frontpage links.
+    if (linkDomain == windowDomain && (activePath + '/').indexOf(linkPath + '/') === 0 && (linkPath !== '' || activePath === '')) {
       $(this).addClass('active');
     }
   });

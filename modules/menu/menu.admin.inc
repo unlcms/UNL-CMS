@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.admin.inc,v 1.82 2010/06/26 21:32:20 dries Exp $
+// $Id: menu.admin.inc,v 1.84 2010/09/07 22:12:05 dries Exp $
 
 /**
  * @file
@@ -308,7 +308,7 @@ function menu_edit_item($form, &$form_state, $type, $item, $menu) {
     '#title' => t('Description'),
     '#default_value' => isset($item['options']['attributes']['title']) ? $item['options']['attributes']['title'] : '',
     '#rows' => 1,
-    '#description' => t('The description displayed when hovering over a menu link.'),
+    '#description' => t('Shown when hovering over the menu link.'),
   );
   $form['enabled'] = array(
     '#type' => 'checkbox',
@@ -674,7 +674,7 @@ function menu_reset_item_confirm_submit($form, &$form_state) {
 function menu_configure() {
   $form['intro'] = array(
     '#type' => 'item',
-    '#markup' => t('The menu module allows on-the-fly creation of menu links in the content authoring forms. The following option sets the default menu in which a new link will be added.'),
+    '#markup' => t('The menu module allows on-the-fly creation of menu links in the content authoring forms. To configure these settings for a particular content type, visit the <a href="@content-types">Content types</a> page, click the <em>edit</em> link for the content type, and go to the <em>Menu settings</em> section.', array('@content-types' => url('admin/structure/types'))),
   );
 
   $menu_options = menu_get_menus();

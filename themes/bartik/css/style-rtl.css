@@ -1,4 +1,4 @@
-/* $Id: style-rtl.css,v 1.1 2010/07/06 05:25:51 webchick Exp $ */
+/* $Id: style-rtl.css,v 1.7 2010/09/09 15:27:08 webchick Exp $ */
 
 /* ------------------ Reset Styles ------------------ */
 
@@ -39,27 +39,22 @@ ul.tips {
 }
 /* Menus when in the header region. */
 #header div.block-menu,
-#header div#block-system-main-menu,
-#header div#block-system-secondary-menu {
+#header div#block-system-main-menu {
   float: right;
 }
 #header .block-menu li a,
-#header #block-system-main-menu li a,
-#header #block-system-secondary-menu li a {
+#header #block-system-main-menu li a {
   float: right;
   border-left: 1px solid #555;
-
   border-right: none;
 }
 #header .block-menu li.first a,
-#header #block-system-main-menu li.first a,
-#header #block-system-secondary-menu li.first a {
+#header #block-system-main-menu li.first a {
   padding-right: 0;
   padding-left: 12px;
 }
 #header .block-menu li.last a,
-#header #block-system-main-menu li.last a,
-#header #block-system-secondary-menu li.last a {
+#header #block-system-main-menu li.last a {
   padding-left: 0;
   padding-right: 12px;
   border-left: none;
@@ -82,11 +77,17 @@ ul.tips {
   margin-right: 10px;
 }
 
-/* --------------- Main Navigation ------------ */
+/* --------------- Main Menu ------------ */
 
-#navigation ul.links li.first {
+#main-menu ul.links li.first {
   padding-right: 2px;
   padding-left: 0;
+}
+
+/* --------------- Secondary Menu ------------ */
+
+#secondary-menu-links {
+  float: left;
 }
 
 /* ----------------- Content ------------------ */
@@ -128,6 +129,9 @@ ul.tips {
   margin-right: 40px;
   margin-left: 0;
 }
+#comments ul.links li {
+  padding: 0 0 0.5em;
+}
 
 /* -------------- Password Meter  ------------- */
 
@@ -142,6 +146,26 @@ ul.tips {
 }
 .form-item-pass-pass2 label {
   clear: right;
+}
+
+/* ----------------- Buttons ------------------ */
+
+input.form-submit,
+a.button {
+  margin-right: 0;
+  margin-left: 1em;
+}
+
+/* --------------- Search Form ---------------- */
+
+#search-form input#edit-keys,
+#block-search-form .form-item-search-block-form input {
+  float: right;
+}
+#search-block-form input.form-submit,
+#search-form input.form-submit {
+  margin-left: 0;
+  margin-right: 5px;
 }
 
 /* ------------------ Footer ------------------ */

@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.test,v 1.73 2010/06/26 19:55:47 dries Exp $
+// $Id: locale.test,v 1.79 2010/09/01 20:08:17 dries Exp $
 
 /**
  * @file
@@ -758,11 +758,11 @@ class LocaleImportFunctionalTest extends DrupalWebTestCase {
    *   Additional options to pass to the translation import form.
    */
   function importPoFile($contents, array $options = array()) {
-    $name = tempnam(file_directory_path('temporary'), "po_") . '.po';
+    $name = tempnam('temporary://', "po_") . '.po';
     file_put_contents($name, $contents);
     $options['files[file]'] = $name;
     $this->drupalPost('admin/config/regional/translate/import', $options, t('Import'));
-    unlink($name);
+    drupal_unlink($name);
   }
 
   /**
@@ -905,13 +905,13 @@ class LocaleExportFunctionalTest extends DrupalWebTestCase {
   function testExportTranslation() {
     // First import some known translations.
     // This will also automatically enable the 'fr' language.
-    $name = tempnam(file_directory_path('temporary'), "po_") . '.po';
+    $name = tempnam('temporary://', "po_") . '.po';
     file_put_contents($name, $this->getPoFile());
     $this->drupalPost('admin/config/regional/translate/import', array(
       'langcode' => 'fr',
       'files[file]' => $name,
     ), t('Import'));
-    unlink($name);
+    drupal_unlink($name);
 
     // Get the French translations.
     $this->drupalPost('admin/config/regional/translate/export', array(
@@ -1160,7 +1160,7 @@ class LocaleLanguageSwitchingFunctionalTest extends DrupalWebTestCase {
     // Enable the language switching block.
     $language_type = LANGUAGE_TYPE_INTERFACE;
     $edit = array(
-      "locale_{$language_type}[region]" => 'sidebar_first',
+      "blocks[locale_{$language_type}][region]" => 'sidebar_first',
     );
     $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
 
@@ -1452,9 +1452,9 @@ class LocalePathFunctionalTest extends DrupalWebTestCase {
     );
     $this->drupalPost('admin/config/regional/language/add', $edit, t('Add custom language'));
 
-    // Set language negotiation.
-    drupal_load('module', 'locale');
-    variable_set('language_negotiation_' . LANGUAGE_TYPE_CONTENT, locale_language_negotiation_info());
+    // Enable URL language detection and selection.
+    $edit = array('language[enabled][locale-url]' => 1);
+    $this->drupalPost('admin/config/regional/language/configure', $edit, t('Save settings'));
 
     // Create a node.
     $node = $this->drupalCreateNode(array('type' => 'page'));

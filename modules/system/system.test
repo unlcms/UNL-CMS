@@ -1,5 +1,5 @@
 <?php
-// $Id: system.test,v 1.131 2010/07/07 08:05:01 webchick Exp $
+// $Id: system.test,v 1.142 2010/09/11 21:14:32 webchick Exp $
 
 /**
  * Helper class for module test cases.
@@ -24,7 +24,7 @@ class ModuleTestCase extends DrupalWebTestCase {
    *   specified base table. Defaults to TRUE.
    */
   function assertTableCount($base_table, $count = TRUE) {
-    $tables = db_find_tables($base_table . '%');
+    $tables = db_find_tables(Database::getConnection()->prefixTables('{' . $base_table . '}') . '%');
 
     if ($count) {
       return $this->assertTrue($tables, t('Tables matching "@base_table" found.', array('@base_table' => $base_table)));
@@ -218,7 +218,7 @@ class ModuleDependencyTestCase extends ModuleTestCase {
     $edit = array();
     $edit['modules[Core][translation][enable]'] = 'translation';
     $this->drupalPost('admin/modules', $edit, t('Save configuration'));
-    $this->assertText(t('Some required modules must be enabled'), t('Dependecy required.'));
+    $this->assertText(t('Some required modules must be enabled'), t('Dependency required.'));
 
     $this->assertModules(array('translation', 'locale'), FALSE);
 
@@ -284,6 +284,39 @@ class ModuleDependencyTestCase extends ModuleTestCase {
     // were not disabled.
     $this->assertModules(array('comment'), TRUE);
 
+  }
+
+  /**
+   * Tests re-enabling forum with taxonomy disabled.
+   */
+  function testEnableForumTaxonomyFieldDependency() {
+    // Enable the forum module.
+    $edit = array();
+    $edit['modules[Core][forum][enable]'] = 'forum';
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('forum'), TRUE);
+
+    // Disable the forum module.
+    $edit = array();
+    $edit['modules[Core][forum][enable]'] = FALSE;
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('forum'), FALSE);
+
+    // Disable the taxonomy module.
+    $edit = array();
+    $edit['modules[Core][taxonomy][enable]'] = FALSE;
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('taxonomy'), FALSE);
+
+    // Attempt to re-enable the forum module with taxonomy disabled and ensure
+    // forum does not try to recreate the taxonomy_forums field.
+    $edit = array();
+    $edit['modules[Core][forum][enable]'] = 'forum';
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertText(t('Some required modules must be enabled'), t('Dependency required.'));
+    $this->drupalPost(NULL, NULL, t('Continue'));
+    $this->assertText(t('The configuration options have been saved.'), t('Modules status has been updated.'));
+    $this->assertModules(array('taxonomy', 'forum'), TRUE);
   }
 }
 
@@ -520,7 +553,7 @@ class CronRunTestCase extends DrupalWebTestCase {
     // Disable the cron threshold through the interface.
     $admin_user = $this->drupalCreateUser(array('administer site configuration'));
     $this->drupalLogin($admin_user);
-    $this->drupalPost('admin/config/system/site-information', array('cron_safe_threshold' => 0), t('Save configuration'));
+    $this->drupalPost('admin/config/system/cron', array('cron_safe_threshold' => 0), t('Save configuration'));
     $this->assertText(t('The configuration options have been saved.'));
     $this->drupalLogout();
 
@@ -663,7 +696,7 @@ class AccessDeniedTestCase extends DrupalWebTestCase {
     // Log back in, set the custom 403 page to /user and remove the block
     $this->drupalLogin($this->admin_user);
     variable_set('site_403', 'user');
-    $this->drupalPost('admin/structure/block', array('user_login[region]' => '-1'), t('Save blocks'));
+    $this->drupalPost('admin/structure/block', array('blocks[user_login][region]' => '-1'), t('Save blocks'));
 
     // Check that we can log in from the 403 page.
     $this->drupalLogout();
@@ -1045,7 +1078,6 @@ class PageTitleFiltering extends DrupalWebTestCase {
     $this->assertRaw($title_filtered . '</title>', 'Check for the filtered version of the title.');
 
     // Test the slogan.
-    // Currently Garland is not displaying the slogan so this test is escaped.
     $this->assertNoRaw($slogan, 'Check for the unfiltered version of the slogan.');
     $this->assertRaw($slogan_filtered, 'Check for the filtered version of the slogan.');
   }
@@ -1133,7 +1165,7 @@ class SystemBlockTestCase extends DrupalWebTestCase {
 
     // Set the powered-by block to the footer region.
     $edit = array();
-    $edit['system_powered-by[region]'] = 'footer';
+    $edit['blocks[system_powered-by][region]'] = 'footer';
     $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
     $this->assertText(t('The block settings have been updated.'), t('Block successfully moved to footer region.'));
 
@@ -1143,15 +1175,15 @@ class SystemBlockTestCase extends DrupalWebTestCase {
 
     // Set the block to the disabled region.
     $edit = array();
-    $edit['system_powered-by[region]'] = '-1';
+    $edit['blocks[system_powered-by][region]'] = '-1';
     $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
 
     // Confirm that the block is hidden.
     $this->assertNoRaw('id="block-system-powered-by"', t('Block no longer appears on page.'));
 
-    // For convenience of developers, set the block to it's default settings.
+    // For convenience of developers, set the block to its default settings.
     $edit = array();
-    $edit['system_powered-by[region]'] = 'footer';
+    $edit['blocks[system_powered-by][region]'] = 'footer';
     $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
     $this->drupalPost('admin/structure/block/manage/system/powered-by/configure', array('title' => ''), t('Save block'));
   }
@@ -1267,13 +1299,14 @@ class SystemThemeFunctionalTest extends DrupalWebTestCase {
   function testThemeSettings() {
     // Specify a filesystem path to be used for the logo.
     $file = current($this->drupalGetTestFiles('image'));
+    $fullpath = drupal_realpath($file->uri);
     $edit = array(
       'default_logo' => FALSE,
-      'logo_path' => $file->uri,
+      'logo_path' => $fullpath,
     );
     $this->drupalPost('admin/appearance/settings', $edit, t('Save configuration'));
     $this->drupalGet('node');
-    $this->assertRaw($file->uri, t('Logo path successfully changed.'));
+    $this->assertRaw($fullpath, t('Logo path successfully changed.'));
 
     // Upload a file to use for the logo.
     $file = current($this->drupalGetTestFiles('image'));
@@ -1296,22 +1329,22 @@ class SystemThemeFunctionalTest extends DrupalWebTestCase {
     variable_set('theme_default', 'stark');
     // Enable an administration theme and show it on the node admin pages.
     $edit = array(
-      'admin_theme' => 'garland',
+      'admin_theme' => 'seven',
       'node_admin_theme' => TRUE,
     );
     $this->drupalPost('admin/appearance', $edit, t('Save configuration'));
 
     $this->drupalGet('admin/config');
-    $this->assertRaw('themes/garland', t('Administration theme used on an administration page.'));
+    $this->assertRaw('themes/seven', t('Administration theme used on an administration page.'));
 
     $this->drupalGet('node/' . $this->node->nid);
     $this->assertRaw('themes/stark', t('Site default theme used on node page.'));
 
     $this->drupalGet('node/add');
-    $this->assertRaw('themes/garland', t('Administration theme used on the add content page.'));
+    $this->assertRaw('themes/seven', t('Administration theme used on the add content page.'));
 
     $this->drupalGet('node/' . $this->node->nid . '/edit');
-    $this->assertRaw('themes/garland', t('Administration theme used on the edit content page.'));
+    $this->assertRaw('themes/seven', t('Administration theme used on the edit content page.'));
 
     // Disable the admin theme on the node admin pages.
     $edit = array(
@@ -1320,13 +1353,13 @@ class SystemThemeFunctionalTest extends DrupalWebTestCase {
     $this->drupalPost('admin/appearance', $edit, t('Save configuration'));
 
     $this->drupalGet('admin/config');
-    $this->assertRaw('themes/garland', t('Administration theme used on an administration page.'));
+    $this->assertRaw('themes/seven', t('Administration theme used on an administration page.'));
 
     $this->drupalGet('node/add');
     $this->assertRaw('themes/stark', t('Site default theme used on the add content page.'));
 
     // Reset to the default theme settings.
-    variable_set('theme_default', 'garland');
+    variable_set('theme_default', 'bartik');
     $edit = array(
       'admin_theme' => '0',
       'node_admin_theme' => FALSE,
@@ -1334,10 +1367,10 @@ class SystemThemeFunctionalTest extends DrupalWebTestCase {
     $this->drupalPost('admin/appearance', $edit, t('Save configuration'));
 
     $this->drupalGet('admin');
-    $this->assertRaw('themes/garland', t('Site default theme used on administration page.'));
+    $this->assertRaw('themes/bartik', t('Site default theme used on administration page.'));
 
     $this->drupalGet('node/add');
-    $this->assertRaw('themes/garland', t('Site default theme used on the add content page.'));
+    $this->assertRaw('themes/bartik', t('Site default theme used on the add content page.'));
   }
 }
 
@@ -1510,7 +1543,6 @@ class TokenReplaceTestCase extends DrupalWebTestCase {
     $tests = array();
     $tests['[site:name]'] = check_plain(variable_get('site_name', 'Drupal'));
     $tests['[site:slogan]'] = check_plain(variable_get('site_slogan', ''));
-    $tests['[site:mission]'] = filter_xss(variable_get('site_mission', ''));
     $tests['[site:mail]'] = 'simpletest@example.com';
     $tests['[site:url]'] = url('<front>', $url_options);
     $tests['[site:url-brief]'] = preg_replace('!^https?://!', '', url('<front>', $url_options));
@@ -1527,7 +1559,6 @@ class TokenReplaceTestCase extends DrupalWebTestCase {
     // Generate and test unsanitized tokens.
     $tests['[site:name]'] = variable_get('site_name', 'Drupal');
     $tests['[site:slogan]'] = variable_get('site_slogan', '');
-    $tests['[site:mission]'] = variable_get('site_mission', '');
 
     foreach ($tests as $input => $expected) {
       $output = token_replace($input, array(), array('language' => $language, 'sanitize' => FALSE));
@@ -1684,31 +1715,6 @@ class UpdateScriptFunctionalTest extends DrupalWebTestCase {
     $this->drupalLogin($user1);
     $this->drupalGet($this->update_url, array('external' => TRUE));
     $this->assertResponse(200);
-  }
-
-  /**
-   * Tests the detection of requirements for the update script to proceed.
-   */
-  function testUpdateRequirements() {
-    $this->drupalLogin($this->update_user);
-    $this->drupalGet($this->update_url, array('external' => TRUE));
-    $this->assertResponse(200);
-    // Test if disabling a module that another enabled module depends on will
-    // prevent the update from proceeding.
-    module_disable(array('block'), FALSE);
-    $this->assertFalse(module_exists('block'), t('Block module is disabled.'));
-    $this->assertTrue(module_exists('dashboard'), t('Dashboard module is enabled.'));
-    $this->drupalGet($this->update_url, array('external' => TRUE));
-    $this->assertText(t('Unresolved dependency'), t('The update process cannot proceed when a module dependency is not enabled.'));
-
-    // Test if modules required by the current install profile are not required
-    // to be enabled for an update to proceed.
-    module_enable(array('block'));
-    $this->assertTrue(module_exists('block'), t('Block module is enabled.'));
-    module_disable(array('overlay'));
-    $this->assertFalse(module_exists('overlay'), t('Overlay module is disabled.'));
-    $this->drupalGet($this->update_url, array('external' => TRUE));
-    $this->assertNoText(t('Unresolved dependency'), t('The update process can proceed when modules from the install profile are disabled.'));
   }
 
   /**

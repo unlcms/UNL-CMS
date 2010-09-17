@@ -1,4 +1,4 @@
-; $Id: search.info,v 1.11 2009/11/17 21:24:18 dries Exp $
+; $Id: search.info,v 1.12 2010/09/05 02:21:38 dries Exp $
 name = Search
 description = Enables site-wide keyword searching.
 package = Core
@@ -11,9 +11,10 @@ files[] = search.install
 files[] = search.test
 files[] = search.extender.inc
 configure = admin/config/search/settings
+stylesheets[all][] = search.css
 
-; Information added by drupal.org packaging script on 2010-07-09
-version = "7.0-alpha6"
+; Information added by drupal.org packaging script on 2010-09-16
+version = "7.0-alpha7"
 project = "drupal"
-datestamp = "1278634806"
+datestamp = "1284599761"
 

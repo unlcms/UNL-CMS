@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.tokens.inc,v 1.7 2010/07/01 00:42:34 dries Exp $
+// $Id: taxonomy.tokens.inc,v 1.9 2010/08/08 02:06:56 dries Exp $
 
 /**
  * @file
@@ -111,7 +111,8 @@ function taxonomy_tokens($type, $tokens, array $data = array(), array $options =
           break;
 
         case 'url':
-          $replacements[$original] = url('taxonomy/term/' . $term->tid, array('absolute' => TRUE));
+          $uri = entity_uri('taxonomy_term', $term);
+          $replacements[$original] = url($uri['path'], array_merge($uri['options'], array('absolute' => TRUE)));
           break;
 
         case 'node-count':
@@ -128,9 +129,10 @@ function taxonomy_tokens($type, $tokens, array $data = array(), array $options =
           break;
 
         case 'parent':
-          $parents = taxonomy_get_parents($term->tid);
-          $parent = array_pop($parents);
-          $replacements[$original] = check_plain($parent->name);
+          if ($parents = taxonomy_get_parents($term->tid)) {
+            $parent = array_pop($parents);
+            $replacements[$original] = check_plain($parent->name);
+          }
           break;
       }
     }
@@ -140,8 +142,7 @@ function taxonomy_tokens($type, $tokens, array $data = array(), array $options =
       $replacements += token_generate('vocabulary', $vocabulary_tokens, array('vocabulary' => $vocabulary), $options);
     }
 
-    if ($vocabulary_tokens = token_find_with_prefix($tokens, 'parent')) {
-      $parents = taxonomy_get_parents($term->tid);
+    if (($vocabulary_tokens = token_find_with_prefix($tokens, 'parent')) && $parents = taxonomy_get_parents($term->tid)) {
       $parent = array_pop($parents);
       $replacements += token_generate('term', $vocabulary_tokens, array('term' => $parent), $options);
     }

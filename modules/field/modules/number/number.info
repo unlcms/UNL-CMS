@@ -1,14 +1,15 @@
-; $Id: number.info,v 1.5 2010/06/21 02:27:47 webchick Exp $
+; $Id: number.info,v 1.6 2010/08/16 20:57:22 dries Exp $
 name = Number
 description = Defines numeric field types.
 package = Core
 version = VERSION
 core = 7.x
-files[]=number.module
+dependencies[] = field
+files[] = number.module
 required = TRUE
 
-; Information added by drupal.org packaging script on 2010-07-09
-version = "7.0-alpha6"
+; Information added by drupal.org packaging script on 2010-09-16
+version = "7.0-alpha7"
 project = "drupal"
-datestamp = "1278634806"
+datestamp = "1284599761"
 

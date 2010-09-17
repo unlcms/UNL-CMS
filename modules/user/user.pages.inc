@@ -1,5 +1,5 @@
 <?php
-// $Id: user.pages.inc,v 1.73 2010/06/17 13:44:45 dries Exp $
+// $Id: user.pages.inc,v 1.75 2010/08/27 11:28:45 webchick Exp $
 
 /**
  * @file
@@ -302,13 +302,19 @@ function user_profile_form_submit($form, &$form_state) {
   // Remove unneeded values.
   form_state_values_clean($form_state);
 
+  // Before updating the account entity, keep an unchanged copy for use with
+  // user_save() later. This is necessary for modules implementing the user
+  // hooks to be able to react on changes by comparing the values of $account
+  // and $edit.
+  $account_unchanged = clone $account;
+
   entity_form_submit_build_entity('user', $account, $form, $form_state);
 
   // Populate $edit with the properties of $account, which have been edited on
   // this form by taking over all values, which appear in the form values too.
   $edit = array_intersect_key((array) $account, $form_state['values']);
 
-  user_save($account, $edit, $category);
+  user_save($account_unchanged, $edit, $category);
   $form_state['values']['uid'] = $account->uid;
 
   if ($category == 'account' && !empty($edit['pass'])) {
@@ -491,7 +497,6 @@ function user_cancel_methods() {
       '#return_value' => $name,
       '#default_value' => $default_method,
       '#parents' => array('user_cancel_method'),
-      '#required' => TRUE,
     );
   }
   return $form;

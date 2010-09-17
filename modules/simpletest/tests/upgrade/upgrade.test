@@ -1,5 +1,5 @@
 <?php
-// $Id: upgrade.test,v 1.2 2010/06/29 00:21:00 webchick Exp $
+// $Id: upgrade.test,v 1.7 2010/09/13 05:50:09 webchick Exp $
 
 /**
  * Perform end-to-end tests of the upgrade path.
@@ -7,9 +7,11 @@
 abstract class UpgradePathTestCase extends DrupalWebTestCase {
 
   /**
-   * The file path to the dumped database to load into the child site.
+   * The file path(s) to the dumped database(s) to load into the child site.
+   *
+   * @var array
    */
-  var $databaseDumpFile = NULL;
+  var $databaseDumpFiles = array();
 
   /**
    * Flag that indicates whether the child site has been upgraded.
@@ -22,6 +24,11 @@ abstract class UpgradePathTestCase extends DrupalWebTestCase {
   var $upgradeErrors = array();
 
   /**
+   * Array of modules loaded when the test starts.
+   */
+  var $loadedModules = array();
+
+  /**
    * Override of DrupalWebTestCase::setUp() specialized for upgrade testing.
    */
   protected function setUp() {
@@ -30,6 +37,8 @@ abstract class UpgradePathTestCase extends DrupalWebTestCase {
     // Reset flags.
     $this->upgradedSite = FALSE;
     $this->upgradeErrors = array();
+
+    $this->loadedModules = module_list();
 
     // Generate a temporary prefixed database to ensure that tests have a clean starting point.
     $this->databasePrefix = 'simpletest' . mt_rand(1000, 1000000);
@@ -51,7 +60,7 @@ abstract class UpgradePathTestCase extends DrupalWebTestCase {
     // Store necessary current values before switching to prefixed database.
     $this->originalLanguage = $language;
     $this->originalLanguageDefault = variable_get('language_default');
-    $this->originalFileDirectory = file_directory_path();
+    $this->originalFileDirectory = variable_get('file_public_path', conf_path() . '/files');
     $this->originalProfile = drupal_get_profile();
     $clean_url_original = variable_get('clean_url', 0);
 
@@ -81,7 +90,9 @@ abstract class UpgradePathTestCase extends DrupalWebTestCase {
     $conf = array();
 
     // Load the database from the portable PHP dump.
-    require $this->databaseDumpFile;
+    foreach ($this->databaseDumpFiles as $file) {
+      require $file;
+    }
 
     // Set path variables.
     $this->variable_set('file_public_path', $public_files_directory);
@@ -258,8 +269,14 @@ abstract class UpgradePathTestCase extends DrupalWebTestCase {
     // of the child site directly from this request.
     $this->upgradedSite = TRUE;
 
-    // Reload module list and implementations.
-    module_list(TRUE);
+    // Reload module list. For modules that are enabled in the test database,
+    // but not on the test client, we need to load the code here.
+    $new_modules = array_diff(module_list(TRUE), $this->loadedModules);
+    foreach ($new_modules as $module) {
+      drupal_load('module', $module);
+    }
+
+    // Reload hook implementations
     module_implements('', FALSE, TRUE);
 
     // Rebuild caches.
@@ -274,6 +291,24 @@ abstract class UpgradePathTestCase extends DrupalWebTestCase {
     $this->checkPermissions(array(), TRUE);
 
     return TRUE;
+  }
+
+  /**
+   * Force uninstall all modules from a test database, except those listed.
+   *
+   * @param $modules
+   *   The list of modules to keep installed. Required core modules will
+   *   always be kept.
+   */
+  protected function uninstallModulesExcept(array $modules) {
+    $required_modules = array('block', 'dblog', 'filter', 'node', 'system', 'update', 'user');
+
+    $modules = array_merge($required_modules, $modules);
+
+    db_delete('system')
+      ->condition('type', 'module')
+      ->condition('name', $modules, 'NOT IN')
+      ->execute();
   }
 
 }
@@ -297,8 +332,10 @@ class BasicUpgradePath extends UpgradePathTestCase {
   }
 
   public function setUp() {
-    // Path to the database dump.
-    $this->databaseDumpFile = drupal_get_path('module', 'simpletest') . '/tests/upgrade/drupal-6.bare.database.php';
+    // Path to the database dump files.
+    $this->databaseDumpFiles = array(
+      drupal_get_path('module', 'simpletest') . '/tests/upgrade/drupal-6.bare.database.php',
+    );
     parent::setUp();
   }
 

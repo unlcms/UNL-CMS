@@ -1,5 +1,5 @@
 <?php
-// $Id: unicode.inc,v 1.44 2010/06/14 12:37:15 dries Exp $
+// $Id: unicode.inc,v 1.47 2010/08/11 10:58:22 dries Exp $
 
 /**
  * Indicates an error during check for PHP unicode support.
@@ -172,6 +172,7 @@ function unicode_requirements() {
  *
  * @param &$data
  *   The XML data which will be parsed later.
+ *
  * @return
  *   An XML parser object or FALSE on error.
  *
@@ -221,6 +222,7 @@ function drupal_xml_parser_create(&$data) {
  *   The data to be converted.
  * @param $encoding
  *   The encoding that the data is in
+ *
  * @return
  *   Converted data or FALSE.
  */
@@ -257,6 +259,7 @@ function drupal_convert_to_utf8($data, $encoding) {
  *   The string to truncate.
  * @param $len
  *   An upper limit on the returned string length.
+ *
  * @return
  *   The truncated string.
  */
@@ -419,77 +422,12 @@ function _mime_header_decode($matches) {
  *
  * @param $text
  *   The text to decode entities in.
- * @param $exclude
- *   An array of characters which should not be decoded. For example,
- *   array('<', '&', '"'). This affects both named and numerical entities.
  *
  * @return
  *   The input $text, with all HTML entities decoded once.
  */
-function decode_entities($text, $exclude = array()) {
-  static $html_entities;
-  if (!isset($html_entities)) {
-    include DRUPAL_ROOT . '/includes/unicode.entities.inc';
-  }
-
-  // Flip the exclude list so that we can do quick lookups later.
-  $exclude = array_flip($exclude);
-
-  // Use a regexp to select all entities in one pass, to avoid decoding
-  // double-escaped entities twice. The PREG_REPLACE_EVAL modifier 'e' is
-  // being used to allow for a callback (see
-  // http://php.net/manual/en/reference.pcre.pattern.modifiers).
-  return preg_replace('/&(#x?)?([A-Za-z0-9]+);/e', '_decode_entities("$1", "$2", "$0", $html_entities, $exclude)', $text);
-}
-
-/**
- * Helper function for decode_entities
- */
-function _decode_entities($prefix, $codepoint, $original, &$html_entities, &$exclude) {
-  // Named entity
-  if (!$prefix) {
-    // A named entity not in the exclude list.
-    if (isset($html_entities[$original]) && !isset($exclude[$html_entities[$original]])) {
-      return $html_entities[$original];
-    }
-    else {
-      return $original;
-    }
-  }
-  // Hexadecimal numerical entity
-  if ($prefix == '#x') {
-    $codepoint = base_convert($codepoint, 16, 10);
-  }
-  // Decimal numerical entity (strip leading zeros to avoid PHP octal notation)
-  else {
-    $codepoint = preg_replace('/^0+/', '', $codepoint);
-  }
-  // Encode codepoint as UTF-8 bytes
-  if ($codepoint < 0x80) {
-    $str = chr($codepoint);
-  }
-  elseif ($codepoint < 0x800) {
-    $str = chr(0xC0 | ($codepoint >> 6))
-         . chr(0x80 | ($codepoint & 0x3F));
-  }
-  elseif ($codepoint < 0x10000) {
-    $str = chr(0xE0 | ( $codepoint >> 12))
-         . chr(0x80 | (($codepoint >> 6) & 0x3F))
-         . chr(0x80 | ( $codepoint       & 0x3F));
-  }
-  elseif ($codepoint < 0x200000) {
-    $str = chr(0xF0 | ( $codepoint >> 18))
-         . chr(0x80 | (($codepoint >> 12) & 0x3F))
-         . chr(0x80 | (($codepoint >> 6)  & 0x3F))
-         . chr(0x80 | ( $codepoint        & 0x3F));
-  }
-  // Check for excluded characters
-  if (isset($exclude[$str])) {
-    return $original;
-  }
-  else {
-    return $str;
-  }
+function decode_entities($text) {
+  return html_entity_decode($text, ENT_QUOTES, 'UTF-8');
 }
 
 /**

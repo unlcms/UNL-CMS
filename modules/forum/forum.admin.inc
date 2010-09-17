@@ -1,5 +1,5 @@
 <?php
-// $Id: forum.admin.inc,v 1.34 2010/06/26 21:32:20 dries Exp $
+// $Id: forum.admin.inc,v 1.36 2010/08/08 19:21:25 dries Exp $
 
 /**
  * @file
@@ -89,6 +89,7 @@ function forum_form_submit($form, &$form_state) {
         $containers[] = $term->tid;
         variable_set('forum_containers', $containers);
       }
+      $form_state['values']['tid'] = $term->tid;
       drupal_set_message(t('Created new @type %term.', array('%term' => $form_state['values']['name'], '@type' => $type)));
       break;
     case SAVED_UPDATED:
@@ -257,7 +258,7 @@ function forum_overview($form, &$form_state) {
   }
 
   // Remove the alphabetical reset.
-  unset($form['reset_alphabetical']);
+  unset($form['actions']['reset_alphabetical']);
 
   // The form needs to have submit and validate handlers set explicitly.
   $form['#theme'] = 'taxonomy_overview_terms';

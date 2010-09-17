@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.31 2010/06/30 16:55:49 webchick Exp $
+// $Id: database.inc,v 1.33 2010/08/11 02:17:39 dries Exp $
 
 /**
  * @file
@@ -47,8 +47,15 @@ class DatabaseConnection_mysql extends DatabaseConnection {
       PDO::ATTR_CASE => PDO::CASE_LOWER,
     ));
 
-    // Force MySQL to use the UTF-8 character set by default.
-    $this->exec('SET NAMES "utf8"');
+    // Force MySQL to use the UTF-8 character set. Also set the collation, if a
+    // certain one has been set; otherwise, MySQL defaults to 'utf8_general_ci'
+    // for UTF-8.
+    if (!empty($connection_options['collation'])) {
+      $this->exec('SET NAMES utf8 COLLATE ' . $connection_options['collation']);
+    }
+    else {
+      $this->exec('SET NAMES utf8');
+    }
 
     // Force MySQL's behavior to conform more closely to SQL standards.
     // This allows Drupal to run almost seamlessly on many different
@@ -70,6 +77,11 @@ class DatabaseConnection_mysql extends DatabaseConnection {
 
   public function driver() {
     return 'mysql';
+  }
+
+  public function version() {
+    $data = $this->query('SHOW variables LIKE :name', array(':name' => 'version'))->fetchAssoc();
+    return $data['value'];
   }
 
   public function databaseType() {

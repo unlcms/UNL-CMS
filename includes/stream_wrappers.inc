@@ -1,5 +1,5 @@
 <?php
-// $Id: stream_wrappers.inc,v 1.17 2010/06/12 08:15:15 webchick Exp $
+// $Id: stream_wrappers.inc,v 1.20 2010/08/17 22:05:22 dries Exp $
 
 /**
  * @file
@@ -146,24 +146,6 @@ interface DrupalStreamWrapperInterface extends StreamWrapperInterface {
   public function getExternalUrl();
 
   /**
-   * Returns the local writable target of the resource within the stream.
-   *
-   * This function should be used in place of calls to realpath() or similar
-   * functions when attempting to determine the location of a file. While
-   * functions like realpath() may return the location of a read-only file, this
-   * method may return a URI or path suitable for writing that is completely
-   * separate from the URI used for reading.
-   *
-   * @param $uri
-   *   Optional URI.
-   *
-   * @return
-   *   Returns a string representing a location suitable for writing of a file,
-   *   or FALSE if unable to write to the file such as with read-only streams.
-   */
-  public function getTarget($uri = NULL);
-
-  /**
    * Returns the MIME type of the resource.
    *
    * @param $uri
@@ -286,9 +268,22 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
   }
 
   /**
-   *  Base implementation of getTarget().
+   * Returns the local writable target of the resource within the stream.
+   *
+   * This function should be used in place of calls to realpath() or similar
+   * functions when attempting to determine the location of a file. While
+   * functions like realpath() may return the location of a read-only file, this
+   * method may return a URI or path suitable for writing that is completely
+   * separate from the URI used for reading.
+   *
+   * @param $uri
+   *   Optional URI.
+   *
+   * @return
+   *   Returns a string representing a location suitable for writing of a file,
+   *   or FALSE if unable to write to the file such as with read-only streams.
    */
-  function getTarget($uri = NULL) {
+  protected function getTarget($uri = NULL) {
     if (!isset($uri)) {
       $uri = $this->uri;
     }
@@ -477,7 +472,9 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
    * @see http://php.net/manual/en/streamwrapper.stream-seek.php
    */
   public function stream_seek($offset, $whence) {
-    return fseek($this->handle, $offset, $whence);
+    // fseek returns 0 on success and -1 on a failure.
+    // stream_seek   1 on success and  0 on a failure.
+    return !fseek($this->handle, $offset, $whence);
   }
 
   /**
@@ -542,7 +539,7 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
    */
   public function unlink($uri) {
     $this->uri = $uri;
-    return unlink($this->getLocalPath());
+    return drupal_unlink($this->getLocalPath());
   }
 
   /**
@@ -639,10 +636,10 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
   public function rmdir($uri, $options) {
     $this->uri = $uri;
     if ($options & STREAM_REPORT_ERRORS) {
-      return rmdir($this->getLocalPath());
+      return drupal_rmdir($this->getLocalPath());
     }
     else {
-      return @rmdir($this->getLocalPath());
+      return @drupal_rmdir($this->getLocalPath());
     }
   }
 
@@ -711,7 +708,11 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
    * @see http://php.net/manual/en/streamwrapper.dir-rewinddir.php
    */
   public function dir_rewinddir() {
-    return rewinddir($this->handle);
+    rewinddir($this->handle);
+    // We do not really have a way to signal a failure as rewinddir() does not
+    // have a return value and there is no way to read a directory handler
+    // without advancing to the next file.
+    return TRUE;
   }
 
   /**
@@ -723,7 +724,10 @@ abstract class DrupalLocalStreamWrapper implements DrupalStreamWrapperInterface 
    * @see http://php.net/manual/en/streamwrapper.dir-closedir.php
    */
   public function dir_closedir() {
-    return closedir($this->handle);
+    closedir($this->handle);
+    // We do not really have a way to signal a failure as closedir() does not
+    // have a return value.
+    return TRUE;
   }
 }
 

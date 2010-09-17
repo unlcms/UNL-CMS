@@ -1,5 +1,5 @@
 <?php
-// $Id: overlay.module,v 1.23 2010/07/08 12:20:23 dries Exp $
+// $Id: overlay.module,v 1.31 2010/08/31 15:04:09 webchick Exp $
 
 /**
  * @file
@@ -58,6 +58,39 @@ function overlay_theme() {
 }
 
 /**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function overlay_form_user_profile_form_alter(&$form, &$form_state) {
+  if ($form['#user_category'] == 'account') {
+    $account = $form['#user'];
+    if (user_access('access overlay', $account)) {
+      $form['overlay_control'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Administrative overlay'),
+        '#weight' => 4,
+        '#collapsible' => TRUE,
+      );
+
+      $form['overlay_control']['overlay'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Use the overlay for administrative pages.'),
+        '#description' => t('Show administrative pages on top of the page you started from.'),
+        '#default_value' => isset($account->data['overlay']) ? $account->data['overlay'] : 1,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function overlay_user_presave(&$edit, $account, $category) {
+  if (isset($edit['overlay'])) {
+    $edit['data']['overlay'] = $edit['overlay'];
+  }
+}
+
+/**
  * Implements hook_init().
  *
  * Determine whether the current page request is destined to appear in the
@@ -66,14 +99,14 @@ function overlay_theme() {
  * @see overlay_set_mode()
  */
 function overlay_init() {
-  // @todo: custom_theme does not exist anymore.
-  global $custom_theme;
+  global $user;
 
   $mode = overlay_get_mode();
 
   // Only act if the user has access to the overlay and a mode was not already
   // set. Other modules can also enable the overlay directly for other uses.
-  if (empty($mode) && user_access('access overlay')) {
+  $use_overlay = !isset($user->data['overlay']) || $user->data['overlay'];
+  if (empty($mode) && user_access('access overlay') && $use_overlay) {
     $current_path = current_path();
     // After overlay is enabled on the modules page, redirect to
     // <front>#overlay=admin/modules to actually enable the overlay.
@@ -87,13 +120,7 @@ function overlay_init() {
       if (!path_is_admin($current_path)) {
         overlay_close_dialog($current_path);
       }
-      // If system module did not switch the theme yet (i.e. this is not an
-      // admin page, per se), we should switch the theme here.
-      $admin_theme = variable_get('admin_theme', 0);
-      if ($custom_theme != $admin_theme) {
-        $custom_theme = $admin_theme;
-        drupal_add_css(drupal_get_path('module', 'system') . '/admin.css');
-      }
+
       // Indicate that we are viewing an overlay child page.
       overlay_set_mode('child');
 
@@ -101,7 +128,7 @@ function overlay_init() {
       unset($_GET['render']);
     }
     // Do not enable the overlay if we already are on an admin page.
-    else if (!path_is_admin($current_path)) {
+    elseif (!path_is_admin($current_path)) {
       // Otherwise add overlay parent code and our behavior.
       overlay_set_mode('parent');
     }
@@ -135,15 +162,6 @@ function overlay_exit() {
         }
       }
     }
-  }
-}
-
-/**
- * Implements hook_element_info_alter().
- */
-function overlay_element_info_alter(&$types) {
-  foreach (array('submit', 'button', 'image_button', 'form') as $type) {
-    $types[$type]['#after_build'][] = 'overlay_form_after_build';
   }
 }
 
@@ -326,82 +344,13 @@ function template_process_overlay(&$variables) {
 /**
  * Implements hook_preprocess_page().
  *
- * Display breadcrumbs correctly inside the overlay.
+ * Hide tabs inside the overlay.
  *
  * @see overlay_get_mode()
  */
 function overlay_preprocess_page(&$variables) {
   if (overlay_get_mode() == 'child') {
-    // Remove 'Home' from the breadcrumbs.
-    $overlay_breadcrumb = drupal_get_breadcrumb();
-    array_shift($overlay_breadcrumb);
-    $variables['breadcrumb'] = theme('breadcrumb', array('breadcrumb' => $overlay_breadcrumb));
-
-    $variables['tabs'] = '';
-    $variables['primary_local_tasks'] = '';
-  }
-}
-
-/**
- * Form after_build callback.
- *
- * After all hook_form_alter() implementations have been processed, we look at
- * the list of submit handlers and add our own at the end. The added handler
- * determines whether or not the user is redirected done at the end of form
- * processing, so that it's possible to close the overlay after submitting
- * a form.
- *
- * @see form_execute_handlers()
- * @see form_builder()
- * @see overlay_form_submit()
- *
- * @ingroup forms
- */
-function overlay_form_after_build($form, &$form_state) {
-  if (overlay_get_mode() == 'child') {
-    // If this element has submit handlers, then append our own.
-    if (isset($form['#submit'])) {
-      $form['#submit'][] = 'overlay_form_submit';
-    }
-  }
-  return $form;
-}
-
-/**
- * Generic form submit handler.
- *
- * When we are requested to close an overlay, we don't want Form API to
- * perform any redirection once the submitted form has been processed. Instead,
- * we set $form_state['redirect'] to FALSE so that Form API will simply
- * re-render the current page, and pass the redirect information on to the
- * overlay JavaScript so that the redirection can be performed there.
- *
- * @see overlay_get_mode()
- * @ingroup forms
- */
-function overlay_form_submit($form, &$form_state) {
-  if (isset($form_state['redirect'])) {
-    // A destination set in the URL trumps $form_state['redirect'].
-    if (isset($_GET['destination'])) {
-      $url = $_GET['destination'];
-      $url_settings = array();
-    }
-    elseif (is_array($form_state['redirect'])) {
-      $url = $form_state['redirect'][0];
-      $url_settings = $form_state['redirect'][1];
-    }
-    else {
-      $url = $form_state['redirect'];
-      $url_settings = array();
-    }
-    // Close the overlay if we are redirecting to a non-admin page or if the
-    // overlay module has just been disabled.
-    if (!path_is_admin($url) || !module_exists('overlay')) {
-      overlay_close_dialog($url, $url_settings);
-      // Tell FAPI to stay on the same page after all submit callbacks have
-      // been processed.
-      $form_state['redirect'] = FALSE;
-    }
+    unset($variables['tabs'][0]);
   }
 }
 
@@ -451,8 +400,6 @@ function overlay_page_delivery_callback_alter(&$callback) {
  *
  * This function is used to print out a bare minimum empty page which still has
  * the scripts and styles necessary in order to trigger the overlay to close.
- *
- * @see overlay_form_submit()
  */
 function overlay_deliver_empty_page() {
   $empty_page = '<html><head><title></title>' . drupal_get_css() . drupal_get_js() . '</head><body class="overlay"></body></html>';
@@ -515,7 +462,6 @@ function overlay_set_mode($mode = NULL) {
   switch ($overlay_mode) {
     case 'parent':
       drupal_add_library('overlay', 'parent');
-      drupal_add_library('overlay', 'jquery-bbq');
 
       // Allow modules to act upon overlay events.
       module_invoke_all('overlay_parent_initialize');
@@ -716,7 +662,9 @@ function overlay_set_regions_to_render($regions = NULL) {
  * supplemental overlay regions (e.g., a region containing a toolbar). Passing
  * in a region that is intended to display the main page content is not
  * supported; the region will be rendered by this function, but the main page
- * content will not appear in it.
+ * content will not appear in it. In addition, although this function returns
+ * the rendered HTML for the provided region, it does not place it on the final
+ * page, nor add any of its associated JavaScript or CSS to the page.
  *
  * @param $region
  *   The name of the page region that should be rendered.
@@ -740,7 +688,17 @@ function overlay_render_region($region) {
     '#theme' => NULL,
     '#theme_wrappers' => array(),
   );
+  // Render the region, but do not cache any JavaScript or CSS associated with
+  // it. This region might not be included the next time drupal_render_page()
+  // is called, and we do not want its JavaScript or CSS to erroneously appear
+  // on the final rendered page.
+  $original_js = drupal_add_js();
+  $original_css = drupal_add_css();
+  $js = &drupal_static('drupal_add_js');
+  $css = &drupal_static('drupal_add_css');
   $markup = drupal_render_page($page);
+  $js = $original_js;
+  $css = $original_css;
   // Indicate that the main page content has not, in fact, been displayed, so
   // that future calls to drupal_render_page() will be able to render it
   // correctly.

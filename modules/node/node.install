@@ -1,5 +1,5 @@
 <?php
-// $Id: node.install,v 1.51 2010/05/14 04:37:53 webchick Exp $
+// $Id: node.install,v 1.55 2010/09/13 05:50:09 webchick Exp $
 
 /**
  * @file
@@ -118,8 +118,14 @@ function node_schema() {
       'vid' => array('vid'),
     ),
     'foreign keys' => array(
-      'vid' => array('node_revision' => 'vid'),
-      'uid' => array('users' => 'uid'),
+      'node_revision' => array(
+        'table' => 'node_revision',
+        'columns' => array('vid' => 'vid'),
+      ),
+      'node_author' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
     ),
     'primary key' => array('nid'),
   );
@@ -174,7 +180,12 @@ function node_schema() {
       ),
     ),
     'primary key' => array('nid', 'gid', 'realm'),
-    'foreign keys' => array('node' => 'nid'),
+    'foreign keys' => array(
+      'affected_node' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid'),
+      ),
+     ),
   );
 
   $schema['node_revision'] = array(
@@ -249,8 +260,14 @@ function node_schema() {
     ),
     'primary key' => array('vid'),
     'foreign keys' => array(
-      'node' => 'nid',
-      'users' => 'uid'
+      'versioned_node' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid'),
+      ),
+      'version_author' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
     ),
   );
 
@@ -402,6 +419,17 @@ function node_update_dependencies() {
 }
 
 /**
+ * Utility function: fetch the node types directly from the database.
+ *
+ * This function is valid for a database schema version 7000.
+ *
+ * @ingroup update-api-6.x-to-7.x
+ */
+function _update_7000_node_get_types() {
+  return db_query('SELECT * FROM {node_type}')->fetchAllAssoc('type', PDO::FETCH_OBJ);
+}
+
+/**
  * @defgroup updates-6.x-to-7.x System updates from 6.x to 7.x
  * @{
  */
@@ -495,12 +523,44 @@ function node_update_7006(&$sandbox) {
     $result = db_select('node_type', 'node_type')
       ->fields('node_type')
       ->execute();
+    foreach ($result as $type_object) {
+      $node_types[$type_object->type] = $type_object;
+    }
+    $extra_types = db_query('SELECT DISTINCT type FROM {node} WHERE type NOT IN (:types)', array(':types' => array_keys($node_types)))->fetchCol();
+    foreach ($extra_types as $type) {
+      $type_object = new stdClass;
+      $type_object->type = $type;
+      // Always create a body. Querying node_revisions for a non-empty body
+      // would skip creating body fields for types that have a body but
+      // the nodes of that type so far had empty bodies.
+      $type_object->has_body = 1;
+      $type_object->body_label = 'Body';
+      $node_types[$type_object->type] = $type_object;
+    }
 
+    $default_trim_length = variable_get('teaser_length', 600);
     // Add body field instances for existing node types.
-    foreach ($result as $node_type) {
+    foreach ($node_types as $node_type) {
       if ($node_type->has_body) {
-        node_add_body_field($node_type, $node_type->body_label);
+        $instance = node_add_body_field($node_type, $node_type->body_label);
+        // Update newly created instance to convert teaser_length variable
+        // into formatter settings.
+        $trim_length = variable_get('teaser_length_' . $node_type->type, $default_trim_length);
+        $instance_changed = FALSE;
+        foreach ($instance['display'] as $view_mode => $view_mode_info) {
+          if ($view_mode_info['type'] == 'text_trimmed' || $view_mode_info['type'] == 'text_summary_or_trimmed') {
+            if (!isset($view_mode_info['settings']['trim_length'])) {
+              $instance['display'][$view_mode]['settings']['trim_length'] = $trim_length;
+              $instance_changed = TRUE;
+            }
+          }
+        }
+        if ($instance_changed) {
+          field_update_instance($instance);
+        }
+        variable_del('teaser_length_' . $node_type->type);
       }
+      // Leave 'teaser_length' variable for aggregator module upgrade.
 
       $sandbox['node_types_info'][$node_type->type] = array(
         'has_body' => $node_type->has_body,

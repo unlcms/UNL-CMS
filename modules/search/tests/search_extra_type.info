@@ -1,0 +1,14 @@
+; $Id: search_extra_type.info,v 1.1 2010/08/05 07:11:15 webchick Exp $
+name = "Test search type"
+description = "Support module for search module testing."
+package = Testing
+version = VERSION
+core = 7.x
+files[] = search_extra_type.module
+hidden = TRUE
+
+; Information added by drupal.org packaging script on 2010-09-16
+version = "7.0-alpha7"
+project = "drupal"
+datestamp = "1284599761"
+

@@ -1,5 +1,5 @@
 <?php
-// $Id: text.module,v 1.59 2010/07/07 13:30:06 dries Exp $
+// $Id: text.module,v 1.64 2010/09/11 04:19:15 webchick Exp $
 
 /**
  * @file
@@ -52,60 +52,7 @@ function text_field_info() {
       'description' => t('This field stores long text in the database along with optional summary text.'),
       'instance_settings' => array('text_processing' => 1, 'display_summary' => 0),
       'default_widget' => 'text_textarea_with_summary',
-      'default_formatter' => 'text_summary_or_trimmed',
-    ),
-  );
-}
-
-/**
- * Implements hook_field_schema().
- */
-function text_field_schema($field) {
-  switch ($field['type']) {
-    case 'text':
-      $columns = array(
-        'value' => array(
-          'type' => 'varchar',
-          'length' => $field['settings']['max_length'],
-          'not null' => FALSE,
-        ),
-      );
-      break;
-    case 'text_long':
-      $columns = array(
-        'value' => array(
-          'type' => 'text',
-          'size' => 'big',
-          'not null' => FALSE,
-        ),
-      );
-      break;
-    case 'text_with_summary':
-      $columns = array(
-        'value' => array(
-          'type' => 'text',
-          'size' => 'big',
-          'not null' => FALSE,
-        ),
-        'summary' => array(
-          'type' => 'text',
-          'size' => 'big',
-          'not null' => FALSE,
-        ),
-      );
-      break;
-  }
-  $columns += array(
-    'format' => array(
-      'type' => 'int',
-      'unsigned' => TRUE,
-      'not null' => FALSE,
-    ),
-  );
-  return array(
-    'columns' => $columns,
-    'indexes' => array(
-      'format' => array('format'),
+      'default_formatter' => 'text_default',
     ),
   );
 }
@@ -251,6 +198,7 @@ function text_field_formatter_info() {
     'text_trimmed' => array(
       'label' => t('Trimmed'),
       'field types' => array('text', 'text_long', 'text_with_summary'),
+      'settings' => array('trim_length' => 600),
     ),
 
     // The 'summary or trimmed' field formatter for text_with_summary
@@ -260,8 +208,48 @@ function text_field_formatter_info() {
     'text_summary_or_trimmed' => array(
       'label' => t('Summary or trimmed'),
       'field types' => array('text_with_summary'),
+      'settings' => array('trim_length' => 600),
     ),
   );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function text_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $form = array();
+
+  if (strpos($display['type'], '_trimmed') !== FALSE) {
+    $form['trim_length'] = array(
+      '#title' => t('Trim length'),
+      '#type' => 'textfield',
+      '#size' => 10,
+      '#default_value' => $settings['trim_length'],
+      '#element_validate' => array('_element_validate_integer_positive'),
+      '#required' => TRUE,
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function text_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = '';
+
+  if (strpos($display['type'], '_trimmed') !== FALSE) {
+    $summary = t('Trim length') . ': ' . $settings['trim_length'];
+  }
+
+  return $summary;
 }
 
 /**
@@ -276,7 +264,7 @@ function text_field_formatter_view($entity_type, $entity, $field, $instance, $la
       foreach ($items as $delta => $item) {
         $output = _text_sanitize($instance, $langcode, $item, 'value');
         if ($display['type'] == 'text_trimmed') {
-          $output = text_summary($output, $instance['settings']['text_processing'] ? $item['format'] : NULL);
+          $output = text_summary($output, $instance['settings']['text_processing'] ? $item['format'] : NULL, $display['settings']['trim_length']);
         }
         $element[$delta] = array('#markup' => $output);
       }
@@ -289,8 +277,7 @@ function text_field_formatter_view($entity_type, $entity, $field, $instance, $la
         }
         else {
           $output = _text_sanitize($instance, $langcode, $item, 'value');
-          $size = variable_get('teaser_length_' . $instance['bundle'], 600);
-          $output = text_summary($output, $instance['settings']['text_processing'] ? $item['format'] : NULL, $size);
+          $output = text_summary($output, $instance['settings']['text_processing'] ? $item['format'] : NULL, $display['settings']['trim_length']);
         }
         $element[$delta] = array('#markup' => $output);
       }
@@ -599,11 +586,30 @@ function text_field_prepare_translation($entity_type, $entity, $field, $instance
   // If the translating user is not permitted to use the assigned text format,
   // we must not expose the source values.
   $field_name = $field['field_name'];
-  $formats = filter_formats();
-  foreach ($source_entity->{$field_name}[$source_langcode] as $delta => $item) {
-    $format_id = $item['format'];
-    if (!filter_access($formats[$format_id])) {
-      unset($items[$delta]);
+  if (!empty($source_entity->{$field_name}[$source_langcode])) {
+    $formats = filter_formats();
+    foreach ($source_entity->{$field_name}[$source_langcode] as $delta => $item) {
+      $format_id = $item['format'];
+      if (!empty($format_id) && !filter_access($formats[$format_id])) {
+        unset($items[$delta]);
+      }
     }
   }
+}
+
+/**
+ * Implements hook_filter_format_update().
+ */
+function text_filter_format_update() {
+  field_cache_clear();
+}
+
+/**
+ * Implements hook_filter_format_delete().
+ *
+ * @todo D8: Properly update filter format references in all fields. See
+ *   http://drupal.org/node/556022 for details.
+ */
+function text_filter_format_delete() {
+  field_cache_clear();
 }

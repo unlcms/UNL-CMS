@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.install,v 1.35 2010/03/26 17:14:45 dries Exp $
+// $Id: simpletest.install,v 1.37 2010/09/01 20:08:17 dries Exp $
 
 /**
  * @file
@@ -20,12 +20,12 @@ function simpletest_uninstall() {
   variable_del('simpletest_verbose');
 
   // Remove generated files.
-  $path = file_directory_path() . '/simpletest';
+  $path = 'public://simpletest';
   $files = file_scan_directory($path, '/.*/');
   foreach ($files as $file) {
     file_unmanaged_delete($file->uri);
   }
-  rmdir($path);
+  drupal_rmdir($path);
 }
 
 /**

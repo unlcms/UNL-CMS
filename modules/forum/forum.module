@@ -1,5 +1,5 @@
 <?php
-// $Id: forum.module,v 1.567 2010/06/20 23:55:08 webchick Exp $
+// $Id: forum.module,v 1.575 2010/09/07 23:39:08 dries Exp $
 
 /**
  * @file
@@ -41,7 +41,7 @@ function forum_help($path, $arg) {
       return $output;
     case 'admin/structure/forum':
       $output = '<p>' . t('Forums contain forum topics. Use containers to group related forums.') . '</p>';
-      $output .= theme('more_help_link', array('url' => url('admin/help/forum')));
+      $output .= theme('more_help_link', array('url' => 'admin/help/forum'));
       return $output;
     case 'admin/structure/forum/add/container':
       return '<p>' . t('Use containers to group related forums.') . '</p>';
@@ -218,13 +218,6 @@ function forum_menu_local_tasks_alter(&$data, $router_item, $root_path) {
 }
 
 /**
- * Implements hook_init().
- */
-function forum_init() {
-  drupal_add_css(drupal_get_path('module', 'forum') . '/forum.css');
-}
-
-/**
  * Implements hook_entity_info_alter().
  */
 function forum_entity_info_alter(&$info) {
@@ -277,7 +270,7 @@ function forum_node_view($node, $view_mode) {
   $vid = variable_get('forum_nav_vocabulary', 0);
   $vocabulary = taxonomy_vocabulary_load($vid);
   if (_forum_node_check_node_type($node)) {
-    if (node_is_page($node)) {
+    if ($view_mode == 'full' && node_is_page($node)) {
       // Breadcrumb navigation
       $breadcrumb[] = l(t('Home'), NULL);
       $breadcrumb[] = l($vocabulary->name, 'forum');
@@ -700,7 +693,7 @@ function forum_block_view_pre_render($elements) {
   $result = $elements['#query']->execute();
   if ($node_title_list = node_title_list($result)) {
     $elements['forum_list'] = $node_title_list;
-    $elements['forum_more'] = array('#theme' => 'more_link', '#url' => url('forum'), '#title' => t('Read the latest forum topics.'));
+    $elements['forum_more'] = array('#theme' => 'more_link', '#url' => 'forum', '#title' => t('Read the latest forum topics.'));
   }
   return $elements;
 }
@@ -761,7 +754,7 @@ function forum_forum_load($tid = NULL) {
     }
   }
   // If $tid is 0, create an empty object to hold the child terms.
-  else if ($tid === 0) {
+  elseif ($tid === 0) {
     $forum_term = (object) array(
       'tid' => 0,
     );
@@ -852,7 +845,7 @@ function forum_forum_load($tid = NULL) {
 function _forum_topics_unread($term, $uid) {
   $query = db_select('node', 'n');
   $query->join('forum', 'f', 'n.vid = f.vid AND f.tid = :tid', array(':tid' => $term));
-  $query->join('history', 'h', 'n.nid = h.nid AND h.uid = :uid', array(':uid' => $uid));
+  $query->leftJoin('history', 'h', 'n.nid = h.nid AND h.uid = :uid', array(':uid' => $uid));
   $query->addExpression('COUNT(n.nid)', 'count');
   return $query
     ->condition('status', 1)
@@ -989,7 +982,7 @@ function template_preprocess_forums(&$variables) {
 
     if ($variables['tid'] && !in_array($variables['tid'], variable_get('forum_containers', array()))) {
       $variables['topics'] = theme('forum_topic_list', $variables);
-      drupal_add_feed(url('taxonomy/term/' . $variables['tid'] . '/0/feed'), 'RSS - ' . $title);
+      drupal_add_feed('taxonomy/term/' . $variables['tid'] . '/0/feed', 'RSS - ' . $title);
     }
     else {
       $variables['topics'] = '';

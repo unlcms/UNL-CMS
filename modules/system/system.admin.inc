@@ -1,5 +1,5 @@
 <?php
-// $Id: system.admin.inc,v 1.292 2010/07/08 03:41:27 webchick Exp $
+// $Id: system.admin.inc,v 1.304 2010/09/15 04:31:02 webchick Exp $
 
 /**
  * @file
@@ -486,6 +486,10 @@ function system_theme_settings($form, &$form_state, $key = '') {
     $disabled['toggle_node_user_picture'] = TRUE;
     $disabled['toggle_comment_user_picture'] = TRUE;
   }
+  if (!module_exists('comment')) {
+    $disabled['toggle_comment_user_picture'] = TRUE;
+    $disabled['toggle_comment_user_verification'] = TRUE;
+  }
 
   $form['theme_settings'] = array(
     '#type' => 'fieldset',
@@ -672,8 +676,10 @@ function system_theme_settings_validate($form, &$form_state) {
     }
   }
 
+  $validators = array('file_validate_extensions' => array('ico png gif jpg jpeg apng svg'));
+
   // Check for a new uploaded favicon.
-  $file = file_save_upload('favicon_upload');
+  $file = file_save_upload('favicon_upload', $validators);
   if (isset($file)) {
     // File upload was attempted.
     if ($file) {
@@ -953,8 +959,13 @@ function system_modules($form, $form_state = array()) {
         t('Description'),
         array('data' => t('Operations'), 'colspan' => 3),
       ),
+      // Ensure that the "Core" package fieldset comes first.
+      '#weight' => $package == 'Core' ? -10 : NULL,
     );
   }
+
+  // Lastly, sort all fieldsets by title.
+  uasort($form['modules'], 'element_sort_by_title');
 
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
@@ -1259,8 +1270,6 @@ function system_modules_submit($form, &$form_state) {
 
   // Synchronize to catch any actions that were added or removed.
   actions_synchronize();
-
-  return;
 }
 
 /**
@@ -1507,41 +1516,52 @@ function system_ip_blocking_delete_submit($form, &$form_state) {
  * @see system_settings_form()
  */
 function system_site_information_settings() {
-  $form['site_name'] = array(
+  $form['site_information'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Site details'),
+  );
+  $form['site_information']['site_name'] = array(
     '#type' => 'textfield',
     '#title' => t('Site name'),
     '#default_value' => variable_get('site_name', 'Drupal'),
     '#required' => TRUE
   );
-  $form['site_slogan'] = array(
+  $form['site_information']['site_slogan'] = array(
     '#type' => 'textfield',
     '#title' => t('Slogan'),
     '#default_value' => variable_get('site_slogan', ''),
     '#description' => t("How this is used depends on your site's theme."),
   );
-  $form['site_mail'] = array(
+  $form['site_information']['site_mail'] = array(
     '#type' => 'textfield',
     '#title' => t('E-mail address'),
     '#default_value' => variable_get('site_mail', ini_get('sendmail_from')),
     '#description' => t("The <em>From</em> address in automated e-mails sent during registration and new password requests, and other notifications. (Use an address ending in your site's domain to help prevent this e-mail being flagged as spam.)"),
     '#required' => TRUE,
   );
-  $form['site_frontpage'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Default front page'),
-    '#default_value' => drupal_get_path_alias(variable_get('site_frontpage', 'node')),
-    '#size' => 40,
-    '#description' => t('The home page displays content from this relative URL. If unsure, specify "node".'),
-    '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
-    '#required' => TRUE,
+  $form['front_page'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Front page'),
   );
-  $form['default_nodes_main'] = array(
+  $form['front_page']['default_nodes_main'] = array(
     '#type' => 'select', '#title' => t('Number of posts on front page'),
     '#default_value' => variable_get('default_nodes_main', 10),
     '#options' => drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30)),
     '#description' => t('The maximum number of posts displayed on overview pages such as the front page.')
   );
-  $form['site_403'] = array(
+  $form['front_page']['site_frontpage'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default front page'),
+    '#default_value' => (variable_get('site_frontpage')!='node'?drupal_get_path_alias(variable_get('site_frontpage', 'node')):''),
+    '#size' => 40,
+    '#description' => t('Optionally, specify a relative URL to display as the front page.  Leave blank to display the default content feed.'),
+    '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q='),
+  );
+  $form['error_page'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Error pages'),
+  );
+  $form['error_page']['site_403'] = array(
     '#type' => 'textfield',
     '#title' => t('Default 403 (access denied) page'),
     '#default_value' => variable_get('site_403', ''),
@@ -1549,20 +1569,13 @@ function system_site_information_settings() {
     '#description' => t('This page is displayed when the requested document is denied to the current user. Leave blank to display a generic "access denied" page.'),
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q=')
   );
-  $form['site_404'] = array(
+  $form['error_page']['site_404'] = array(
     '#type' => 'textfield',
     '#title' => t('Default 404 (not found) page'),
     '#default_value' => variable_get('site_404', ''),
     '#size' => 40,
     '#description' => t('This page is displayed when no other content matches the requested document. Leave blank to display a generic "page not found" page.'),
     '#field_prefix' => url(NULL, array('absolute' => TRUE)) . (variable_get('clean_url', 0) ? '' : '?q=')
-  );
-  $form['cron_safe_threshold'] = array(
-    '#type' => 'select',
-    '#title' => t('Automatically run cron'),
-    '#default_value' => variable_get('cron_safe_threshold', DRUPAL_CRON_DEFAULT_THRESHOLD),
-    '#options' => array(0 => t('Never')) + drupal_map_assoc(array(3600, 10800, 21600, 43200, 86400, 604800), 'format_interval'),
-    '#description' => t('When enabled, the site will check whether cron has been run in the configured interval and automatically run it upon the next page request. For more information visit the <a href="@status-report-url">status report page</a>.', array('@status-report-url' => url('admin/reports/status'))),
   );
 
   $form['#validate'][] = 'system_site_information_settings_validate';
@@ -1571,19 +1584,90 @@ function system_site_information_settings() {
 }
 
 /**
- * Validate the submitted site-information form.
+ * Validates the submitted site-information form.
  */
 function system_site_information_settings_validate($form, &$form_state) {
   // Validate the e-mail address.
   if ($error = user_validate_mail($form_state['values']['site_mail'])) {
     form_set_error('site_mail', $error);
   }
-  // Get the normal path of the front page.
-  form_set_value($form['site_frontpage'], drupal_get_normal_path($form_state['values']['site_frontpage']), $form_state);
+  // Check for empty front page path.
+  if (empty($form_state['values']['site_frontpage'])) {
+    // Set to default "node".
+    form_set_value($form['front_page']['site_frontpage'], 'node', $form_state);
+  }
+  else {
+    // Get the normal path of the front page.
+    form_set_value($form['front_page']['site_frontpage'], drupal_get_normal_path($form_state['values']['site_frontpage']), $form_state);
+  }
   // Validate front page path.
   if (!drupal_valid_path($form_state['values']['site_frontpage'])) {
-    form_set_error('site_frontpage', t("The path '@path' is either invalid or you do not have access to it.", array('@path' => $form_state['values']['site_frontpage'])));
+    form_set_error('site_frontpage', t("The path '%path' is either invalid or you do not have access to it.", array('%path' => $form_state['values']['site_frontpage'])));
   }
+  // Get the normal paths of both error pages.
+  if (!empty($form_state['values']['site_403'])) {
+    form_set_value($form['error_page']['site_403'], drupal_get_normal_path($form_state['values']['site_403']), $form_state);
+  }
+  if (!empty($form_state['values']['site_404'])) {
+    form_set_value($form['error_page']['site_404'], drupal_get_normal_path($form_state['values']['site_404']), $form_state);
+  }
+  // Validate 403 error path.
+  if (!empty($form_state['values']['site_403']) && !drupal_valid_path($form_state['values']['site_403'])) {
+    form_set_error('site_403', t("The path '%path' is either invalid or you do not have access to it.", array('%path' => $form_state['values']['site_403'])));
+  }
+  // Validate 404 error path.
+  if (!empty($form_state['values']['site_404']) && !drupal_valid_path($form_state['values']['site_404'])) {
+    form_set_error('site_404', t("The path '%path' is either invalid or you do not have access to it.", array('%path' => $form_state['values']['site_404'])));
+  }
+}
+
+/**
+ * Form builder; Cron form.
+ *
+ * @see system_settings_form()
+ * @ingroup forms
+ */
+function system_cron_settings() {
+  $form['description'] = array(
+    '#markup' => '<p>'.t('Cron takes care of running periodical tasks like checking for updates and indexing content for search.').'</p>',
+  );
+  $form['run'] = array(
+    '#type' => 'submit',
+    '#value' => t('Run cron'),
+    '#submit' => array('system_run_cron_submit'),
+  );
+  $status = '<p>' . t('Last run: %cron-last ago.', array('%cron-last' => format_interval(REQUEST_TIME - variable_get('cron_last')),)) . '</p>';
+  $form['status'] = array(
+    '#markup' => $status,
+  );
+  $form['cron'] = array(
+    '#type' => 'fieldset',
+  );
+  $form['cron']['cron_safe_threshold'] = array(
+    '#type' => 'select',
+    '#title' => t('Run cron every'),
+    '#default_value' => variable_get('cron_safe_threshold', DRUPAL_CRON_DEFAULT_THRESHOLD),
+    '#options' => array(0 => t('Never')) + drupal_map_assoc(array(3600, 10800, 21600, 43200, 86400, 604800), 'format_interval'),
+  );
+
+  return system_settings_form($form, FALSE);
+}
+
+/**
+ * Submit callback; run cron.
+ *
+ * @ingroup forms
+ */
+function system_run_cron_submit($form, &$form_state) {
+  // Run cron manually from Cron form.
+  if (drupal_cron_run()) {
+    drupal_set_message(t('Cron run successfully.'));
+  }
+  else {
+    drupal_set_message(t('Cron run failed.'), 'error');
+  }
+
+  drupal_goto('admin/config/system/cron');
 }
 
 /**
@@ -1694,6 +1778,9 @@ function system_performance_settings() {
 
   $form['#submit'][] = 'drupal_clear_css_cache';
   $form['#submit'][] = 'drupal_clear_js_cache';
+  // This form allows page compression settings to be changed, which can
+  // invalidate the page cache, so it needs to be cleared on form submit.
+  $form['#submit'][] = 'system_clear_page_cache_submit';
 
   return system_settings_form($form);
 }
@@ -1709,6 +1796,15 @@ function system_clear_cache_submit($form, &$form_state) {
 }
 
 /**
+ * Submit callback; clear the page cache.
+ *
+ * @ingroup forms
+ */
+function system_clear_page_cache_submit($form, &$form_state) {
+  cache_clear_all('*', 'cache_page', TRUE);
+}
+
+/**
  * Form builder; Configure the site file handling.
  *
  * @ingroup forms
@@ -1718,7 +1814,7 @@ function system_file_system_settings() {
   $form['file_public_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Public file system path'),
-    '#default_value' => variable_get('file_public_path', file_directory_path()),
+    '#default_value' => variable_get('file_public_path', conf_path() . '/files'),
     '#maxlength' => 255,
     '#description' => t('A local file system path where public files will be stored. This directory must exist and be writable by Drupal. This directory must be relative to the Drupal installation directory and be accessible over the web.'),
     '#after_build' => array('system_check_directory'),
@@ -1727,7 +1823,7 @@ function system_file_system_settings() {
   $form['file_private_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Private file system path'),
-    '#default_value' => variable_get('file_private_path', file_directory_path('private')),
+    '#default_value' => variable_get('file_private_path', ''),
     '#maxlength' => 255,
     '#description' => t('A local file system path where private files will be stored. This directory must exist and be writable by Drupal. This directory should not be accessible over the web.'),
     '#after_build' => array('system_check_directory'),
@@ -1736,7 +1832,7 @@ function system_file_system_settings() {
   $form['file_temporary_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Temporary directory'),
-    '#default_value' => variable_get('file_temporary_path', file_directory_path('temporary')),
+    '#default_value' => variable_get('file_temporary_path', file_directory_temp()),
     '#maxlength' => 255,
     '#description' => t('A local file system path where temporary files will be stored. This directory should not be accessible over the web.'),
     '#after_build' => array('system_check_directory'),
@@ -2013,7 +2109,8 @@ function theme_system_date_time_settings($variables) {
     $delete_key = $key . '_delete';
     $row = array();
     $row[] = $form['format'][$key]['#title'];
-    unset($form['format'][$key]['#title']);
+    $form['format'][$key]['#title_display'] = 'invisible';
+    $row[] = $form['format'][$key]['#title_display'];
     $row[] = array('data' => drupal_render($form['format'][$key]));
     $row[] = array('data' => drupal_render($form['delete'][$delete_key]));
     $rows[] = $row;
@@ -2151,7 +2248,7 @@ function system_site_maintenance_mode() {
     '#type' => 'checkbox',
     '#title' => t('Put site into maintenance mode'),
     '#default_value' => variable_get('maintenance_mode', 0),
-    '#description' => t('When enabled, only users with the "Access site in maintenance mode" <a href="@permissions-url">permission</a> are able to access your site to perform maintenance; all other visitors see the maintenance mode message configured below. Authorized users can log in directly via the <a href="@user-login">user login</a> page.', array('@permissions-url' => url('admin/people/permissions'), '@user-login' => url('user'))),
+    '#description' => t('When enabled, only users with the "Use the site in maintenance mode" <a href="@permissions-url">permission</a> are able to access your site to perform maintenance; all other visitors see the maintenance mode message configured below. Authorized users can log in directly via the <a href="@user-login">user login</a> page.', array('@permissions-url' => url('admin/people/permissions'), '@user-login' => url('user'))),
   );
   $form['maintenance_mode_message'] = array(
     '#type' => 'textarea',
@@ -2783,6 +2880,7 @@ function system_configure_date_formats_form($form, &$form_state, $dfid = 0) {
   $form['date_format'] = array(
     '#type' => 'textfield',
     '#title' => t('Format string'),
+    '#maxlength' => 100,
     '#description' => t('A user-defined date format. See the <a href="@url">PHP manual</a> for available options.', array('@url' => 'http://php.net/manual/function.date.php')),
     '#default_value' => ($dfid ? $format->format : ''),
     '#field_suffix' => ' <small id="edit-date-format-suffix">' . $now . '</small>',
@@ -3083,9 +3181,8 @@ function system_actions_delete_form_submit($form, &$form_state) {
   $aid = $form_state['values']['aid'];
   $action = actions_load($aid);
   actions_delete($aid);
-  $label = check_plain($action->label);
-  watchdog('user', 'Deleted action %aid (%action)', array('%aid' => $aid, '%action' => $label));
-  drupal_set_message(t('Action %action was deleted', array('%action' => $label)));
+  watchdog('user', 'Deleted action %aid (%action)', array('%aid' => $aid, '%action' => $action->label));
+  drupal_set_message(t('Action %action was deleted', array('%action' => $action->label)));
   $form_state['redirect'] = 'admin/config/system/actions/manage';
 }
 

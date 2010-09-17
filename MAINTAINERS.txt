@@ -1,4 +1,4 @@
-// $Id: MAINTAINERS.txt,v 1.42 2010/06/03 13:50:54 dries Exp $
+// $Id: MAINTAINERS.txt,v 1.46 2010/09/11 14:49:42 dries Exp $
 
 Drupal core is maintained by the community.  To participate, go to
 
@@ -115,7 +115,7 @@ Update system
 - ?
 
 XML-RPC system
-- ?
+- Frederic G. Marand 'fgm' <http://drupal.org/user/27985>
 
 
 Topic coordinators
@@ -123,6 +123,7 @@ Topic coordinators
 
 Accessibility
 - Everett Zufelt 'Everett Zufelt' <http://drupal.org/user/406552>
+- Brandon Bowersox 'brandonojc' <http://drupal.org/user/186415> 
 
 Documentation
 - Addison Berry 'add1sun' <http://drupal.org/user/65088>
@@ -274,8 +275,11 @@ User module
 Theme maintainers
 -----------------
 
+Bartik theme
+- Jen Simmons 'jensimmons' <http://drupal.org/user/140882>
+
 Garland theme
-- Stefan Nagtegaal 'steef' <http://drupal.org/user/612>
+- ?
 
 Seven theme
 - ?

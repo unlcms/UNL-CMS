@@ -1,5 +1,5 @@
 <?php
-// $Id: field_sql_storage.module,v 1.48 2010/06/26 02:16:23 dries Exp $
+// $Id: field_sql_storage.module,v 1.52 2010/09/05 20:00:45 dries Exp $
 
 /**
  * @file
@@ -309,11 +309,12 @@ function field_sql_storage_field_storage_delete_field($field) {
  * Implements hook_field_storage_load().
  */
 function field_sql_storage_field_storage_load($entity_type, $entities, $age, $fields, $options) {
+  $field_info = field_info_field_by_ids();
   $etid = _field_sql_storage_etid($entity_type);
   $load_current = $age == FIELD_LOAD_CURRENT;
 
   foreach ($fields as $field_id => $ids) {
-    $field = field_info_field_by_id($field_id);
+    $field = $field_info[$field_id];
     $field_name = $field['field_name'];
     $table = $load_current ? _field_sql_storage_tablename($field) : _field_sql_storage_revision_tablename($field);
 
@@ -501,6 +502,8 @@ function field_sql_storage_field_storage_query(EntityFieldQuery $query) {
     }
     else {
       $select_query = db_select($tablename, $table_alias);
+      $select_query->addTag('entity_field_access');
+      $select_query->addMetaData('base_table', $tablename);
       $select_query->fields($table_alias, array('entity_id', 'revision_id', 'bundle'));
       // As only a numeric ID is stored instead of the entity type add the
       // field_config_entity_type table to resolve the etid to a more readable
@@ -546,6 +549,7 @@ function field_sql_storage_field_storage_query(EntityFieldQuery $query) {
   if (isset($query->deleted)) {
     $select_query->condition("$field_base_table.deleted", (int) $query->deleted);
   }
+
   if ($query->propertyConditions || $query->propertyOrder) {
     if (empty($query->entityConditions['entity_type']['value'])) {
       throw new EntityFieldQueryException('Property conditions and orders must have an entity type defined.');
@@ -561,7 +565,7 @@ function field_sql_storage_field_storage_query(EntityFieldQuery $query) {
   }
   foreach ($query->entityOrder as $key => $direction) {
     $sql_field = $key == 'entity_type' ? 'fcet.type' : "$field_base_table.$key";
-    $query->orderBy($sql_field, $direction);
+    $select_query->orderBy($sql_field, $direction);
   }
   return $query->finishQuery($select_query, $id_key);
 }
@@ -677,20 +681,21 @@ function field_sql_storage_field_storage_purge_field($field) {
  */
 function field_sql_storage_field_storage_details($field) {
   $details = array();
-
-  // Add field columns.
-  foreach ((array) $field['columns'] as $column_name => $attributes) {
-    $real_name = _field_sql_storage_columnname($field['field_name'], $column_name);
-    $columns[$column_name] = $real_name;
+  if (!empty($field['columns'])) {
+     // Add field columns.
+    foreach ($field['columns'] as $column_name => $attributes) {
+      $real_name = _field_sql_storage_columnname($field['field_name'], $column_name);
+      $columns[$column_name] = $real_name;
+    }
+    return array(
+      'sql' => array(
+        FIELD_LOAD_CURRENT => array(
+          _field_sql_storage_tablename($field) => $columns,
+        ),
+        FIELD_LOAD_REVISION => array(
+          _field_sql_storage_revision_tablename($field) => $columns,
+        ),
+      ),
+    );
   }
-  return array(
-    'sql' => array(
-      FIELD_LOAD_CURRENT => array(
-        _field_sql_storage_tablename($field) => $columns,
-      ),
-      FIELD_LOAD_REVISION => array(
-        _field_sql_storage_revision_tablename($field) => $columns,
-      ),
-    ),
-  );
 }

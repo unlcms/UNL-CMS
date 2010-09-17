@@ -1,5 +1,5 @@
 <?php
-// $Id: system_test.module,v 1.30 2010/06/28 20:27:34 dries Exp $
+// $Id: system_test.module,v 1.32 2010/08/01 23:35:01 dries Exp $
 
 /**
  * Implements hook_menu().
@@ -263,11 +263,11 @@ function system_test_page_build(&$page) {
     $page['footer'] = drupal_set_page_content();
     $page['footer']['main']['#markup'] = '<div id="system-test-content">' . $page['footer']['main']['#markup'] . '</div>';
   }
-  else if ($menu_item['path'] == 'system-test/main-content-fallback') {
+  elseif ($menu_item['path'] == 'system-test/main-content-fallback') {
     drupal_set_page_content();
     $main_content_display = FALSE;
   }
-  else if ($menu_item['path'] == 'system-test/main-content-duplication') {
+  elseif ($menu_item['path'] == 'system-test/main-content-duplication') {
     drupal_set_page_content();
   }
 }
@@ -306,7 +306,7 @@ function _system_test_second_shutdown_function($arg1, $arg2) {
 
   // Throw an exception with an HTML tag. Since this is called in a shutdown
   // function, it will not bubble up to the default exception handler but will
-  // be catched in _drupal_shutdown_function() and be displayed through
+  // be caught in _drupal_shutdown_function() and be displayed through
   // _drupal_render_exception_safe().
   throw new Exception('Drupal is <blink>awesome</blink>.');
 }

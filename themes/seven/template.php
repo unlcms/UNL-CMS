@@ -1,5 +1,5 @@
 <?php
-// $Id: template.php,v 1.17 2010/05/12 09:22:24 dries Exp $
+// $Id: template.php,v 1.20 2010/08/14 00:43:24 dries Exp $
 
 /**
  * Override or insert variables into the maintenance page template.
@@ -18,9 +18,9 @@ function seven_preprocess_maintenance_page(&$vars) {
  */
 function seven_preprocess_html(&$vars) {
   // Add conditional CSS for IE8 and below.
-  drupal_add_css(path_to_theme() . '/ie.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'lte IE 8', '!IE' => FALSE), 'preprocess' => FALSE));
+  drupal_add_css(path_to_theme() . '/ie.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'lte IE 8', '!IE' => FALSE)));
   // Add conditional CSS for IE6.
-  drupal_add_css(path_to_theme() . '/ie6.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'lt IE 7', '!IE' => FALSE), 'preprocess' => FALSE));
+  drupal_add_css(path_to_theme() . '/ie6.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'lt IE 7', '!IE' => FALSE)));
 }
 
 /**
@@ -53,7 +53,7 @@ function seven_node_add_list($variables) {
 /**
  * Override of theme_admin_block_content().
  *
- * Use unordered list markup in both compact and extended move.
+ * Use unordered list markup in both compact and extended mode.
  */
 function seven_admin_block_content($variables) {
   $content = $variables['content'];
@@ -96,5 +96,9 @@ function seven_css_alter(&$css) {
   // Use Seven's vertical tabs style instead of the default one.
   if (isset($css['misc/vertical-tabs.css'])) {
     $css['misc/vertical-tabs.css']['data'] = drupal_get_path('theme', 'seven') . '/vertical-tabs.css';
+  }
+  // Use Seven's jQuery UI theme style instead of the default one.
+  if (isset($css['misc/ui/jquery.ui.theme.css'])) {
+    $css['misc/ui/jquery.ui.theme.css']['data'] = drupal_get_path('theme', 'seven') . '/jquery.ui.theme.css';
   }
 }

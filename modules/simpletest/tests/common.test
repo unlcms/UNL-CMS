@@ -1,5 +1,5 @@
 <?php
-// $Id: common.test,v 1.116 2010/07/07 17:00:43 webchick Exp $
+// $Id: common.test,v 1.125 2010/09/09 20:22:00 dries Exp $
 
 /**
  * @file
@@ -23,10 +23,10 @@ class DrupalAlterTestCase extends DrupalWebTestCase {
   }
 
   function testDrupalAlter() {
-    // This test depends on Garland, so make sure that it is always the current
+    // This test depends on Bartik, so make sure that it is always the current
     // active theme.
     global $theme, $base_theme_info;
-    $theme = 'garland';
+    $theme = 'bartik';
     $base_theme_info = array();
 
     $array = array('foo' => 'bar');
@@ -268,6 +268,14 @@ class CommonURLUnitTest extends DrupalWebTestCase {
       $result = url('node/123', array('query' => array('foo' => NULL), 'fragment' => 'bar', 'absolute' => $absolute));
       $this->assertEqual($url, $result, "$url == $result");
 
+      $url = $base . '?q=node/123&foo#0';
+      $result = url('node/123', array('query' => array('foo' => NULL), 'fragment' => '0', 'absolute' => $absolute));
+      $this->assertEqual($url, $result, "$url == $result");
+
+      $url = $base . '?q=node/123&foo';
+      $result = url('node/123', array('query' => array('foo' => NULL), 'fragment' => '', 'absolute' => $absolute));
+      $this->assertEqual($url, $result, "$url == $result");
+
       $url = $base;
       $result = url('<front>', array('absolute' => $absolute));
       $this->assertEqual($url, $result, "$url == $result");
@@ -357,6 +365,9 @@ class CommonXssUnitTest extends DrupalUnitTestCase {
      // Ignore PHP 5.3+ invalid multibyte sequence warning.
      $text = @check_plain("Foo\xC0barbaz");
      $this->assertEqual($text, '', 'check_plain() rejects invalid sequence "Foo\xC0barbaz"');
+     // Ignore PHP 5.3+ invalid multibyte sequence warning.
+     $text = @check_plain("\xc2\"");
+     $this->assertEqual($text, '', 'check_plain() rejects invalid sequence "\xc2\""');
      $text = check_plain("Fooÿñ");
      $this->assertEqual($text, "Fooÿñ", 'check_plain() accepts valid sequence "Fooÿñ"');
      $text = filter_xss("Foo\xC0barbaz");
@@ -371,6 +382,8 @@ class CommonXssUnitTest extends DrupalUnitTestCase {
   function testEscaping() {
      $text = check_plain("<script>");
      $this->assertEqual($text, '&lt;script&gt;', 'check_plain() escapes &lt;script&gt;');
+     $text = check_plain('<>&"\'');
+     $this->assertEqual($text, '&lt;&gt;&amp;&quot;&#039;', 'check_plain() escapes reserved HTML characters.');
   }
 
   /**
@@ -568,6 +581,27 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Test that stylesheets in module .info files are loaded.
+   */
+  function testModuleInfo() {
+    $this->drupalGet('');
+
+    // Verify common_test.css in a STYLE media="all" tag.
+    $elements = $this->xpath('//style[@media=:media and contains(text(), :filename)]', array(
+      ':media' => 'all',
+      ':filename' => 'tests/common_test.css',
+    ));
+    $this->assertTrue(count($elements), "Stylesheet with media 'all' in module .info file found.");
+
+    // Verify common_test.print.css in a STYLE media="print" tag.
+    $elements = $this->xpath('//style[@media=:media and contains(text(), :filename)]', array(
+      ':media' => 'print',
+      ':filename' => 'tests/common_test.print.css',
+    ));
+    $this->assertTrue(count($elements), "Stylesheet with media 'print' in module .info file found.");
+  }
+
+  /**
    * Tests adding a file stylesheet.
    */
   function testAddFile() {
@@ -621,7 +655,7 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
   function testRenderInlinePreprocess() {
     $css = 'body { padding: 0px; }';
     $css_preprocessed = '<style type="text/css" media="all">' . drupal_load_stylesheet_content($css, TRUE) . '</style>';
-    drupal_add_css($css, 'inline');
+    drupal_add_css($css, array('type' => 'inline', 'preprocess' => TRUE));
     $styles = drupal_get_css();
     $this->assertEqual(trim($styles), $css_preprocessed, t('Rendering preprocessed inline CSS adds it to the page.'));
   }
@@ -631,7 +665,7 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
    */
   function testRenderInlineNoPreprocess() {
     $css = 'body { padding: 0px; }';
-    drupal_add_css($css, array('type' => 'inline', 'preprocess' => FALSE));
+    drupal_add_css($css, array('type' => 'inline'));
     $styles = drupal_get_css();
     $this->assertTrue(strpos($styles, $css) > 0, t('Rendering non-preprocessed inline CSS adds it to the page.'));
   }
@@ -641,7 +675,7 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
    */
   function testRenderInlineFullPage() {
     $css = 'body { font-size: 254px; }';
-    $expected = 'font-size:254px;';
+    $expected = $css;
 
     // Create a node, using the PHP filter that tests drupal_add_css().
     $php_format_id = db_query_range('SELECT format FROM {filter_format} WHERE name = :name', 0, 1, array(':name' => 'PHP code'))->fetchField();
@@ -741,8 +775,9 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
    */
   function testAddCssFileWithQueryString() {
     $this->drupalGet('common-test/query-string');
-    $query_string = substr(variable_get('css_js_query_string', '0'), 0, 1);
-    $this->assertRaw(drupal_get_path('module', 'node') . '/node.css?arg1=value1&amp;arg2=value2&amp;' . $query_string, t('Query string was appended correctly to css.'));
+    $query_string = variable_get('css_js_query_string', '0');
+    $this->assertRaw(drupal_get_path('module', 'node') . '/node.css?' . $query_string, t('Query string was appended correctly to css.'));
+    $this->assertRaw(drupal_get_path('module', 'node') . '/node-fake.css?arg1=value1&amp;arg2=value2', t('Query string not escaped on a URI.'));
   }
 }
 
@@ -1346,8 +1381,8 @@ class JavaScriptTestCase extends DrupalWebTestCase {
    */
   function testAddJsFileWithQueryString() {
     $this->drupalGet('common-test/query-string');
-    $query_string = substr(variable_get('css_js_query_string', '0'), 0, 1);
-    $this->assertRaw(drupal_get_path('module', 'node') . '/node.js?arg1=value1&amp;arg2=value2&amp;' . $query_string, t('Query string was appended correctly to js.'));
+    $query_string = variable_get('css_js_query_string', '0');
+    $this->assertRaw(drupal_get_path('module', 'node') . '/node.js?' . $query_string, t('Query string was appended correctly to js.'));
   }
 }
 
@@ -1982,7 +2017,7 @@ class DrupalGetRdfNamespacesTestCase extends DrupalWebTestCase {
     $xml = new SimpleXMLElement($this->content);
     $ns = $xml->getDocNamespaces();
 
-    $this->assertEqual($ns['owl'], 'http://www.w3.org/2002/07/owl#', t('A prefix declared once is displayed.'));
+    $this->assertEqual($ns['rdfs'], 'http://www.w3.org/2000/01/rdf-schema#', t('A prefix declared once is displayed.'));
     $this->assertEqual($ns['foaf'], 'http://xmlns.com/foaf/0.1/', t('The same prefix declared in several implementations of hook_rdf_namespaces() is valid as long as all the namespaces are the same.'));
     $this->assertEqual($ns['foaf1'], 'http://xmlns.com/foaf/0.1/', t('Two prefixes can be assigned the same namespace.'));
     $this->assertTrue(!isset($ns['dc']), t('A prefix with conflicting namespaces is discarded.'));

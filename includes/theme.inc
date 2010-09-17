@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.601 2010/07/08 03:41:26 webchick Exp $
+// $Id: theme.inc,v 1.611 2010/09/14 21:42:05 dries Exp $
 
 /**
  * @file
@@ -95,8 +95,8 @@ function drupal_theme_initialize() {
   $base_theme = array();
   $ancestor = $theme;
   while ($ancestor && isset($themes[$ancestor]->base_theme)) {
-    $base_theme[] = $new_base_theme = $themes[$themes[$ancestor]->base_theme];
     $ancestor = $themes[$ancestor]->base_theme;
+    $base_theme[] = $themes[$ancestor];
   }
   _drupal_theme_initialize($themes[$theme], array_reverse($base_theme));
 
@@ -164,7 +164,7 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
   // And now add the stylesheets properly
   foreach ($final_stylesheets as $media => $stylesheets) {
     foreach ($stylesheets as $stylesheet) {
-      drupal_add_css($stylesheet, array('weight' => CSS_THEME, 'media' => $media));
+      drupal_add_css($stylesheet, array('weight' => CSS_THEME, 'media' => $media, 'preprocess' => TRUE));
     }
   }
 
@@ -189,7 +189,7 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
 
   // Add scripts used by this theme.
   foreach ($final_scripts as $script) {
-    drupal_add_js($script, array('weight' => JS_THEME));
+    drupal_add_js($script, array('weight' => JS_THEME, 'preprocess' => TRUE));
   }
 
   $theme_engine = NULL;
@@ -221,35 +221,42 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
     }
   }
 
-  if (function_exists($registry_callback)) {
-    $registry_callback($theme, $base_theme, $theme_engine);
+  if (isset($registry_callback)) {
+    _theme_registry_callback($registry_callback, array($theme, $base_theme, $theme_engine));
   }
 }
 
 /**
  * Get the theme registry.
+ *
  * @return
  *   The theme registry array if it has been stored in memory, NULL otherwise.
  */
 function theme_get_registry() {
-  return _theme_set_registry();
-}
-
-/**
- * Store the theme registry in memory.
- * @param $registry
- *   A registry array as returned by _theme_build_registry()
- * @return
- *   The theme registry array stored in memory
- */
-function _theme_set_registry($registry = NULL) {
   static $theme_registry = NULL;
 
-  if (isset($registry)) {
-    $theme_registry = $registry;
+  if (!isset($theme_registry)) {
+    list($callback, $arguments) = _theme_registry_callback();
+    $theme_registry = call_user_func_array($callback, $arguments);
   }
 
   return $theme_registry;
+}
+
+/**
+ * Set the callback that will be used by theme_get_registry() to fetch the registry.
+ *
+ * @param $callback
+ *   The name of the callback function.
+ * @param $arguments
+ *   The arguments to pass to the function.
+ */
+function _theme_registry_callback($callback = NULL, array $arguments = array()) {
+  static $stored;
+  if (isset($callback)) {
+    $stored = array($callback, $arguments);
+  }
+  return $stored;
 }
 
 /**
@@ -268,7 +275,6 @@ function _theme_load_registry($theme, $base_theme = NULL, $theme_engine = NULL) 
   $cache = cache_get("theme_registry:$theme->name", 'cache');
   if (isset($cache->data)) {
     $registry = $cache->data;
-    _theme_set_registry($registry);
   }
   else {
     // If not, build one and cache it.
@@ -277,9 +283,9 @@ function _theme_load_registry($theme, $base_theme = NULL, $theme_engine = NULL) 
    // complete set of theme hooks.
     if (module_load_all(NULL)) {
       _theme_save_registry($theme, $registry);
-      _theme_set_registry($registry);
     }
   }
+  return $registry;
 }
 
 /**
@@ -339,7 +345,7 @@ function drupal_theme_rebuild() {
  *   The loaded $theme object as returned from list_themes().
  * @param $path
  *   The directory where $name is. For example, modules/system or
- *   themes/garland.
+ *   themes/bartik.
  *
  * @see theme()
  * @see _theme_process_registry()
@@ -542,6 +548,7 @@ function _theme_build_registry($theme, $base_theme, $theme_engine) {
  *
  * @param $refresh
  *   Whether to reload the list of themes from the database. Defaults to FALSE.
+ *
  * @return
  *   An associative array of the currently available themes. The keys are the
  *   names of the themes and the values are objects having the following
@@ -553,7 +560,7 @@ function _theme_build_registry($theme, $base_theme, $theme_engine) {
  *   - 'stylesheets': A two dimensional array, using the first key for the
  *     'media' attribute (e.g. 'all'), the second for the name of the file
  *     (e.g. style.css). The value is a complete filepath
- *     (e.g. themes/garland/style.css).
+ *     (e.g. themes/bartik/style.css).
  *   - 'scripts': An associative array of JavaScripts, using the filename as key
  *     and the complete filepath as value.
  *   - 'engine': The name of the theme engine.
@@ -576,7 +583,6 @@ function list_themes($refresh = FALSE) {
       try {
         foreach (system_list('theme') as $theme) {
           if (file_exists($theme->filename)) {
-            $theme->info = unserialize($theme->info);
             $themes[] = $theme;
           }
         }
@@ -598,9 +604,7 @@ function list_themes($refresh = FALSE) {
         }
       }
       foreach ($theme->info['scripts'] as $script => $path) {
-        if (file_exists($path)) {
-          $theme->scripts[$script] = $path;
-        }
+        $theme->scripts[$script] = $path;
       }
       if (isset($theme->info['engine'])) {
         $theme->engine = $theme->info['engine'];
@@ -764,7 +768,11 @@ function theme($hook, $variables = array()) {
       }
     }
     if (!isset($hooks[$hook])) {
-      watchdog('theme', 'Theme key "@key" not found.', array('@key' => $hook), WATCHDOG_WARNING);
+      // Only log a message when not trying theme suggestions ($hook being an
+      // array).
+      if (!isset($candidate)) {
+        watchdog('theme', 'Theme key "@key" not found.', array('@key' => $hook), WATCHDOG_WARNING);
+      }
       return '';
     }
   }
@@ -1099,9 +1107,10 @@ function drupal_find_theme_templates($cache, $extension, $path) {
  * given for $theme.
  *
  * @param $setting_name
- *  The name of the setting to be retrieved.
+ *   The name of the setting to be retrieved.
  * @param $theme
- *  The name of a given theme; defaults to the current theme.
+ *   The name of a given theme; defaults to the current theme.
+ *
  * @return
  *   The value of the requested setting, NULL if the setting does not exist.
  */
@@ -1555,6 +1564,8 @@ function theme_breadcrumb($variables) {
  *     associative array with the following keys:
  *     - "data": an array of cells
  *     - Any HTML attributes, such as "class", to apply to the table row.
+ *     - "no_striping": a boolean indicating that the row should receive no
+ *       'even / odd' styling. Defaults to FALSE.
  *     Each cell can be either a string or an associative array with the
  *     following keys:
  *     - "data": The string to display in the table cell.
@@ -1723,8 +1734,10 @@ function theme_table($variables) {
       }
       if (count($cells)) {
         // Add odd/even class
-        $class = $flip[$class];
-        $attributes['class'][] = $class;
+        if (empty($row['no_striping'])) {
+          $class = $flip[$class];
+          $attributes['class'][] = $class;
+        }
 
         // Build row
         $output .= ' <tr' . drupal_attributes($attributes) . '>';
@@ -1992,6 +2005,19 @@ function theme_indentation($variables) {
  * @} End of "ingroup themeable".
  */
 
+/**
+ * Returns HTML output for a single table cell for theme_table().
+ *
+ * @param $cell
+ *   Array of cell information, or string to display in cell.
+ * @param bool $header
+ *   TRUE if this cell is a table header cell, FALSE if it is an ordinary
+ *   table cell. If $cell is an array with element 'header' set to TRUE, that
+ *   will override the $header parameter.
+ *
+ * @return
+ *   HTML for the cell.
+ */
 function _theme_table_cell($cell, $header = FALSE) {
   $attributes = '';
 
@@ -2254,6 +2280,7 @@ function template_preprocess_page(&$variables) {
     $variables['theme_hook_suggestions'] = $suggestions;
   }
 }
+
 /**
  * Process variables for html.tpl.php
  *
@@ -2461,9 +2488,8 @@ function template_preprocess_region(&$variables) {
   $variables['content'] = $variables['elements']['#children'];
   $variables['region'] = $variables['elements']['#region'];
 
-  $region = drupal_region_class($variables['region']);
-  $variables['classes_array'][] = $region;
-  $variables['theme_hook_suggestions'][] = 'region__' . $region;
+  $variables['classes_array'][] = drupal_region_class($variables['region']);
+  $variables['theme_hook_suggestions'][] = 'region__' . $variables['region'];
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1191 2010/07/07 17:00:42 webchick Exp $
+// $Id: common.inc,v 1.1220 2010/09/15 04:34:26 webchick Exp $
 
 /**
  * @file
@@ -741,6 +741,8 @@ function drupal_access_denied() {
  *       A float representing the maximum number of seconds the function call
  *       may take. The default is 30 seconds. If a timeout occurs, the error
  *       code is set to the HTTP_REQUEST_TIMEOUT constant.
+ *   - context
+ *       A context resource created with stream_context_create().
  * @return
  *   An object which can have one or more of the following parameters:
  *   - request
@@ -791,21 +793,27 @@ function drupal_http_request($url, array $options = array()) {
     'method' => 'GET',
     'data' => NULL,
     'max_redirects' => 3,
-    'timeout' => 30,
+    'timeout' => 30.0,
+    'context' => NULL,
   );
+  // stream_socket_client() requires timeout to be a float.
+  $options['timeout'] = (float) $options['timeout'];
 
   switch ($uri['scheme']) {
     case 'http':
     case 'feed':
       $port = isset($uri['port']) ? $uri['port'] : 80;
-      $host = $uri['host'] . ($port != 80 ? ':' . $port : '');
-      $fp = @fsockopen($uri['host'], $port, $errno, $errstr, $options['timeout']);
+      $socket = 'tcp://' . $uri['host'] . ':' . $port;
+      // RFC 2616: "non-standard ports MUST, default ports MAY be included".
+      // We don't add the standard port to prevent from breaking rewrite rules
+      // checking the host that do not take into account the port number.
+      $options['headers']['Host'] = $uri['host'] . ($port != 80 ? ':' . $port : '');
       break;
     case 'https':
       // Note: Only works when PHP is compiled with OpenSSL support.
       $port = isset($uri['port']) ? $uri['port'] : 443;
-      $host = $uri['host'] . ($port != 443 ? ':' . $port : '');
-      $fp = @fsockopen('ssl://' . $uri['host'], $port, $errno, $errstr, $options['timeout']);
+      $socket = 'ssl://' . $uri['host'] . ':' . $port;
+      $options['headers']['Host'] = $uri['host'] . ($port != 443 ? ':' . $port : '');
       break;
     default:
       $result->error = 'invalid schema ' . $uri['scheme'];
@@ -813,12 +821,20 @@ function drupal_http_request($url, array $options = array()) {
       return $result;
   }
 
+  if (empty($options['context'])) {
+    $fp = @stream_socket_client($socket, $errno, $errstr, $options['timeout']);
+  }
+  else {
+    // Create a stream with context. Allows verification of a SSL certificate.
+    $fp = @stream_socket_client($socket, $errno, $errstr, $options['timeout'], STREAM_CLIENT_CONNECT, $options['context']);
+  }
+
   // Make sure the socket opened properly.
   if (!$fp) {
     // When a network error occurs, we use a negative number so it does not
     // clash with the HTTP status codes.
     $result->code = -$errno;
-    $result->error = trim($errstr);
+    $result->error = trim($errstr) ? trim($errstr) : t('Error opening socket @socket', array('@socket' => $socket));
 
     // Mark that this request failed. This will trigger a check of the web
     // server's ability to make outgoing HTTP requests the next time that
@@ -839,11 +855,6 @@ function drupal_http_request($url, array $options = array()) {
   $options['headers'] += array(
     'User-Agent' => 'Drupal (+http://drupal.org/)',
   );
-
-  // RFC 2616: "non-standard ports MUST, default ports MAY be included".
-  // We don't add the standard port to prevent from breaking rewrite rules
-  // checking the host that do not take into account the port number.
-  $options['headers']['Host'] = $host;
 
   // Only add Content-Length if we actually have any content or if it is a POST
   // or PUT request. Some non-standard servers get confused by Content-Length in
@@ -876,8 +887,12 @@ function drupal_http_request($url, array $options = array()) {
   }
   $request .= "\r\n" . $options['data'];
   $result->request = $request;
-
-  fwrite($fp, $request);
+  // Calculate how much time is left of the original timeout value.
+  $timeout = $options['timeout'] - timer_read(__FUNCTION__) / 1000;
+  if ($timeout > 0) {
+    stream_set_timeout($fp, floor($timeout), floor(1000000 * fmod($timeout, 1)));
+    fwrite($fp, $request);
+  }
 
   // Fetch response. Due to PHP bugs like http://bugs.php.net/bug.php?id=43782
   // and http://bugs.php.net/bug.php?id=46049 we can't rely on feof(), but
@@ -1340,6 +1355,8 @@ function filter_xss($string, $allowed_tags = array('a', 'em', 'strong', 'cite', 
     (
     <(?=[^a-zA-Z!/])  # a lone <
     |                 # or
+    <!--.*?-->        # a comment
+    |                 # or
     <[^>]*(>|$)       # a string that starts with a <, up until the > or the end of the string
     |                 # or
     >                 # just a >
@@ -1378,7 +1395,7 @@ function _filter_xss_split($m, $store = FALSE) {
     return '&lt;';
   }
 
-  if (!preg_match('%^<\s*(/\s*)?([a-zA-Z0-9]+)([^>]*)>?$%', $string, $matches)) {
+  if (!preg_match('%^<\s*(/\s*)?([a-zA-Z0-9]+)([^>]*)>?|(<!--.*?-->)$%', $string, $matches)) {
     // Seriously malformed
     return '';
   }
@@ -1386,10 +1403,19 @@ function _filter_xss_split($m, $store = FALSE) {
   $slash = trim($matches[1]);
   $elem = &$matches[2];
   $attrlist = &$matches[3];
+  $comment = &$matches[4];
+
+  if ($comment) {
+    $elem = '!--';
+  }
 
   if (!isset($allowed_html[strtolower($elem)])) {
     // Disallowed HTML element
     return '';
+  }
+
+  if ($comment) {
+    return $comment;
   }
 
   if ($slash != '') {
@@ -1551,8 +1577,8 @@ function filter_xss_bad_protocol($string, $decode = TRUE) {
  * Arbitrary elements may be added using the $args associative array.
  */
 function format_rss_channel($title, $link, $description, $items, $langcode = NULL, $args = array()) {
-  global $language;
-  $langcode = $langcode ? $langcode : $language->language;
+  global $language_content;
+  $langcode = $langcode ? $langcode : $language_content->language;
 
   $output = "<channel>\n";
   $output .= ' <title>' . check_plain($title) . "</title>\n";
@@ -1997,7 +2023,7 @@ function format_username($account) {
  *   - 'external': Whether the given path is an external URL.
  *   - 'language': An optional language object. If the path being linked to is
  *     internal to the site, $options['language'] is used to look up the alias
- *     for the URL. If $options['language'] is omitted, the global $language
+ *     for the URL. If $options['language'] is omitted, the global $language_url
  *     will be used.
  *   - 'https': Whether this URL should point to a secure location. If not
  *     defined, the current scheme is used, so the user stays on http or https
@@ -2049,7 +2075,7 @@ function url($path = NULL, array $options = array()) {
   // Allow other modules to alter the outbound URL and options.
   drupal_alter('url_outbound', $path, $options, $original_path);
 
-  if ($options['fragment']) {
+  if (isset($options['fragment']) && $options['fragment'] !== '') {
     $options['fragment'] = '#' . $options['fragment'];
   }
 
@@ -2149,7 +2175,7 @@ function url($path = NULL, array $options = array()) {
  * @param $path
  *   The internal path or external URL being linked to, such as "node/34" or
  *   "http://example.com/foo".
- * @return 
+ * @return
  *   Boolean TRUE or FALSE, where TRUE indicates an external path.
  */
 function url_is_external($path) {
@@ -2292,29 +2318,29 @@ function l($text, $path, array $options = array()) {
 }
 
 /**
- * Deliver a page callback result to the browser in the format appropriate.
+ * Delivers a page callback result to the browser in the appropriate format.
  *
  * This function is most commonly called by menu_execute_active_handler(), but
  * can also be called by error conditions such as drupal_not_found(),
  * drupal_access_denied(), and drupal_site_offline().
  *
- * When a user requests a page, index.php calls menu_execute_active_handler()
+ * When a user requests a page, index.php calls menu_execute_active_handler(),
  * which calls the 'page callback' function registered in hook_menu(). The page
  * callback function can return one of:
- * - NULL: to indicate no content
- * - an integer menu status constant: to indicate an error condition
- * - a string of HTML content
- * - a renderable array of content
+ * - NULL: to indicate no content.
+ * - An integer menu status constant: to indicate an error condition.
+ * - A string of HTML content.
+ * - A renderable array of content.
  * Returning a renderable array rather than a string of HTML is preferred,
  * because that provides modules with more flexibility in customizing the final
  * result.
  *
  * When the page callback returns its constructed content to
- * menu_execute_active_handler(), this functions gets called. The purpose of
+ * menu_execute_active_handler(), this function gets called. The purpose of
  * this function is to determine the most appropriate 'delivery callback'
  * function to route the content to. The delivery callback function then
  * sends the content to the browser in the needed format. The default delivery
- * callback is drupal_deliver_html_page() which delivers the content as an HTML
+ * callback is drupal_deliver_html_page(), which delivers the content as an HTML
  * page, complete with blocks in addition to the content. This default can be
  * overridden on a per menu router item basis by setting 'delivery callback' in
  * hook_menu() or hook_menu_alter(), and can also be overridden on a per request
@@ -2329,6 +2355,16 @@ function l($text, $path, array $options = array()) {
  * In order for page callbacks to be reusable in different delivery formats,
  * they should not issue any "print" or "echo" statements, but instead just
  * return content.
+ *
+ * Also note that this function does not perform access checks. The delivery
+ * callback function specified in hook_menu(), hook_menu_alter(), or
+ * hook_page_delivery_callback_alter() will be called even if the router item
+ * access checks fail. This is intentional (it is needed for JSON and other
+ * purposes), but it has security implications. Do not call this function
+ * directly unless you understand the security implications, and be careful in
+ * writing delivery callbacks, so that they do not violate security. See
+ * drupal_deliver_html_page() for an example of a delivery callback that
+ * respects security.
  *
  * @param $page_callback_result
  *   The result of a page callback. Can be one of:
@@ -2362,7 +2398,7 @@ function drupal_deliver_page($page_callback_result, $default_delivery_callback =
     // If a delivery callback is specified, but doesn't exist as a function,
     // something is wrong, but don't print anything, since it's not known
     // what format the response needs to be in.
-    watchdog('delivery callback not found', check_plain($delivery_callback) . ': ' . check_plain($_GET['q']), NULL, WATCHDOG_ERROR);
+    watchdog('delivery callback not found', 'callback %callback not found: %q.', array('%callback' => $delivery_callback, '%q' => $_GET['q']), WATCHDOG_ERROR);
   }
 }
 
@@ -2395,7 +2431,7 @@ function drupal_deliver_html_page($page_callback_result) {
         // Print a 404 page.
         drupal_add_http_header('Status', '404 Not Found');
 
-        watchdog('page not found', check_plain($_GET['q']), NULL, WATCHDOG_WARNING);
+        watchdog('page not found', 'page not found: %q.', array('%q' => $_GET['q']), WATCHDOG_WARNING);
 
         // Keep old path for reference, and to allow forms to redirect to it.
         if (!isset($_GET['destination'])) {
@@ -2424,7 +2460,7 @@ function drupal_deliver_html_page($page_callback_result) {
       case MENU_ACCESS_DENIED:
         // Print a 403 page.
         drupal_add_http_header('Status', '403 Forbidden');
-        watchdog('access denied', check_plain($_GET['q']), NULL, WATCHDOG_WARNING);
+        watchdog('access denied', 'access denied: %q', array('%q' => $_GET['q']), WATCHDOG_WARNING);
 
         // Keep old path for reference, and to allow forms to redirect to it.
         if (!isset($_GET['destination'])) {
@@ -2642,27 +2678,26 @@ function drupal_add_html_head_link($attributes, $header = FALSE) {
  * Calling drupal_static_reset('drupal_add_css') will clear all cascading
  * stylesheets added so far.
  *
- * If preprocessing is turned on, the cascading style sheets added using this
- * function will be preprocessed before they are added to the HTML header of the
- * page. Preprocessing merges all the CSS files into one file, which is then
- * compressed by removing all extraneous white space. Note that preprocessed
- * inline stylesheets will not be aggregated into this single file; instead,
- * they will just be compressed when being output on the page. External
- * stylesheets will also not be aggregated.
+ * If CSS aggregation/compression is enabled, all cascading style sheets added
+ * with $options['preprocess'] set to TRUE will be merged into one aggregate
+ * file and compressed by removing all extraneous white space.
+ * Preprocessed inline stylesheets will not be aggregated into this single file;
+ * instead, they are just compressed upon output on the page. Externally hosted
+ * stylesheets are never aggregated or compressed.
  *
- * The reason for merging the CSS files is outlined quite thoroughly here:
+ * The reason for aggregating the files is outlined quite thoroughly here:
  * http://www.die.net/musings/page_load_time/ "Load fewer external objects. Due
  * to request overhead, one bigger file just loads faster than two smaller ones
  * half its size."
  *
- * However, you should *not* preprocess every file as this can lead to redundant
- * caches. You should set $options['preprocess'] to FALSE when your styles are
- * only used on a few pages of the site. This could be a special admin page, the
- * homepage, or a handful of pages that does not represent the majority of the
- * pages on your site.
+ * $options['preprocess'] should be only set to TRUE when a file is required for
+ * all typical visitors and most pages of a site. It is critical that all
+ * preprocessed files are added unconditionally on every page, even if the
+ * files do not happen to be needed on a page. This is normally done by calling
+ * drupal_add_css() in a hook_init() implementation.
  *
- * Typical candidates for preprocessing are for example styles for nodes across
- * the site, or styles used in the theme.
+ * Non-preprocessed files should only be added to the page when they are
+ * actually needed.
  *
  * @param $data
  *   (optional) The stylesheet data to be added, depending on what is passed
@@ -2710,9 +2745,8 @@ function drupal_add_html_head_link($attributes, $header = FALSE) {
  *     always come last.
  *   - 'media': The media type for the stylesheet, e.g., all, print, screen.
  *     Defaults to 'all'.
- *   - 'preprocess': If TRUE, Allows the CSS to be aggregated and compressed if
- *     the Optimize CSS feature has been turned on under the performance
- *     section.  Defaults to TRUE.
+ *   - 'preprocess': If TRUE and CSS aggregation/compression is enabled, the
+ *     styles will be aggregated and compressed. Defaults to FALSE.
  *   - 'browsers': An array containing information specifying which browsers
  *     should load the CSS item. See drupal_pre_render_conditional_comments()
  *     for details.
@@ -2740,7 +2774,7 @@ function drupal_add_css($data = NULL, $options = NULL) {
       'type' => 'file',
       'weight' => CSS_DEFAULT,
       'media' => 'all',
-      'preprocess' => TRUE,
+      'preprocess' => FALSE,
       'data' => $data,
       'browsers' => array(),
     );
@@ -2777,7 +2811,7 @@ function drupal_add_css($data = NULL, $options = NULL) {
  * module styles through CSS selectors.
  *
  * Themes may replace module-defined CSS files by adding a stylesheet with the
- * same filename. For example, themes/garland/system-menus.css would replace
+ * same filename. For example, themes/bartik/system-menus.css would replace
  * modules/system/system-menus.css. This allows themes to override complete
  * CSS files, rather than specific selectors, when necessary.
  *
@@ -3197,7 +3231,7 @@ function drupal_build_css_cache($css) {
         $base = base_path() . dirname($stylesheet['data']) . '/';
         _drupal_build_css_path(NULL, $base);
         // Prefix all paths within this CSS file, ignoring external and absolute paths.
-        $data .= preg_replace_callback('/url\([\'"]?(?![a-z]+:|\/+)([^\'")]+)[\'"]?\)/i', '_drupal_build_css_path', $contents);
+        $data .= preg_replace_callback('/url\(\s*[\'"]?(?![a-z]+:|\/+)([^\'")]+)[\'"]?\s*\)/i', '_drupal_build_css_path', $contents);
       }
     }
 
@@ -3317,7 +3351,7 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
     // Regexp to match single quoted strings.
     $single_quot = "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'";
     $contents = preg_replace(
-      "<($double_quot|$single_quot)|$comment>Sus", // Strip all comment blocks
+      "<($double_quot|$single_quot)|$comment>Ss",  // Strip all comment blocks
       "$1",                                        // but keep double/single
       $contents);                                  // quoted strings.
     $contents = preg_replace(
@@ -3329,7 +3363,7 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
 
   // Replaces @import commands with the actual stylesheet content.
   // This happens recursively but omits external files.
-  $contents = preg_replace_callback('/@import\s*(?:url\()?[\'"]?(?![a-z]+:)([^\'"\()]+)[\'"]?\)?;/', '_drupal_load_stylesheet', $contents);
+  $contents = preg_replace_callback('/@import\s*(?:url\(\s*)?[\'"]?(?![a-z]+:)([^\'"\()]+)[\'"]?\s*\)?\s*;/', '_drupal_load_stylesheet', $contents);
   return $contents;
 }
 
@@ -3353,7 +3387,7 @@ function _drupal_load_stylesheet($matches) {
   // Alter all internal url() paths. Leave external paths alone. We don't need
   // to normalize absolute paths here (i.e. remove folder/... segments) because
   // that will be done later.
-  return preg_replace('/url\s*\(([\'"]?)(?![a-z]+:|\/+)/i', 'url(\1'. $directory, $file);
+  return preg_replace('/url\(\s*([\'"]?)(?![a-z]+:|\/+)/i', 'url(\1'. $directory, $file);
 }
 
 /**
@@ -3576,6 +3610,25 @@ function drupal_region_class($region) {
  * Calling drupal_static_reset('drupal_add_js') will clear all JavaScript added
  * so far.
  *
+ * If JavaScript aggregation is enabled, all JavaScript files added with
+ * $options['preprocess'] set to TRUE will be merged into one aggregate file.
+ * Preprocessed inline JavaScript will not be aggregated into this single file.
+ * Externally hosted JavaScripts are never aggregated.
+ *
+ * The reason for aggregating the files is outlined quite thoroughly here:
+ * http://www.die.net/musings/page_load_time/ "Load fewer external objects. Due
+ * to request overhead, one bigger file just loads faster than two smaller ones
+ * half its size."
+ *
+ * $options['preprocess'] should be only set to TRUE when a file is required for
+ * all typical visitors and most pages of a site. It is critical that all
+ * preprocessed files are added unconditionally on every page, even if the
+ * files are not needed on a page. This is normally done by calling
+ * drupal_add_css() in a hook_init() implementation.
+ *
+ * Non-preprocessed files should only be added to the page when they are
+ * actually needed.
+ *
  * @param $data
  *   (optional) If given, the value depends on the $options parameter:
  *   - 'file': Path to the file relative to base_path().
@@ -3617,9 +3670,8 @@ function drupal_region_class($region) {
  *   - cache: If set to FALSE, the JavaScript file is loaded anew on every page
  *     call; in other words, it is not cached. Used only when 'type' references
  *     a JavaScript file. Defaults to TRUE.
- *   - preprocess: Aggregate the JavaScript if the JavaScript optimization
- *     setting has been toggled in admin/config/development/performance. Note
- *     that JavaScript of type 'external' is not aggregated. Defaults to TRUE.
+ *   - preprocess: If TRUE and JavaScript aggregation is enabled, the script
+ *     file will be aggregated. Defaults to FALSE.
  *
  * @return
  *   The current array of JavaScript files, settings, and in-line code,
@@ -3712,7 +3764,7 @@ function drupal_js_defaults($data = NULL) {
     'scope' => 'header',
     'cache' => TRUE,
     'defer' => FALSE,
-    'preprocess' => TRUE,
+    'preprocess' => FALSE,
     'version' => NULL,
     'data' => $data,
   );
@@ -4546,18 +4598,24 @@ function _drupal_bootstrap_full() {
     // Running inside the simpletest child site, log fatal errors to test
     // specific file directory.
     ini_set('log_errors', 1);
-    ini_set('error_log', file_directory_path() . '/error.log');
+    ini_set('error_log', 'public://error.log');
   }
 
   // Initialize $_GET['q'] prior to invoking hook_init().
   drupal_path_initialize();
-  // Set a custom theme for the current page, if there is one. We need to run
-  // this before invoking hook_init(), since any modules which initialize the
-  // theme system will prevent a custom theme from being correctly set later.
-  menu_set_custom_theme();
-  // Let all modules take action before menu system handles the request
+
+  // Let all modules take action before the menu system handles the request.
   // We do not want this while running update.php.
   if (!defined('MAINTENANCE_MODE') || MAINTENANCE_MODE != 'update') {
+    // Prior to invoking hook_init(), initialize the theme (potentially a custom
+    // one for this page), so that:
+    // - Modules with hook_init() implementations that call theme() or
+    //   theme_get_registry() don't initialize the incorrect theme.
+    // - The theme can have hook_*_alter() implementations affect page building
+    //   (e.g., hook_form_alter(), hook_node_view_alter(), hook_page_alter()),
+    //   ahead of when rendering starts.
+    menu_set_custom_theme();
+    drupal_theme_initialize();
     module_invoke_all('init');
   }
 }
@@ -5342,9 +5400,12 @@ function drupal_render_cid_parts($granularity = NULL) {
   global $theme, $base_root, $user;
 
   $cid_parts[] = $theme;
-  if (module_exists('locale')) {
-    global $language;
-    $cid_parts[] = $language->language;
+  // If Locale is enabled but we have only one language we do not need it as cid
+  // part.
+  if (drupal_multilingual()) {
+    foreach (language_types_configurable() as $language_type) {
+      $cid_parts[] = $GLOBALS[$language_type]->language;
+    }
   }
 
   if (!empty($granularity)) {
@@ -5402,6 +5463,15 @@ function element_sort($a, $b) {
     return 0;
   }
   return ($a_weight < $b_weight) ? -1 : 1;
+}
+
+/**
+ * Array sorting callback; sorts elements by title.
+ */
+function element_sort_by_title($a, $b) {
+  $a_title = (is_array($a) && isset($a['#title'])) ? $a['#title'] : '';
+  $b_title = (is_array($b) && isset($b['#title'])) ? $b['#title'] : '';
+  return strnatcasecmp($a_title, $b_title);
 }
 
 /**
@@ -5478,7 +5548,7 @@ function element_children(&$elements, $sort = FALSE) {
   $children = array();
   $sortable = FALSE;
   foreach ($elements as $key => $value) {
-    if ($key[0] !== '#') {
+    if ($key === '' || $key[0] !== '#') {
       $children[$key] = $value;
       if (is_array($value) && isset($value['#weight'])) {
         $sortable = TRUE;
@@ -5529,6 +5599,180 @@ function element_get_visible_children(array $elements) {
   }
 
   return array_keys($visible_children);
+}
+
+/**
+ * Sets a value in a nested array with variable depth.
+ *
+ * This helper function should be used when the depth of the array element you
+ * are changing may vary (that is, the number of parent keys is variable). It
+ * is primarily used for form structures and renderable arrays.
+ *
+ * Example:
+ * @code
+ * // Assume you have a 'signature' element somewhere in a form. It might be:
+ * $form['signature_settings']['signature'] = array(
+ *   '#type' => 'text_format',
+ *   '#title' => t('Signature'),
+ * );
+ * // Or, it might be further nested:
+ * $form['signature_settings']['user']['signature'] = array(
+ *   '#type' => 'text_format',
+ *   '#title' => t('Signature'),
+ * );
+ * @endcode
+ *
+ * To deal with the situation, the code needs to figure out the route to the
+ * element, given an array of parents that is either
+ * @code array('signature_settings', 'signature') @endcode in the first case or
+ * @code array('signature_settings', 'user', 'signature') @endcode in the second
+ * case.
+ *
+ * Without this helper function the only way to set the signature element in one
+ * line would be using eval(), which should be avoided:
+ * @code
+ * // Do not do this! Avoid eval().
+ * eval('$form[\'' . implode("']['", $parents) . '\'] = $element;');
+ * @endcode
+ *
+ * Instead, use this helper function:
+ * @code
+ * drupal_array_set_nested_value($form, $parents, $element);
+ * @endcode
+ *
+ * However if the number of array parent keys is static, the value should always
+ * be set directly rather than calling this function. For instance, for the
+ * first example we could just do:
+ * @code
+ * $form['signature_settings']['signature'] = $element;
+ * @endcode
+ *
+ * @param $array
+ *   A reference to the array to modify.
+ * @param $parents
+ *   An array of parent keys, starting with the outermost key.
+ * @param $value
+ *   The value to set.
+ *
+ * @see drupal_array_get_nested_value()
+ */
+function drupal_array_set_nested_value(array &$array, array $parents, $value) {
+  $ref = &$array;
+  foreach ($parents as $parent) {
+    // Note that PHP is fine with referencing a not existing array key - in this
+    // case it just creates an entry with NULL as value.
+    $ref = &$ref[$parent];
+  }
+  $ref = $value;
+}
+
+/**
+ * Retrieves a value from a nested array with variable depth.
+ *
+ * This helper function should be used when the depth of the array element being
+ * retrieved may vary (that is, the number of parent keys is variable). It is
+ * primarily used for form structures and renderable arrays.
+ *
+ * Without this helper function the only way to get a nested array value with
+ * variable depth in one line would be using eval(), which should be avoided:
+ * @code
+ * // Do not do this! Avoid eval().
+ * // May also throw a PHP notice, if the variable array keys do not exist.
+ * eval('$value = $array[\'' . implode("']['", $parents) . "'];");
+ * @endcode
+ *
+ * Instead, use this helper function:
+ * @code
+ * $value = drupal_array_get_nested_value($form, $parents);
+ * @endcode
+ *
+ * The return value will be NULL, regardless of whether the actual value is NULL
+ * or whether the requested key does not exist. If it is required to know
+ * whether the nested array key actually exists, pass a third argument that is
+ * altered by reference:
+ * @code
+ * $key_exists = NULL;
+ * $value = drupal_array_get_nested_value($form, $parents, $key_exists);
+ * if ($key_exists) {
+ *   // ... do something with $value ...
+ * }
+ * @endcode
+ *
+ * However if the number of array parent keys is static, the value should always
+ * be retrieved directly rather than calling this function. For instance:
+ * @code
+ * $value = $form['signature_settings']['signature'];
+ * @endcode
+ *
+ * @param $array
+ *   The array from which to get the value.
+ * @param $parents
+ *   An array of parent keys of the value, starting with the outermost key.
+ * @param &$key_exists
+ *   (optional) If given, an already defined variable that is altered by
+ *   reference.
+ *
+ * @return
+ *   The requested nested value. Possibly NULL if the value is NULL or not all
+ *   nested parent keys exist. $key_exists is altered by reference and is a
+ *   Boolean that indicates whether all nested parent keys exist (TRUE) or not
+ *   (FALSE). This allows to distinguish between the two possibilities when NULL
+ *   is returned.
+ *
+ * @see drupal_array_set_nested_value()
+ */
+function drupal_array_get_nested_value(array &$array, array $parents, &$key_exists = NULL) {
+  $ref = &$array;
+  foreach ($parents as $parent) {
+    // array_key_exists() is slower than isset() and triggers notices if the
+    // second argument is not an array, so only call it when absolutely
+    // necessary.
+    if (isset($ref[$parent]) || (is_array($ref) && array_key_exists($parent, $ref))) {
+      $ref = &$ref[$parent];
+    }
+    else {
+      $key_exists = FALSE;
+      return NULL;
+    }
+  }
+  $key_exists = TRUE;
+  return $ref;
+}
+
+/**
+ * Determines whether a nested array with variable depth contains all of the requested keys.
+ *
+ * This helper function should be used when the depth of the array element to be
+ * checked may vary (that is, the number of parent keys is variable). See
+ * drupal_array_set_nested_value() for details. It is primarily used for form
+ * structures and renderable arrays.
+ *
+ * If it is required to also get the value of the checked nested key, use
+ * drupal_array_get_nested_value() instead.
+ *
+ * If the number of array parent keys is static, this helper function is
+ * unnecessary and the following code can be used instead:
+ * @code
+ * $value_exists = isset($form['signature_settings']['signature']);
+ * $key_exists = array_key_exists('signature', $form['signature_settings']);
+ * @endcode
+ *
+ * @param $array
+ *   The array with the value to check for.
+ * @param $parents
+ *   An array of parent keys of the value, starting with the outermost key.
+ *
+ * @return
+ *   TRUE if all the parent keys exist, FALSE otherwise.
+ *
+ * @see drupal_array_get_nested_value()
+ */
+function drupal_array_nested_key_exists(array $array, array $parents) {
+  // Although this function is similar to PHP's array_key_exists(), its
+  // arguments should be consistent with drupal_array_get_nested_value().
+  $key_exists = NULL;
+  drupal_array_get_nested_value($array, $parents, $key_exists);
+  return $key_exists;
 }
 
 /**
@@ -5822,7 +6066,7 @@ function drupal_get_schema_unprocessed($module, $table = NULL) {
   if (!is_null($table) && isset($schema[$table])) {
     return $schema[$table];
   }
-  else if (!empty($schema)) {
+  elseif (!empty($schema)) {
     return $schema;
   }
   return array();
@@ -5883,7 +6127,7 @@ function drupal_schema_fields_sql($table, $prefix = NULL) {
  * @param $table
  *   The name of the table; this must be defined by a hook_schema()
  *   implementation.
- * @param $object
+ * @param $record
  *   An object or array representing the record to write, passed in by
  *   reference. The function will fill in defaults from the schema and add an
  *   ID value to serial fields.
@@ -5897,10 +6141,10 @@ function drupal_schema_fields_sql($table, $prefix = NULL) {
  *   Failure to write a record will return FALSE. Otherwise SAVED_NEW or
  *   SAVED_UPDATED is returned depending on the operation performed. The $object
  *   parameter will contain values for any serial fields defined by the $table.
- *   For example, $object->nid or $object['nid'] will be populated after
+ *   For example, $record->nid or $record['nid'] will be populated after
  *   inserting a new a new node.
  */
-function drupal_write_record($table, &$object, $primary_keys = array()) {
+function drupal_write_record($table, &$record, $primary_keys = array()) {
   // Standardize $primary_keys to an array.
   if (is_string($primary_keys)) {
     $primary_keys = array($primary_keys);
@@ -5911,19 +6155,10 @@ function drupal_write_record($table, &$object, $primary_keys = array()) {
     return FALSE;
   }
 
-  // Convert to an object if needed.
-  if (is_array($object)) {
-    $object = (object) $object;
-    $array = TRUE;
-  }
-  else {
-    $array = FALSE;
-  }
-
+  $object = (object) $record;
   $fields = array();
 
-  // Go through our schema, build SQL, and when inserting, fill in defaults for
-  // fields that are not set.
+  // Go through the schema to determine fields to write.
   foreach ($schema['fields'] as $field => $info) {
     if ($info['type'] == 'serial') {
       // Skip serial types if we are updating.
@@ -5935,24 +6170,24 @@ function drupal_write_record($table, &$object, $primary_keys = array()) {
       $serial = $field;
     }
 
+    // Skip field if it is in $primary_keys as it is unnecessary to update a
+    // field to the value it is already set to.
+    if (in_array($field, $primary_keys)) {
+      continue;
+    }
+
     if (!property_exists($object, $field)) {
-      // Skip fields that are not provided, unless we are inserting and a
-      // default value is provided by the schema.
-      if (!empty($primary_keys) || !isset($info['default'])) {
-        continue;
-      }
-      $object->$field = $info['default'];
+      // Skip fields that are not provided, default values are already known 
+      // by the database.
+      continue;
     }
 
     // Build array of fields to update or insert.
     if (empty($info['serialize'])) {
       $fields[$field] = $object->$field;
     }
-    elseif (isset($object->$field)) {
-      $fields[$field] = serialize($object->$field);
-    }
     else {
-      $fields[$field] = '';
+      $fields[$field] = serialize($object->$field);
     }
 
     // Type cast to proper datatype, except when the value is NULL and the
@@ -5975,11 +6210,6 @@ function drupal_write_record($table, &$object, $primary_keys = array()) {
   }
 
   if (empty($fields)) {
-    // No changes requested.
-    // If we began with an array, convert back so we don't surprise the caller.
-    if ($array) {
-      $object = (array) $object;
-    }
     return;
   }
 
@@ -6031,9 +6261,18 @@ function drupal_write_record($table, &$object, $primary_keys = array()) {
     $return = FALSE;
   }
 
-  // If we began with an array, convert back so we don't surprise the caller.
-  if ($array) {
-    $object = (array) $object;
+  // If we are inserting, populate empty fields with default values.
+  if (empty($primary_keys)) {
+    foreach ($schema['fields'] as $field => $info) {
+      if (isset($info['default']) && !property_exists($object, $field)) {
+        $object->$field = $info['default'];
+      }
+    }
+  }
+
+  // If we began with an array, convert back.
+  if (is_array($record)) {
+    $record = (array) $object;
   }
 
   return $return;
@@ -6068,7 +6307,7 @@ function drupal_write_record($table, &$object, $primary_keys = array()) {
  * - stylesheets: Theme stylesheets eg: stylesheets[all][] = my-style.css
  * - scripts: Theme scripts eg: scripts[] = my-script.css
  *
- * @see garland.info
+ * @see bartik.info
  *
  * @param $filename
  *   The file we are parsing. Accepts file with relative or absolute path.
@@ -6274,6 +6513,11 @@ function drupal_flush_all_caches() {
   foreach ($cache_tables as $table) {
     cache_clear_all('*', $table, TRUE);
   }
+
+  // Rebuild the bootstrap module list. We do this here so that developers
+  // can get new hook_boot() implementations registered without having to
+  // write a hook_update_N() function.
+  _system_update_bootstrap_status();
 }
 
 /**
@@ -6444,6 +6688,14 @@ function entity_get_info($entity_type = NULL) {
         // the entity type.
         if (empty($entity_info[$name]['entity keys']['bundle']) && empty($entity_info[$name]['bundles'])) {
           $entity_info[$name]['bundles'] = array($name => array('label' => $entity_info[$name]['label']));
+        }
+        // Prepare entity schema fields SQL info for
+        // DrupalEntityControllerInterface::buildQuery().
+        if (isset($entity_info[$name]['base table'])) {
+          $entity_info[$name]['schema_fields_sql']['base table'] = drupal_schema_fields_sql($entity_info[$name]['base table']);
+          if (isset($entity_info[$name]['revision table'])) {
+            $entity_info[$name]['schema_fields_sql']['revision table'] = drupal_schema_fields_sql($entity_info[$name]['revision table']);
+          }
         }
       }
       // Let other modules alter the entity info.
@@ -6668,6 +6920,30 @@ function entity_uri($entity_type, $entity) {
 }
 
 /**
+ * Returns the label of an entity.
+ *
+ * @param $entity_type
+ *   The entity type; e.g. 'node' or 'user'.
+ * @param $entity
+ *   The entity for which to generate a path.
+ *
+ * @return
+ *   A string with the entity label (e.g. node title), or FALSE if not found.
+ */
+function entity_label($entity_type, $entity) {
+  $label = FALSE;
+  $info = entity_get_info($entity_type);
+  if (isset($info['label callback']) && function_exists($info['label callback'])) {
+    $label = $info['label callback']($entity);
+  }
+  elseif (!empty($info['entity keys']['label']) && isset($entity->{$info['entity keys']['label']})) {
+    $label = $entity->{$info['entity keys']['label']};
+  }
+
+  return $label;
+}
+
+/**
  * Helper function for attaching field API validation to entity forms.
  */
 function entity_form_field_validate($entity_type, $form, &$form_state) {
@@ -6695,7 +6971,7 @@ function entity_form_field_validate($entity_type, $form, &$form_state) {
  * For some entity forms (e.g., forms with complex non-field data and forms that
  * simultaneously edit multiple entities), this behavior may be inappropriate,
  * so the #builder_function for such forms needs to implement the required
- * functionality instead of calling this function. 
+ * functionality instead of calling this function.
  */
 function entity_form_submit_build_entity($entity_type, $entity, $form, &$form_state) {
   $info = entity_get_info($entity_type);
@@ -6718,16 +6994,22 @@ function entity_form_submit_build_entity($entity_type, $entity, $form, &$form_st
 /**
  * Performs one or more XML-RPC request(s).
  *
+ * Usage example:
+ * @code
+ * $result = xmlrpc('http://example.com/xmlrpc.php', array(
+ *   'service.methodName' => array($parameter, $second, $third),
+ * ));
+ * @endcode
+ *
  * @param $url
  *   An absolute URL of the XML-RPC endpoint.
- *     Example:
- *     http://www.example.com/xmlrpc.php
- * @param ...
- *   For one request:
- *     The method name followed by a variable number of arguments to the method.
- *   For multiple requests (system.multicall):
- *     An array of call arrays. Each call array follows the pattern of the single
- *     request: method name followed by the arguments to the method.
+ * @param $args
+ *   An associative array whose keys are the methods to call and whose values
+ *   are the arguments to pass to the respective method. If multiple methods
+ *   are specified, a system.multicall is performed.
+ * @param $options
+ *   (optional) An array of options to pass along to drupal_http_request().
+ *
  * @return
  *   For one request:
  *     Either the return value of the method on success, or FALSE.
@@ -6737,10 +7019,9 @@ function entity_form_submit_build_entity($entity_type, $entity, $form, &$form_st
  *     returned by the method called, or an xmlrpc_error object if the call
  *     failed. See xmlrpc_error().
  */
-function xmlrpc($url) {
+function xmlrpc($url, $args, $options = array()) {
   require_once DRUPAL_ROOT . '/includes/xmlrpc.inc';
-  $args = func_get_args();
-  return call_user_func_array('_xmlrpc', $args);
+  return _xmlrpc($url, $args, $options);
 }
 
 /**
@@ -6767,6 +7048,27 @@ function archiver_get_info() {
   }
 
   return $archiver_info;
+}
+
+/**
+ * Returns a string of supported archive extensions.
+ *
+ * @return
+ *   A space-separated string of extensions suitable for use by the file
+ *   validation system.
+ */
+function archiver_get_extensions() {
+  $valid_extensions = array();
+  foreach (archiver_get_info() as $archive) {
+    foreach ($archive['extensions'] as $extension) {
+      foreach (explode('.', $extension) as $part) {
+        if (!in_array($part, $valid_extensions)) {
+          $valid_extensions[] = $part;
+        }
+      }
+    }
+  }
+  return implode(' ', $valid_extensions);
 }
 
 /**

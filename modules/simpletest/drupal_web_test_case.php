@@ -1,5 +1,5 @@
 <?php
-// $Id: drupal_web_test_case.php,v 1.224 2010/07/08 12:22:59 dries Exp $
+// $Id: drupal_web_test_case.php,v 1.232 2010/09/11 21:14:31 webchick Exp $
 
 /**
  * Global variable that holds information about the tests being run.
@@ -412,11 +412,29 @@ abstract class DrupalTestCase {
   }
 
   /**
+   * Logs verbose message in a text file.
+   *
+   * The a link to the vebose message will be placed in the test results via
+   * as a passing assertion with the text '[verbose message]'.
+   *
+   * @param $message
+   *   The verbose message to be stored.
+   *
+   * @see simpletest_verbose()
+   */
+  protected function verbose($message) {
+    if ($id = simpletest_verbose($message)) {
+      $url = file_create_url($this->originalFileDirectory . '/simpletest/verbose/' . get_class($this) . '-' . $id . '.html');
+      $this->error(l(t('Verbose message'), $url, array('attributes' => array('target' => '_blank'))), 'User notice');
+    }
+  }
+
+  /**
    * Run all tests in this class.
    */
   public function run() {
     // Initialize verbose debugging.
-    simpletest_verbose(NULL, file_directory_path(), get_class($this));
+    simpletest_verbose(NULL, variable_get('file_public_path', conf_path() . '/files'), get_class($this));
 
     // HTTP auth settings (<username>:<password>) for the simpletest browser
     // when sending requests to the test site.
@@ -564,11 +582,19 @@ class DrupalUnitTestCase extends DrupalTestCase {
     $this->skipClasses[__CLASS__] = TRUE;
   }
 
+  /**
+   * Sets up unit test environment.
+   *
+   * Unlike DrupalWebTestCase::setUp(), DrupalUnitTestCase::setUp() does not
+   * install modules because tests are performed without accessing the database.
+   * Any required files must be explicitly included by the child class setUp()
+   * method.
+   */
   protected function setUp() {
     global $conf;
 
     // Store necessary current values before switching to the test environment.
-    $this->originalFileDirectory = file_directory_path();
+    $this->originalFileDirectory = variable_get('file_public_path', conf_path() . '/files');
 
     spl_autoload_register('db_autoload');
 
@@ -621,6 +647,13 @@ class DrupalUnitTestCase extends DrupalTestCase {
  * Test case for typical Drupal tests.
  */
 class DrupalWebTestCase extends DrupalTestCase {
+  /**
+   * The profile to install as a basis for testing.
+   *
+   * @var string
+   */
+  protected $profile = 'standard';
+
   /**
    * The URL currently loaded in the internal browser.
    *
@@ -896,9 +929,8 @@ class DrupalWebTestCase extends DrupalTestCase {
       // Copy other test files from simpletest.
       $original = drupal_get_path('module', 'simpletest') . '/files';
       $files = file_scan_directory($original, '/(html|image|javascript|php|sql)-.*/');
-      $destination_path = file_directory_path('public');
       foreach ($files as $file) {
-        file_unmanaged_copy($file->uri, $destination_path);
+        file_unmanaged_copy($file->uri, variable_get('file_public_path', conf_path() . '/files'));
       }
 
       $this->generatedTestFiles = TRUE;
@@ -907,7 +939,7 @@ class DrupalWebTestCase extends DrupalTestCase {
     $files = array();
     // Make sure type is valid.
     if (in_array($type, array('binary', 'html', 'image', 'javascript', 'php', 'sql', 'text'))) {
-      $files = file_scan_directory(file_directory_path('public'), '/' . $type . '\-.*/');
+      $files = file_scan_directory('public://', '/' . $type . '\-.*/');
 
       // If size is set then remove any files that are not of that size.
       if ($size !== NULL) {
@@ -1145,7 +1177,7 @@ class DrupalWebTestCase extends DrupalTestCase {
     // Store necessary current values before switching to prefixed database.
     $this->originalLanguage = $language;
     $this->originalLanguageDefault = variable_get('language_default');
-    $this->originalFileDirectory = file_directory_path();
+    $this->originalFileDirectory = variable_get('file_public_path', conf_path() . '/files');
     $this->originalProfile = drupal_get_profile();
     $clean_url_original = variable_get('clean_url', 0);
 
@@ -1193,11 +1225,11 @@ class DrupalWebTestCase extends DrupalTestCase {
     variable_set('file_private_path', $private_files_directory);
     variable_set('file_temporary_path', $temp_files_directory);
 
-    // Include the default profile.
-    variable_set('install_profile', 'standard');
-    $profile_details = install_profile_info('standard', 'en');
+    // Include the testing profile.
+    variable_set('install_profile', $this->profile);
+    $profile_details = install_profile_info($this->profile, 'en');
 
-    // Install the modules specified by the default profile.
+    // Install the modules specified by the testing profile.
     module_enable($profile_details['dependencies'], FALSE);
 
     // Install modules needed for this test. This could have been passed in as
@@ -1212,22 +1244,16 @@ class DrupalWebTestCase extends DrupalTestCase {
       module_enable($modules, TRUE);
     }
 
-    // Run default profile tasks.
-    module_enable(array('standard'), FALSE);
+    // Run the profile tasks.
+    $install_profile_module_exists = db_query("SELECT 1 FROM {system} WHERE type = 'module' AND name = :name", array(
+      ':name' => $this->profile,
+    ))->fetchField();
+    if ($install_profile_module_exists) {
+      module_enable(array($this->profile), FALSE);
+    }
 
-    // Rebuild caches.
-    drupal_static_reset();
-    drupal_flush_all_caches();
-
-    // Register actions declared by any modules.
-    actions_synchronize();
-
-    // Reload global $conf array and permissions.
-    $this->refreshVariables();
-    $this->checkPermissions(array(), TRUE);
-
-    // Reset statically cached schema for new database prefix.
-    drupal_get_schema(NULL, TRUE);
+    // Reset/rebuild all data structures after enabling the modules.
+    $this->resetAll();
 
     // Run cron once in that environment, as install.php does at the end of
     // the installation process.
@@ -1254,14 +1280,39 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * This method is called by DrupalWebTestCase::setUp, and preloads the
+   * Preload the registry from the testing site.
+   *
+   * This method is called by DrupalWebTestCase::setUp(), and preloads the
    * registry from the testing site to cut down on the time it takes to
-   * setup a clean environment for the current test run.
+   * set up a clean environment for the current test run.
    */
   protected function preloadRegistry() {
     $original_connection = Database::getConnection('default', 'simpletest_original_default');
     db_query('INSERT INTO {registry} SELECT * FROM ' . $original_connection->prefixTables('{registry}'));
     db_query('INSERT INTO {registry_file} SELECT * FROM ' . $original_connection->prefixTables('{registry_file}'));
+  }
+
+  /**
+   * Reset all data structures after having enabled new modules.
+   *
+   * This method is called by DrupalWebTestCase::setUp() after enabling
+   * the requested modules. It must be called again when additional modules
+   * are enabled later.
+   */
+  protected function resetAll() {
+    // Rebuild caches.
+    drupal_static_reset();
+    drupal_flush_all_caches();
+
+    // Register actions declared by any modules.
+    actions_synchronize();
+
+    // Reload global $conf array and permissions.
+    $this->refreshVariables();
+    $this->checkPermissions(array(), TRUE);
+
+    // Reset statically cached schema for new database prefix.
+    drupal_get_schema(NULL, TRUE);
   }
 
   /**
@@ -1360,7 +1411,7 @@ class DrupalWebTestCase extends DrupalTestCase {
 
     if (!isset($this->curlHandle)) {
       $this->curlHandle = curl_init();
-      $curl_options = $this->additionalCurlOptions + array(
+      $curl_options = array(
         CURLOPT_COOKIEJAR => $this->cookieFile,
         CURLOPT_URL => $base_url,
         CURLOPT_FOLLOWLOCATION => FALSE,
@@ -3046,25 +3097,6 @@ class DrupalWebTestCase extends DrupalTestCase {
       $this->verbose(t('Email:') . '<pre>' . print_r($mail, TRUE) . '</pre>');
     }
   }
-
-  /**
-   * Logs verbose message in a text file.
-   *
-   * The a link to the vebose message will be placed in the test results via
-   * as a passing assertion with the text '[verbose message]'.
-   *
-   * @param $message
-   *   The verbose message to be stored.
-   *
-   * @see simpletest_verbose()
-   */
-  protected function verbose($message) {
-    if ($id = simpletest_verbose($message)) {
-      $url = file_create_url($this->originalFileDirectory . '/simpletest/verbose/' . get_class($this) . '-' . $id . '.html');
-      $this->error(l(t('Verbose message'), $url, array('attributes' => array('target' => '_blank'))), 'User notice');
-    }
-  }
-
 }
 
 /**

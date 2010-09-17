@@ -1,5 +1,5 @@
 <?php
-// $Id: field.attach.inc,v 1.91 2010/06/17 13:44:45 dries Exp $
+// $Id: field.attach.inc,v 1.95 2010/08/01 19:49:35 dries Exp $
 
 /**
  * @file
@@ -273,6 +273,7 @@ function _field_invoke_multiple($op, $entity_type, $entities, &$a = NULL, &$b = 
     'language' => NULL,
   );
   $options += $default_options;
+  $field_info = field_info_field_by_ids();
 
   $fields = array();
   $grouped_instances = array();
@@ -296,7 +297,7 @@ function _field_invoke_multiple($op, $entity_type, $entities, &$a = NULL, &$b = 
     foreach ($instances as $instance) {
       $field_id = $instance['field_id'];
       $field_name = $instance['field_name'];
-      $field = field_info_field_by_id($field_id);
+      $field = $field_info[$field_id];
       $function = $options['default'] ? 'field_default_' . $op : $field['module'] . '_field_' . $op;
       if (function_exists($function)) {
         // Add the field to the list of fields to invoke the hook on.
@@ -507,7 +508,7 @@ function _field_invoke_get_instances($entity_type, $bundle, $options) {
  *       'array_parents' => an array of keys indicating the path to the field
  *         element within the full $form structure. This entry is populated at
  *         form build time.
- *       'errors' => the array ok field validation errors reported on the
+ *       'errors' => the array of field validation errors reported on the
  *         field. This entry is populated at form validation time.
  *     ),
  *   ),
@@ -542,7 +543,6 @@ function field_attach_form($entity_type, $entity, &$form, &$form_state, $langcod
 
   // Add custom weight handling.
   list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
-  $form['#attached']['css'][] = drupal_get_path('module', 'field') . '/theme/field.css';
   $form['#pre_render'][] = '_field_extra_fields_pre_render';
   $form['#entity_type'] = $entity_type;
   $form['#bundle'] = $bundle;
@@ -584,6 +584,7 @@ function field_attach_form($entity_type, $entity, &$form, &$form_state, $langcod
  *     non-deleted fields are operated on.
  */
 function field_attach_load($entity_type, $entities, $age = FIELD_LOAD_CURRENT, $options = array()) {
+  $field_info = field_info_field_by_ids();
   $load_current = $age == FIELD_LOAD_CURRENT;
 
   // Merge default options.
@@ -661,7 +662,7 @@ function field_attach_load($entity_type, $entities, $age = FIELD_LOAD_CURRENT, $
         }
         // Collect the storage backend if the field has not been loaded yet.
         if (!isset($skip_fields[$field_id])) {
-          $field = field_info_field_by_id($field_id);
+          $field = $field_info[$field_id];
           $storages[$field['storage']['type']][$field_id][] = $load_current ? $id : $vid;
         }
       }
@@ -1036,10 +1037,17 @@ function field_attach_delete_revision($entity_type, $entity) {
 /**
  * Prepare field data prior to display.
  *
- * This function must be called before field_attach_view(). It lets field
- * types and formatters load additional data needed for display, and
- * therefore accepts an array of entities to allow query optimisation when
- * displaying lists of entities.
+ * This function lets field types and formatters load additional data
+ * needed for display that is not automatically loaded during
+ * field_attach_load(). It accepts an array of entities to allow query
+ * optimisation when displaying lists of entities.
+ *
+ * field_attach_prepare_view() and field_attach_view() are two halves
+ * of the same operation. It is safe to call
+ * field_attach_prepare_view() multiple times on the same entity
+ * before calling field_attach_view() on it, but calling any Field
+ * API operation on an entity between passing that entity to these two
+ * functions may yield incorrect results.
  *
  * @param $entity_type
  *   The type of $entities; e.g. 'node' or 'user'.
@@ -1077,8 +1085,12 @@ function field_attach_prepare_view($entity_type, $entities, $view_mode) {
  * Each field is displayed according to the display options specified in the
  * $instance definition for the given $view_mode.
  *
- * The entity must have run through field_attach_prepare_view() beforehands.
- * @see field_attach_prepare_view()
+ * field_attach_prepare_view() and field_attach_view() are two halves
+ * of the same operation. It is safe to call
+ * field_attach_prepare_view() multiple times on the same entity
+ * before calling field_attach_view() on it, but calling any Field
+ * API operation on an entity between passing that entity to these two
+ * functions may yield incorrect results.
  *
  * Sample structure:
  * @code
@@ -1128,9 +1140,6 @@ function field_attach_view($entity_type, $entity, $view_mode, $langcode = NULL) 
   $output['#pre_render'][] = '_field_extra_fields_pre_render';
   $output['#entity_type'] = $entity_type;
   $output['#bundle'] = $bundle;
-
-  // Include CSS styles.
-  $output['#attached']['css'][] = drupal_get_path('module', 'field') . '/theme/field.css';
 
   // Let other modules alter the renderable array.
   $context = array(

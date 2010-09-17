@@ -1,5 +1,5 @@
 <?php
-// $Id: node.pages.inc,v 1.127 2010/06/17 13:44:45 dries Exp $
+// $Id: node.pages.inc,v 1.132 2010/09/09 23:01:48 dries Exp $
 
 /**
  * @file
@@ -80,10 +80,7 @@ function node_form_validate($form, &$form_state) {
   // not update it with form values that have not yet been validated, so we
   // create a pseudo-entity to use during validation.
   $node = (object) $form_state['values'];
-  node_validate($node, $form);
-
-  // Field validation. Requires access to $form_state, so this cannot be
-  // done in node_validate() as it currently exists.
+  node_validate($node, $form, $form_state);
   entity_form_field_validate('node', $form, $form_state);
 }
 
@@ -117,7 +114,9 @@ function node_form($form, &$form_state, $node) {
   }
 
   // Identify this as a node edit form.
+  // @todo D8: Remove. Modules can implement hook_form_BASE_FORM_ID_alter() now.
   $form['#node_edit_form'] = TRUE;
+
   $form['#attributes']['class'][] = 'node-form';
   if (!empty($node->type)) {
     $form['#attributes']['class'][] = 'node-' . $node->type . '-form';
@@ -137,16 +136,18 @@ function node_form($form, &$form_state, $node) {
     '#type' => 'hidden',
     '#default_value' => isset($node->changed) ? $node->changed : NULL,
   );
-  // Get the node-specific bits.
-  if ($extra = node_invoke($node, 'form', $form_state)) {
+  // Invoke hook_form() to get the node-specific bits. Can't use node_invoke(),
+  // because hook_form() needs to be able to receive $form_state by reference.
+  // @todo hook_form() implementations are unable to add #validate or #submit
+  //   handlers to the form buttons below. Remove hook_form() entirely.
+  $function = node_type_get_base($node) . '_form';
+  if (function_exists($function) && ($extra = $function($node, $form_state))) {
     $form = array_merge_recursive($form, $extra);
   }
   if (!isset($form['title']['#weight'])) {
     $form['title']['#weight'] = -5;
   }
-  // @todo Legacy support. Modules adding form building and processing functions
-  //   to the node form are encouraged to access the node using
-  //   $form_state['node']. Remove in Drupal 8.
+  // @todo D8: Remove. Modules should access the node using $form_state['node'].
   $form['#node'] = $node;
 
   $form['additional_settings'] = array(
@@ -225,7 +226,7 @@ function node_form($form, &$form_state, $node) {
     '#type' => 'textfield',
     '#title' => t('Authored on'),
     '#maxlength' => 25,
-    '#description' => t('Format: %time. The date format is YYYY-MM-DD and %timezone is the timezone offset from UTC. Leave blank to use the time of form submission.', array('%time' => !empty($node->date) ? $node->date : format_date($node->created, 'custom', 'Y-m-d H:i:s O'), '%timezone' => !empty($node->date) ? $node->date : format_date($node->created, 'custom', 'O'))),
+    '#description' => t('Format: %time. The date format is YYYY-MM-DD and %timezone is the time zone offset from UTC. Leave blank to use the time of form submission.', array('%time' => !empty($node->date) ? date_format(date_create($node->date), 'Y-m-d H:i:s O') : format_date($node->created, 'custom', 'Y-m-d H:i:s O'), '%timezone' => !empty($node->date) ? date_format(date_create($node->date), 'O') : format_date($node->created, 'custom', 'O'))),
     '#default_value' => !empty($node->date) ? $node->date : '',
   );
 
@@ -282,7 +283,17 @@ function node_form($form, &$form_state, $node) {
       '#submit' => array('node_form_delete_submit'),
     );
   }
+  // This form uses a button-level #submit handler for the form's main submit
+  // action. node_form_submit() manually invokes all form-level #submit handlers
+  // of the form. Without explicitly setting #submit, Form API would auto-detect
+  // node_form_submit() as submit handler, but that is the button-level #submit
+  // handler for the 'Save' action. To maintain backwards compatibility, a
+  // #submit handler is auto-suggested for custom node type modules.
   $form['#validate'][] = 'node_form_validate';
+  if (!isset($form['#submit']) && function_exists($node->type . '_node_form_submit')) {
+    $form['#submit'][] = $node->type . '_node_form_submit';
+  }
+  $form += array('#submit' => array());
 
   $form['#builder_function'] = 'node_form_submit_build_node';
   field_attach_form('node', $node, $form, $form_state, $node->language);
@@ -339,11 +350,10 @@ function node_preview($node) {
     field_attach_prepare_view('node', $nodes, 'full');
 
     // Display a preview of the node.
-    // Previewing alters $node so it needs to be cloned.
     if (!form_get_errors()) {
-      $cloned_node = clone $node;
-      $cloned_node->in_preview = TRUE;
-      $output = theme('node_preview', array('node' => $cloned_node));
+      $node->in_preview = TRUE;
+      $output = theme('node_preview', array('node' => $node));
+      unset($node->in_preview);
     }
     drupal_set_title(t('Preview'), PASS_THROUGH);
 
@@ -509,7 +519,7 @@ function node_revision_overview($node) {
       $row[] = array('data' => t('!date by !username', array('!date' => l(format_date($revision->timestamp, 'short'), "node/$node->nid"), '!username' => theme('username', array('account' => $revision))))
                                . (($revision->log != '') ? '<p class="revision-log">' . filter_xss($revision->log) . '</p>' : ''),
                      'class' => array('revision-current'));
-      $operations[] = array('data' => drupal_placeholder(array('text' => t('current revision'))), 'class' => array('revision-current'), 'colspan' => 2);
+      $operations[] = array('data' => drupal_placeholder(t('current revision')), 'class' => array('revision-current'), 'colspan' => 2);
     }
     else {
       $row[] = t('!date by !username', array('!date' => l(format_date($revision->timestamp, 'short'), "node/$node->nid/revisions/$revision->vid/view"), '!username' => theme('username', array('account' => $revision))))

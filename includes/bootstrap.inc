@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.407 2010/07/09 00:14:02 webchick Exp $
+// $Id: bootstrap.inc,v 1.418 2010/09/16 01:09:34 webchick Exp $
 
 /**
  * @file
@@ -9,7 +9,7 @@
 /**
  * The current system version.
  */
-define('VERSION', '7.0-alpha6');
+define('VERSION', '7.0-alpha7');
 
 /**
  * Core API compatibility.
@@ -560,7 +560,7 @@ function drupal_settings_initialize() {
   global $base_url, $base_path, $base_root;
 
   // Export the following settings.php variables to the global namespace
-  global $databases, $cookie_domain, $conf, $installed_profile, $update_free_access, $db_url, $drupal_hash_salt, $is_https, $base_secure_url, $base_insecure_url;
+  global $databases, $cookie_domain, $conf, $installed_profile, $update_free_access, $db_url, $db_prefix, $drupal_hash_salt, $is_https, $base_secure_url, $base_insecure_url;
   $conf = array();
 
   if (file_exists(DRUPAL_ROOT . '/' . conf_path() . '/settings.php')) {
@@ -1453,7 +1453,7 @@ function t($string, array $args = array(), array $options = array()) {
         case '%':
         default:
           // Escaped and placeholder.
-          $args[$key] = drupal_placeholder(array('text' => $value));
+          $args[$key] = drupal_placeholder($value);
           break;
 
         case '!':
@@ -1645,7 +1645,7 @@ function watchdog($type, $message, $variables = array(), $severity = WATCHDOG_NO
       'link'        => $link,
       'user'        => $user,
       'request_uri' => $base_root . request_uri(),
-      'referer'     => $_SERVER['HTTP_REFERER'],
+      'referer'     => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
       'ip'          => ip_address(),
       'timestamp'   => REQUEST_TIME,
     );
@@ -1689,7 +1689,7 @@ function drupal_set_message($message = NULL, $type = 'status', $repeat = TRUE) {
       $_SESSION['messages'][$type][] = $message;
     }
 
-    // Mark this page has being not cacheable.
+    // Mark this page as being uncacheable.
     drupal_page_is_cacheable(FALSE);
   }
 
@@ -2115,7 +2115,7 @@ function _drupal_bootstrap_page_cache() {
   // If there is no session cookie and cache is enabled (or forced), try
   // to serve a cached page.
   if (!isset($_COOKIE[session_name()]) && $cache_enabled) {
-    // Make sure there is a user object because it's timestamp will be
+    // Make sure there is a user object because its timestamp will be
     // checked, hook_boot might check for anonymous user etc.
     $user = drupal_anonymous_user();
     // Get the page from the cache.
@@ -2181,7 +2181,7 @@ function _drupal_bootstrap_database() {
       if (!isset($value['prefix'])) {
         $current_prefix = '';
       }
-      else if (is_array($value['prefix'])) {
+      elseif (is_array($value['prefix'])) {
         $current_prefix = $value['prefix']['default'];
       }
       else {
@@ -2327,15 +2327,15 @@ function get_t() {
 function drupal_language_initialize() {
   $types = language_types();
 
-  // Ensure the language is correctly returned, even without multilanguage support.
+  // Ensure the language is correctly returned, even without multilanguage
+  // support. Also make sure we have a $language fallback, in case a language
+  // negotiation callback needs to do a full bootstrap.
   // Useful for eg. XML/HTML 'lang' attributes.
-  if (!drupal_multilingual()) {
-    $default = language_default();
-    foreach ($types as $type) {
-      $GLOBALS[$type] = $default;
-    }
+  $default = language_default();
+  foreach ($types as $type) {
+    $GLOBALS[$type] = $default;
   }
-  else {
+  if (drupal_multilingual()) {
     include_once DRUPAL_ROOT . '/includes/language.inc';
     foreach ($types as $type) {
       $GLOBALS[$type] = language_initialize($type);
@@ -2906,34 +2906,35 @@ function registry_update() {
  */
 function &drupal_static($name, $default_value = NULL, $reset = FALSE) {
   static $data = array(), $default = array();
-  if (!isset($name)) {
-    // All variables are reset. This needs to be done one at a time so that
-    // references returned by earlier invocations of drupal_static() also get
-    // reset.
-    foreach ($default as $name => $value) {
-      $data[$name] = $value;
-    }
-    // As the function returns a reference, the return should always be a
-    // variable.
-    return $data;
-  }
-  if ($reset) {
-    // The reset means the default is loaded.
-    if (array_key_exists($name, $default)) {
+  // First check if dealing with a previously defined static variable.
+  if (isset($data[$name]) || array_key_exists($name, $data)) {
+    // Non-NULL $name and both $data[$name] and $default[$name] statics exist.
+    if ($reset) {
+      // Reset pre-existing static variable to its default value.
       $data[$name] = $default[$name];
     }
-    else {
+    return $data[$name];
+  }
+  // Neither $data[$name] nor $default[$name] static variables exist.
+  if (isset($name)) {
+    if ($reset) {
       // Reset was called before a default is set and yet a variable must be
       // returned.
       return $data;
     }
-  }
-  elseif (!array_key_exists($name, $data)) {
-    // Store the default value internally and also copy it to the reference to
-    // be returned.
+    // First call with new non-NULL $name. Initialize a new static variable.
     $default[$name] = $data[$name] = $default_value;
+    return $data[$name];
   }
-  return $data[$name];
+  // Reset all: ($name == NULL). This needs to be done one at a time so that
+  // references returned by earlier invocations of drupal_static() also get
+  // reset.
+  foreach ($default as $name => $value) {
+    $data[$name] = $value;
+  }
+  // As the function returns a reference, the return should always be a
+  // variable.
+  return $data;
 }
 
 /**
@@ -2957,38 +2958,36 @@ function drupal_is_cli() {
  * Formats text for emphasized display in a placeholder inside a sentence.
  * Used automatically by t().
  *
- * @param $variables
- *   An associative array containing:
- *   - text: The text to format (plain-text).
+ * @param $text
+ *   The text to format (plain-text).
  *
  * @return
  *   The formatted text (html).
  */
-function drupal_placeholder($variables) {
-  return '<em class="placeholder">' . check_plain($variables['text']) . '</em>';
+function drupal_placeholder($text) {
+  return '<em class="placeholder">' . check_plain($text) . '</em>';
 }
 
 /**
- *
  * Register a function for execution on shutdown.
  *
- * Wrapper for register_shutdown_function() which catches thrown exceptions
- * to avoid "Exception thrown without a stack frame in Unknown".
+ * Wrapper for register_shutdown_function() that catches thrown exceptions to
+ * avoid "Exception thrown without a stack frame in Unknown".
  *
  * @param $callback
  *   The shutdown function to register.
- * @param $parameters
- *   It is possible to pass parameters to the shutdown function by passing
- *   additional parameters.
+ * @param ...
+ *   Additional arguments to pass to the shutdown function.
+ *
  * @return
  *   Array of shutdown functions to be executed.
  *
  * @see register_shutdown_function()
  * @ingroup php_wrappers
  */
-function &drupal_register_shutdown_function($callback = NULL, $parameters = NULL) {
-  // We cannot use drupal_static() here because the static cache is reset
-  // during batch processing, which breaks batch handling.
+function &drupal_register_shutdown_function($callback = NULL) {
+  // We cannot use drupal_static() here because the static cache is reset during
+  // batch processing, which breaks batch handling.
   static $callbacks = array();
 
   if (isset($callback)) {

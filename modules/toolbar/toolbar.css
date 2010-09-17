@@ -1,4 +1,4 @@
-/* $Id: toolbar.css,v 1.22 2010/05/23 18:23:32 dries Exp $ */
+/* $Id: toolbar.css,v 1.26 2010/09/11 14:45:23 dries Exp $ */
 
 body.toolbar {
   padding-top: 2.2em;
@@ -27,9 +27,12 @@ body.toolbar-drawer {
 
 /**
  * Base styles.
+ *
+ * We use a keyword for the toolbar font size to make it display consistently
+ * across different themes, while still allowing browsers to resize the text.
  */
 #toolbar {
-  font: normal 0.9em "Lucida Grande", Verdana, sans-serif;
+  font: normal small "Lucida Grande", Verdana, sans-serif;
   background: #666;
   color: #ccc;
   position: fixed;
@@ -52,8 +55,9 @@ body.toolbar-drawer {
 }
 
 #toolbar a {
-  text-decoration: none;
   color: #fff;
+  font-size: .846em;
+  text-decoration: none;
 }
 
 #toolbar ul li,
@@ -100,9 +104,17 @@ body.toolbar-drawer {
   width: 25px;
   height: 25px;
 }
+#toolbar div.toolbar-menu a.toggle:focus,
+#toolbar div.toolbar-menu a.toggle:hover {
+background-position:  -50px -20px;
+}
 
 #toolbar div.toolbar-menu a.toggle-active {
   background-position:  -25px -20px;
+}
+#toolbar div.toolbar-menu a.toggle-active.toggle:focus,
+#toolbar div.toolbar-menu a.toggle-active.toggle:hover {
+background-position:  -75px -20px;
 }
 
 #toolbar div.toolbar-menu ul li a {
@@ -114,11 +126,13 @@ body.toolbar-drawer {
 
 #toolbar div.toolbar-menu ul li a:focus,
 #toolbar div.toolbar-menu ul li a:hover,
+#toolbar div.toolbar-menu ul li a:active,
 #toolbar div.toolbar-menu ul li a.active:focus {
   background: #444;
 }
 
 #toolbar div.toolbar-menu ul li a.active:hover,
+#toolbar div.toolbar-menu ul li a.active:active,
 #toolbar div.toolbar-menu ul li a.active,
 #toolbar div.toolbar-menu ul li.active-trail a {
   text-shadow: #333 0 1px 0;
@@ -137,7 +151,7 @@ body.toolbar-drawer {
  * IE 6 Fix.
  *
  * IE 6 shows elements with position:fixed as position:static so we replace
- * it with position:absolute; toolbar needs it's z-index to stay above overlay.
+ * it with position:absolute; toolbar needs its z-index to stay above overlay.
  */
 * html #toolbar {
   position: absolute;

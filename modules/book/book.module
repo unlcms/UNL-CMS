@@ -1,5 +1,5 @@
 <?php
-// $Id: book.module,v 1.547 2010/07/07 01:07:33 dries Exp $
+// $Id: book.module,v 1.552 2010/09/09 23:01:48 dries Exp $
 
 /**
  * @file
@@ -91,7 +91,7 @@ function book_node_view_link($node, $view_mode) {
   $links = array();
 
   if (isset($node->book['depth'])) {
-    if ($view_mode == 'full') {
+    if ($view_mode == 'full' && node_is_page($node)) {
       $child_type = variable_get('book_child_type', 'book');
       if ((user_access('add content to books') || user_access('administer book outlines')) && node_access('create', $child_type) && $node->status == 1 && $node->book['depth'] < MENU_MAX_DEPTH) {
         $links['book_add_child'] = array(
@@ -112,11 +112,7 @@ function book_node_view_link($node, $view_mode) {
   }
 
   if (!empty($links)) {
-    $node->content['links']['book'] = array(
-      '#theme' => 'links__book_node',
-      '#links' => $links,
-      '#attributes' => array('class' => array('links', 'inline')),
-    );
+    $node->content['links']['#links'] = array_merge($node->content['links']['#links'], $links);
   }
 }
 
@@ -216,13 +212,6 @@ function book_admin_paths() {
     'node/*/outline/remove' => TRUE,
   );
   return $paths;
-}
-
-/**
- * Implements hook_init().
- */
-function book_init() {
-  drupal_add_css(drupal_get_path('module', 'book') . '/book.css');
 }
 
 /**
@@ -387,35 +376,33 @@ function book_get_books() {
 }
 
 /**
- * Implements hook_form_alter().
+ * Implements hook_form_BASE_FORM_ID_alter().
  *
  * Adds the book fieldset to the node form.
+ *
+ * @see book_pick_book_nojs_submit()
  */
-function book_form_alter(&$form, &$form_state, $form_id) {
-  if (!empty($form['#node_edit_form'])) {
-    // Add elements to the node form.
-    $node = $form['#node'];
-
-    $access = user_access('administer book outlines');
-    if (!$access) {
-      if (user_access('add content to books') && ((!empty($node->book['mlid']) && !empty($node->nid)) || book_type_is_allowed($node->type))) {
-        // Already in the book hierarchy, or this node type is allowed.
-        $access = TRUE;
-      }
+function book_form_node_form_alter(&$form, &$form_state, $form_id) {
+  $node = $form['#node'];
+  $access = user_access('administer book outlines');
+  if (!$access) {
+    if (user_access('add content to books') && ((!empty($node->book['mlid']) && !empty($node->nid)) || book_type_is_allowed($node->type))) {
+      // Already in the book hierarchy, or this node type is allowed.
+      $access = TRUE;
     }
+  }
 
-    if ($access) {
-      _book_add_form_elements($form, $form_state, $node);
-      // Since the "Book" dropdown can't trigger a form submission when
-      // JavaScript is disabled, add a submit button to do that. book.css hides
-      // this button when JavaScript is enabled.
-      $form['book']['pick-book'] = array(
-        '#type' => 'submit',
-        '#value' => t('Change book (update list of parents)'),
-        '#submit' => array('book_pick_book_nojs_submit'),
-        '#weight' => 20,
-      );
-    }
+  if ($access) {
+    _book_add_form_elements($form, $form_state, $node);
+    // Since the "Book" dropdown can't trigger a form submission when
+    // JavaScript is disabled, add a submit button to do that. book.css hides
+    // this button when JavaScript is enabled.
+    $form['book']['pick-book'] = array(
+      '#type' => 'submit',
+      '#value' => t('Change book (update list of parents)'),
+      '#submit' => array('book_pick_book_nojs_submit'),
+      '#weight' => 20,
+    );
   }
 }
 

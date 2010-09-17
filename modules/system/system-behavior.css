@@ -1,4 +1,4 @@
-/* $Id: system-behavior.css,v 1.11 2010/06/26 20:10:24 dries Exp $ */
+/* $Id: system-behavior.css,v 1.13 2010/08/09 16:58:15 webchick Exp $ */
 
 /**
  * Autocomplete
@@ -136,6 +136,9 @@ div.tree-child-horizontal {
 .tabledrag-toggle-weight {
   font-size: 0.9em;
 }
+body div.tabledrag-changed-warning {
+  margin-bottom: 0.5em;
+}
 
 /**
  * Progress bar
@@ -204,7 +207,7 @@ dl.multiselect .form-item {
 /**
  * Password strength indicator
  */
-#password-strength {
+.password-strength {
   width: 17em;
   float: right;  /* LTR */
   margin-top: 1.4em;
@@ -212,16 +215,16 @@ dl.multiselect .form-item {
 .password-strength-title {
   display: inline;
 }
-#password-strength-text {
+.password-strength-text {
   float: right; /* LTR */
   font-weight: bold;
 }
-#password-indicator {
+.password-indicator {
   background-color: #C4C4C4;
   height: 0.3em;
   width: 100%;
 }
-#password-indicator div {
+.password-indicator div {
   height: 100%;
   width: 0%;
   background-color: #47C965;

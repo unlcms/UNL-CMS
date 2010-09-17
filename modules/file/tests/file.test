@@ -1,5 +1,5 @@
 <?php
-// $Id: file.test,v 1.18 2010/07/02 12:37:57 dries Exp $
+// $Id: file.test,v 1.25 2010/09/11 21:14:31 webchick Exp $
 
 /**
  * @file
@@ -14,7 +14,7 @@ class FileFieldTestCase extends DrupalWebTestCase {
 
   function setUp() {
     parent::setUp('file');
-    $this->admin_user = $this->drupalCreateUser(array('access content', 'access administration pages', 'administer site configuration', 'administer users', 'administer content types', 'administer nodes', 'bypass node access'));
+    $this->admin_user = $this->drupalCreateUser(array('access content', 'access administration pages', 'administer site configuration', 'administer users', 'administer permissions', 'administer content types', 'administer nodes', 'bypass node access'));
     $this->drupalLogin($this->admin_user);
   }
 
@@ -96,7 +96,6 @@ class FileFieldTestCase extends DrupalWebTestCase {
    * Update an existing file field with new settings.
    */
   function updateFileField($name, $type_name, $instance_settings = array(), $widget_settings = array()) {
-    $field = field_info_field($name);
     $instance = field_info_instance('node', $name, $type_name);
     $instance['settings'] = array_merge($instance['settings'], $instance_settings);
     $instance['widget']['settings'] = array_merge($instance['widget']['settings'], $widget_settings);
@@ -117,11 +116,11 @@ class FileFieldTestCase extends DrupalWebTestCase {
     if (is_numeric($nid_or_type)) {
       $node = node_load($nid_or_type);
       $delta = isset($node->$field_name) ? count($node->$field_name) : 0;
-      $edit['files[' . $field_name . '_' . LANGUAGE_NONE . '_' . $delta . ']'] = realpath($file->uri);
+      $edit['files[' . $field_name . '_' . LANGUAGE_NONE . '_' . $delta . ']'] = drupal_realpath($file->uri);
       $this->drupalPost('node/' . $nid_or_type . '/edit', $edit, t('Save'));
     }
     else {
-      $edit['files[' . $field_name . '_' . LANGUAGE_NONE . '_0]'] = realpath($file->uri);
+      $edit['files[' . $field_name . '_' . LANGUAGE_NONE . '_0]'] = drupal_realpath($file->uri);
       $type_name = str_replace('_', '-', $nid_or_type);
       $this->drupalPost('node/add/' . $type_name, $edit, t('Save'));
     }
@@ -150,7 +149,7 @@ class FileFieldTestCase extends DrupalWebTestCase {
    */
   function replaceNodeFile($file, $field_name, $nid, $new_revision = TRUE) {
     $edit = array(
-      'files[' . $field_name . '_' . LANGUAGE_NONE . '_0]' => realpath($file->uri),
+      'files[' . $field_name . '_' . LANGUAGE_NONE . '_0]' => drupal_realpath($file->uri),
       'revision' => (string) (int) $new_revision,
     );
 
@@ -170,7 +169,7 @@ class FileFieldTestCase extends DrupalWebTestCase {
    * Assert that a file exists in the database.
    */
   function assertFileEntryExists($file, $message = NULL) {
-    drupal_static_reset('file_load_multiple');
+    entity_get_controller('file')->resetCache();
     $db_file = file_load($file->fid);
     $message = isset($message) ? $message : t('File %file exists in database at the correct path.', array('%file' => $file->uri));
     $this->assertEqual($db_file->uri, $file->uri, $message);
@@ -188,7 +187,7 @@ class FileFieldTestCase extends DrupalWebTestCase {
    * Assert that a file does not exist in the database.
    */
   function assertFileEntryNotExists($file, $message) {
-    drupal_static_reset('file_load_multiple');
+    entity_get_controller('file')->resetCache();
     $message = isset($message) ? $message : t('File %file exists in database at the correct path.', array('%file' => $file->uri));
     $this->assertFalse(file_load($file->fid), $message);
   }
@@ -246,6 +245,9 @@ class FileFieldWidgetTestCase extends FileFieldTestCase {
       $node = node_load($nid, NULL, TRUE);
       $node_file = (object) $node->{$field_name}[LANGUAGE_NONE][0];
       $this->assertFileExists($node_file, t('New file saved to disk on node creation.'));
+      // Test file download.
+      $this->drupalGet(file_create_url($node_file->uri));
+      $this->assertResponse(200, t('Confirmed that the generated URL is correct by downloading the shipped file.'));
 
       // Ensure the edit page has a remove button instead of an upload button.
       $this->drupalGet("node/$nid/edit");
@@ -277,7 +279,90 @@ class FileFieldWidgetTestCase extends FileFieldTestCase {
       $node = node_load($nid, NULL, TRUE);
       $this->assertTrue(empty($node->{$field_name}[LANGUAGE_NONE][0]['fid']), t('File was successfully removed from the node.'));
     }
+
+    // Test private download method.
+    $edit = array('field[settings][uri_scheme]' => 'private');
+    $this->drupalPost("admin/structure/types/manage/$type_name/fields/$field_name", $edit, t('Save settings'));
+    // Create a new node with the uploaded file and ensure it got uploaded
+    // successfully.
+    $nid = $this->uploadNodeFile($test_file, $field_name, $type_name);
+    $node = node_load($nid, NULL, TRUE);
+    $node_file = (object) $node->{$field_name}[LANGUAGE_NONE][0];
+    $this->assertFileExists($node_file, t('New file saved to disk on node creation.'));
+    // Test file download.
+    $this->drupalGet(file_create_url($node_file->uri));
+    $this->assertResponse(200, t('Confirmed that the generated URL is correct by downloading the shipped file.'));
+    // Ensure we can't change 'uri_scheme' field settings while there are some
+    // entities with uploaded files.
+    $this->drupalGet("admin/structure/types/manage/$type_name/fields/$field_name");
+    $this->assertFieldByXpath('//input[@id="edit-field-settings-uri-scheme-public" and @disabled="disabled"]', 'public', t('Upload destination setting disabled.'));
+    // Delete node and confirm that setting could be changed.
+    node_delete($nid);
+    $this->drupalGet("admin/structure/types/manage/$type_name/fields/$field_name");
+    $this->assertFieldByXpath('//input[@id="edit-field-settings-uri-scheme-public" and not(@disabled)]', 'public', t('Upload destination setting enabled.'));
   }
+
+  /**
+   * Tests that download restrictions on private files work on comments.
+   */
+  function testPrivateFileComment() {
+    $user = $this->drupalCreateUser(array('access comments'));
+
+    // Remove access comments permission from anon user.
+    $edit = array(
+      '1[access comments]' => FALSE,
+    );
+    $this->drupalPost('admin/people/permissions', $edit, t('Save permissions'));
+
+    // Create a new field.
+    $edit = array(
+      'fields[_add_new_field][label]' => $label = $this->randomName(),
+      'fields[_add_new_field][field_name]' => $name = strtolower($this->randomName()),
+      'fields[_add_new_field][type]' => 'file',
+      'fields[_add_new_field][widget_type]' => 'file_generic',
+    );
+    $this->drupalPost('admin/structure/types/manage/article/comment/fields', $edit, t('Save'));
+    $edit = array('field[settings][uri_scheme]' => 'private');
+    $this->drupalPost(NULL, $edit, t('Save field settings'));
+    $this->drupalPost(NULL, array(), t('Save settings'));
+
+    // Create node.
+    $text_file = $this->getTestFile('text');
+    $edit = array(
+      'title' => $this->randomName(),
+    );
+    $this->drupalPost('node/add/article', $edit, t('Save'));
+
+    // Add a comment with a file.
+    $text_file = $this->getTestFile('text');
+    $edit = array(
+      'files[field_' . $name . '_' . LANGUAGE_NONE . '_' . 0 . ']' => drupal_realpath($text_file->uri),
+      'comment_body[' . LANGUAGE_NONE . '][0][value]' => $comment_body = $this->randomName(),
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+    // Get the comment ID.
+    preg_match('/comment-([0-9]+)/', $this->getUrl(), $matches);
+    $cid = $matches[1];
+
+    // Log in as normal user.
+    $this->drupalLogin($user);
+
+    $comment = comment_load($cid);
+    $comment_file = (object) $comment->{'field_' . $name}[LANGUAGE_NONE][0];
+    $this->assertFileExists($comment_file, t('New file saved to disk on node creation.'));
+    // Test authenticated file download.
+    $url = file_create_url($comment_file->uri);
+    $this->assertNotEqual($url, NULL, t('Confirmed that the URL is valid'));
+    $this->drupalGet(file_create_url($comment_file->uri));
+    $this->assertResponse(200, t('Confirmed that the generated URL is correct by downloading the shipped file.'));
+
+    // Test anonymous file download.
+    $this->drupalLogout();
+    $this->drupalGet(file_create_url($comment_file->uri));
+    $this->assertResponse(403, t('Confirmed that access is denied for the file without the needed permission.'));
+  }
+
 }
 
 /**
@@ -368,7 +453,7 @@ class FileFieldRevisionTestCase extends FileFieldTestCase {
 
     // Attach the second file to a user.
     $user = $this->drupalCreateUser();
-    $edit = array();
+    $edit = (array) $user;
     $edit[$field_name][LANGUAGE_NONE][0] = (array) $node_file_r3;
     user_save($user, $edit);
     $this->drupalGet('user/' . $user->uid . '/edit');
@@ -481,6 +566,8 @@ class FileFieldValidateTestCase extends FileFieldTestCase {
 
     // Create a new node with the uploaded file.
     $nid = $this->uploadNodeFile($test_file, $field_name, $type_name);
+    $this->assertTrue($nid !== FALSE, t('uploadNodeFile(@test_file, @field_name, @type_name) succeeded', array('@test_file' => $test_file->uri, '@field_name' => $field_name, '@type_name' => $type_name)));
+
     $node = node_load($nid, NULL, TRUE);
 
     $node_file = (object) $node->{$field_name}[LANGUAGE_NONE][0];

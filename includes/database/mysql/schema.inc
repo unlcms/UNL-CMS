@@ -1,5 +1,5 @@
 <?php
-// $Id: schema.inc,v 1.38 2010/06/28 19:57:34 dries Exp $
+// $Id: schema.inc,v 1.41 2010/08/02 18:55:17 webchick Exp $
 
 /**
  * @file
@@ -30,16 +30,19 @@ class DatabaseSchema_mysql extends DatabaseSchema {
    * @return
    *   A keyed array with information about the database, table name and prefix.
    */
-  protected function getPrefixInfo($table = 'default') {
+  protected function getPrefixInfo($table = 'default', $add_prefix = TRUE) {
     $info = array('prefix' => $this->connection->tablePrefix($table));
-    if (($pos = strpos($info['prefix'], '.')) !== FALSE) {
-      $info['database'] = substr($info['prefix'], 0, $pos);
-      $info['table'] = substr($info['prefix'], ++$pos) . $table;
+    if ($add_prefix) {
+      $table = $info['prefix'] . $table;
+    }
+    if (($pos = strpos($table, '.')) !== FALSE) {
+      $info['database'] = substr($table, 0, $pos);
+      $info['table'] = substr($table, ++$pos);
     }
     else {
       $db_info = Database::getConnectionInfo();
       $info['database'] = $db_info['default']['database'];
-      $info['table'] = $info['prefix'] . $table;
+      $info['table'] = $table;
     }
     return $info;
   }
@@ -52,10 +55,10 @@ class DatabaseSchema_mysql extends DatabaseSchema {
    * database as the schema unless specified otherwise, and exclude table_catalog
    * from the condition criteria.
    */
-  protected function buildTableNameCondition($table_name, $operator = '=') {
+  protected function buildTableNameCondition($table_name, $operator = '=', $add_prefix = TRUE) {
     $info = $this->connection->getConnectionOptions();
 
-    $table_info = $this->getPrefixInfo($table_name);
+    $table_info = $this->getPrefixInfo($table_name, $add_prefix);
 
     $condition = new DatabaseCondition('AND');
     $condition->condition('table_schema', $table_info['database']);
@@ -74,10 +77,12 @@ class DatabaseSchema_mysql extends DatabaseSchema {
    *   An array of SQL statements to create the table.
    */
   protected function createTableSql($name, $table) {
-    // Provide some defaults if needed
+    $info = $this->connection->getConnectionOptions();
+
+    // Provide defaults if needed.
     $table += array(
       'mysql_engine' => 'InnoDB',
-      'mysql_character_set' => 'UTF8',
+      'mysql_character_set' => 'utf8',
     );
 
     $sql = "CREATE TABLE {" . $name . "} (\n";
@@ -97,6 +102,13 @@ class DatabaseSchema_mysql extends DatabaseSchema {
     $sql = substr($sql, 0, -3) . "\n) ";
 
     $sql .= 'ENGINE = ' . $table['mysql_engine'] . ' DEFAULT CHARACTER SET ' . $table['mysql_character_set'];
+    // By default, MySQL uses the default collation for new tables, which is
+    // 'utf8_general_ci' for utf8. If an alternate collation has been set, it
+    // needs to be explicitly specified.
+    // @see DatabaseConnection_mysql
+    if (!empty($info['collation'])) {
+      $sql .= ' COLLATE ' . $info['collation'];
+    }
 
     // Add table comment.
     if (!empty($table['description'])) {
@@ -224,12 +236,6 @@ class DatabaseSchema_mysql extends DatabaseSchema {
 
       'blob:big'        => 'LONGBLOB',
       'blob:normal'     => 'BLOB',
-
-      'date:normal'     => 'DATE',
-
-      'datetime:normal' => 'DATETIME',
-
-      'time:normal'     => 'TIME',
     );
     return $map;
   }

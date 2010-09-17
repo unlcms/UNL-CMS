@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.admin.inc,v 1.47 2010/06/25 21:24:35 dries Exp $
+// $Id: comment.admin.inc,v 1.49 2010/09/11 01:47:14 dries Exp $
 
 /**
  * @file
@@ -168,7 +168,7 @@ function comment_admin_overview_submit($form, &$form_state) {
       if ($operation == 'unpublish') {
         $comment->status = COMMENT_NOT_PUBLISHED;
       }
-      else if ($operation == 'publish') {
+      elseif ($operation == 'publish') {
         $comment->status = COMMENT_PUBLISHED;
       }
       comment_save($comment);
@@ -273,7 +273,7 @@ function comment_confirm_delete_submit($form, &$form_state) {
   // Delete the comment and its replies.
   comment_delete($comment->cid);
   drupal_set_message(t('The comment and all its replies have been deleted.'));
-  watchdog('content', t('Deleted comment @cid and its replies.', array('@cid' => $comment->cid)));
+  watchdog('content', 'Deleted comment @cid and its replies.', array('@cid' => $comment->cid));
   // Clear the cache so an anonymous user sees that his comment was deleted.
   cache_clear_all();
 

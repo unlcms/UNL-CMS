@@ -1,5 +1,5 @@
 <?php
-// $Id: node.module,v 1.1279 2010/06/25 19:33:47 dries Exp $
+// $Id: node.module,v 1.1298 2010/09/11 06:03:11 webchick Exp $
 
 /**
  * @file
@@ -181,6 +181,7 @@ function node_entity_info() {
         'id' => 'nid',
         'revision' => 'vid',
         'bundle' => 'type',
+        'label' => 'title',
       ),
       'bundle keys' => array(
         'bundle' => 'type',
@@ -555,6 +556,9 @@ function node_type_save($info) {
  *   A node type object.
  * @param $label
  *   The label for the body instance.
+ *
+ * @return
+ *   Body field instance.
  */
 function node_add_body_field($type, $label = 'Body') {
    // Add or remove the body field, as needed.
@@ -588,8 +592,9 @@ function node_add_body_field($type, $label = 'Body') {
         ),
       ),
     );
-    field_create_instance($instance);
+    $instance = field_create_instance($instance);
   }
+  return $instance;
 }
 
 /**
@@ -922,7 +927,7 @@ function node_object_prepare($node) {
 /**
  * Perform validation checks on the given node.
  */
-function node_validate($node, $form = array()) {
+function node_validate($node, $form, &$form_state) {
   $type = node_type_get_type($node);
 
   if (isset($node->nid) && (node_last_changed($node->nid) > $node->changed)) {
@@ -942,9 +947,18 @@ function node_validate($node, $form = array()) {
     form_set_error('date', t('You have to specify a valid date.'));
   }
 
-  // Do node-type-specific validation checks.
-  node_invoke($node, 'validate', $form);
-  module_invoke_all('node_validate', $node, $form);
+  // Invoke hook_validate() for node type specific validation and
+  // hook_node_validate() for miscellaneous validation needed by modules. Can't
+  // use node_invoke() or module_invoke_all(), because $form_state must be
+  // receivable by reference.
+  $function = node_type_get_base($node) . '_validate';
+  if (function_exists($function)) {
+    $function($node, $form, $form_state);
+  }
+  foreach (module_implements('node_validate') as $module) {
+    $function = $module . '_node_validate';
+    $function($node, $form, $form_state);
+  }
 }
 
 /**
@@ -1134,16 +1148,6 @@ function node_delete_multiple($nids) {
   if (!empty($nids)) {
     $nodes = node_load_multiple($nids, array());
 
-    db_delete('node')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-    db_delete('node_revision')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-    db_delete('history')
-      ->condition('nid', $nids, 'IN')
-      ->execute();
-
     foreach ($nodes as $nid => $node) {
       // Call the node-specific callback (if any):
       node_invoke($node, 'delete');
@@ -1158,6 +1162,17 @@ function node_delete_multiple($nids) {
         search_reindex($nid, 'node');
       }
     }
+
+    // Delete after calling hooks so that they can query node tables as needed.
+    db_delete('node')
+      ->condition('nid', $nids, 'IN')
+      ->execute();
+    db_delete('node_revision')
+      ->condition('nid', $nids, 'IN')
+      ->execute();
+    db_delete('history')
+      ->condition('nid', $nids, 'IN')
+      ->execute();
 
     // Clear the page and block and node_load_multiple caches.
     cache_clear_all();
@@ -1218,7 +1233,7 @@ function node_view($node, $view_mode = 'full') {
   // displayed on its own page. Modules may alter this behavior (for example,
   // to restrict contextual links to certain view modes) by implementing
   // hook_node_view_alter().
-  if (!node_is_page($node)) {
+  if (!empty($node->nid) && !($view_mode == 'full' && node_is_page($node))) {
     $build['#contextual_links']['node'] = array('node', array($node->nid));
   }
 
@@ -1281,7 +1296,7 @@ function node_build_content($node, $view_mode = 'full') {
       'attributes' => array('rel' => 'tag', 'title' => strip_tags($node->title))
     );
   }
-  $node->content['links']['node'] = array(
+  $node->content['links'] = array(
     '#theme' => 'links__node',
     '#links' => $links,
     '#attributes' => array('class' => array('links', 'inline')),
@@ -1351,7 +1366,7 @@ function template_preprocess_node(&$variables) {
   $uri = entity_uri('node', $node);
   $variables['node_url']  = url($uri['path'], $uri['options']);
   $variables['title']     = check_plain($node->title);
-  $variables['page']      = node_is_page($node);
+  $variables['page']      = $variables['view_mode'] == 'full' && node_is_page($node);
 
   if (!empty($node->in_preview)) {
     unset($node->content['links']);
@@ -1535,7 +1550,7 @@ function node_search_admin() {
 /**
  * Implements hook_search_execute().
  */
-function node_search_execute($keys = NULL) {
+function node_search_execute($keys = NULL, $conditions = NULL) {
   // Build matching conditions
   $query = db_select('search_index', 'i', array('target' => 'slave'))->extend('SearchQuery')->extend('PagerDefault');
   $query->join('node', 'n', 'n.nid = i.sid');
@@ -1705,7 +1720,7 @@ function theme_node_search_admin($variables) {
   foreach (element_children($form['factors']) as $key) {
     $row = array();
     $row[] = $form['factors'][$key]['#title'];
-    unset($form['factors'][$key]['#title']);
+    $form['factors'][$key]['#title_display'] = 'invisible';
     $row[] = drupal_render($form['factors'][$key]);
     $rows[] = $row;
   }
@@ -1876,6 +1891,10 @@ function node_menu() {
     );
   }
   $items['node/%node'] = array(
+    'title callback' => 'node_page_title',
+    'title arguments' => array(1),
+    // The page callback also invokes drupal_set_title() in case
+    // the menu router's title is overridden by a menu link.
     'page callback' => 'node_page_view',
     'page arguments' => array(1),
     'access callback' => 'node_access',
@@ -1994,13 +2013,6 @@ function _node_custom_theme() {
   }
 }
 
-/**
- * Implements hook_init().
- */
-function node_init() {
-  drupal_add_css(drupal_get_path('module', 'node') . '/node.css');
-}
-
 function node_last_changed($nid) {
   return db_query('SELECT changed FROM {node} WHERE nid = :nid', array(':nid' => $nid))->fetch()->changed;
 }
@@ -2040,7 +2052,7 @@ function node_block_view($delta = '') {
   switch ($delta) {
     case 'syndicate':
       $block['subject'] = t('Syndicate');
-      $block['content'] = theme('feed_icon', array('url' => url('rss.xml'), 'title' => t('Syndicate')));
+      $block['content'] = theme('feed_icon', array('url' => 'rss.xml', 'title' => t('Syndicate')));
       break;
 
     case 'recent':
@@ -2159,7 +2171,7 @@ function theme_node_recent_block($variables) {
   if ($rows) {
     $output = theme('table', array('rows' => $rows));
     if (user_access('access content overview')) {
-      $output .= theme('more_link', array('url' => url('admin/content'), 'title' => t('Show more content')));
+      $output .= theme('more_link', array('url' => 'admin/content', 'title' => t('Show more content')));
     }
   }
 
@@ -2354,7 +2366,7 @@ function node_block_list_alter(&$blocks) {
  *   The link should be an absolute URL.
  */
 function node_feed($nids = FALSE, $channel = array()) {
-  global $base_url, $language;
+  global $base_url, $language_content;
 
   if ($nids === FALSE) {
     $nids = db_select('node', 'n')
@@ -2409,7 +2421,7 @@ function node_feed($nids = FALSE, $channel = array()) {
     'title'       => variable_get('site_name', 'Drupal'),
     'link'        => $base_url,
     'description' => variable_get('feed_description', ''),
-    'language'    => $language->language
+    'language'    => $language_content->language
   );
   $channel_extras = array_diff_key($channel, $channel_defaults);
   $channel = array_merge($channel_defaults, $channel);
@@ -2453,7 +2465,7 @@ function node_view_multiple($nodes, $view_mode = 'teaser', $weight = 0) {
  */
 function node_page_default() {
   $select = db_select('node', 'n')
-    ->fields('n', array('nid'))
+    ->fields('n', array('nid', 'sticky', 'created'))
     ->condition('promote', 1)
     ->condition('status', 1)
     ->orderBy('sticky', 'DESC')
@@ -2502,6 +2514,9 @@ function node_page_default() {
  * Menu callback; view a single node.
  */
 function node_page_view($node) {
+  // If there is a menu link to this node, the link becomes the last part
+  // of the active trail, and the link name becomes the page title.
+  // Thus, we must explicitly set the page title to be the node title.
   drupal_set_title($node->title);
   $uri = entity_uri('node', $node);
   // Set the node path as the canonical URL to prevent duplicate content.
@@ -2558,7 +2573,7 @@ function _node_index_node($node) {
  * Implements hook_form_FORM_ID_alter().
  */
 function node_form_search_form_alter(&$form, $form_state) {
-  if ($form['module']['#value'] == 'node' && user_access('use advanced search')) {
+  if (isset($form['module']) && $form['module']['#value'] == 'node' && user_access('use advanced search')) {
     // Keyword boxes:
     $form['advanced'] = array(
       '#type' => 'fieldset',
@@ -2756,7 +2771,6 @@ function node_access($op, $node, $account = NULL) {
     $rights[$account->uid][$cid][$op] = TRUE;
     return TRUE;
   }
-
   if (!user_access('access content', $account)) {
     $rights[$account->uid][$cid][$op] = FALSE;
     return FALSE;
@@ -2998,6 +3012,33 @@ function node_access_view_all_nodes() {
  * 'update' and 'delete').
  */
 function node_query_node_access_alter(QueryAlterableInterface $query) {
+  _node_query_node_access_alter($query, 'node', 'node');
+}
+
+/**
+ * Implements hook_query_TAG_alter().
+ *
+ * This function implements the same functionality as
+ * node_query_node_access_alter() for the SQL field storage engine. Node access
+ * conditions are added for field values belonging to nodes only.
+ */
+function node_query_entity_field_access_alter(QueryAlterableInterface $query) {
+  _node_query_node_access_alter($query, $query->getMetaData('base_table'), 'entity');
+}
+
+/**
+ * Helper for node access functions.
+ *
+ * @param $query
+ *   The query to add conditions to.
+ * @param $base_table
+ *   The table holding node ids.
+ * @param $type
+ *   Either 'node' or 'entity' depending on what sort of query it is. See
+ *   node_query_node_access_alter() and node_query_entity_field_access_alter()
+ *   for more.
+ */
+function _node_query_node_access_alter($query, $base_table, $type) {
   global $user;
 
   // Read meta-data from query, if provided.
@@ -3026,30 +3067,81 @@ function node_query_node_access_alter(QueryAlterableInterface $query) {
 
   $tables = $query->getTables();
   $grants = node_access_grants($op, $account);
+  if ($type == 'entity') {
+    // The original query looked something like:
+    // @code
+    //  SELECT nid FROM sometable s
+    //  INNER JOIN node_access na ON na.nid = s.nid
+    //  WHERE ($node_access_conditions)
+    // @endcode
+    //
+    // Our query will look like:
+    // @code
+    //  SELECT entity_type, entity_id
+    //  FROM field_data_something s
+    //  LEFT JOIN node_access na ON s.entity_id = na.nid
+    //  WHERE (entity_type = 'node' AND $node_access_conditions) OR (entity_type <> 'node')
+    // @endcode
+    //
+    // So instead of directly adding to the query object, we need to collect
+    // in a separate db_and() object and then at the end add it to the query.
+    $entity_conditions = db_and();
+  }
   foreach ($tables as $nalias => $tableinfo) {
     $table = $tableinfo['table'];
-    if (!($table instanceof SelectQueryInterface) && $table == 'node') {
+    if (!($table instanceof SelectQueryInterface) && $table == $base_table) {
 
-      // The node_access table has the access grants for any given node.
-      $access_alias = $query->join('node_access', 'na', '%alias.nid = ' . $nalias . '.nid');
-      $or = db_or();
+      // The node_access table has the access grants for any given node so JOIN
+      // it to the table containing the nid which can be either the node
+      // table or a field value table.
+      if ($type == 'node') {
+        $access_alias = $query->join('node_access', 'na', '%alias.nid = ' . $nalias . '.nid');
+      }
+      else {
+        $access_alias = $query->leftJoin('node_access', 'na', '%alias.nid = ' . $nalias . '.entity_id');
+        $base_alias = $nalias;
+      }
+
+      $grant_conditions = db_or();
       // If any grant exists for the specified user, then user has access
       // to the node for the specified operation.
       foreach ($grants as $realm => $gids) {
         foreach ($gids as $gid) {
-          $or->condition(db_and()
+          $grant_conditions->condition(db_and()
             ->condition($access_alias . '.gid', $gid)
             ->condition($access_alias . '.realm', $realm)
           );
         }
       }
 
-      if (count($or->conditions())) {
-        $query->condition($or);
+      $count = count($grant_conditions->conditions());
+      if ($type == 'node') {
+        if ($count) {
+          $query->condition($grant_conditions);
+        }
+        $query->condition($access_alias . '.grant_' . $op, 1, '>=');
       }
-
-      $query->condition($access_alias . '.grant_' . $op, 1, '>=');
+      else {
+        if ($count) {
+          $entity_conditions->condition($grant_conditions);
+        }
+        $entity_conditions->condition($access_alias . '.grant_' . $op, 1, '>=');
+      }
     }
+  }
+
+  if ($type == 'entity' && count($entity_conditions->conditions())) {
+    // All the node access conditions are only for field values belonging to
+    // nodes.
+    $etid = variable_get('field_sql_storage_node_etid');
+    $entity_conditions->condition("$base_alias.etid", $etid);
+    $or = db_or();
+    $or->condition($entity_conditions);
+    // If the field value belongs to a non-node entity type then this function
+    // does not do anything with it.
+    $or->condition("$base_alias.etid", $etid, '<>');
+    // Add the compiled set of rules to the query.
+    $query->condition($or);
   }
 }
 
@@ -3673,5 +3765,14 @@ class NodeController extends DrupalDefaultEntityController {
     $fields['uid']['table'] = 'base';
     $query->addField('revision', 'uid', 'revision_uid');
     return $query;
+  }
+}
+
+/**
+ * Implements hook_file_download_access().
+ */
+function node_file_download_access($field, $entity_type, $entity) {
+  if ($entity_type == 'node') {
+    return node_access('view', $entity);
   }
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: system.module,v 1.946 2010/07/07 17:56:42 webchick Exp $
+// $Id: system.module,v 1.960 2010/09/11 06:03:12 webchick Exp $
 
 /**
  * @file
@@ -80,7 +80,7 @@ function system_help($path, $arg) {
       $output .= '<dt>' . t('Managing caching') . '</dt>';
       $output .= '<dd>' . t("The System module allows users with the appropriate permissions to manage caching on the <a href='@cache-settings'>Performance settings page</a>. Drupal has a robust caching system that allows the efficient re-use of previously-constructed web pages and web page components. Pages requested by anonymous users are stored in a compressed format; depending on your site configuration and the amount of your web traffic tied to anonymous visitors, the caching system may significantly increase the speed of your site.", array('@cache-settings' => url('admin/config/development/performance'))) . '</dd>';
       $output .= '<dt>' . t('Performing system maintenance') . '</dt>';
-      $output .= '<dd>' . t('In order for the site and its modules to continue to operate well, a set of routine administrative operations must run on a regular basis. The System module manages this task by making use of a system cron job. You can verify the status of cron tasks by visiting the <a href="@status">Status report page</a>. For more information, see the online handbook entry for <a href="@handbook">configuring cron jobs</a>.', array('@status' => url('admin/reports/status'), '@handbook' => 'http://drupal.org/cron')) . '</dd>';
+      $output .= '<dd>' . t('In order for the site and its modules to continue to operate well, a set of routine administrative operations must run on a regular basis. The System module manages this task by making use of a system cron job. You can verify the status of cron tasks by visiting the <a href="@status">Status report page</a>. For more information, see the online handbook entry for <a href="@handbook">configuring cron jobs</a>. You can set up cron job by visiting <a href="@cron">Cron configuration</a> page', array('@status' => url('admin/reports/status'), '@handbook' => 'http://drupal.org/cron', '@cron' => url('admin/config/system/cron'))) . '</dd>';
       $output .= '<dt>' . t('Configuring basic site settings') . '</dt>';
       $output .= '<dd>' . t('The System module also handles basic configuration options for your site, including <a href="@date-time-settings">Date and time settings</a>, <a href="@file-system">File system settings</a>, <a href="@clean-url">Clean URL support</a>, <a href="@site-info">Site name and other information</a>, and a <a href="@maintenance-mode">Maintenance mode</a> for taking your site temporarily offline.', array('@date-time-settings' => url('admin/config/regional/date-time'), '@file-system' => url('admin/config/media/file-system'), '@clean-url' => url('admin/config/search/clean-urls'), '@site-info' => url('admin/config/system/site-information'), '@maintenance-mode' => url('admin/config/development/maintenance'))) . '</dd>';
       $output .= '<dt>' . t('Configuring actions') . '</dt>';
@@ -264,6 +264,7 @@ function system_entity_info() {
       'base table' => 'file_managed',
       'entity keys' => array(
         'id' => 'fid',
+        'label' => 'filename',
       ),
       'static cache' => FALSE,
     ),
@@ -543,13 +544,14 @@ function system_menu() {
     'access arguments' => array('access administration pages'),
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'file' => 'system.admin.inc',
+    'weight' => -20,
   );
   $items['admin/by-module'] = array(
     'title' => 'By module',
     'page callback' => 'system_admin_by_module',
     'access arguments' => array('access administration pages'),
     'type' => MENU_LOCAL_TASK,
-    'weight' => 2,
+    'weight' => -18,
     'file' => 'system.admin.inc',
   );
 
@@ -709,7 +711,7 @@ function system_menu() {
     'weight' => -10,
     'file' => 'system.admin.inc',
   );
-    $items['admin/config/media/image-toolkit'] = array(
+  $items['admin/config/media/image-toolkit'] = array(
     'title' => 'Image toolkit',
     'description' => 'Choose which image toolkit to use if you have installed optional toolkits.',
     'page callback' => 'drupal_get_form',
@@ -957,14 +959,22 @@ function system_menu() {
   );
   $items['admin/config/system/site-information'] = array(
     'title' => 'Site information',
-    'description' => 'Change site name, e-mail address, slogan, default front page, number of posts per page, error pages and cron.',
+    'description' => t('Change site name, e-mail address, slogan, default front page, and number of posts per page, error pages.'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_site_information_settings'),
     'access arguments' => array('administer site configuration'),
     'file' => 'system.admin.inc',
     'weight' => -20,
   );
-
+  $items['admin/config/system/cron'] = array(
+    'title' => t('Cron'),
+    'description' => t('Manage automatic site maintenance tasks.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('system_cron_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'system.admin.inc',
+    'weight' => 20,
+  );
   // Additional categories
   $items['admin/config/user-interface'] = array(
     'title' => 'User interface',
@@ -1066,6 +1076,7 @@ function system_library() {
     'js' => array(
       'misc/jquery.js' => array('weight' => JS_LIBRARY - 20),
     ),
+    'preprocess' => TRUE,
   );
 
   // jQuery Once.
@@ -1076,6 +1087,7 @@ function system_library() {
     'js' => array(
       'misc/jquery.once.js' => array('weight' => JS_LIBRARY - 19),
     ),
+    'preprocess' => TRUE,
   );
 
   // jQuery Form Plugin.
@@ -1120,7 +1132,7 @@ function system_library() {
       'misc/farbtastic/farbtastic.js' => array(),
     ),
     'css' => array(
-      'misc/farbtastic/farbtastic.css' => array('preprocess' => FALSE),
+      'misc/farbtastic/farbtastic.css' => array(),
     ),
   );
 
@@ -1816,15 +1828,15 @@ function _system_filetransfer_backend_form_common() {
  * Implements hook_init().
  */
 function system_init() {
+  $path = drupal_get_path('module', 'system');
   // Add the CSS for this module.
   if (arg(0) == 'admin' || (variable_get('node_admin_theme', '0') && arg(0) == 'node' && (arg(1) == 'add' || arg(2) == 'edit' || arg(2) == 'delete'))) {
-    drupal_add_css(drupal_get_path('module', 'system') . '/admin.css', array('weight' => CSS_SYSTEM));
+    drupal_add_css($path . '/admin.css', array('weight' => CSS_SYSTEM));
   }
-  drupal_add_css(drupal_get_path('module', 'system') . '/system.css', array('weight' => CSS_SYSTEM));
-  drupal_add_css(drupal_get_path('module', 'system') . '/system-behavior.css', array('weight' => CSS_SYSTEM));
-  drupal_add_css(drupal_get_path('module', 'system') . '/system-menus.css', array('weight' => CSS_SYSTEM));
-  drupal_add_css(drupal_get_path('module', 'system') . '/system-messages.css', array('weight' => CSS_SYSTEM));
-
+  drupal_add_css($path . '/system.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
+  drupal_add_css($path . '/system-behavior.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
+  drupal_add_css($path . '/system-menus.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
+  drupal_add_css($path . '/system-messages.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
 
   // Ignore slave database servers for this request.
   //
@@ -1845,6 +1857,29 @@ function system_init() {
     }
     else {
       unset($_SESSION['ignore_slave_server']);
+    }
+  }
+
+  // Add CSS/JS files from module .info files.
+  system_add_module_assets();
+}
+
+/**
+ * Adds CSS and JavaScript files declared in module .info files.
+ */
+function system_add_module_assets() {
+  foreach (system_get_info('module') as $module => $info) {
+    if (!empty($info['stylesheets'])) {
+      foreach ($info['stylesheets'] as $media => $stylesheets) {
+        foreach ($stylesheets as $stylesheet) {
+          drupal_add_css($stylesheet, array('media' => $media, 'preprocess' => TRUE));
+        }
+      }
+    }
+    if (!empty($info['scripts'])) {
+      foreach ($info['scripts'] as $script) {
+        drupal_add_js($script, array('preprocess' => TRUE));
+      }
     }
   }
 }
@@ -1975,6 +2010,16 @@ function system_block_view($delta = '') {
         return $block;
       }
       break;
+  }
+}
+
+/**
+ * Implements hook_preprocess_block().
+ */
+function system_preprocess_block(&$variables) {
+  // System menu blocks should get the same class as menu module blocks.
+  if ($variables['block']->module == 'system' && in_array($variables['block']->delta, array_keys(menu_list_system_menus()))) {
+    $variables['classes_array'][] = 'block-menu';
   }
 }
 
@@ -2195,25 +2240,40 @@ function system_update_files_database(&$files, $type) {
 }
 
 /**
- * Returns an array of information about active modules or themes.
+ * Returns an array of information about enabled modules or themes.
  *
  * This function returns the information from the {system} table corresponding
  * to the cached contents of the .info file for each active module or theme.
  *
  * @param $type
  *   Either 'module' or 'theme'.
+ * @param $name
+ *   (optional) The name of a module or theme whose information shall be
+ *   returned. If omitted, all records for the provided $type will be returned.
+ *   If $name does not exist in the provided $type or is not enabled, an empty
+ *   array will be returned.
  *
  * @return
- *   An associative array of module or theme information keyed by name.
+ *   An associative array of module or theme information keyed by name, or only
+ *   information for $name, if given. If no records are available, an empty
+ *   array is returned.
  *
  * @see system_rebuild_module_data()
  * @see system_rebuild_theme_data()
  */
-function system_get_info($type) {
+function system_get_info($type, $name = NULL) {
   $info = array();
-  $result = db_query('SELECT name, info FROM {system} WHERE type = :type AND status = 1', array(':type' => $type));
-  foreach ($result as $item) {
-    $info[$item->name] = unserialize($item->info);
+  if ($type == 'module') {
+    $type = 'module_enabled';
+  }
+  $list = system_list($type);
+  foreach ($list as $shortname => $item) {
+    if (!empty($item->status)) {
+      $info[$shortname] = $item->info;
+    }
+  }
+  if (isset($name)) {
+    return isset($info[$name]) ? $info[$name] : array();
   }
   return $info;
 }
@@ -2267,6 +2327,15 @@ function _system_rebuild_module_data() {
 
     // Merge in defaults and save.
     $modules[$key]->info = $module->info + $defaults;
+
+    // Prefix stylesheets and scripts with module path.
+    $path = dirname($module->uri);
+    if (isset($module->info['stylesheets'])) {
+      $module->info['stylesheets'] = _system_info_add_path($module->info['stylesheets'], $path);
+    }
+    if (isset($module->info['scripts'])) {
+      $module->info['scripts'] = _system_info_add_path($module->info['scripts'], $path);
+    }
 
     // Install profiles are hidden by default, unless explicitly specified
     // otherwise in the .info file.
@@ -2350,7 +2419,7 @@ function _system_rebuild_theme_data() {
       'content' => 'Content',
       'header' => 'Header',
       'footer' => 'Footer',
-      'highlight' => 'Highlighted content',
+      'highlighted' => 'Highlighted',
       'help' => 'Help',
       'page_top' => 'Page top',
       'page_bottom' => 'Page bottom',
@@ -2359,6 +2428,8 @@ function _system_rebuild_theme_data() {
     'features' => _system_default_theme_features(),
     'screenshot' => 'screenshot.png',
     'php' => DRUPAL_MINIMUM_PHP,
+    'stylesheets' => array(),
+    'scripts' => array(),
   );
 
   $sub_themes = array();
@@ -2391,28 +2462,14 @@ function _system_rebuild_theme_data() {
       }
     }
 
-    // Give the stylesheets proper path information.
-    $pathed_stylesheets = array();
-    if (isset($themes[$key]->info['stylesheets'])) {
-      foreach ($themes[$key]->info['stylesheets'] as $media => $stylesheets) {
-        foreach ($stylesheets as $stylesheet) {
-          $pathed_stylesheets[$media][$stylesheet] = dirname($themes[$key]->uri) . '/' . $stylesheet;
-        }
-      }
-    }
-    $themes[$key]->info['stylesheets'] = $pathed_stylesheets;
+    // Prefix stylesheets and scripts with module path.
+    $path = dirname($theme->uri);
+    $theme->info['stylesheets'] = _system_info_add_path($theme->info['stylesheets'], $path);
+    $theme->info['scripts'] = _system_info_add_path($theme->info['scripts'], $path);
 
-    // Give the scripts proper path information.
-    $scripts = array();
-    if (isset($themes[$key]->info['scripts'])) {
-      foreach ($themes[$key]->info['scripts'] as $script) {
-        $scripts[$script] = dirname($themes[$key]->uri) . '/' . $script;
-      }
-    }
-    $themes[$key]->info['scripts'] = $scripts;
     // Give the screenshot proper path information.
     if (!empty($themes[$key]->info['screenshot'])) {
-      $themes[$key]->info['screenshot'] = dirname($themes[$key]->uri) . '/' . $themes[$key]->info['screenshot'];
+      $themes[$key]->info['screenshot'] = $path . '/' . $themes[$key]->info['screenshot'];
     }
   }
 
@@ -2457,6 +2514,41 @@ function system_rebuild_theme_data() {
   system_get_files_database($themes, 'theme');
   system_update_files_database($themes, 'theme');
   return $themes;
+}
+
+/**
+ * Prefixes all values in an .info file array with a given path.
+ *
+ * This helper function is mainly used to prefix all array values of an .info
+ * file property with a single given path (to the module or theme); e.g., to
+ * prefix all values of the 'stylesheets' or 'scripts' properties with the file
+ * path to the defining module/theme.
+ *
+ * @param $info
+ *   A nested array of data of an .info file to be processed.
+ * @param $path
+ *   A file path to prepend to each value in $info.
+ *
+ * @return
+ *   The $info array with prefixed values.
+ *
+ * @see _system_rebuild_module_data()
+ * @see _system_rebuild_theme_data()
+ */
+function _system_info_add_path($info, $path) {
+  foreach ($info as $key => $value) {
+    // Recurse into nested values until we reach the deepest level.
+    if (is_array($value)) {
+      $info[$key] = _system_info_add_path($info[$key], $path);
+    }
+    // Unset the original value's key and set the new value with prefix, using
+    // the original value as key, so original values can still be looked up.
+    else {
+      unset($info[$key]);
+      $info[$value] = $path . '/' . $value;
+    }
+  }
+  return $info;
 }
 
 /**
@@ -2618,9 +2710,6 @@ function system_settings_form_submit($form, &$form_state) {
   }
 
   drupal_set_message(t('The configuration options have been saved.'));
-
-  cache_clear_all();
-  drupal_theme_rebuild();
 }
 
 /**
@@ -2653,7 +2742,9 @@ function _system_sort_requirements($a, $b) {
  * a function like check_plain() or filter_xss().
  *
  * @param $form
- *   Additional elements to add to the form; for example, hidden elements.
+ *   Additional elements to add to the form. These can be regular form elements,
+ *   #value elements, etc., and their values will be available to the submit
+ *   handler.
  * @param $question
  *   The question to ask the user (e.g. "Are you sure you want to delete the
  *   block <em>foo</em>?"). The page title will be set to this value.
@@ -2792,15 +2883,20 @@ function system_cron() {
   // Remove temporary files that are older than DRUPAL_MAXIMUM_TEMP_FILE_AGE.
   // Use separate placeholders for the status to avoid a bug in some versions
   // of PHP. See http://drupal.org/node/352956.
-  $result = db_query('SELECT fid FROM {file_managed} WHERE status & :permanent1 <> :permanent2 AND timestamp < :timestamp', array(
-    ':permanent1' => FILE_STATUS_PERMANENT,
-    ':permanent2' => FILE_STATUS_PERMANENT,
+  $result = db_query('SELECT fid FROM {file_managed} WHERE status <> :permanent AND timestamp < :timestamp', array(
+    ':permanent' => FILE_STATUS_PERMANENT,
     ':timestamp' => REQUEST_TIME - DRUPAL_MAXIMUM_TEMP_FILE_AGE
   ));
   foreach ($result as $row) {
     if ($file = file_load($row->fid)) {
-      if (!file_delete($file)) {
-        watchdog('file system', 'Could not delete temporary file "%path" during garbage collection', array('%path' => $file->uri), WATCHDOG_ERROR);
+      $references = file_usage_list($file);
+      if (empty($references)) {
+        if (!file_delete($file)) {
+          watchdog('file system', 'Could not delete temporary file "%path" during garbage collection', array('%path' => $file->uri), WATCHDOG_ERROR);
+        }
+      }
+      else {
+        watchdog('file system', 'Did not delete temporary file "%path" during garbage collection, because it is in use by the following modules: %modules.', array('%path' => $file->uri, '%modules' => implode(', ', array_keys($references))), WATCHDOG_INFO);
       }
     }
   }
@@ -3042,7 +3138,7 @@ function system_message_action(&$entity, $context = array()) {
     $context['node'] = $entity;
   }
 
-  $context['message'] = token_replace($context['message'], $context);
+  $context['message'] = token_replace(filter_xss_admin($context['message']), $context);
   drupal_set_message($context['message']);
 }
 
