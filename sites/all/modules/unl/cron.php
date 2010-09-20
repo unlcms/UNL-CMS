@@ -18,7 +18,7 @@ while ($row = $query->fetchAssoc()) {
         ->fields(array('installed' => 1))
         ->condition('site_id', $row['site_id'])
         ->execute();
-    unl_add_site($row['site_path_prefix'], $row['site_path'], $row['uri']);
+    unl_add_site($row['site_path_prefix'], $row['site_path'], $row['uri'], $row['clean_url']);
     db_update('unl_sites')
         ->fields(array('installed' => 2))
         ->condition('site_id', $row['site_id'])
@@ -26,7 +26,7 @@ while ($row = $query->fetchAssoc()) {
 }
 
 
-function unl_add_site($site_path_prefix, $site_path, $uri)
+function unl_add_site($site_path_prefix, $site_path, $uri, $clean_url)
 {
     
     if (substr($site_path, 0, 1) == '/') {
@@ -82,7 +82,7 @@ function unl_add_site($site_path_prefix, $site_path, $uri)
     }
     $symlink_target = implode('/', $symlink_target);
     
-    $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=0";
+    $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url";
     
     mkdir($subdir, 0755, TRUE);
     symlink($symlink_target, $subdir . '/' . $symlink_name);

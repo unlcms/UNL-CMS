@@ -33,7 +33,12 @@ function unl_schema()
            		'type'	   => 'int',
            		'not null' => TRUE,
            		'default'  => 0
-           	)
+           	),
+            'clean_url' => array(
+                'type'	   => 'int',
+                'not null' => TRUE,
+                'default'  => 1
+            )
         ),
         'primary key' => array('site_id'),
         'unique keys' => array(
@@ -86,4 +91,17 @@ function unl_update_7100()
     );
     
     db_create_table('unl_sites', $table);
+}
+
+function unl_update_7101()
+{
+    db_add_field(
+		'unl_sites',
+		'clean_url',
+        array(
+        	'type'     => 'int',
+        	'not null' => TRUE,
+            'default'  => 1
+        )
+    );
 }
