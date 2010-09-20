@@ -56,6 +56,11 @@ function unl_profile_install()
     	variable_set('file_temporary_path', $ini_settings['temp_dir']);
     }
     
+    unl_profile_add_shortcut('Related Links', 'admin/structure/block/manage/block/1/configure');
+    unl_profile_add_shortcut('Footer', 'admin/structure/block/manage/block/11/configure');
+    unl_profile_add_shortcut('Contact Us', 'admin/structure/block/manage/block/21/configure');
+    unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
+    
     //TODO: IMCE setup (currently cannot be shared between sites)
     
     
@@ -116,3 +121,15 @@ function unl_profile_get_default_site_db_prefix()
     return $databases['default']['default']['prefix'];
 }
 
+function unl_profile_add_shortcut($title, $path)
+{
+    require_once 'modules/shortcut/shortcut.admin.inc';
+    
+    $link = array(
+        'link_title' => $title,
+        'link_path' => $path
+    );
+    $shortcut_set = shortcut_set_load('shortcut-set-1');
+    shortcut_admin_add_link($link, $shortcut_set, shortcut_max_slots());
+    shortcut_set_save($shortcut_set);
+}
