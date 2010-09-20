@@ -61,6 +61,8 @@ function unl_profile_install()
     unl_profile_add_shortcut('Contact Us', 'admin/structure/block/manage/block/21/configure');
     unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
     
+    module_disable(array('overlay'));
+    
     //TODO: IMCE setup (currently cannot be shared between sites)
     
     
