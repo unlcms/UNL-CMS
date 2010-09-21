@@ -111,6 +111,22 @@ function unl_cas_form_alter(&$form, $form_state, $form_id)
         $form['#validate'][] = 'unl_cas_user_profile_form_validate';
     }
     
+    if ($form_id = 'user_pass') {
+        $form['message'] = array(
+            '#prefix' => '<p>',
+            '#markup' => t('To reset your password, go somewhere else!'),
+            '#suffix' => '</p>'
+        );
+        
+        unset($form['name']);
+        unset($form['mail']);
+        unset($form['actions']);
+        $form['#validate'] = array();
+        $form['#submit'] = array();
+        
+        drupal_goto('https://login.unl.edu/faq/account-changepw.shtml');
+    }
+    
 }
 
 /**
