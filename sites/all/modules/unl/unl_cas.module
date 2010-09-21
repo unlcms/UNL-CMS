@@ -102,8 +102,25 @@ function unl_cas_form_alter(&$form, $form_state, $form_id)
         $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $GLOBALS['user']->name .'">Planet Red</a>.';
         $form['picture']['picture_delete']['#type'] = 'hidden';
         $form['picture']['picture_upload']['#type'] = 'hidden';
+        
+        // Disable checking the current password when changing email.
+        if ($validate_password_index = array_search('user_validate_current_pass', $form['#validate']) !== FALSE) {
+            unset($form['#validate'][$validate_password_index]);
+        }
+        
+        $form['#validate'][] = 'unl_cas_user_profile_form_validate';
     }
     
+}
+
+/**
+ * Make sure there's no funny business with somebody trying to change a password when we're using CAS.
+ */
+function unl_cas_user_profile_form_validate(&$form, &$form_state)
+{
+    if ($form_state['values']['pass']) {
+        form_set_error('current_pass', t('Password changes are not allowed when CAS is enabled!'));
+    }
 }
 
 function unl_cas_user_logout($account)
