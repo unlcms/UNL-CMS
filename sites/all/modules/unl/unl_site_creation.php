@@ -47,7 +47,7 @@ function unl_site_creation($form, &$form_state)
 
 function unl_site_creation_submit($form, &$form_state)
 {   
-    $php_path = $form_state['values']['php_path'];
+    //$php_path = $form_state['values']['php_path'];
     $site_path = $form_state['values']['site_path'];
     $site_path_prefix = $form_state['values']['site_path_prefix'];
     $clean_url = $form_state['values']['clean_url'];
@@ -81,5 +81,7 @@ function unl_site_creation_submit($form, &$form_state)
         'clean_url'        => $clean_url
     ))->execute();
     
-    exit;
+    drupal_set_message(t('The site '.$uri.' has been started, run unl/cron.php to finish setup.'));
+    $form_state['redirect'] = 'admin/sites/unl/add';
+    return;
 }
