@@ -344,7 +344,7 @@ class Unl_Migration_Tool
             }
             @drupal_mkdir('public://' . dirname($path), NULL, TRUE);
             $file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
-            $this->_hrefTransformFiles[$path] = file_directory_path() . '/' . $path;
+            $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
             return;
         }
         $html = $data['content'];
@@ -568,7 +568,7 @@ class Unl_Migration_Tool
         
         $content = substr($data, $meta['header_size']);
         
-        if ($meta['http_code'] == 301) {
+        if (in_array($meta['http_code'], array(301, 302))) {
             $location = $headers['Location'];
             $path = substr($location, strlen($this->_baseUrl));
             $this->_addSitePath($path);
