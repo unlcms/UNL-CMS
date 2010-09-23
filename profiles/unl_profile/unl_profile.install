@@ -56,6 +56,10 @@ function unl_profile_install()
     	variable_set('file_temporary_path', $ini_settings['temp_dir']);
     }
     
+    if (isset($ini_settings['error_level'])) {
+    	variable_set('error_level', $ini_settings['error_level']);
+    }
+    
     unl_profile_add_shortcut('Related Links', 'admin/structure/block/manage/block/1/configure');
     unl_profile_add_shortcut('Footer', 'admin/structure/block/manage/block/11/configure');
     unl_profile_add_shortcut('Contact Us', 'admin/structure/block/manage/block/21/configure');
