@@ -85,7 +85,8 @@ function unl_menu()
         'title' => 'UNL Migration Tool',
         'description' => 'Migrate a static UNL template page into drupal',
         'access arguments' => array('unl migration'),
-        'page callback' => 'unl_migration_page',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('unl_migration'),
         'type' => MENU_LOCAL_TASK,
         'file' => 'unl_migration.php'
     );
@@ -94,7 +95,8 @@ function unl_menu()
         'title' => 'UNL Site Creation Tool',
         'description' => 'Create a new UNL Drupal site',
         'access arguments' => array('unl site creation'),
-        'page callback' => 'unl_site_creation_page',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('unl_site_creation'),
         'type' => MENU_LOCAL_TASK,
         'file' => 'unl_site_creation.php'
     );

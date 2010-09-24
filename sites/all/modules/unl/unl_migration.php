@@ -1,11 +1,5 @@
 <?php
 
-function unl_migration_page()
-{
-    return drupal_get_form('unl_migration');
-}
-
-
 function unl_migration($form, &$form_state)
 {
     $form['root'] = array(
@@ -157,9 +151,6 @@ class Unl_Migration_Tool
         }
         
         $this->_createMenu();
-        
-        print_r($this->_log);
-        exit;
     }
     
     private function _addSitePath($path)
@@ -668,6 +659,7 @@ class Unl_Migration_Tool
     private function _log($message)
     {
         $this->_log[] = $message;
+        drupal_set_message($message, 'status');
     }
 }
 

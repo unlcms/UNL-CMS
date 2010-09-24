@@ -2,12 +2,6 @@
 
 require_once DRUPAL_ROOT . '/includes/install.core.inc';
 
-function unl_site_creation_page()
-{
-    return drupal_get_form('unl_site_creation');
-}
-
-
 function unl_site_creation($form, &$form_state)
 {
     $form['root'] = array(
