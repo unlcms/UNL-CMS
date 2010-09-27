@@ -67,7 +67,25 @@ function unl_profile_install()
     
     module_disable(array('overlay'));
     
-    //TODO: IMCE setup (currently cannot be shared between sites)
+    // IMCE setup (currently cannot be shared between sites)
+    // We set every role but the anonymous role to use the "User-1" profile.
+    $roles = array();
+    foreach (user_roles() as $role_id => $role) {
+        if ($role_id == DRUPAL_ANONYMOUS_RID) {
+            $roles[$role_id] = array(
+            	'public_pid' => 0,
+            	'temporary_pid' => 0
+            ); 
+        } else {
+            $roles[$role_id] = array(
+                'public_pid' => 1,
+                'temporary_pid' => 1
+            );
+        }
+    }
+    krsort($roles);
+    variable_set('imce_roles_profiles', $roles);
+    // End IMCE setup.
     
     
     // Update the settings file to use shared database tables (unless this is the default site)
