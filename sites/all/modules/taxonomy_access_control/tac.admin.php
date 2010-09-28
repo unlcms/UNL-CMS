@@ -94,6 +94,8 @@ function theme_tac_term_list($variables)
 
 function tac_admin_submit($form, &$form_state)
 {
+    db_delete('tac_map')->execute();
+        
     $vocabulary = $form_state['values']['vocabulary'];
     if ($vocabulary > 0 && $vocabulary != variable_get('tac_vocabulary')) {
         variable_set('tac_vocabulary', $vocabulary);
@@ -103,7 +105,6 @@ function tac_admin_submit($form, &$form_state)
     }
     
     
-    db_delete('tac_map')->execute();
     $insert = db_insert('tac_map')->fields(array('rid', 'tid', 'grant_view', 'grant_update', 'grant_delete'));
     
     foreach ($form_state['values']['edit'] as $rid => $terms) {
