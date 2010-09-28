@@ -47,22 +47,27 @@ function unl_profile_install()
     }
     $query->execute();
     
-    
+    // Enable the UNL theme
     theme_enable(array('unl_wdn'));
+    // Set the UNL theme as the defaul
     variable_set('theme_default', 'unl_wdn');
+    // Keep the standard admin theme
     variable_set('node_admin_theme', 1);
     
+    // Establish temp directory
     if (isset($ini_settings['temp_dir'])) {
     	variable_set('file_temporary_path', $ini_settings['temp_dir']);
     }
     
+    // Set the error level
     if (isset($ini_settings['error_level'])) {
     	variable_set('error_level', $ini_settings['error_level']);
     }
     
-    unl_profile_add_shortcut('Related Links', 'admin/structure/block/manage/block/1/configure');
-    unl_profile_add_shortcut('Footer', 'admin/structure/block/manage/block/11/configure');
-    unl_profile_add_shortcut('Contact Us', 'admin/structure/block/manage/block/21/configure');
+    // Add shortcuts
+    unl_profile_add_shortcut('Related Links',    'admin/structure/block/manage/block/1/configure');
+    unl_profile_add_shortcut('Footer',           'admin/structure/block/manage/block/11/configure');
+    unl_profile_add_shortcut('Contact Us',       'admin/structure/block/manage/block/21/configure');
     unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
     
     module_disable(array('overlay'));
@@ -86,17 +91,21 @@ function unl_profile_install()
     krsort($roles);
     variable_set('imce_roles_profiles', $roles);
     // End IMCE setup.
-    
-    
+
+
     // Update the settings file to use shared database tables (unless this is the default site)
-    if (conf_path() != 'sites/default') { 
+    if (conf_path() != 'sites/default') {
         $shared_prefix = unl_profile_get_default_site_db_prefix();
         $settings['databases'] = array(
             'value'    => $GLOBALS['databases'],
             'required' => TRUE
         );
         $settings['databases']['value']['default']['default']['prefix'] = array(
+
+            // Localized tables, prefixed with site name
             'default'       => $GLOBALS['databases']['default']['default']['prefix'],
+
+            // shared tables across all sites
             'authmap'       => $shared_prefix,
             'filter'        => $shared_prefix,
             'filter_format' => $shared_prefix,
