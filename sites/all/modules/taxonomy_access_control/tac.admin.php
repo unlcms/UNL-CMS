@@ -41,7 +41,6 @@ function tac_admin($form, $form_state, $rid = NULL)
             	'#title' => 'Permissions for role "' . $role . '"'
             );
             foreach (taxonomy_get_tree($vocabulary) as $term) {
-                $prefix = 'edit[' . $rid . '][' . $term->tid . ']';
                 $subform['term_' . $term->tid] = array(
                     '#title'   => $term->name,
                     'view' => array(
@@ -78,6 +77,7 @@ function theme_tac_term_list($variables)
     $form = $variables['form'];
     
     $headers = array('Term', 'View', 'Update', 'Delete');
+    $rows = array();
     foreach (element_children($form) as $key) {
         $rows[] = array(
         	'data' => array(
