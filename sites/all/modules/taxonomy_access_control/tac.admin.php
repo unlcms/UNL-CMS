@@ -99,9 +99,12 @@ function tac_admin_submit($form, &$form_state)
     $vocabulary = $form_state['values']['vocabulary'];
     if ($vocabulary > 0 && $vocabulary != variable_get('tac_vocabulary')) {
         variable_set('tac_vocabulary', $vocabulary);
+        node_access_needs_rebuild(TRUE);
         return;
     } else if ($vocabulary <= 0) {
         variable_del('tac_vocabulary');
+        node_access_needs_rebuild(TRUE);
+        return;
     }
     
     
