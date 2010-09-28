@@ -8,7 +8,7 @@ function tac_menu()
         'title' => 'Taxonomy Access Controls',
     	'page callback' => 'drupal_get_form',
     	'page arguments' => array('tac_admin'),
-        'access callback' => TRUE,
+        'access arguments' => array('administer tac'),
     	'file' => 'tac.admin.php',
     	'type' => MENU_LOCAL_TASK
     );
@@ -25,9 +25,14 @@ function tac_theme()
     );
 }
 
-function tac_form_alter(&$form, $form_state, $form_id)
+function tac_permission()
 {
-    
+    return array(
+        'administer tac' => array(
+            'title' => t('Administer'),
+            'description' => t('Administer the specific grants given to role/term pairs.')
+        ),
+    );
 }
 
 function tac_node_access($node, $op, $account)
