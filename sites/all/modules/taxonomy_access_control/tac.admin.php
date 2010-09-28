@@ -46,17 +46,17 @@ function tac_admin($form, $form_state, $rid = NULL)
                     'view' => array(
                         '#parents' => array('edit', $rid, $term->tid, 'view'),
                         '#type' => 'checkbox',
-                        '#default_value' => $currentValues[$rid][$term->tid]->grant_view
+                        '#default_value' => (isset($currentValues[$rid][$term->tid]->grant_view) ? $currentValues[$rid][$term->tid]->grant_view : 0)
                     ),
                     'update' => array(
                         '#parents' => array('edit', $rid, $term->tid, 'update'),
                         '#type' => 'checkbox',
-                        '#default_value' => $currentValues[$rid][$term->tid]->grant_update
+                        '#default_value' => (isset($currentValues[$rid][$term->tid]->grant_update) ? $currentValues[$rid][$term->tid]->grant_update : 0)
                     ),
                     'delete' => array(
                         '#parents' => array('edit', $rid, $term->tid, 'delete'),
                         '#type' => 'checkbox',
-                        '#default_value' => $currentValues[$rid][$term->tid]->grant_delete
+                        '#default_value' => (isset($currentValues[$rid][$term->tid]->grant_delete) ? $currentValues[$rid][$term->tid]->grant_delete : 0)
                     )
                 );
             }
