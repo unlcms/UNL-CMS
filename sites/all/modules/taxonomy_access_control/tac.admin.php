@@ -33,6 +33,9 @@ function tac_admin($form, $form_state, $rid = NULL)
         }
                 
         foreach (user_roles() as $rid => $role) {
+            if ($rid == DRUPAL_ANONYMOUS_RID) {
+                continue;
+            }
             $subform = array(
             	'#theme' => 'tac_term_list',
             	'#title' => 'Permissions for role "' . $role . '"'
