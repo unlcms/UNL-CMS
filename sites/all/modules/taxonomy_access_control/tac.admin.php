@@ -31,9 +31,14 @@ function tac_admin($form, $form_state, $rid = NULL)
         foreach ($data as $row) {
             $currentValues[$row->rid][$row->tid] = $row;
         }
-                
-        foreach (user_roles() as $rid => $role) {
+        
+        $user_roles = user_roles();
+        $role_permissions = user_role_permissions($user_roles);
+        foreach ($user_roles as $rid => $role) {
             if ($rid == DRUPAL_ANONYMOUS_RID) {
+                continue;
+            }
+            if (isset($role_permissions[$rid]['bypass node access']) && $role_permissions[$rid]['bypass node access']) {
                 continue;
             }
             $subform = array(
