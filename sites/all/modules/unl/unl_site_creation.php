@@ -75,3 +75,74 @@ function unl_site_creation_submit($form, &$form_state)
     $form_state['redirect'] = 'admin/sites/unl/add';
     return;
 }
+
+
+function unl_site_list($form, &$form_state)
+{
+    $form['root'] = array(
+        '#type' => 'fieldset',
+        '#title' => 'UNL Site List',
+        '#theme' => 'unl_site_list_table'
+    );
+    
+    $sites = db_select('unl_sites', 's')->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))->execute()->fetchAll();
+    
+    foreach ($sites as $site)
+    {
+        $form['root']['site_' . $site->site_id] = array(
+            'site_path' => array('#value' => $site->site_path),
+            'db_prefix' => array('#value' => $site->db_prefix . '_' . $GLOBALS['databases']['default']['default']['prefix']),
+            'uri'       => array('#value' => $site->uri),
+            'remove'    => array(
+                '#type' => 'checkbox',
+                '#default_value' => 0
+            )
+        );
+    }
+    
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Delete Selected Sites'
+    );
+    
+    //print_r($form); exit;
+    return $form;
+}
+
+function theme_unl_site_list_table($variables)
+{
+    $form = $variables['form'];
+    
+    $headers = array('Site Path', 'Datbase Prefix', 'Link', 'Remove (not implemented)');
+    $rows = array();
+    foreach (element_children($form) as $key) {
+        $rows[] = array(
+        	'data' => array(
+                $form[$key]['site_path']['#value'],
+                $form[$key]['db_prefix']['#value'],
+                '<a href="' . $form[$key]['uri']['#value'] . '">' . $form[$key]['uri']['#value'] . '</a>',
+                drupal_render($form[$key]['remove']),
+            )
+        );
+    }
+    
+    return theme('table', array('header' => $headers, 'rows' => $rows, 'caption' => $form['#title']));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

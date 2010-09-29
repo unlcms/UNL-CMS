@@ -91,15 +91,34 @@ function unl_menu()
         'file' => 'unl_migration.php'
     );
   
-    $items['admin/sites/unl/add'] = array(
-        'title' => 'UNL Site Creation Tool',
-        'description' => 'Create a new UNL Drupal site',
-        'access arguments' => array('unl site creation'),
-        'page callback' => 'drupal_get_form',
-        'page arguments' => array('unl_site_creation'),
-        'type' => MENU_LOCAL_TASK,
-        'file' => 'unl_site_creation.php'
-    );
+    if (conf_path() == 'sites/default') {
+        $items['admin/sites/unl'] = array(
+            'title' => 'UNL Site Creation Tool',
+            'description' => 'Create a new UNL Drupal site',
+            'access arguments' => array('unl site creation'),
+            'page callback' => 'drupal_get_form',
+            'page arguments' => array('unl_site_creation'),
+            'type' => MENU_LOCAL_TASK,
+            'file' => 'unl_site_creation.php'
+        );
+        
+        $items['admin/sites/unl/add'] = array(
+            'title' => 'Add',
+            'description' => 'Determine access to features by selecting permissions for roles.',
+            'type' => MENU_DEFAULT_LOCAL_TASK,
+            'weight' => -8,
+        );
+        
+        $items['admin/sites/unl/list'] = array(
+            'title' => 'List',
+            'description' => 'List UNL Drupal sites',
+            'access arguments' => array('unl site creation'),
+        	'page callback' => 'drupal_get_form',
+        	'page arguments' => array('unl_site_list'),
+        	'type' => MENU_LOCAL_TASK,
+        	'file' => 'unl_site_creation.php',
+        );
+    }
   
     return $items;
 }
@@ -111,3 +130,16 @@ function unl_form_alter(&$form, $form_state, $form_id)
         $form['expanded']['#default_value'] = TRUE;
     }
 }
+
+function unl_theme()
+{
+    return array(
+        'unl_site_list_table' => array(
+            'render element' => 'form'
+        )
+    );
+}
+
+
+
+
