@@ -32,11 +32,9 @@ function unl_site_creation($form, &$form_state)
     return $form;
 }
 
-function unl_site_creation_submit($form, &$form_state)
-{   
-    //$php_path = $form_state['values']['php_path'];
-    $site_path = $form_state['values']['site_path'];
-    $clean_url = $form_state['values']['clean_url'];
+function unl_site_creation_validate($form, &$form_state)
+{
+    $site_path = trim($form_state['values']['site_path']);
     
     if (substr($site_path, 0, 1) == '/') {
         $site_path = substr($site_path, 1);
@@ -44,6 +42,20 @@ function unl_site_creation_submit($form, &$form_state)
     if (substr($site_path, -1) == '/') {
         $site_path = substr($site_path, 0, -1);
     }
+    
+    $site_path_parts = explode('/', $site_path);
+    $first_directory = array_shift($site_path_parts);
+    if (in_array($first_directory, array('includes', 'misc', 'modules', 'profiles', 'scripts', 'sites', 'themes'))) {
+        form_set_error('site_path', t('Drupal site paths must not start with the "' . $first_directory . '" directory.'));
+    }
+    
+    $form_state['values']['site_path'] = $site_path;
+}
+
+function unl_site_creation_submit($form, &$form_state)
+{
+    $site_path = $form_state['values']['site_path'];
+    $clean_url = $form_state['values']['clean_url'];
     
     $uri = url($site_path, array('absolute' => TRUE));
     
