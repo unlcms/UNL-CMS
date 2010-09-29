@@ -18,7 +18,7 @@ while ($row = $query->fetchAssoc()) {
         ->fields(array('installed' => 1))
         ->condition('site_id', $row['site_id'])
         ->execute();
-    unl_add_site($row['site_path_prefix'], $row['site_path'], $row['uri'], $row['clean_url']);
+    unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix']);
     db_update('unl_sites')
         ->fields(array('installed' => 2))
         ->condition('site_id', $row['site_id'])
@@ -26,7 +26,7 @@ while ($row = $query->fetchAssoc()) {
 }
 
 
-function unl_add_site($site_path_prefix, $site_path, $uri, $clean_url)
+function unl_add_site($site_path, $uri, $clean_url, $db_prefix)
 {
     
     if (substr($site_path, 0, 1) == '/') {
@@ -60,9 +60,7 @@ function unl_add_site($site_path_prefix, $site_path, $uri, $clean_url)
             . ($database['port'] ? ':' . $database['port'] : '') 
             . '/'   . $database['database']
             ;
-    $db_prefix = explode('/', $site_path);
-    $db_prefix = array_reverse($db_prefix);
-    $db_prefix = implode('_', $db_prefix) . '_' . $database['prefix'];
+    $db_prefix .= '_' . $database['prefix'];
     
     $php_path = escapeshellarg($_SERVER['_']);
     $drupal_root = escapeshellarg(DRUPAL_ROOT);

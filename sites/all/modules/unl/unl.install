@@ -60,12 +60,6 @@ function unl_update_7100()
                 'unsigned' => TRUE,
                 'not null' => TRUE
             ),
-            'site_path_prefix' => array(
-                'type'     => 'varchar',
-                'length'   => 255,
-                'not null' => TRUE,
-                'default'  => ''
-            ),
             'site_path' => array(
                 'type'     => 'varchar',
                 'length'   => 255,
@@ -82,7 +76,18 @@ function unl_update_7100()
            		'type'	   => 'int',
            		'not null' => TRUE,
            		'default'  => 0
-           	)
+           	),
+            'clean_url' => array(
+                'type'     => 'int',
+                'not null' => TRUE,
+                'default'  => 1
+            ),
+            'db_prefix' => array(
+                'type'     => 'varchar',
+                'length'   => 255,
+                'not null' => TRUE,
+                'default'  => ''
+            ),
         ),
         'primary key' => array('site_id'),
         'unique keys' => array(
@@ -104,4 +109,21 @@ function unl_update_7101()
             'default'  => 1
         )
     );
+}
+
+function unl_update_7102()
+{
+    db_add_field(
+		'unl_sites',
+		'db_prefix',
+        array(
+            'type'     => 'varchar',
+            'length'   => 255,
+            'not null' => TRUE,
+            'default'  => ''
+        )
+    );
+    db_query('UPDATE {unl_sites} SET db_prefix = site_path');
+    db_query("UPDATE {unl_sites} SET site_path = CONCAT(site_path_prefix, '/', site_path) WHERE site_path_prefix != ''");
+    db_drop_field('unl_sites', 'site_path_prefix');
 }

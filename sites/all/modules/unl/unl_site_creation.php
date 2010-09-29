@@ -9,13 +9,6 @@ function unl_site_creation($form, &$form_state)
         '#title' => 'Site Creation Tool'
     );
     
-    $form['root']['site_path_prefix'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Site path prefix'),
-        '#description' => t('A URL path used to separate subsites from the main site.'),
-        '#default_value' => t('s')
-    );
-    
     $form['root']['site_path'] = array(
         '#type' => 'textfield',
         '#title' => t('New site path'),
@@ -43,7 +36,6 @@ function unl_site_creation_submit($form, &$form_state)
 {   
     //$php_path = $form_state['values']['php_path'];
     $site_path = $form_state['values']['site_path'];
-    $site_path_prefix = $form_state['values']['site_path_prefix'];
     $clean_url = $form_state['values']['clean_url'];
     
     if (substr($site_path, 0, 1) == '/') {
@@ -52,27 +44,19 @@ function unl_site_creation_submit($form, &$form_state)
     if (substr($site_path, -1) == '/') {
         $site_path = substr($site_path, 0, -1);
     }
-    if (substr($site_path_prefix, 0, 1) == '/') {
-        $site_path_prefix = substr($site_path_prefix, 1);
-    }
-    if (substr($site_path_prefix, -1) == '/') {
-        $site_path_prefix = substr($site_path_prefix, 0, -1);
-    }
     
-    $full_path = $site_path;
-    if ($site_path_prefix) {
-        $full_path = $site_path_prefix . '/' . $full_path;
-    }
-    
-    $uri = url($full_path, array('absolute' => TRUE));
+    $uri = url($site_path, array('absolute' => TRUE));
     
     $clean_url = intval($clean_url);
     
+    $db_prefix = explode('/', $site_path);
+    $db_prefix = implode('_', $db_prefix);
+    
     db_insert('unl_sites')->fields(array(
-    	'site_path_prefix' => $site_path_prefix,
-        'site_path'        => $site_path,
-        'uri'              => $uri,
-        'clean_url'        => $clean_url
+        'site_path' => $site_path,
+        'uri'       => $uri,
+        'clean_url' => $clean_url,
+        'db_prefix' => $db_prefix,
     ))->execute();
     
     drupal_set_message(t('The site '.$uri.' has been started, run unl/cron.php to finish setup.'));
