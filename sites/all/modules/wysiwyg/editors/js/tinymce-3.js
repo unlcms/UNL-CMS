@@ -1,4 +1,4 @@
-// $Id: tinymce-3.js,v 1.19 2010/02/10 21:18:10 twod Exp $
+// $Id: tinymce-3.js,v 1.21 2010/09/25 03:00:16 twod Exp $
 (function($) {
 
 /**
@@ -60,6 +60,11 @@ Drupal.wysiwyg.editor.attach.tinymce = function(context, params, settings) {
     $('#' + ed.editorContainer + ' table.mceLayout td.mceToolbar').append($toolbar);
     $('#' + ed.editorContainer + ' table.mceToolbar').remove();
   });
+
+  // #715228: Remove extra mceItem class added by Wysiwyg < v2.1.
+  $field = $('#' + params.field);
+  $field.val($field.val().replace(/class=(['"].*?)\bmceItem\b(.*?['"])/ig, 'class=$1$2'));
+
   // Attach editor.
   ed.render();
 };
@@ -106,7 +111,9 @@ Drupal.wysiwyg.editor.instance.tinymce = {
         ed.addCommand(plugin, function() {
           if (typeof Drupal.wysiwyg.plugins[plugin].invoke == 'function') {
             var data = { format: 'html', node: ed.selection.getNode(), content: ed.selection.getContent() };
-            Drupal.wysiwyg.plugins[plugin].invoke(data, pluginSettings, ed.id);
+            // TinyMCE creates a completely new instance for fullscreen mode.
+            var instanceId = ed.id == 'mce_fullscreen' ? ed.getParam('fullscreen_editor_id') : ed.id;
+            Drupal.wysiwyg.plugins[plugin].invoke(data, pluginSettings, instanceId);
           }
         });
 
@@ -163,9 +170,10 @@ Drupal.wysiwyg.editor.instance.tinymce = {
   },
 
   openDialog: function(dialog, params) {
-    var editor = tinyMCE.get(this.field);
+    var instanceId = this.isFullscreen() ? 'mce_fullscreen' : this.field;
+    var editor = tinyMCE.get(instanceId);
     editor.windowManager.open({
-      file: dialog.url + '/' + this.field,
+      file: dialog.url + '/' + instanceId,
       width: dialog.width,
       height: dialog.height,
       inline: 1
@@ -173,7 +181,8 @@ Drupal.wysiwyg.editor.instance.tinymce = {
   },
 
   closeDialog: function(dialog) {
-    var editor = tinyMCE.get(this.field);
+    var instanceId = this.isFullscreen() ? 'mce_fullscreen' : this.field;
+    var editor = tinyMCE.get(instanceId);
     editor.windowManager.close(dialog);
   },
 
@@ -208,7 +217,13 @@ Drupal.wysiwyg.editor.instance.tinymce = {
 
   insert: function(content) {
     content = this.prepareContent(content);
-    tinyMCE.execInstanceCommand(this.field, 'mceInsertContent', false, content);
+    var instanceId = this.isFullscreen() ? 'mce_fullscreen' : this.field;
+    tinyMCE.execInstanceCommand(instanceId, 'mceInsertContent', false, content);
+  },
+
+  isFullscreen: function() {
+    // TinyMCE creates a completely new instance for fullscreen mode.
+    return tinyMCE.activeEditor.id == 'mce_fullscreen' && tinyMCE.activeEditor.getParam('fullscreen_editor_id') == this.field;
   }
 };
 

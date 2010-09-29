@@ -1,4 +1,4 @@
-// $Id: wysiwyg.js,v 1.18 2009/11/14 03:35:29 twod Exp $
+// $Id: wysiwyg.js,v 1.19 2010/09/25 00:46:33 twod Exp $
 (function($) {
 
 /**
@@ -201,7 +201,7 @@ Drupal.wysiwygAttachToggleLink = function(context, params) {
 Drupal.wysiwyg.getParams = function(element, params) {
   var classes = element.className.split(' ');
   var params = params || {};
-  for (var i in classes) {
+  for (var i = 0; i < classes.length; i++) {
     if (classes[i].substr(0, 8) == 'wysiwyg-') {
       var parts = classes[i].split('-');
       var value = parts.slice(2).join('-');

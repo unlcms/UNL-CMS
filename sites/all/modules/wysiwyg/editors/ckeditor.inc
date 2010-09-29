@@ -1,5 +1,5 @@
 <?php
-// $Id: ckeditor.inc,v 1.7 2010/04/02 14:05:36 sun Exp $
+// $Id: ckeditor.inc,v 1.8 2010/09/10 02:13:59 sun Exp $
 
 /**
  * @file
@@ -103,6 +103,7 @@ function wysiwyg_ckeditor_themes($editor, $profile) {
       }
     }
     closedir($dir_handle);
+    natcasesort($themes);
     return !empty($themes) ? $themes : array('default');
   }
   else {

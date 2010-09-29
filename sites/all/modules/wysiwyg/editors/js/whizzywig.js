@@ -1,4 +1,4 @@
-// $Id: whizzywig.js,v 1.6 2009/09/29 01:48:23 sun Exp $
+// $Id: whizzywig.js,v 1.7 2010/09/25 11:53:19 twod Exp $
 
 var wysiwygWhizzywig = { currentField: null, fields: {} };
 var buttonPath = null;
@@ -61,6 +61,13 @@ Drupal.wysiwyg.editor.attach.whizzywig = function(context, params, settings) {
   // Create Whizzywig container.
   wysiwygWhizzywig.currentField = params.field;
   wysiwygWhizzywig.fields[wysiwygWhizzywig.currentField] = '';
+  // Whizzywig needs to have the width set 'inline'.
+  $field = $('#' + params.field);
+  this.instances = this.instances || {};
+  this.instances[params.field] = this.instances[params.field] || {};
+  this.instances[params.field].originalWidth = $field.css('width');
+  $field.css('width', $field.width() + 'px');
+
   // Attach editor.
   makeWhizzyWig(params.field, (settings.buttons ? settings.buttons : 'all'));
   // Whizzywig fails to detect and set initial textarea contents.
@@ -89,6 +96,7 @@ Drupal.wysiwyg.editor.detach.whizzywig = function(context, params) {
     // Remove editor instance.
     $('#' + whizzies[id] + '-whizzywig').remove();
     whizzies.splice(id, 1);
+    $field.css('width', Drupal.wysiwyg.instances[$field.attr('id')].originalWidth);
   };
 
   if (typeof params != 'undefined') {
