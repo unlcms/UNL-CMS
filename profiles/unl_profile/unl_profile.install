@@ -65,9 +65,9 @@ function unl_profile_install()
     }
     
     // Add shortcuts
-    unl_profile_add_shortcut('Related Links',    'admin/structure/block/manage/block/1/configure');
-    unl_profile_add_shortcut('Footer',           'admin/structure/block/manage/block/11/configure');
-    unl_profile_add_shortcut('Contact Us',       'admin/structure/block/manage/block/21/configure');
+    unl_profile_add_shortcut('Related Links',    'admin/structure/block/manage/block/102/configure');
+    unl_profile_add_shortcut('Footer',           'admin/structure/block/manage/block/104/configure');
+    unl_profile_add_shortcut('Contact Us',       'admin/structure/block/manage/block/101/configure');
     unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
     
     module_disable(array('overlay'));
@@ -92,6 +92,117 @@ function unl_profile_install()
     variable_set('imce_roles_profiles', $roles);
     // End IMCE setup.
 
+    
+    
+    
+    // Add custom blocks for extra sections of the UNL Template (ie: Contact Us, Footer)
+    
+    $block_contents = array();
+    
+    $block_contents['contactinfo'] = <<<EOF
+<p>
+    <strong>University of Nebraska-Lincoln</strong><br />
+    1400 R Street<br />
+    Lincoln, NE 68588<br />
+    402-472-7211
+</p>
+EOF;
+    
+    $block_contents['leftcollinks'] = <<<EOF
+<ul>
+    <li><a href="http://events.unl.edu/">UNL Events Calendar</a></li>
+    <li><a href="http://ucomm.unl.edu/">University Communications</a></li>
+    <li><a href="http://www.unl.edu/ucomm/chancllr/">Office of the Chancellor</a></li>
+</ul>
+EOF;
+    
+    $block_contents['optionalfooter'] = '';
+    
+    $year = date("Y");
+    $block_contents['footercontent'] = <<<EOF
+&copy; {$year} University of Nebraska&ndash;Lincoln | Lincoln, NE 68588 | 402-472-7211 | <a href="http://www.unl.edu/ucomm/aboutunl/" title="Click here to know more about UNL">About UNL</a> | <a href="http://www1.unl.edu/comments/" title="Click here to direct your comments and questions">comments?</a><br />
+UNL is an equal opportunity employer with a comprehensive plan for diversity. Find out more: <a href="https://employment.unl.edu/" target="_blank" title="Employment at UNL">employment.unl.edu</a><br />
+EOF;
+    
+    // Enable some standard blocks.
+    db_insert('block')
+        ->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'))
+        ->values(array(
+            'module' => 'block',
+            'delta'  => 101,
+            'theme'  => 'unl_wdn',
+            'status' => 1,
+            'weight' => 0,
+            'region' => 'contactinfo',
+            'pages'  => '',
+            'cache'  => DRUPAL_CACHE_GLOBAL,
+        ))
+        ->values(array(
+            'module' => 'block',
+            'delta'  => 102,
+            'theme'  => 'unl_wdn',
+            'status' => 1,
+            'weight' => 0,
+            'region' => 'leftcollinks',
+            'pages'  => '',
+            'cache'  => DRUPAL_CACHE_GLOBAL,
+        ))
+        ->values(array(
+            'module' => 'block',
+            'delta'  => 103,
+            'theme'  => 'unl_wdn',
+            'status' => 1,
+            'weight' => 0,
+            'region' => 'optionalfooter',
+            'pages'  => '',
+            'cache'  => DRUPAL_CACHE_GLOBAL,
+        ))
+        ->values(array(
+            'module' => 'block',
+            'delta'  => 104,
+            'theme'  => 'unl_wdn',
+            'status' => 1,
+            'weight' => 0,
+            'region' => 'footercontent',
+            'pages'  => '',
+            'cache'  => DRUPAL_CACHE_GLOBAL,
+        ))
+        ->execute();
+    
+    db_insert('block_custom')
+        ->fields(array('bid', 'body', 'info', 'format'))
+        ->values(array(
+            'bid'    => 101,
+            'body'   => $block_contents['contactinfo'],
+            'info'   => 'Contact Info',
+            'format' => 3
+        ))
+        ->values(array(
+            'bid'    => 102,
+            'body'   => $block_contents['leftcollinks'],
+            'info'   => 'Related Links',
+            'format' => 3
+        ))
+        ->values(array(
+            'bid'    => 103,
+            'body'   => $block_contents['optionalfooter'],
+            'info'   => 'Optional Footer',
+            'format' => 3
+        ))
+        ->values(array(
+            'bid'    => 104,
+            'body'   => $block_contents['footercontent'],
+            'info'   => 'Footer Content',
+            'format' => 3
+        ))
+        ->execute();
+    
+    // End adding custom blocks
+    
+    
+    
+    
+    
 
     // Update the settings file to use shared database tables (unless this is the default site)
     if (conf_path() != 'sites/default') {

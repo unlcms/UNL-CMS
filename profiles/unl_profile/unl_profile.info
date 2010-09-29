@@ -25,7 +25,6 @@ dependencies[] = wysiwyg
 dependencies[] = imce
 dependencies[] = imce_wysiwyg
 dependencies[] = unl
-dependencies[] = unl_blocks
 
 files[] = unl.profile
 

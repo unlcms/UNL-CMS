@@ -94,16 +94,9 @@ $t->maincontentarea = $messages . PHP_EOL
 
 
 
+$leftcollinks = '';
 if ($page['leftcollinks']) {
     $leftcollinks = render($page['leftcollinks']);
-} else {
-    $leftcollinks = <<<EOF
-<ul>
-    <li><a href="http://events.unl.edu/">UNL Events Calendar</a></li>
-    <li><a href="http://ucomm.unl.edu/">University Communications</a></li>
-    <li><a href="http://www.unl.edu/ucomm/chancllr/">Office of the Chancellor</a></li>
-</ul>
-EOF;
 }
 
 $t->leftcollinks = <<<EOF
@@ -112,18 +105,9 @@ $leftcollinks
 EOF;
 
 
-
+$contactinfo = '';
 if ($page['contactinfo']) {
     $contactinfo = render($page['contactinfo']);
-} else {
-    $contactinfo = <<<EOF
-<p>
-    <strong>University of Nebraska-Lincoln</strong><br />
-    1400 R Street<br />
-    Lincoln, NE 68588<br />
-    402-472-7211
-</p>
-EOF;
 }
 
 $t->contactinfo = <<<EOF
@@ -141,11 +125,5 @@ if ($page['optionalfooter']) {
 
 if ($page['footercontent']) {
     $t->footercontent = render($page['footercontent']);
-} else {
-    $year = date("Y");
-    $t->footercontent = <<<EOF
-    &copy; {$year} University of Nebraska&ndash;Lincoln | Lincoln, NE 68588 | 402-472-7211 | <a href="http://www.unl.edu/ucomm/aboutunl/" title="Click here to know more about UNL">About UNL</a> | <a href="http://www1.unl.edu/comments/" title="Click here to direct your comments and questions">comments?</a><br />
-    UNL is an equal opportunity employer with a comprehensive plan for diversity. Find out more: <a href="https://employment.unl.edu/" target="_blank" title="Employment at UNL">employment.unl.edu</a><br />
-EOF;
 }
 $t->footercontent .= '<p style="margin:0.5em 0 -1.4em 0">This site is an instance of <a href="http://unlcms.unl.edu/" title="Go to the UNL CMS website">UNL CMS</a> powered by <a href="http://drupal.org/" title="Go to the official website of Drupal">Drupal</a></p>';
