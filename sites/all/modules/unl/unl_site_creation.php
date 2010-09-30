@@ -142,6 +142,7 @@ function unl_site_list_submit($form, &$form_state) {
 function unl_site_remove($site_id) {
   $uri = db_select('unl_sites', 's')
     ->fields('s', array('uri'))
+    ->condition('site_id', $site_id)
     ->execute()
     ->fetchCol();
   
