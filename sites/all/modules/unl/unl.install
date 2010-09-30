@@ -18,9 +18,9 @@ function unl_schema() {
       ),
       'site_path' => array(
         'type'     => 'varchar',
-   	    'length'   => 255,
-   	    'not null' => TRUE,
-   	    'default'  => '',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
       ),
       'uri' => array(
         'type'     => 'varchar',
