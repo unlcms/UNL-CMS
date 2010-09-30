@@ -87,11 +87,15 @@ function unl_site_list($form, &$form_state) {
     ->fetchAll();
   
   foreach ($sites as $site) {
-    $form['root']['site_' . $site->site_id] = array(
+    $form['root'][$site->site_id] = array(
       'site_path' => array('#value' => $site->site_path),
       'db_prefix' => array('#value' => $site->db_prefix . '_' . $GLOBALS['databases']['default']['default']['prefix']),
       'uri'       => array('#value' => $site->uri),
-      'remove'    => array('#type' => 'checkbox', '#default_value' => 0),
+      'remove'    => array(
+        '#type'          => 'checkbox',
+        '#parents'       => array('sites', $site->site_id, 'remove'),
+      	'#default_value' => 0
+      ),
     );
   }
   
@@ -107,7 +111,7 @@ function unl_site_list($form, &$form_state) {
 function theme_unl_site_list_table($variables) {
   $form = $variables['form'];
   
-  $headers = array('Site Path', 'Datbase Prefix', 'Link', 'Remove (not implemented)');
+  $headers = array('Site Path', 'Datbase Prefix', 'Link', 'Remove (can not undo!)');
   $rows = array();
   foreach (element_children($form) as $key) {
     $rows[] = array(
@@ -123,7 +127,55 @@ function theme_unl_site_list_table($variables) {
   return theme('table', array('header' => $headers, 'rows' => $rows, 'caption' => $form['#title']));
 }
 
+function unl_site_list_submit($form, &$form_state) {
+  if (!isset($form_state['values']['sites'])) {
+    return;
+  }
+  
+  foreach($form_state['values']['sites'] as $site_id => $site) {
+    if ($site['remove']) {
+      unl_site_remove($site_id);
+    }
+  }
+}
 
+function unl_site_remove($site_id) {
+  $uri = db_select('unl_sites', 's')
+    ->fields('s', array('uri'))
+    ->execute()
+    ->fetchCol();
+  
+  if (!isset($uri[0])) {
+    form_set_error(NULL, 'Unfortunately, the site could not be removed.');
+    return;
+  }
+  $uri = $uri[0];
+
+  $path_parts = parse_url($uri);
+  $sites_subdir = $path_parts['host'] . $path_parts['path'];
+  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
+  $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
+  $sites_subdir = realpath($sites_subdir);
+  
+  // A couple checks to make sure we aren't deleting something we shouldn't be.
+  if (substr($sites_subdir, 0, strlen(DRUPAL_ROOT . '/sites/')) != DRUPAL_ROOT . '/sites/') {
+    form_set_error(NULL, 'Unfortunately, the site could not be removed.');
+    return;
+  }
+  
+  if (strlen($sites_subdir) <= strlen(DRUPAL_ROOT . '/sites/')) {
+    form_set_error(NULL, 'Unfortunately, the site could not be removed.');
+    return;
+  }
+  
+  shell_exec('rm -rf ' . escapeshellarg($sites_subdir));
+  
+  db_update('unl_sites')
+    ->fields(array('installed' => 3))
+    ->condition('site_id', $site_id)
+    ->execute();
+  drupal_set_message('The site has been scheduled for removal.');
+}
 
 
 
