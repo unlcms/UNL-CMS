@@ -32,8 +32,7 @@ while ($row = $query->fetchAssoc()) {
     ->condition('site_id', $row['site_id'])
     ->execute();
   unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix']);
-  db_update('unl_sites')
-    ->fields(array('installed' => 5))
+  db_delete('unl_sites')
     ->condition('site_id', $row['site_id'])
     ->execute();
 }
