@@ -90,6 +90,7 @@ function unl_site_list($form, &$form_state) {
     $form['root'][$site->site_id] = array(
       'site_path' => array('#value' => $site->site_path),
       'db_prefix' => array('#value' => $site->db_prefix . '_' . $GLOBALS['databases']['default']['default']['prefix']),
+      'installed' => array('#value' => $site->installed),
       'uri'       => array('#value' => $site->uri),
       'remove'    => array(
         '#type'          => 'checkbox',
@@ -111,13 +112,40 @@ function unl_site_list($form, &$form_state) {
 function theme_unl_site_list_table($variables) {
   $form = $variables['form'];
   
-  $headers = array('Site Path', 'Datbase Prefix', 'Link', 'Remove (can not undo!)');
+  $headers = array('Site Path', 'Datbase Prefix', 'Status', 'Link', 'Remove (can not undo!)');
   $rows = array();
   foreach (element_children($form) as $key) {
+    $installed = $form[$key]['installed']['#value'];
+    switch ($installed) {
+      case 0:
+    	$installed = 'Scheduled for creation.';
+    	break;
+    	
+      case 1:
+    	$installed = 'Curently being created.';
+    	break;
+
+      case 2:
+    	$installed = 'In production.';
+    	break;
+
+      case 3:
+    	$installed = 'Scheduled for removal.';
+    	break;
+    	
+      case 4:
+    	$installed = 'Currently being removed.';
+    	break;
+    	
+      default:
+    	$installed = 'Unknown';
+    	break;
+    }
     $rows[] = array(
       'data' => array(
         $form[$key]['site_path']['#value'],
         $form[$key]['db_prefix']['#value'],
+        $installed,
         '<a href="' . $form[$key]['uri']['#value'] . '">' . $form[$key]['uri']['#value'] . '</a>',
         drupal_render($form[$key]['remove']),
       )
