@@ -31,10 +31,18 @@ while ($row = $query->fetchAssoc()) {
     ->fields(array('installed' => 4))
     ->condition('site_id', $row['site_id'])
     ->execute();
-  unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix']);
-  db_delete('unl_sites')
-    ->condition('site_id', $row['site_id'])
-    ->execute();
+  if (unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix'])) {
+    db_delete('unl_sites')
+      ->condition('site_id', $row['site_id'])
+      ->execute();
+  }
+  else {
+    db_update('unl_sites')
+      ->fields(array('installed' => 5))
+      ->condition('site_id', $row['site_id'])
+      ->execute();
+  }
+  
 }
 
 
@@ -104,11 +112,11 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   
   // A couple checks to make sure we aren't deleting something we shouldn't be.
   if (substr($sites_subdir, 0, strlen(DRUPAL_ROOT . '/sites/')) != DRUPAL_ROOT . '/sites/') {
-    return;
+    return FALSE;
   }
   
   if (strlen($sites_subdir) <= strlen(DRUPAL_ROOT . '/sites/')) {
-    return;
+    return FALSE;
   }
  
   foreach ($tables as $table) {
@@ -129,6 +137,8 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   $subdir_levels = count($subdir);
   $subdir = implode('/', $subdir);
   unlink($subdir . '/' . $symlink_name);
+  
+  return TRUE;
 }
 
 
