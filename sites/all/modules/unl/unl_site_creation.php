@@ -146,7 +146,7 @@ function theme_unl_site_list_table($variables) {
         $form[$key]['site_path']['#value'],
         $form[$key]['db_prefix']['#value'],
         $installed,
-        '<a href="' . $form[$key]['uri']['#value'] . '">' . $form[$key]['uri']['#value'] . '</a>',
+        '<a href="' . $form[$key]['uri']['#value'] . '/">' . $form[$key]['uri']['#value'] . '/</a>',
         drupal_render($form[$key]['remove']),
       )
     );
