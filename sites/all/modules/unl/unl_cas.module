@@ -1,178 +1,167 @@
 <?php
 
-function unl_cas_enable()
-{
-    variable_set('user_register', 0);
+function unl_cas_enable() {
+  variable_set('user_register', 0);
 }
 
-function unl_cas_init()
-{
-    require_once dirname(__FILE__) . '/unl_loader.php';
-    unl_load_zend_framework();
-    drupal_session_start();
-	
-	$cas = unl_cas_get_adapter();
-	
-	// If this is a request to the validation URL, or if the CAS ticket is not expired, don't redirect.
-	if (request_path() == 'user/cas' || !$cas->isTicketExpired()) {
-		return;
-	}
-	
-	// At this point, we know the ticket has expired.
-	// If we think a user is supposed to be logged in, attempt to renew the service ticket.
-	if (array_key_exists('unl_sso', $_COOKIE) || !user_is_anonymous()) 
-	{
-        $_SESSION['unl_cas']['previous_path'] = request_path();
-        $cas->setGateway();
-		drupal_goto($cas->getLoginUrl());
-	}
+function unl_cas_init() {
+  require_once dirname(__FILE__) . '/unl_loader.php';
+  unl_load_zend_framework();
+  drupal_session_start();
+  
+  $cas = unl_cas_get_adapter();
+  
+  // If this is a request to the validation URL, or if the CAS ticket is not expired, don't redirect.
+  if (request_path() == 'user/cas' || !$cas->isTicketExpired()) {
+    return;
+  }
+  
+  // At this point, we know the ticket has expired.
+  // If we think a user is supposed to be logged in, attempt to renew the service ticket.
+  if (array_key_exists('unl_sso', $_COOKIE) || !user_is_anonymous()) {
+    $_SESSION['unl_cas']['previous_path'] = request_path();
+    $cas->setGateway();
+    drupal_goto($cas->getLoginUrl());
+  }
 }
 
 /**
  * @return Unl_Cas
  */
-function unl_cas_get_adapter()
-{
-	static $adapter;
-	if (!$adapter) {
-		$adapter = new Unl_Cas(url('user/cas', array('absolute' => TRUE)), 'https://login.unl.edu/cas');
-	}
-	return $adapter;
+function unl_cas_get_adapter() {
+  static $adapter;
+  if (!$adapter) {
+    $adapter = new Unl_Cas(url('user/cas', array('absolute' => TRUE)), 'https://login.unl.edu/cas');
+  }
+  return $adapter;
 }
 
-function unl_cas_menu()
-{
-    $items['user/cas'] = array(
-        'title' => 'UNL CAS Validation',
-        'page callback' => 'unl_cas_validate',
-        'access callback' => TRUE
+function unl_cas_menu() {
+  $items['user/cas'] = array(
+    'title'           => 'UNL CAS Validation',
+    'page callback'   => 'unl_cas_validate',
+    'access callback' => TRUE,
+  );
+  
+  return $items;
+}
+
+function unl_cas_validate() {
+  $cas = unl_cas_get_adapter();
+  
+  if (array_key_exists('logoutRequest', $_POST)) {
+    $cas->handleLogoutRequest($_POST['logoutRequest']);
+  }
+  
+  $auth = $cas->validateTicket();
+  
+  if ($auth) {
+    $username = $cas->getUsername();
+    $user = user_load_by_name($username);
+    if (!$user) {
+      $user = unl_cas_import_user($username);
+    }
+    if ($GLOBALS['user']->uid != $user->uid) {
+      $GLOBALS['user'] = $user;
+      user_login_finalize();
+    }
+  }
+  else {
+    if (!user_is_anonymous()) {
+      $GLOBALS['user'] = drupal_anonymous_user();
+      user_login_finalize();
+    }
+    setcookie('unl_sso', 'fake', time() - 60 * 60 * 24, '/', '.unl.edu');
+  }
+  
+  drupal_goto($_SESSION['unl_cas']['previous_path']);
+}
+
+function unl_cas_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'user_login') {
+    $_SESSION['unl_cas']['previous_path'] = request_path();
+    $cas = unl_cas_get_adapter();
+    drupal_goto($cas->getLoginUrl());
+  }
+  
+  if ($form_id == 'user_profile_form') {
+    if (isset($form['account']['name'])) {
+      $form['account']['name']['#type'] = 'hidden';
+    }
+    
+    $form['account']['pass']['#type'] = 'hidden';
+    $form['account']['current_pass_required_values']['#type'] = 'hidden';
+    $form['account']['current_pass']['#type'] = 'hidden';
+    
+    $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $GLOBALS['user']->name . '">Planet Red</a>.';
+    $form['picture']['picture_delete']['#type'] = 'hidden';
+    $form['picture']['picture_upload']['#type'] = 'hidden';
+    
+    // Disable checking the current password when changing email.
+    if ($validate_password_index = array_search('user_validate_current_pass', $form['#validate']) !== FALSE) {
+      unset($form['#validate'][$validate_password_index]);
+    }
+    
+    $form['#validate'][] = 'unl_cas_user_profile_form_validate';
+  }
+  
+  if ($form_id == 'user_pass') {
+    $form['message'] = array(
+      '#prefix' => '<p>',
+      '#markup' => t('To reset your password, go somewhere else!'),
+      '#suffix' => '</p>'
     );
     
-    return $items;
-}
-
-function unl_cas_validate()
-{
-	$cas = unl_cas_get_adapter();
-
-    if (array_key_exists('logoutRequest', $_POST)) {
-        $cas->handleLogoutRequest($_POST['logoutRequest']);
-    }
-	
-	$auth = $cas->validateTicket();
-	
-	if ($auth) {
-		$username = $cas->getUsername();
-		$user = user_load_by_name($username);
-		if (!$user) {
-			$user = unl_cas_import_user($username);
-		}
-		if ($GLOBALS['user']->uid != $user->uid) {
-			$GLOBALS['user'] = $user;
-			user_login_finalize();
-		}
-	} else {
-        if (!user_is_anonymous()) {
-			$GLOBALS['user'] = drupal_anonymous_user();
-			user_login_finalize();
-        }
-        setcookie('unl_sso', 'fake', time() - 60*60*24, '/', '.unl.edu');
-	}
-	
-	drupal_goto($_SESSION['unl_cas']['previous_path']);
-}
-
-function unl_cas_form_alter(&$form, $form_state, $form_id)
-{
-    if ($form_id == 'user_login') {
-        $_SESSION['unl_cas']['previous_path'] = request_path();
-    	$cas = unl_cas_get_adapter();
-    	drupal_goto($cas->getLoginUrl());
-    }
+    unset($form['name']);
+    unset($form['mail']);
+    unset($form['actions']);
+    $form['#validate'] = array();
+    $form['#submit'] = array();
     
-    if ($form_id == 'user_profile_form') {
-        if (isset($form['account']['name'])) {
-            $form['account']['name']['#type'] = 'hidden';
-        }
+    drupal_goto('https://id.unl.edu/user/userForgotPassword.jsp');
+  }
 
-        $form['account']['pass']['#type'] = 'hidden';
-        $form['account']['current_pass_required_values']['#type'] = 'hidden';
-        $form['account']['current_pass']['#type'] = 'hidden';
-
-        $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $GLOBALS['user']->name .'">Planet Red</a>.';
-        $form['picture']['picture_delete']['#type'] = 'hidden';
-        $form['picture']['picture_upload']['#type'] = 'hidden';
-        
-        // Disable checking the current password when changing email.
-        if ($validate_password_index = array_search('user_validate_current_pass', $form['#validate']) !== FALSE) {
-            unset($form['#validate'][$validate_password_index]);
-        }
-        
-        $form['#validate'][] = 'unl_cas_user_profile_form_validate';
-    }
-    
-    if ($form_id == 'user_pass') {
-        $form['message'] = array(
-            '#prefix' => '<p>',
-            '#markup' => t('To reset your password, go somewhere else!'),
-            '#suffix' => '</p>'
-        );
-        
-        unset($form['name']);
-        unset($form['mail']);
-        unset($form['actions']);
-        $form['#validate'] = array();
-        $form['#submit'] = array();
-        
-        drupal_goto('https://id.unl.edu/user/userForgotPassword.jsp');
-    }
-    
 }
 
 /**
  * Make sure there's no funny business with somebody trying to change a password when we're using CAS.
  */
-function unl_cas_user_profile_form_validate(&$form, &$form_state)
-{
-    if ($form_state['values']['pass']) {
-        form_set_error('current_pass', t('Password changes are not allowed when CAS is enabled!'));
-    }
+function unl_cas_user_profile_form_validate(&$form, &$form_state) {
+  if ($form_state['values']['pass']) {
+    form_set_error('current_pass', t('Password changes are not allowed when CAS is enabled!'));
+  }
 }
 
-function unl_cas_user_logout($account)
-{
-	session_destroy();
-	$cas = unl_cas_get_adapter();
-    drupal_goto($cas->getLogoutUrl(url('<front>', array('absolute' => TRUE))));
+function unl_cas_user_logout($account) {
+  session_destroy();
+  $cas = unl_cas_get_adapter();
+  drupal_goto($cas->getLogoutUrl(url('<front>', array('absolute' => TRUE))));
 }
 
-function unl_cas_import_user($username)
-{
-    $xml = @file_get_contents('http://peoplefinder.unl.edu/service.php?format=xml&uid=' . $username);
-    if ($xml) {
-	    $dom = DOMDocument::loadXML($xml);
-	    $firstName = $dom->getElementsByTagName('givenName')->item(0)->textContent;
-	    $lastName = $dom->getElementsByTagName('sn')->item(0)->textContent;
-	    $email = $dom->getElementsByTagName('mail')->item(0)->textContent;
-	    $displayName = $dom->getElementsByTagName('displayName')->item(0)->textContent;
-    } else {
-    	$email = $username . '@unl.edu';
-    }
-    
-    $userData = array(
-        'name' => $username,
-        'mail' => $email,
-        'status' => 1
-    );
-    
-    $user = user_save(NULL, $userData);
-    return $user;
+function unl_cas_import_user($username) {
+  $xml = @file_get_contents('http://peoplefinder.unl.edu/service.php?format=xml&uid=' . $username);
+  if ($xml) {
+    $dom = DOMDocument::loadXML($xml);
+    $firstName = $dom->getElementsByTagName('givenName')->item(0)->textContent;
+    $lastName = $dom->getElementsByTagName('sn')->item(0)->textContent;
+    $email = $dom->getElementsByTagName('mail')->item(0)->textContent;
+    $displayName = $dom->getElementsByTagName('displayName')->item(0)->textContent;
+  }
+  else {
+    $email = $username . '@unl.edu';
+  }
+  
+  $userData = array(
+    'name' => $username, 'mail' => $email, 'status' => 1
+  );
+  
+  $user = user_save(NULL, $userData);
+  return $user;
 }
 
-function unl_cas_preprocess_user_picture(&$variables)
-{
-	//Default image: http://planetred.unl.edu/mod/profile/graphics/defaulttopbar.gif
-	$username = $variables['account']->name;
-	$variables['user_picture'] = '<img class="profile_pic medium" src="http://planetred.unl.edu/pg/icon/unl_' . $username . '/medium" alt="' . $username . '\'s photo" />';
+function unl_cas_preprocess_user_picture(&$variables) {
+  //Default image: http://planetred.unl.edu/mod/profile/graphics/defaulttopbar.gif
+  $username = $variables['account']->name;
+  $variables['user_picture'] = '<img class="profile_pic medium" src="http://planetred.unl.edu/pg/icon/unl_' . $username . '/medium" alt="' . $username . '\'s photo" />';
 }
 
