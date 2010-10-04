@@ -85,6 +85,7 @@ class Unl_Migration_Tool
     private $_nodeMap            = array();
     private $_pageTitles         = array();
     private $_log                = array();
+    private $_blocks             = array();
     
     private function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
     {
@@ -113,6 +114,7 @@ class Unl_Migration_Tool
         
         // Parse the menu
         $this->_processMenu();
+        $this->_process_blocks();
         
         // Process all of the pages on the site
         do {
@@ -151,6 +153,7 @@ class Unl_Migration_Tool
         }
         
         $this->_createMenu();
+        $this->_create_blocks();
     }
     
     private function _addSitePath($path)
@@ -310,15 +313,52 @@ class Unl_Migration_Tool
         }
     }
     
+    private function _process_blocks() {
+      $content = $this->_getUrl($this->_baseUrl);
+      $html = $content['content'];
+      
+      $this->_blocks['related_links'] = $this->_get_instance_editable_content($html, 'leftcollinks');
+      $this->_blocks['contact_info'] = $this->_get_instance_editable_content($html, 'contactinfo');
+      $this->_blocks['optional_footer'] = $this->_get_instance_editable_content($html, 'optionalfooter');
+      $this->_blocks['footer_content'] = $this->_get_instance_editable_content($html, 'footercontent');
+      
+      $this->_blocks['related_links'] = trim(strtr($this->_blocks['related_links'], array('<h3>Related Links</h3>' => '')));
+      $this->_blocks['contact_info'] = trim(strtr($this->_blocks['contact_info'], array('<h3>Contacting Us</h3>' => '')));
+    }
+    
+    private function _create_blocks() {
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['contact_info'],
+        ))
+        ->condition('bid', 101)
+        ->execute();
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['related_links'],
+        ))
+        ->condition('bid', 102)
+        ->execute();
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['optional_footer'],
+        ))
+        ->condition('bid', 103)
+        ->execute();
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['footer_content'],
+        ))
+        ->condition('bid', 104)
+        ->execute();
+    }
+    
     private function _processPage($path)
     {
         $this->_addProcessedPage($path);
         $fullPath = $this->_baseUrl . $path;
         
         $url = $this->_baseUrl . $path;
-        $startToken = '<!-- InstanceBeginEditable name="maincontentarea" -->';
-        $pageTitleStartToken = '<!-- InstanceBeginEditable name="pagetitle" -->';
-        $endToken = '<!-- InstanceEndEditable -->';
     
         $data = $this->_getUrl($url);
         if (!$data['content']) {
@@ -345,16 +385,11 @@ class Unl_Migration_Tool
             $html = iconv($charset, 'UTF-8', $html);
         }
         
-        $contentStart = strpos($html, $startToken);
-        $contentEnd = strpos($html, $endToken, $contentStart);
-        $maincontentarea = substr($html,
-                                  $contentStart + strlen($startToken),
-                                  $contentEnd - $contentStart - strlen($startToken));
-        if (!$maincontentarea || $contentStart === FALSE || $contentEnd === FALSE) {
+        $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        if (!$maincontentarea) {
             $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
             return;
         }
-        $maincontentarea = trim($maincontentarea);
         
         $dom = new DOMDocument();
         $dom->loadHTML($html);
@@ -661,5 +696,21 @@ class Unl_Migration_Tool
         $this->_log[] = $message;
         drupal_set_message($message, 'status');
     }
+
+  private function _get_instance_editable_content($html, $name) {
+    $start_token = '<!-- InstanceBeginEditable name="' . $name . '" -->';
+    $end_token = '<!-- InstanceEndEditable -->';
+    
+    $content_start = strpos($html, $start_token);
+    $content_end = strpos($html, $end_token, $content_start);
+    $content = substr($html,
+                      $content_start + strlen($start_token),
+                      $content_end - $content_start - strlen($start_token));
+    $content = trim($content);
+    if (!$content || $content_start === FALSE || $content_end === FALSE) {
+      return FALSE;
+    }
+    return $content;
+  }
 }
 
