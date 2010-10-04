@@ -72,7 +72,7 @@ function unl_blocks_block_configure($delta = '') {
     // block. Drupal will take care of the standard block configuration options
     // (block title, page visibility, etc.) and the save button.
     $form['unl_blocks_leftcollinks'] = array(
-      '#type' => 'textarea',
+      '#type' => 'text_format',
       '#title' => t('Block contents'),
       '#size' => 60,
       '#description' => t('For more info see http://www1.unl.edu/wdn/wiki/Related_Links'),
@@ -81,7 +81,7 @@ function unl_blocks_block_configure($delta = '') {
   }
   if ($delta == 'contactinfo') {
     $form['unl_blocks_contactinfo'] = array(
-      '#type' => 'textarea',
+      '#type' => 'text_format',
       '#title' => t('Block contents'),
       '#size' => 60,
       '#description' => t('For more info see http://www1.unl.edu/wdn/wiki/Contact_Info'),
@@ -90,7 +90,7 @@ function unl_blocks_block_configure($delta = '') {
   }
   if ($delta == 'optionalfooter') {
     $form['unl_blocks_optionalfooter'] = array(
-      '#type' => 'textarea',
+      '#type' => 'text_format',
       '#title' => t('Block contents'),
       '#size' => 60,
       '#description' => t('Not currently used'),
@@ -99,7 +99,7 @@ function unl_blocks_block_configure($delta = '') {
   }
   if ($delta == 'footercontent') {
     $form['unl_blocks_footercontent'] = array(
-      '#type' => 'textarea',
+      '#type' => 'text_format',
       '#title' => t('Block contents'),
       '#size' => 60,
       '#description' => t('Leave this blank to get the standard/default UNL copyright line.  For more info see http://www1.unl.edu/wdn/wiki/Base_Footer'),
