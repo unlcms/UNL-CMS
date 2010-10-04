@@ -207,6 +207,7 @@ EOF;
     // Update the settings file to use shared database tables (unless this is the default site)
     if (conf_path() != 'sites/default') {
         $shared_prefix = unl_profile_get_default_site_db_prefix();
+        $new_prefix = $GLOBALS['databases']['default']['default']['prefix'];
         $settings['databases'] = array(
             'value'    => $GLOBALS['databases'],
             'required' => TRUE
@@ -214,7 +215,7 @@ EOF;
         $settings['databases']['value']['default']['default']['prefix'] = array(
 
             // Localized tables, prefixed with site name
-            'default'       => $GLOBALS['databases']['default']['default']['prefix'],
+            'default'       => $new_prefix,
 
             // shared tables across all sites
             'authmap'       => $shared_prefix,
@@ -240,12 +241,10 @@ EOF;
         // Only enable CAS on subsites until we get some sort of bootstrap setup.
         module_enable(array('unl_cas'));
         
-        // If the administrator role has changed from the default ID, be sure to grant the new ID all permissions.
-        $results = db_query("SELECT rid FROM ${shared_prefix}role WHERE name LIKE 'administrator'")->fetchCol();
-        if (isset($results[0]) && $results[0] != 3) {
-            user_role_grant_permissions($results[0], array_keys(module_invoke_all('permission')));
-            variable_set('user_admin_role', $results[0]);
-        }
+        // Copy permissions from the parent site to the new site.
+        db_query("TRUNCATE ${new_prefix}role_permission")->execute();
+        // I'm using REPLACE because I keep getting duplicate entry errors, despite inserting into what should be an empty table.
+        db_query("REPLACE INTO ${new_prefix}role_permission (rid, permission, module) SELECT rid, permission, module FROM ${shared_prefix}role_permission")->execute();
     }
     
     
