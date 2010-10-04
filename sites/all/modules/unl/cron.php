@@ -87,10 +87,16 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
   }
   $symlink_target = implode('/', $symlink_target);
   
+  if (!$symlink_target) {
+    $symlink_target = '.';
+  }
+  
   $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url";
   
-  mkdir($subdir, 0755, TRUE);
-  symlink($symlink_target, $subdir . '/' . $symlink_name);
+  if ($subdir) {
+    mkdir($subdir, 0755, TRUE);
+  }
+  symlink($symlink_target, DRUPAL_ROOT . '/' . $subdir . '/' . $symlink_name);
   shell_exec($command);
 }
 
@@ -136,7 +142,7 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   $symlink_name = array_pop($subdir);
   $subdir_levels = count($subdir);
   $subdir = implode('/', $subdir);
-  unlink($subdir . '/' . $symlink_name);
+  unlink(DRUPAL_ROOT . '/' . $subdir . '/' . $symlink_name);
   
   return TRUE;
 }
