@@ -239,6 +239,13 @@ EOF;
         
         // Only enable CAS on subsites until we get some sort of bootstrap setup.
         module_enable(array('unl_cas'));
+        
+        // If the administrator role has changed from the default ID, be sure to grant the new ID all permissions.
+        $results = db_query("SELECT rid FROM ${shared_prefix}role WHERE name LIKE 'administrator'")->fetchCol();
+        if (isset($results[0]) && $results[0] != 3) {
+            user_role_grant_permissions($results[0], array_keys(module_invoke_all('permission')));
+            variable_set('user_admin_role', $results[0]);
+        }
     }
     
     
