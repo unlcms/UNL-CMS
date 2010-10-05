@@ -1,6 +1,0 @@
-; $Id$
-name = UNL blocks
-description = Adds blocks needed by the UNL WDN template.
-core = 7.x
-dependencies[] = unl
-files[] = unl_blocks.module
