@@ -10,6 +10,56 @@ function unl_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
+      'site_path' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
+      'uri' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
+      'installed' => array(
+        'type'     => 'int',
+        'not null' => TRUE,
+        'default'  => 0,
+      ),
+      'clean_url' => array(
+        'type'     => 'int',
+        'not null' => TRUE,
+        'default'  => 1,
+      ),
+      'db_prefix' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      )
+    ),
+    'primary key' => array('site_id'),
+    'unique keys' => array(
+      'sub_site' => array('site_path'),
+    )
+  );
+  
+  return $schema;
+}
+
+/**
+ * Updates prior to upgrading to unl module 7.x-1.0
+ */
+function unl_update_7100() {
+  $table = array(
+    'description' => 'Table of tables to be programatically created',
+    'fields' => array(
+      'site_id'  => array(
+        'type'     => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
       'site_path_prefix' => array(
         'type'     => 'varchar',
         'length'   => 255,
@@ -32,59 +82,6 @@ function unl_schema() {
         'type'     => 'int',
         'not null' => TRUE,
         'default'  => 0,
-      ),
-      'clean_url' => array(
-        'type'     => 'int',
-        'not null' => TRUE,
-        'default'  => 1,
-      )
-    ),
-    'primary key' => array('site_id'),
-    'unique keys' => array(
-      'sub_site' => array('site_path_prefix', 'site_path'),
-    )
-  );
-  
-
-  return $schema;
-}
-
-function unl_update_7100() {
-  $table = array(
-    'description' => 'Table of tables to be programatically created',
-    'fields' => array(
-      'site_id'  => array(
-        'type'     => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'site_path' => array(
-        'type'     => 'varchar',
-        'length'   => 255,
-        'not null' => TRUE,
-        'default'  => '',
-      ),
-      'uri' => array(
-        'type'     => 'varchar',
-        'length'   => 255,
-        'not null' => TRUE,
-        'default'  => '',
-      ),
-      'installed' => array(
-        'type'     => 'int',
-        'not null' => TRUE,
-        'default'  => 0,
-      ),
-      'clean_url'  => array(
-        'type'     => 'int',
-        'not null' => TRUE,
-        'default'  => 1,
-      ),
-      'db_prefix' => array(
-        'type'     => 'varchar',
-        'length'   => 255,
-        'not null' => TRUE,
-        'default'  => '',
       )
     ),
     'primary key' => array('site_id'),
