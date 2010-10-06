@@ -54,10 +54,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
     $site_path = substr($site_path, 0, -1);
   }
   
-  $path_parts = parse_url($uri);
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.')); 
-  
+  $sites_subdir = _unl_get_sites_subdir($uri);
   
   $database = $GLOBALS['databases']['default']['default'];
   $db_url = $database['driver']
@@ -109,10 +106,7 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   $db_prefix .= '_' . $database['prefix'];
   
   
-  $path_parts = parse_url($uri);
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
-
+  $sites_subdir = _unl_get_sites_subdir($uri);
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
   
@@ -147,6 +141,16 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   return TRUE;
 }
 
+function _unl_get_sites_subdir($uri) {
+  $path_parts = parse_url($uri);
+  if (substr($path_parts['host'], -7) == 'unl.edu') {
+    $path_parts['host'] = 'unl.edu';
+  }
+  $sites_subdir = $path_parts['host'] . $path_parts['path'];
+  $sites_subdir = strtr($sites_subdir, array('/' => '.')); 
+  
+  return $sites_subdir;
+}
 
 
 
