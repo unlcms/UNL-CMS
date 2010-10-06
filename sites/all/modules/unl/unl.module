@@ -126,6 +126,18 @@ function unl_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'menu_edit_item' && $form['mlid']['#value'] == 0) {
     $form['expanded']['#default_value'] = TRUE;
   }
+  if ($form_id == 'system_site_information_settings') {
+    $form['site_information']['https'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'SSL Enabled',
+      '#default_value' => variable_get('https', FALSE),
+    );
+    $form['#submit'][] = 'unl_system_settings_form_submit';
+  }
+}
+
+function unl_system_settings_form_submit($form, &$form_state) {
+  variable_set('https', (bool) $form_state['values']['https']);
 }
 
 function unl_theme() {
@@ -136,6 +148,23 @@ function unl_theme() {
   );
 }
 
-
+function unl_url_outbound_alter(&$path, &$options, $original_path) {
+  $path_parts = parse_url($path);
+  if (isset($path_parts['scheme']) || $path == 'user/cas') {
+    return;
+  }
+  
+  $user = $GLOBALS['user'];
+  $user_roles = array_keys($user->roles);
+  $generic_user = TRUE;
+  foreach ($user_roles as $user_role) {
+    if (in_array($user_role, array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID))) {
+      continue;
+    }
+    $generic_user = FALSE;
+  }
+  
+  $options['https'] = (bool) (variable_get('https', 0) && !$generic_user);
+}
 
 

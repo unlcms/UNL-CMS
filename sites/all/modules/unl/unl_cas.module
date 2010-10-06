@@ -31,7 +31,12 @@ function unl_cas_init() {
 function unl_cas_get_adapter() {
   static $adapter;
   if (!$adapter) {
-    $adapter = new Unl_Cas(url('user/cas', array('absolute' => TRUE)), 'https://login.unl.edu/cas');
+    if (variable_get('https', FALSE)) {
+      $url = url('user/cas', array('absolute' => TRUE, 'https' => TRUE));
+    } else {
+      $url = url('user/cas', array('absolute' => TRUE));
+    }
+    $adapter = new Unl_Cas($url, 'https://login.unl.edu/cas');
   }
   return $adapter;
 }
