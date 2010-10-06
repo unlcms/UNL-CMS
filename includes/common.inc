@@ -2092,8 +2092,8 @@ function url($path = NULL, array $options = array()) {
     if ($options['query']) {
       $path .= (strpos($path, '?') !== FALSE ? '&' : '?') . drupal_http_build_query($options['query']);
     }
-    if (isset($options['https']) && variable_get('https', FALSE)) {
-      if ($options['https'] === TRUE) {
+    if (isset($options['https'])) {
+      if (variable_get('https', FALSE) && $options['https'] === TRUE) {
         $path = str_replace('http://', 'https://', $path);
       }
       elseif ($options['https'] === FALSE) {
@@ -2108,14 +2108,17 @@ function url($path = NULL, array $options = array()) {
 
   // The base_url might be rewritten from the language rewrite in domain mode.
   if (!isset($options['base_url'])) {
-    if (isset($options['https']) && variable_get('https', FALSE)) {
-      if ($options['https'] === TRUE) {
+    if (isset($options['https'])) {
+      if (variable_get('https', FALSE) && $options['https'] === TRUE) {
         $options['base_url'] = $base_secure_url;
         $options['absolute'] = TRUE;
       }
       elseif ($options['https'] === FALSE) {
         $options['base_url'] = $base_insecure_url;
         $options['absolute'] = TRUE;
+      }
+      else {
+        $options['base_url'] = $base_url;
       }
     }
     else {
