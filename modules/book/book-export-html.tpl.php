@@ -1,8 +1,8 @@
 <?php
-// $Id: book-export-html.tpl.php,v 1.1.2.1 2009/05/13 19:11:04 goba Exp $
+// $Id: book-export-html.tpl.php,v 1.2 2008/05/15 21:19:24 dries Exp $
 
 /**
- * @file book-export-html.tpl.php
+ * @file
  * Default theme implementation for printed version of book outline.
  *
  * Available variables:
@@ -20,8 +20,8 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="<?php print $language->language; ?>" xml:lang="<?php print $language->language; ?>">
   <head>
-    <?php print $head; ?>
     <title><?php print $title; ?></title>
+    <?php print $head; ?>
     <base href="<?php print $base_url; ?>" />
     <link type="text/css" rel="stylesheet" href="misc/print.css" />
     <?php if ($language_rtl): ?>
@@ -45,9 +45,7 @@
       <div class="section-<?php print $i; ?>">
       <?php $div_close .= '</div>'; ?>
     <?php endfor; ?>
-
     <?php print $contents; ?>
     <?php print $div_close; ?>
-
   </body>
 </html>

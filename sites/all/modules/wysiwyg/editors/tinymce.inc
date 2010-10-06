@@ -1,5 +1,5 @@
 <?php
-// $Id: tinymce.inc,v 1.35.2.1 2009/08/03 22:37:15 sun Exp $
+// $Id: tinymce.inc,v 1.40 2010/09/25 00:12:34 twod Exp $
 
 /**
  * @file
@@ -45,6 +45,7 @@ function wysiwyg_tinymce_editor() {
         'css files' => array('tinymce-2.css'),
         'download url' => 'http://sourceforge.net/project/showfiles.php?group_id=103281&package_id=111430&release_id=557383',
       ),
+      // @todo Starting from 3.3, tiny_mce.js may support JS aggregation.
       '3.1' => array(
         'js files' => array('tinymce-3.js'),
         'css files' => array('tinymce-3.css'),
@@ -81,9 +82,12 @@ function wysiwyg_tinymce_editor() {
  */
 function wysiwyg_tinymce_version($editor) {
   $script = $editor['library path'] . '/tiny_mce.js';
+  if (!file_exists($script)) {
+    return;
+  }
   $script = fopen($script, 'r');
-  // Version is contained in the first 80 chars.
-  $line = fgets($script, 80);
+  // Version is contained in the first 200 chars.
+  $line = fgets($script, 200);
   // 2.x: this.majorVersion="2";this.minorVersion="1.3"
   // 3.x: majorVersion:'3',minorVersion:'2.0.1'
   if (preg_match('@majorVersion[=:]["\'](\d).+?minorVersion[=:]["\']([\d\.]+)@', $line, $version)) {
@@ -552,7 +556,7 @@ function wysiwyg_tinymce_plugins($editor) {
     );
     $plugins['xhtmlxtras'] = array(
       'path' => $editor['library path'] . '/plugins/xhtmlxtras',
-      'buttons' => array('cite' => t('Citation'), 'del' => t('Deleted'), 'abbr' => t('Abbreviation'), 'acronym' => t('Acronym'), 'ins' => t('Inserted')),
+      'buttons' => array('cite' => t('Citation'), 'del' => t('Deleted'), 'abbr' => t('Abbreviation'), 'acronym' => t('Acronym'), 'ins' => t('Inserted'), 'attribs' => t('HTML attributes')),
       'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/xhtmlxtras',
       'internal' => TRUE,
       'load' => TRUE,
@@ -566,10 +570,21 @@ function wysiwyg_tinymce_plugins($editor) {
       'internal' => TRUE,
       'load' => TRUE,
     );
-    $plugins['safari'] = array(
-      'path' => $editor['library path'] . '/plugins/safari',
-      'extensions' => array('safari' => t('Safari compatibility')),
-      'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/safari',
+    if (version_compare($editor['installed version'], '3.3', '<')) {
+      $plugins['safari'] = array(
+        'path' => $editor['library path'] . '/plugins/safari',
+        'extensions' => array('safari' => t('Safari compatibility')),
+        'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/safari',
+        'internal' => TRUE,
+        'load' => TRUE,
+      );
+    }
+  }
+  if (version_compare($editor['installed version'], '3.3', '>=')) {
+    $plugins['advlist'] = array(
+      'path' => $editor['library path'] . '/plugins/advlist',
+      'extensions' => array('advlist' => t('Advanced list')),
+      'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/advlist',
       'internal' => TRUE,
       'load' => TRUE,
     );

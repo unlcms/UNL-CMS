@@ -1,5 +1,5 @@
 <?php
-// $Id: whizzywig.inc,v 1.3 2009/06/09 00:18:12 sun Exp $
+// $Id: whizzywig.inc,v 1.6 2010/04/02 14:24:44 sun Exp $
 
 /**
  * @file
@@ -27,6 +27,9 @@ function wysiwyg_whizzywig_editor() {
       '55' => array(
         'js files' => array('whizzywig.js'),
       ),
+      '56' => array(
+        'js files' => array('whizzywig-56.js'),
+      ),
     ),
   );
   return $editor;
@@ -43,9 +46,14 @@ function wysiwyg_whizzywig_editor() {
  */
 function wysiwyg_whizzywig_version($editor) {
   $script = $editor['library path'] . '/whizzywig.js';
+  if (!file_exists($script)) {
+    return;
+  }
   $script = fopen($script, 'r');
   $line = fgets($script, 43);
-  if (preg_match('@Whizzywig v([0-9]+)@', $line, $version)) {
+  // 55: Whizzywig v55i
+  // 60: Whizzywig 60
+  if (preg_match('@Whizzywig v?([0-9]+)@', $line, $version)) {
     fclose($script);
     return $version[1];
   }
@@ -72,6 +80,13 @@ function wysiwyg_whizzywig_settings($editor, $config, $theme) {
   // Add path to button images, if available.
   if (is_dir($editor['library path'] . '/btn')) {
     $settings['buttonPath'] = base_path() . $editor['library path'] . '/btn/';
+  }
+  if (file_exists($editor['library path'] . '/WhizzywigToolbar.png')) {
+    $settings['toolbarImagePath'] = base_path() . $editor['library path'] . '/WhizzywigToolbar.png';
+  }
+  // Filename changed in version 60.
+  elseif (file_exists($editor['library path'] . '/icons.png')) {
+    $settings['toolbarImagePath'] = base_path() . $editor['library path'] . '/icons.png';
   }
 
   // Add configured buttons or all available.

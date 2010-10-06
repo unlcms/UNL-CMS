@@ -1,13 +1,28 @@
 name = UNL WDN
-description = UNL DWN theme for Drupal
+description = UNL WDN Theme
 screenshot = screenshot.png
-core = 6.x
+core = 7.x
 engine = phptemplate
+
+stylesheets[all][] = style.css
+
+features[] = main_menu
+features[] = name
+features[] = node_user_picture
+features[] = comment_user_picture
+features[] = comment_user_verification
+
+regions[content] = Main Content
+regions[page_top] = Page top
+regions[page_bottom] = Page bottom
 regions[navlinks] = Navigation Links
-regions[maincontentprefix] = Before Main Content
-regions[maincontentpostfix] = After Main Content
 regions[leftcollinks] = Related Links
 regions[contactinfo] = Contact Us
 regions[optionalfooter] = Optional Footer
 regions[footercontent] = Footer Content
+
 plugins[panels][layouts] = layouts
+
+settings[toggle_favicon] = 0
+settings[zen_forms] = 0
+settings[use_base] = 1

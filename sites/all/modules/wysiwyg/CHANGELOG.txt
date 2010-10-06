@@ -1,19 +1,56 @@
-// $Id: CHANGELOG.txt,v 1.149.2.18 2009/11/17 15:31:33 twod Exp $
+// $Id: CHANGELOG.txt,v 1.202 2010/09/25 11:53:19 twod Exp $
 
 Wysiwyg x.x-x.x, xxxx-xx-xx
 ---------------------------
 
 
-Wysiwyg 6.x-2.x, xxxx-xx-xx
+Wysiwyg 7.x-3.x, xxxx-xx-xx
 ---------------------------
+#739558 by sun, TwoD: Updated for new #type text_format.
+#612954 by TwoD: Fixed broken editor settings.
+#585932 by sun: Ported to Drupal 7.
+
+
+Wysiwyg 6.x-3.x, xxxx-xx-xx
+---------------------------
+#651490 by TwoD: Fixed Whizzywig width.
+#715228 by TwoD: Fixed TinyMCE image popups not launching for existing images.
+#606952 by TwoD: Fixed inserting content in fullscreen TinyMCE.
+#593008 by TwoD: Fixed third-party scripts breaking Wysiwyg.
+#695398 by RichieB, Cl1mh4224rd, mcpuddin: Fixed TinyMCE 3.3.9.1 detection.
+#737318 by dboune: Fixed CKEditor default skin depends on filesystem order.
+#775608 by TwoD: Fixed FCKEditor crashes IE on save.
+#824710 by TwoD: CKEditor not disabled upon enabling.
+#752516 by nquocbao, sun: Fixed openwysiwyg version callback.
+#753536 by TwoD: Fixed version detection for Whizzywig.
+#752516 by nquocbao, sun: Fixed file stream warnings in version callbacks.
+#628110 by quicksketch, sun, markus_petrux: Added editor settings alter hook.
+#689218 by wwalc, TwoD, sun: Improved support for CKEditor.
+#695398 by TwoD: Updated support for TinyMCE 3.3.
+#696040 by Dave Reid: Fixed missing Cancel link on profile form.
+#594322 by TwoD: Added insert method for NicEdit.
+#659200 by TwoD: Fixed YUI Editor content lost in IE.
+#594928 by ericbellot, TwoD, sun: Fixed 'attribs' button missing in TinyMCE.
+#557090 by TwoD: Fixed Whizzywig 56 instance not removed on detach().
+#667848 by TwoD, kaakuu: Fixed FCKeditor is not properly detached in IE.
+#695768 by sun: Fixed #resizable removed when no editor profiles are loaded.
+#631494 by TwoD: Fixed multi-site libraries directory failure for WYMeditor.
+#660080 by TwoD: Fixed Notice: Undefined offset.
+#613922 by TwoD, sun: Fixed PHP warning when saving profiles.
+#582298 by dereine: Added auto-paste from Word detection for FCKeditor.
+#597852 by sun: Fixed missing Turkish in language list.
+#620176 by sun: Fixed missing Ukrainian in language list.
+#613480 by TwoD, Dave Reid: Fixed PHP 5.3 compatibility.
 #462146 by TwoD: Cleaned up CKEditor implementation.
 #380586 by SimonEast: Updated YUI editor: Version detection not working.
 #610132 by TwoD: Updated CKEditor 3.0.1, stylesheets and version check.
 #620858 by quicksketch: Fixed focus event not firing for CKeditor.
 #462146 by TwoD, et al: Added support for CKeditor.
 #489156 by sun: Removed orphan global 'showToggle' JS setting.
+#462146 by sun, Niels Hackius: Fixed version detection for CKeditor.
 #545210 by sun: Fixed default value for editor toggle link.
 #372826 by Roi Danton, sun: Added Wysiwyg API developer documentation.
+#80170 by sun: Changed dialog/plugin API for Inline API compatibility.
 by sun: Fixed PHP notice.
 #514912 by Likeless, sun: Added plugin/button handling for WYMeditor.
 #538996 by darktygur: Fixed 404 errors for non-existing theme CSS files.
@@ -24,6 +61,7 @@ by sun: Fixed PHP notice.
 #507608 by jfh: Added WYMeditor instance API methods.
 by sun: Fixed form_build_id not removed from serialized profile settings.
 #496744 by TwoD: Fixed FCKeditor: "Apply source formatting" not working.
+#462146 by sun: Added CKeditor support.
 #490270 by sun: Fixed openWYSIWYG displays no buttons by default.
 #490266 by sun: Fixed JS error when wysiwyg profile contains no buttons.
 #400482 by sun: Fixed editor.instance.prepareContent() breaks editor's native

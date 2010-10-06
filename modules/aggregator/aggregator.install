@@ -1,29 +1,27 @@
 <?php
-// $Id: aggregator.install,v 1.14.2.2 2009/01/06 15:46:36 goba Exp $
+// $Id: aggregator.install,v 1.31 2010/08/22 13:55:53 dries Exp $
 
 /**
- * Implementation of hook_install().
+ * @file
+ * Install, update and uninstall functions for the aggregator module.
  */
-function aggregator_install() {
-  // Create tables.
-  drupal_install_schema('aggregator');
-}
 
 /**
- * Implementation of hook_uninstall().
+ * Implements hook_uninstall().
  */
 function aggregator_uninstall() {
-  // Remove tables.
-  drupal_uninstall_schema('aggregator');
-
   variable_del('aggregator_allowed_html_tags');
   variable_del('aggregator_summary_items');
   variable_del('aggregator_clear');
   variable_del('aggregator_category_selector');
+  variable_del('aggregator_fetcher');
+  variable_del('aggregator_parser');
+  variable_del('aggregator_processors');
+  variable_del('aggregator_teaser_length');
 }
 
 /**
- * Implementation of hook_schema().
+ * Implements hook_schema().
  */
 function aggregator_schema() {
   $schema['aggregator_category'] = array(
@@ -56,7 +54,9 @@ function aggregator_schema() {
       )
     ),
     'primary key' => array('cid'),
-    'unique keys' => array('title' => array('title')),
+    'unique keys' => array(
+      'title' => array('title'),
+    ),
   );
 
   $schema['aggregator_category_feed'] = array(
@@ -76,7 +76,15 @@ function aggregator_schema() {
       )
     ),
     'primary key' => array('cid', 'fid'),
-    'indexes' => array('fid' => array('fid')),
+    'indexes' => array(
+      'fid' => array('fid'),
+    ),
+    'foreign keys' => array(
+      'aggregator_category' => array(
+        'table' => 'aggregator_category',
+        'columns' => array('cid' => 'cid'),
+      ),
+    ),
   );
 
   $schema['aggregator_category_item'] = array(
@@ -96,7 +104,15 @@ function aggregator_schema() {
       )
     ),
     'primary key' => array('cid', 'iid'),
-    'indexes' => array('iid' => array('iid')),
+    'indexes' => array(
+      'iid' => array('iid'),
+    ),
+    'foreign keys' => array(
+      'aggregator_category' => array(
+        'table' => 'aggregator_category',
+        'columns' => array('cid' => 'cid'),
+      ),
+    ),
   );
 
   $schema['aggregator_feed'] = array(
@@ -133,24 +149,37 @@ function aggregator_schema() {
         'default' => 0,
         'description' => 'Last time feed was checked for new items, as Unix timestamp.',
       ),
+      'queued' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Time when this feed was queued for refresh, 0 if not queued.',
+      ),
       'link' => array(
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
         'default' => '',
-        'description' => 'The parent website of the feed; comes from the &lt;link&gt; element in the feed.',
+        'description' => 'The parent website of the feed; comes from the <link> element in the feed.',
       ),
       'description' => array(
         'type' => 'text',
         'not null' => TRUE,
         'size' => 'big',
-        'description' => "The parent website's description; comes from the &lt;description&gt; element in the feed.",
+        'description' => "The parent website's description; comes from the <description> element in the feed.",
       ),
       'image' => array(
         'type' => 'text',
         'not null' => TRUE,
         'size' => 'big',
         'description' => 'An image representing the feed.',
+      ),
+      'hash' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Calculated hash of the feed data, used for validating cache.',
       ),
       'etag' => array(
         'type' => 'varchar',
@@ -177,6 +206,9 @@ function aggregator_schema() {
     'unique keys' => array(
       'url'  => array('url'),
       'title' => array('title'),
+    ),
+    'indexes' => array(
+      'queued' => array('queued'),
     ),
   );
 
@@ -224,7 +256,7 @@ function aggregator_schema() {
       'timestamp' => array(
         'type' => 'int',
         'not null' => FALSE,
-        'description' => 'Post date of feed item, as a Unix timestamp.',
+        'description' => 'Posted date of the feed item, as a Unix timestamp.',
       ),
       'guid' => array(
         'type' => 'varchar',
@@ -234,8 +266,44 @@ function aggregator_schema() {
       )
     ),
     'primary key' => array('iid'),
-    'indexes' => array('fid' => array('fid')),
+    'indexes' => array(
+      'fid' => array('fid'),
+    ),
+    'foreign keys' => array(
+      'aggregator_feed' => array(
+        'table' => 'aggregator_feed',
+        'columns' => array('fid' => 'fid'),
+      ),
+    ),
   );
 
   return $schema;
 }
+
+/**
+ * Add hash column to aggregator_feed table.
+ */
+function aggregator_update_7000() {
+  db_add_field('aggregator_feed', 'hash', array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => ''));
+}
+
+/**
+ * Add aggregator teaser length to settings from old global default teaser length
+ */
+function aggregator_update_7001() {
+  variable_set('aggregator_teaser_length', variable_get('teaser_length'));
+}
+
+/**
+ * Add queued timestamp.
+ */
+function aggregator_update_7002() {
+  db_add_field('aggregator_feed', 'queued', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'Time when this feed was queued for refresh, 0 if not queued.',
+  ));
+  db_add_index('aggregator_feed', 'queued', array('queued'));
+}
+

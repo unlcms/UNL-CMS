@@ -1,4 +1,4 @@
-// $Id: UPGRADE.txt,v 1.12 2008/01/04 16:15:58 goba Exp $
+// $Id: UPGRADE.txt,v 1.24 2010/08/11 01:06:44 dries Exp $
 
 UPGRADING
 ---------
@@ -14,12 +14,10 @@ Prior to upgrading, you should ensure that:
 
 Let's begin!
 
-1.  Backup your database and Drupal directory - especially your "sites"
-    directory which contains your configuration file and added modules and
-    themes, any contributed or custom modules in your "modules" directory,
-    and your "files" directory which contains uploaded files. If other files
-    have modifications, such as .htaccess or robots.txt, those should be
-    backed up as well.
+1.  Back up your Drupal database and site root directory. Be especially sure
+    to back up your "sites" directory which contains your configuration file,
+    added modules and themes, and your site's uploaded files. If other files
+    have modifications, such as .htaccess or robots.txt, back those up as well.
 
     Note: for a single site setup, the configuration file is the "settings.php"
     file located at sites/default/settings.php. The default.settings.php file
@@ -35,21 +33,25 @@ Let's begin!
 
     More information on multisite configuration is located in INSTALL.txt.
 
-2.  If possible, log on as the user with user ID 1, which is the first account
-    created and the main administrator account. User ID 1 will be able to
-    automatically access update.php in step #10. There are special instructions
-    in step #10 if you are unable to log on as user ID 1. Do not close your
-    browser until the final step is complete.
+2.  If possible, log on either as a user with the "Administer software updates"
+    permission or as the user with user ID 1, which is the first account
+    created (also known as the site maintenance account). Only these accounts
+    will be able to automatically access update.php in step #10. There are
+    special instructions in step #10 if you are unable to log on as one of
+    these users. Do not close your browser until the final step is complete.
 
-3.  Place the site in "Off-line" mode, to let the database updates run without
+3.  Place the site in "Offline" mode, to let the database updates run without
     interruption and avoid displaying errors to end users of the site. This
-    option is at http://www.example.com/?q=admin/settings/site-maintenance
+    option is at http://www.example.com/?q=admin/config/development/maintenance
     (replace www.example.com with your installation's domain name and path).
 
-4.  If using a custom or contributed theme, switch
-    to a core theme, such as Garland or Bluemarine.
+4.  If using a custom or contributed theme, switch to a core theme such as
+    Bartik or Garland.
 
-5.  Disable all custom and contributed modules.
+5.  Disable all custom and contributed modules. This includes any modules that
+    are not listed under 'Core - required' or 'Core - optional' on
+    http://www.example.com/?q=admin/build/modules (replace www.example.com with
+    your installation's domain name and path).
 
 6.  Remove all old files and directories from the Drupal installation directory.
 
@@ -90,10 +92,9 @@ Let's begin!
 12. Re-enable custom and contributed modules and re-run update.php
     to update custom and contributed database tables.
 
-13. Return the site to its original theme (if you switched to a core
-    theme like Garland or Bluemarine in step #4). If your site uses a
-    custom or contributed theme, make sure it is compatible with your
-    version of Drupal.
+13. Return the site to its original theme (if you switched to a core theme in
+    step #4). If your site uses a custom or contributed theme, make sure it is
+    compatible with your version of Drupal.
 
       - For contributed themes, check http://drupal.org/project/themes
         for the version of a theme matching your version of Drupal.
@@ -103,7 +104,7 @@ Let's begin!
 
 14. Finally, return your site to "Online" mode so your visitors may resume
     browsing. As in step #3, this option is available in your administration
-    screens at http://www.example.com/?q=admin/settings/site-maintenance
+    screens at http://www.example.com/?q=admin/config/development/maintenance
     (replace www.example.com with your installation's domain name and path).
 
 For more information on upgrading visit

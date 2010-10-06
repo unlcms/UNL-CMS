@@ -1,8 +1,8 @@
 <?php
-// $Id: book-navigation.tpl.php,v 1.1 2007/11/04 14:29:09 goba Exp $
+// $Id: book-navigation.tpl.php,v 1.3 2009/02/18 14:28:21 webchick Exp $
 
 /**
- * @file book-navigation.tpl.php
+ * @file
  * Default theme implementation to navigate books. Presented under nodes that
  * are a part of book outlines.
  *
@@ -35,7 +35,7 @@
     <?php print $tree; ?>
 
     <?php if ($has_links): ?>
-    <div class="page-links clear-block">
+    <div class="page-links clearfix">
       <?php if ($prev_url) : ?>
         <a href="<?php print $prev_url; ?>" class="page-previous" title="<?php print t('Go to previous page'); ?>"><?php print t('‹ ') . $prev_title; ?></a>
       <?php endif; ?>

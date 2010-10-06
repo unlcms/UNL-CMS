@@ -1,4 +1,10 @@
-/* $Id: system-rtl.css,v 1.12 2008/01/10 18:08:19 goba Exp $ */
+/* $Id: system-rtl.css,v 1.19 2010/01/07 07:41:46 webchick Exp $ */
+
+th {
+  text-align: right;
+  padding-right: 0;
+  padding-left: 1em;
+}
 
 thead th {
   text-align: right;
@@ -22,10 +28,9 @@ thead th {
 .more-help-link {
   text-align: left;
 }
-
-dl.multiselect dt, dl.multiselect dd {
-  float: right;
-  margin: 0 0 0 1em;
+.more-help-link a {
+  padding: 1px 20px 1px 0;
+  background-position: 100% 50%;
 }
 
 .block ul {
@@ -45,63 +50,25 @@ ul.secondary li {
   border-right: none;
   border-left: 1px solid #ccc;
 }
-html.js input.form-autocomplete {
-  background-position: 0% 2px;
-}
-html.js input.throbbing {
-  background-position: 0% -18px;
-}
 
-html.js fieldset.collapsible legend a {
-  padding-left: 0;
-  padding-right: 15px;
-  background-position: 98% 75%;
-}
-html.js fieldset.collapsed legend a {
-  background-image: url(../../misc/menu-collapsed-rtl.png);
-  background-position: 98% 50%;
-}
-
-div.teaser-button-wrapper {
-  float: left;
-  padding-right: 0;
-  padding-left: 5%;
-}
-.teaser-checkbox div.form-item {
-  float: left;
-  margin: 0 0 0 5%;
-}
-.progress .percentage {
-  float: left;
-}
-.progess-disabled {
+.system-themes-list-enabled .theme-selector .screenshot,
+.system-themes-list-enabled .theme-selector .no-screenshot {
   float: right;
+  margin: 0 0 0 20px;
 }
-.ahah-progress {
+.system-themes-list-disabled .theme-selector {
   float: right;
+  padding: 20px 0 20px 20px;
 }
-.ahah-progress .throbber {
+.theme-selector .operations li {
   float: right;
+  border-right: none;
+  border-left: 1px solid #cdcdcd;
 }
-input.password-field {
-  margin-left: 10px;
-  margin-right: 0;
+.theme-selector .operations li.last {
+  padding: 0 0.7em 0 0;
+  border-left: none;
 }
-input.password-confirm {
-  margin-left: 10px;
-  margin-right: 0;
-}
-
-.draggable a.tabledrag-handle {
-  float: right;
-  margin: -0.4em -0.5em -0.4em 0;
-  padding: 0.42em 0.5em 0.42em 1.5em;
-}
-div.indentation {
-  margin: -0.4em -0.4em -0.4em 0.2em;
-  padding: 0.42em 0.6em 0.42em 0;
-  float: right;
-}
-div.tree-child, div.tree-child-last {
-  background-position: -65px center;
+.theme-selector .operations li.first {
+  padding: 0 0 0 0.7em;
 }

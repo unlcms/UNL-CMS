@@ -1,4 +1,4 @@
-/* $Id: node.css,v 1.5 2008/01/25 21:21:44 goba Exp $ */
+/* $Id: node.css,v 1.17 2010/04/28 20:08:39 dries Exp $ */
 
 .node-unpublished {
   background-color: #fff4f4;
@@ -6,11 +6,16 @@
 .preview .node {
   background-color: #ffffea;
 }
-#node-admin-filter ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  width: 100%;
+/* Override the default multiselect layout in system-behavior.css. */
+#node-admin-content dl.multiselect dd,
+dl.multiselect dd .form-item {
+  width: 20em; /* 6em label + 14em select */
+}
+#node-admin-content dl.multiselect dd .form-item label {
+  display: block;
+  float: left; /* LTR */
+  width: 6em;
+  font-weight: normal;
 }
 #node-admin-buttons {
   float: left; /* LTR */
@@ -19,26 +24,4 @@
 }
 td.revision-current {
   background: #ffc;
-}
-.node-form .form-text {
-  display: block;
-  width: 95%;
-}
-.node-form .container-inline .form-text {
-  display: inline;
-  width: auto;
-}
-.node-form .standard {
-  clear: both;
-}
-.node-form textarea {
-  display: block;
-  width: 95%;
-}
-.node-form .attachments fieldset {
-  float: none;
-  display: block;
-}
-.terms-inline {
-  display: inline;
 }

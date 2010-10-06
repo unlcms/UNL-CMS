@@ -1,29 +1,27 @@
-# $Id: wysiwyg.pot,v 1.2.2.3 2009/11/22 01:34:24 thomaszahreddin Exp $
+# $Id: wysiwyg.pot,v 1.3 2009/06/17 21:06:26 hass Exp $
 #
 # LANGUAGE translation of Drupal (general)
 # Copyright YEAR NAME <EMAIL@ADDRESS>
 # Generated from files:
-#  wysiwyg.api.php,v 1.3.2.1 2009/08/09 02:46:55 sun
-#  wysiwyg.admin.inc,v 1.15.2.2 2009/07/18 18:47:48 sun
-#  wysiwyg.module,v 1.33.2.6 2009/08/10 23:11:08 sun
+#  wysiwyg.api.php,v 1.3 2009/06/09 00:18:11 sun
+#  wysiwyg.admin.inc,v 1.15 2009/06/09 00:18:11 sun
+#  wysiwyg.module,v 1.33 2009/06/09 00:18:11 sun
 #  wysiwyg.info,v 1.1 2008/10/14 21:45:07 sun
-#  wysiwyg.install,v 1.4.2.1 2009/07/18 19:17:40 sun
-#  ckeditor.inc,v 1.2.6.3 2009/10/23 02:11:01 twod
-#  fckeditor.inc,v 1.17.2.1 2009/06/22 03:00:15 sun
-#  markitup.inc,v 1.7.2.1 2009/08/03 22:37:15 sun
-#  nicedit.inc,v 1.6.2.1 2009/08/03 22:37:15 sun
+#  wysiwyg.install,v 1.4 2009/06/08 21:57:10 sun
+#  fckeditor.inc,v 1.17 2009/06/09 00:18:11 sun
+#  markitup.inc,v 1.7 2009/06/13 02:10:32 sun
+#  nicedit.inc,v 1.6 2009/06/09 00:18:12 sun
 #  openwysiwyg.inc,v 1.4 2009/06/13 02:17:10 sun
-#  tinymce.inc,v 1.35.2.1 2009/08/03 22:37:15 sun
+#  tinymce.inc,v 1.35 2009/06/09 00:18:12 sun
 #  whizzywig.inc,v 1.3 2009/06/09 00:18:12 sun
-#  wymeditor.inc,v 1.4.2.1 2009/08/03 22:37:15 sun
-#  yui.inc,v 1.6.2.1 2009/10/23 03:00:56 twod
+#  yui.inc,v 1.6 2009/06/13 02:10:32 sun
 #  break.inc,v 1.4 2009/06/09 00:18:12 sun
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2009-11-22 02:28+0100\n"
+"POT-Creation-Date: 2009-06-17 21:00+0200\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -32,20 +30,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: wysiwyg.api.php:53
-msgid "Image Assist"
+#: wysiwyg.api.php:51;52
+msgid "My plugin title"
 msgstr ""
 
-#: wysiwyg.api.php:59
-msgid "IMCE"
-msgstr ""
-
-#: wysiwyg.api.php:136
-msgid "Awesome plugin"
-msgstr ""
-
-#: wysiwyg.api.php:145
-msgid "Do something"
+#: wysiwyg.api.php:61
+msgid "Button title (optional)"
 msgstr ""
 
 #: wysiwyg.admin.inc:51
@@ -260,7 +250,7 @@ msgstr ""
 msgid "Optionally define CSS classes for the \"Font style\" dropdown list.<br />Enter one class on each line in the format: !format. Example: !example<br />If left blank, CSS classes are automatically imported from all loaded stylesheet(s)."
 msgstr ""
 
-#: wysiwyg.admin.inc:283;453
+#: wysiwyg.admin.inc:283;438
 msgid "Save"
 msgstr ""
 
@@ -296,56 +286,44 @@ msgstr ""
 msgid "There are no editor libraries installed currently. The following list contains a list of currently supported editors:"
 msgstr ""
 
-#: wysiwyg.admin.inc:418
-msgid "Wysiwyg profiles"
-msgstr ""
-
-#: wysiwyg.admin.inc:419
-msgid "Once an editor has been associated with an input format, the editor association cannot be changed without first deleting the profile and then creating a new one. Delete a profile by clicking on the \"delete\" link and afterwards, set up a new profile as usual."
-msgstr ""
-
-#: wysiwyg.admin.inc:445 wysiwyg.module:26
+#: wysiwyg.admin.inc:430 wysiwyg.module:26
 msgid "Edit"
 msgstr ""
 
-#: wysiwyg.admin.inc:448
-msgid "Delete"
-msgstr ""
-
-#: wysiwyg.admin.inc:465
-msgid "Input format"
-msgstr ""
-
-#: wysiwyg.admin.inc:465
-msgid "Editor"
-msgstr ""
-
-#: wysiwyg.admin.inc:465
-msgid "Operations"
-msgstr ""
-
-#: wysiwyg.admin.inc:502
-msgid "Are you sure you want to remove the profile for %name?"
-msgstr ""
-
-#: wysiwyg.admin.inc:504
-msgid "This action cannot be undone."
-msgstr ""
-
-#: wysiwyg.admin.inc:504 wysiwyg.module:36
+#: wysiwyg.admin.inc:433;489 wysiwyg.module:36
 msgid "Remove"
 msgstr ""
 
-#: wysiwyg.admin.inc:504
+#: wysiwyg.admin.inc:450
+msgid "Input format"
+msgstr ""
+
+#: wysiwyg.admin.inc:450
+msgid "Editor"
+msgstr ""
+
+#: wysiwyg.admin.inc:450
+msgid "Operations"
+msgstr ""
+
+#: wysiwyg.admin.inc:487
+msgid "Are you sure you want to remove the profile for %name?"
+msgstr ""
+
+#: wysiwyg.admin.inc:489
+msgid "This action cannot be undone."
+msgstr ""
+
+#: wysiwyg.admin.inc:489
 msgid "Cancel"
 msgstr ""
 
-#: wysiwyg.admin.inc:516
+#: wysiwyg.admin.inc:501
 msgid "Wysiwyg profile for %name has been deleted."
 msgstr ""
 
 #: wysiwyg.module:80
-msgid "A Wysiwyg profile is associated with an input format. A Wysiwyg profile defines which client-side editor is loaded with a particular input format, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions."
+msgid "A Wysiwyg profile can be associated to an input format. A Wysiwyg profile defines which client-side editor is loaded, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions."
 msgstr ""
 
 #: wysiwyg.module:306
@@ -356,23 +334,23 @@ msgstr ""
 msgid "Enable rich-text"
 msgstr ""
 
-#: wysiwyg.module:610
+#: wysiwyg.module:608
 msgid "Wysiwyg Editor settings"
 msgstr ""
 
-#: wysiwyg.module:617
+#: wysiwyg.module:615
 msgid "Enable editor by default"
 msgstr ""
 
-#: wysiwyg.module:620
+#: wysiwyg.module:618
 msgid "If enabled, rich-text editing is enabled by default in textarea fields."
 msgstr ""
 
-#: wysiwyg.module:704
+#: wysiwyg.module:702
 msgid "The version of %editor could not be detected."
 msgstr ""
 
-#: wysiwyg.module:717
+#: wysiwyg.module:715
 msgid "The installed version %version of %editor is not supported."
 msgstr ""
 
@@ -388,6 +366,10 @@ msgstr ""
 msgid "Profiles"
 msgstr ""
 
+#: wysiwyg.module:0
+msgid "wysiwyg"
+msgstr ""
+
 #: wysiwyg.install:10
 msgid "Stores Wysiwyg profiles."
 msgstr ""
@@ -400,260 +382,256 @@ msgstr ""
 msgid "User interface"
 msgstr ""
 
-#: editors/ckeditor.inc:282 editors/fckeditor.inc:214 editors/markitup.inc:105;170 editors/nicedit.inc:103 editors/openwysiwyg.inc:140 editors/tinymce.inc:377 editors/whizzywig.inc:113 editors/wymeditor.inc:190 editors/yui.inc:276
+#: editors/fckeditor.inc:217 editors/markitup.inc:105;170 editors/nicedit.inc:103 editors/openwysiwyg.inc:140 editors/tinymce.inc:377 editors/whizzywig.inc:113 editors/yui.inc:276
 msgid "Bold"
 msgstr ""
 
-#: editors/ckeditor.inc:282 editors/fckeditor.inc:214 editors/markitup.inc:112;170 editors/nicedit.inc:103 editors/openwysiwyg.inc:140 editors/tinymce.inc:377 editors/whizzywig.inc:113 editors/wymeditor.inc:190 editors/yui.inc:276
+#: editors/fckeditor.inc:217 editors/markitup.inc:112;170 editors/nicedit.inc:103 editors/openwysiwyg.inc:140 editors/tinymce.inc:377 editors/whizzywig.inc:113 editors/yui.inc:276
 msgid "Italic"
 msgstr ""
 
-#: editors/ckeditor.inc:282 editors/fckeditor.inc:214 editors/nicedit.inc:103 editors/openwysiwyg.inc:140 editors/tinymce.inc:377 editors/whizzywig.inc:113 editors/yui.inc:276
+#: editors/fckeditor.inc:217 editors/nicedit.inc:103 editors/openwysiwyg.inc:140 editors/tinymce.inc:377 editors/whizzywig.inc:113 editors/yui.inc:276
 msgid "Underline"
 msgstr ""
 
-#: editors/ckeditor.inc:283 editors/fckeditor.inc:215 editors/markitup.inc:119;171 editors/nicedit.inc:104 editors/openwysiwyg.inc:141 editors/tinymce.inc:378 editors/yui.inc:277
+#: editors/fckeditor.inc:218 editors/markitup.inc:119;171 editors/nicedit.inc:104 editors/openwysiwyg.inc:141 editors/tinymce.inc:378 editors/yui.inc:277
 msgid "Strike-through"
 msgstr ""
 
-#: editors/ckeditor.inc:284 editors/fckeditor.inc:216 editors/nicedit.inc:105 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/whizzywig.inc:114 editors/yui.inc:278
+#: editors/fckeditor.inc:219 editors/nicedit.inc:105 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/whizzywig.inc:114 editors/yui.inc:278
 msgid "Align left"
 msgstr ""
 
-#: editors/ckeditor.inc:284 editors/fckeditor.inc:216 editors/nicedit.inc:105 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/whizzywig.inc:114 editors/yui.inc:278
+#: editors/fckeditor.inc:219 editors/nicedit.inc:105 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/whizzywig.inc:114 editors/yui.inc:278
 msgid "Align center"
 msgstr ""
 
-#: editors/ckeditor.inc:284 editors/fckeditor.inc:216 editors/nicedit.inc:105 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/whizzywig.inc:114 editors/yui.inc:278
+#: editors/fckeditor.inc:219 editors/nicedit.inc:105 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/whizzywig.inc:114 editors/yui.inc:278
 msgid "Align right"
 msgstr ""
 
-#: editors/ckeditor.inc:284 editors/fckeditor.inc:216 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/yui.inc:278
+#: editors/fckeditor.inc:219 editors/openwysiwyg.inc:142 editors/tinymce.inc:379 editors/yui.inc:278
 msgid "Justify"
 msgstr ""
 
-#: editors/ckeditor.inc:285 editors/fckeditor.inc:217 editors/nicedit.inc:106 editors/openwysiwyg.inc:143 editors/tinymce.inc:380 editors/whizzywig.inc:115 editors/wymeditor.inc:191 editors/yui.inc:279
+#: editors/fckeditor.inc:220 editors/nicedit.inc:106 editors/openwysiwyg.inc:143 editors/tinymce.inc:380 editors/whizzywig.inc:115 editors/yui.inc:279
 msgid "Bullet list"
 msgstr ""
 
-#: editors/ckeditor.inc:285 editors/fckeditor.inc:217 editors/nicedit.inc:106 editors/openwysiwyg.inc:143 editors/tinymce.inc:380 editors/whizzywig.inc:115 editors/wymeditor.inc:191 editors/yui.inc:279
+#: editors/fckeditor.inc:220 editors/nicedit.inc:106 editors/openwysiwyg.inc:143 editors/tinymce.inc:380 editors/whizzywig.inc:115 editors/yui.inc:279
 msgid "Numbered list"
 msgstr ""
 
-#: editors/ckeditor.inc:286 editors/fckeditor.inc:218 editors/nicedit.inc:107 editors/openwysiwyg.inc:144 editors/tinymce.inc:381 editors/whizzywig.inc:116 editors/wymeditor.inc:192 editors/yui.inc:280
+#: editors/fckeditor.inc:221 editors/nicedit.inc:107 editors/openwysiwyg.inc:144 editors/tinymce.inc:381 editors/whizzywig.inc:116 editors/yui.inc:280
 msgid "Outdent"
 msgstr ""
 
-#: editors/ckeditor.inc:286 editors/fckeditor.inc:218 editors/nicedit.inc:107 editors/openwysiwyg.inc:144 editors/tinymce.inc:381 editors/whizzywig.inc:116 editors/wymeditor.inc:192 editors/yui.inc:280
+#: editors/fckeditor.inc:221 editors/nicedit.inc:107 editors/openwysiwyg.inc:144 editors/tinymce.inc:381 editors/whizzywig.inc:116 editors/yui.inc:280
 msgid "Indent"
 msgstr ""
 
-#: editors/ckeditor.inc:287 editors/fckeditor.inc:219 editors/openwysiwyg.inc:145 editors/tinymce.inc:382 editors/whizzywig.inc:117 editors/wymeditor.inc:193 editors/yui.inc:281
+#: editors/fckeditor.inc:222 editors/openwysiwyg.inc:145 editors/tinymce.inc:382 editors/whizzywig.inc:117 editors/yui.inc:281
 msgid "Undo"
 msgstr ""
 
-#: editors/ckeditor.inc:287 editors/fckeditor.inc:219 editors/openwysiwyg.inc:145 editors/tinymce.inc:382 editors/whizzywig.inc:117 editors/wymeditor.inc:193 editors/yui.inc:281
+#: editors/fckeditor.inc:222 editors/openwysiwyg.inc:145 editors/tinymce.inc:382 editors/whizzywig.inc:117 editors/yui.inc:281
 msgid "Redo"
 msgstr ""
 
-#: editors/ckeditor.inc:288 editors/fckeditor.inc:220 editors/markitup.inc:132;172 editors/nicedit.inc:114 editors/openwysiwyg.inc:146 editors/tinymce.inc:383 editors/whizzywig.inc:121 editors/wymeditor.inc:194 editors/yui.inc:282
+#: editors/fckeditor.inc:223 editors/markitup.inc:132;173 editors/nicedit.inc:114 editors/openwysiwyg.inc:146 editors/tinymce.inc:383 editors/whizzywig.inc:121 editors/yui.inc:282
 msgid "Link"
 msgstr ""
 
-#: editors/ckeditor.inc:288 editors/fckeditor.inc:220 editors/nicedit.inc:114 editors/tinymce.inc:383 editors/wymeditor.inc:194
+#: editors/fckeditor.inc:223 editors/nicedit.inc:114 editors/tinymce.inc:383
 msgid "Unlink"
 msgstr ""
 
-#: editors/ckeditor.inc:288 editors/fckeditor.inc:220 editors/tinymce.inc:383
+#: editors/fckeditor.inc:223 editors/tinymce.inc:383
 msgid "Anchor"
 msgstr ""
 
-#: editors/ckeditor.inc:289 editors/fckeditor.inc:221 editors/markitup.inc:126;173 editors/nicedit.inc:108 editors/openwysiwyg.inc:147 editors/tinymce.inc:384 editors/whizzywig.inc:118;122 editors/wymeditor.inc:195 editors/yui.inc:283
+#: editors/fckeditor.inc:224 editors/markitup.inc:126;172 editors/nicedit.inc:108 editors/openwysiwyg.inc:147 editors/tinymce.inc:384 editors/whizzywig.inc:118;122 editors/yui.inc:283
 msgid "Image"
 msgstr ""
 
-#: editors/ckeditor.inc:290 editors/fckeditor.inc:222 editors/nicedit.inc:109 editors/openwysiwyg.inc:149 editors/tinymce.inc:386 editors/whizzywig.inc:119
+#: editors/fckeditor.inc:225 editors/nicedit.inc:109 editors/openwysiwyg.inc:149 editors/tinymce.inc:386 editors/whizzywig.inc:119
 msgid "Forecolor"
 msgstr ""
 
-#: editors/ckeditor.inc:290 editors/fckeditor.inc:222 editors/nicedit.inc:109 editors/openwysiwyg.inc:149 editors/tinymce.inc:386 editors/whizzywig.inc:119
+#: editors/fckeditor.inc:225 editors/nicedit.inc:109 editors/openwysiwyg.inc:149 editors/tinymce.inc:386 editors/whizzywig.inc:119
 msgid "Backcolor"
 msgstr ""
 
-#: editors/ckeditor.inc:291 editors/fckeditor.inc:223 editors/nicedit.inc:110 editors/tinymce.inc:387 editors/wymeditor.inc:196
+#: editors/fckeditor.inc:226
 msgid "Superscript"
 msgstr ""
 
-#: editors/ckeditor.inc:291 editors/fckeditor.inc:223 editors/nicedit.inc:110 editors/tinymce.inc:387 editors/wymeditor.inc:196
+#: editors/fckeditor.inc:226
 msgid "Subscript"
 msgstr ""
 
-#: editors/ckeditor.inc:292 editors/fckeditor.inc:224 editors/openwysiwyg.inc:151 editors/tinymce.inc:388
+#: editors/fckeditor.inc:227 editors/openwysiwyg.inc:151 editors/tinymce.inc:388
 msgid "Blockquote"
 msgstr ""
 
-#: editors/ckeditor.inc:292 editors/fckeditor.inc:224 editors/nicedit.inc:116 editors/openwysiwyg.inc:151 editors/tinymce.inc:388 editors/whizzywig.inc:125 editors/wymeditor.inc:197
+#: editors/fckeditor.inc:227 editors/nicedit.inc:116 editors/openwysiwyg.inc:151 editors/tinymce.inc:388 editors/whizzywig.inc:125
 msgid "Source code"
 msgstr ""
 
-#: editors/ckeditor.inc:293 editors/fckeditor.inc:225 editors/nicedit.inc:111 editors/openwysiwyg.inc:152 editors/tinymce.inc:389 editors/whizzywig.inc:120
+#: editors/fckeditor.inc:228 editors/nicedit.inc:111 editors/openwysiwyg.inc:152 editors/tinymce.inc:389 editors/whizzywig.inc:120
 msgid "Horizontal rule"
 msgstr ""
 
-#: editors/ckeditor.inc:294 editors/fckeditor.inc:226 editors/openwysiwyg.inc:153 editors/tinymce.inc:390
+#: editors/fckeditor.inc:229 editors/openwysiwyg.inc:153 editors/tinymce.inc:390
 msgid "Cut"
 msgstr ""
 
-#: editors/ckeditor.inc:294 editors/fckeditor.inc:226 editors/openwysiwyg.inc:153 editors/tinymce.inc:390
+#: editors/fckeditor.inc:229 editors/openwysiwyg.inc:153 editors/tinymce.inc:390
 msgid "Copy"
 msgstr ""
 
-#: editors/ckeditor.inc:294 editors/fckeditor.inc:226 editors/openwysiwyg.inc:153 editors/tinymce.inc:390 editors/wymeditor.inc:198
+#: editors/fckeditor.inc:229 editors/openwysiwyg.inc:153 editors/tinymce.inc:390
 msgid "Paste"
 msgstr ""
 
-#: editors/ckeditor.inc:295 editors/fckeditor.inc:227
+#: editors/fckeditor.inc:230
 msgid "Paste Text"
 msgstr ""
 
-#: editors/ckeditor.inc:295 editors/fckeditor.inc:227 editors/tinymce.inc:494
+#: editors/fckeditor.inc:230 editors/tinymce.inc:494
 msgid "Paste from Word"
 msgstr ""
 
-#: editors/ckeditor.inc:296 editors/fckeditor.inc:228
+#: editors/fckeditor.inc:231
 msgid "Show blocks"
 msgstr ""
 
-#: editors/ckeditor.inc:297 editors/fckeditor.inc:229 editors/openwysiwyg.inc:155 editors/tinymce.inc:392 editors/yui.inc:287
+#: editors/fckeditor.inc:232 editors/openwysiwyg.inc:155 editors/tinymce.inc:392 editors/yui.inc:287
 msgid "Remove format"
 msgstr ""
 
-#: editors/ckeditor.inc:298 editors/fckeditor.inc:230 editors/openwysiwyg.inc:156 editors/tinymce.inc:393
+#: editors/fckeditor.inc:233 editors/openwysiwyg.inc:156 editors/tinymce.inc:393
 msgid "Character map"
 msgstr ""
 
-#: editors/ckeditor.inc:299 editors/fckeditor.inc:231
+#: editors/fckeditor.inc:234
 msgid "About"
 msgstr ""
 
-#: editors/ckeditor.inc:300 editors/fckeditor.inc:232 editors/nicedit.inc:115 editors/openwysiwyg.inc:157 editors/tinymce.inc:452 editors/whizzywig.inc:112 editors/yui.inc:288
+#: editors/fckeditor.inc:235 editors/nicedit.inc:115 editors/openwysiwyg.inc:157 editors/tinymce.inc:452 editors/whizzywig.inc:112 editors/yui.inc:288
 msgid "HTML block format"
 msgstr ""
 
-#: editors/ckeditor.inc:300 editors/fckeditor.inc:232 editors/nicedit.inc:115 editors/openwysiwyg.inc:157 editors/tinymce.inc:452 editors/whizzywig.inc:112 editors/yui.inc:288
+#: editors/fckeditor.inc:235 editors/nicedit.inc:115 editors/openwysiwyg.inc:157 editors/tinymce.inc:452 editors/whizzywig.inc:112 editors/yui.inc:288
 msgid "Font"
 msgstr ""
 
-#: editors/ckeditor.inc:300 editors/fckeditor.inc:232 editors/nicedit.inc:115 editors/openwysiwyg.inc:157 editors/tinymce.inc:452 editors/whizzywig.inc:112 editors/yui.inc:288
+#: editors/fckeditor.inc:235 editors/nicedit.inc:115 editors/openwysiwyg.inc:157 editors/tinymce.inc:452 editors/whizzywig.inc:112 editors/yui.inc:288
 msgid "Font size"
 msgstr ""
 
-#: editors/ckeditor.inc:300 editors/fckeditor.inc:232 editors/tinymce.inc:452
+#: editors/fckeditor.inc:235 editors/tinymce.inc:452
 msgid "Font style"
 msgstr ""
 
-#: editors/ckeditor.inc:301 editors/fckeditor.inc:233 editors/openwysiwyg.inc:161 editors/tinymce.inc:529 editors/whizzywig.inc:123 editors/wymeditor.inc:199
+#: editors/fckeditor.inc:236 editors/openwysiwyg.inc:161 editors/tinymce.inc:529 editors/whizzywig.inc:123
 msgid "Table"
 msgstr ""
 
-#: editors/ckeditor.inc:302 editors/fckeditor.inc:234 editors/tinymce.inc:515
+#: editors/fckeditor.inc:237 editors/tinymce.inc:515
 msgid "Search"
 msgstr ""
 
-#: editors/ckeditor.inc:302 editors/fckeditor.inc:234 editors/tinymce.inc:515
+#: editors/fckeditor.inc:237 editors/tinymce.inc:515
 msgid "Replace"
 msgstr ""
 
-#: editors/ckeditor.inc:302 editors/fckeditor.inc:234 editors/tinymce.inc:494
+#: editors/fckeditor.inc:237 editors/tinymce.inc:494
 msgid "Select all"
 msgstr ""
 
-#: editors/ckeditor.inc:303 editors/fckeditor.inc:235
+#: editors/fckeditor.inc:238
 msgid "Create DIV container"
 msgstr ""
 
-#: editors/ckeditor.inc:304 editors/fckeditor.inc:236 editors/tinymce.inc:538
+#: editors/fckeditor.inc:239 editors/tinymce.inc:538
 msgid "Flash"
 msgstr ""
 
-#: editors/ckeditor.inc:304 editors/fckeditor.inc:236
+#: editors/fckeditor.inc:239
 msgid "Smiley"
 msgstr ""
 
-#: editors/ckeditor.inc:305 editors/fckeditor.inc:237
+#: editors/fckeditor.inc:240
 msgid "FitWindow"
 msgstr ""
 
-#: editors/ckeditor.inc:306 editors/fckeditor.inc:238
+#: editors/fckeditor.inc:241
 msgid "Check spelling"
 msgstr ""
 
-#: editors/ckeditor.inc:306
-msgid "Check spelling as you type"
-msgstr ""
-
-#: editors/fckeditor.inc:245
+#: editors/fckeditor.inc:248
 msgid "Autogrow"
 msgstr ""
 
-#: editors/fckeditor.inc:256 editors/tinymce.inc:564
+#: editors/fckeditor.inc:259 editors/tinymce.inc:564
 msgid "BBCode"
 msgstr ""
 
-#: editors/fckeditor.inc:264
+#: editors/fckeditor.inc:267
 msgid "Table drag/resize"
 msgstr ""
 
-#: editors/fckeditor.inc:272
+#: editors/fckeditor.inc:275
 msgid "Table: Cell properties"
 msgstr ""
 
-#: editors/fckeditor.inc:273
+#: editors/fckeditor.inc:276
 msgid "Table: Insert row after"
 msgstr ""
 
-#: editors/fckeditor.inc:274
+#: editors/fckeditor.inc:277
 msgid "Table: Insert column after"
 msgstr ""
 
-#: editors/fckeditor.inc:275
+#: editors/fckeditor.inc:278
 msgid "Table: Insert cell after"
 msgstr ""
 
-#: editors/fckeditor.inc:276
+#: editors/fckeditor.inc:279
 msgid "Table: Delete rows"
 msgstr ""
 
-#: editors/fckeditor.inc:277
+#: editors/fckeditor.inc:280
 msgid "Table: Delete columns"
 msgstr ""
 
-#: editors/fckeditor.inc:278
+#: editors/fckeditor.inc:281
 msgid "Table: Delete cells"
 msgstr ""
 
-#: editors/fckeditor.inc:279
+#: editors/fckeditor.inc:282
 msgid "Table: Merge cells"
 msgstr ""
 
-#: editors/fckeditor.inc:280
+#: editors/fckeditor.inc:283
 msgid "Table: Horizontal split cell"
 msgstr ""
 
-#: editors/markitup.inc:142;175 editors/openwysiwyg.inc:159 editors/tinymce.inc:501 editors/wymeditor.inc:200
+#: editors/markitup.inc:142;175 editors/openwysiwyg.inc:159 editors/tinymce.inc:501
 msgid "Preview"
+msgstr ""
+
+#: editors/nicedit.inc:110 editors/openwysiwyg.inc:150 editors/tinymce.inc:387 editors/yui.inc:285
+msgid "Sup"
+msgstr ""
+
+#: editors/nicedit.inc:110 editors/openwysiwyg.inc:150 editors/tinymce.inc:387 editors/yui.inc:285
+msgid "Sub"
 msgstr ""
 
 #: editors/openwysiwyg.inc:148 editors/tinymce.inc:385 editors/whizzywig.inc:124
 msgid "Clean-up"
-msgstr ""
-
-#: editors/openwysiwyg.inc:150 editors/yui.inc:285
-msgid "Sup"
-msgstr ""
-
-#: editors/openwysiwyg.inc:150 editors/yui.inc:285
-msgid "Sub"
 msgstr ""
 
 #: editors/openwysiwyg.inc:154 editors/tinymce.inc:391

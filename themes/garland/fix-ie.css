@@ -1,19 +1,12 @@
-/* $Id: fix-ie.css,v 1.8.2.1 2008/02/05 09:27:26 goba Exp $ */
-
-/**
- * Garland, for Drupal 6.x
- * Stefan Nagtegaal, iStyledThis [dot] nl
- * Steven Wittens, acko [dot] net
- */
+/* $Id: fix-ie.css,v 1.13 2010/04/28 20:08:39 dries Exp $ */
 
 body {
   /* Center layout */
   text-align: center;
-  /* Allow text resizing */
-  font-size: 80%;
 }
 
-#header-region, #wrapper #container {
+#header-region,
+#wrapper #container {
   /* Reset text alignment */
   text-align: left; /* LTR */
 }
@@ -33,6 +26,10 @@ fieldset {
   background: none;
 }
 
+div.vertical-tabs ul.vertical-tabs-list li.first {
+  background-image: none;
+}
+
 ul.primary {
   /* Fix missing top margin */
   position: relative; /* LTR */
@@ -41,7 +38,6 @@ ul.primary {
 
 /* Prevent fieldsets from shifting when changing collapsed state. */
 html.js fieldset.collapsible {
-  position: relative;
   top: -1em;
 }
 html.js fieldset.collapsed {
@@ -63,7 +59,8 @@ tr.taxonomy-term-preview {
   filter: alpha(opacity=50);
 }
 
-#attach-hide label, #uploadprogress div.message {
+#attach-hide label,
+#uploadprogress div.message {
   /* Fading elements in IE causes the text to bleed unless they have a background. */
   background-color: #ffffff;
 }

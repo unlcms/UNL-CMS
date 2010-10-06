@@ -1,5 +1,5 @@
 <?php
-// $Id: book.pages.inc,v 1.5.2.1 2008/08/13 23:59:13 drumm Exp $
+// $Id: book.pages.inc,v 1.27 2010/07/07 01:07:33 dries Exp $
 
 /**
  * @file
@@ -15,7 +15,7 @@ function book_render() {
     $book_list[] = l($book['title'], $book['href'], $book['options']);
   }
 
-  return theme('item_list', $book_list);
+  return theme('item_list', array('items' => $book_list));
 }
 
 /**
@@ -40,10 +40,9 @@ function book_render() {
  *   in a format determined by the $type parameter.
  */
 function book_export($type, $nid) {
-
   $type = drupal_strtolower($type);
 
-  $export_function = 'book_export_'. $type;
+  $export_function = 'book_export_' . $type;
 
   if (function_exists($export_function)) {
     print call_user_func($export_function, $nid);
@@ -79,7 +78,8 @@ function book_export_html($nid) {
       $tree = book_menu_subtree_data($node->book);
       $contents = book_export_traverse($tree, 'book_node_export');
     }
-    return theme('book_export_html', $node->title, $contents, $node->book['depth']);
+
+    return theme('book_export_html', array('title' => $node->title, 'contents' => $contents, 'depth' => $node->book['depth']));
   }
   else {
     drupal_access_denied();
@@ -90,7 +90,7 @@ function book_export_html($nid) {
  * Menu callback; show the outline form for a single node.
  */
 function book_outline($node) {
-  drupal_set_title(check_plain($node->title));
+  drupal_set_title($node->title);
   return drupal_get_form('book_outline_form', $node);
 }
 
@@ -102,8 +102,7 @@ function book_outline($node) {
  *
  * @ingroup forms
  */
-function book_outline_form(&$form_state, $node) {
-
+function book_outline_form($form, &$form_state, $node) {
   if (!isset($node->book)) {
     // The node is not part of any book yet - set default options.
     $node->book = _book_link_defaults($node->nid);
@@ -111,13 +110,14 @@ function book_outline_form(&$form_state, $node) {
   else {
     $node->book['original_bid'] = $node->book['bid'];
   }
+
   // Find the depth limit for the parent select.
   if (!isset($node->book['parent_depth_limit'])) {
     $node->book['parent_depth_limit'] = _book_parent_depth_limit($node->book);
   }
   $form['#node'] = $node;
   $form['#id'] = 'book-outline';
-  _book_add_form_elements($form, $node);
+  _book_add_form_elements($form, $form_state, $node);
 
   $form['book']['#collapsible'] = FALSE;
 
@@ -144,7 +144,7 @@ function book_outline_form(&$form_state, $node) {
  * @see book_outline_form()
  */
 function book_remove_button_submit($form, &$form_state) {
-  $form_state['redirect'] = 'node/'. $form['#node']->nid .'/outline/remove';
+  $form_state['redirect'] = 'node/' . $form['#node']->nid . '/outline/remove';
 }
 
 /**
@@ -154,10 +154,11 @@ function book_remove_button_submit($form, &$form_state) {
  */
 function book_outline_form_submit($form, &$form_state) {
   $node = $form['#node'];
-  $form_state['redirect'] = "node/". $node->nid;
+  $form_state['redirect'] = "node/" . $node->nid;
   $book_link = $form_state['values']['book'];
   if (!$book_link['bid']) {
     drupal_set_message(t('No changes were made'));
+
     return;
   }
 
@@ -167,7 +168,7 @@ function book_outline_form_submit($form, &$form_state) {
     if ($node->book['parent_mismatch']) {
       // This will usually only happen when JS is disabled.
       drupal_set_message(t('The post has been added to the selected book. You may now position it relative to other pages.'));
-      $form_state['redirect'] = "node/". $node->nid ."/outline";
+      $form_state['redirect'] = "node/" . $node->nid . "/outline";
     }
     else {
       drupal_set_message(t('The book outline has been updated.'));
@@ -185,7 +186,7 @@ function book_outline_form_submit($form, &$form_state) {
  *
  * @ingroup forms
  */
-function book_remove_form(&$form_state, $node) {
+function book_remove_form($form, &$form_state, $node) {
   $form['#node'] = $node;
   $title = array('%title' => $node->title);
 
@@ -196,7 +197,7 @@ function book_remove_form(&$form_state, $node) {
     $description = t('%title may be added to hierarchy again using the Outline tab.', $title);
   }
 
-  return confirm_form($form, t('Are you sure you want to remove %title from the book hierarchy?', $title), 'node/'. $node->nid, $description, t('Remove'));
+  return confirm_form($form, t('Are you sure you want to remove %title from the book hierarchy?', $title), 'node/' . $node->nid, $description, t('Remove'));
 }
 
 /**
@@ -209,52 +210,10 @@ function book_remove_form_submit($form, &$form_state) {
   if ($node->nid != $node->book['bid']) {
     // Only allowed when this is not a book (top-level page).
     menu_link_delete($node->book['mlid']);
-    db_query('DELETE FROM {book} WHERE nid = %d', $node->nid);
+    db_delete('book')
+      ->condition('nid', $node->nid)
+      ->execute();
     drupal_set_message(t('The post has been removed from the book.'));
   }
-  $form_state['redirect'] = 'node/'. $node->nid;
-}
-
-/**
- * AJAX callback to replace the book parent select options.
- *
- * This function is called when the selected book is changed.  It updates the
- * cached form (either the node form or the book outline form) and returns
- * rendered output to be used to replace the select containing the possible
- * parent pages in the newly selected book.
- *
- * @param $build_id
- *   The form's build_id.
- * @param $bid
- *   A bid from from among those in the form's book select.
- * @return
- *   Prints the replacement HTML in JSON format.
- */
-function book_form_update() {
-  $bid = $_POST['book']['bid'];
-  if ($form = form_get_cache($_POST['form_build_id'], $form_state)) {
-
-    // Validate the bid.
-    if (isset($form['book']['bid']['#options'][$bid])) {
-      $book_link = $form['#node']->book;
-      $book_link['bid'] = $bid;
-      // Get the new options and update the cache.
-      $form['book']['plid'] = _book_parent_select($book_link);
-      form_set_cache($_POST['form_build_id'], $form, $form_state);
-
-      // Build and render the new select element, then return it in JSON format.
-      $form_state = array();
-      $form['#post'] = array();
-      $form = form_builder($form['form_id']['#value'] , $form, $form_state);
-      $output = drupal_render($form['book']['plid']);
-      drupal_json(array('status' => TRUE, 'data' => $output));
-    }
-    else {
-      drupal_json(array('status' => FALSE, 'data' => ''));
-    }
-  }
-  else {
-    drupal_json(array('status' => FALSE, 'data' => ''));
-  }
-  exit();
+  $form_state['redirect'] = 'node/' . $node->nid;
 }

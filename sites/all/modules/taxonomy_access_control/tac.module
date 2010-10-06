@@ -1,0 +1,105 @@
+<?php
+
+function tac_menu() {
+  $items = array();
+  
+  $items['admin/people/permissions/tac'] = array(
+    'title'            => 'Taxonomy Access Controls',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('tac_admin'),
+    'access arguments' => array('administer tac'),
+    'file'             => 'tac.admin.php',
+    'type'             => MENU_LOCAL_TASK
+  );
+  
+  return $items;
+}
+
+function tac_theme() {
+  return array(
+    'tac_term_list' => array(
+  	  'render element' => 'form'
+    )
+  );
+}
+
+function tac_permission() {
+  return array(
+    'administer tac' => array(
+      'title'       => t('Administer'),
+      'description' => t('Administer the specific grants given to role/term pairs.')
+    )
+  );
+}
+
+function tac_node_access($node, $op, $account) {
+  return NODE_ACCESS_IGNORE;
+}
+
+function tac_node_access_records($node) {
+  $tac_vid = variable_get('tac_vocabulary', -1);
+  $fields_to_check = array();
+  
+  $fields = field_info_instances('node', $node->type);
+  foreach ($fields as $field) {
+    $fieldInfo = field_info_field($field['field_name']);
+    if ($fieldInfo['type'] != 'taxonomy_term_reference') {
+      continue;
+    }
+    $fields_to_check[] = $field['field_name'];
+  }
+  
+  $selected_tids = array();
+  foreach ($fields_to_check as $field) {
+    $fieldData = $node->$field;
+    foreach ($fieldData['und'] as $tid_array) {
+      $selected_tids[] = $tid_array['tid'];
+    }
+  }
+  
+  $selected_terms = taxonomy_term_load_multiple($selected_tids);
+  $grant_ids = array();
+  foreach ($selected_terms as $selected_term) {
+    if ($selected_term->vid != $tac_vid) {
+      continue;
+    }
+    $grant_ids[] = $selected_term->tid;
+  }
+  
+  $grants = array();
+  $grants[] = array(
+    'realm'        => 'all',
+    'gid'          => 0,
+    'grant_view'   => 1,
+    'grant_update' => 0,
+    'grant_delete' => 0,
+    'priority'     => 0
+  );
+  
+  foreach ($grant_ids as $grant_id) {
+    //TODO: lookup which grant_x are supposed to be applied from the database.
+    $grants[] = array(
+      'realm'        => 'tac',
+      'gid'          => $grant_id,
+      'grant_view'   => 1,
+      'grant_update' => 1,
+      'grant_delete' => 1,
+      'priority'     => 0
+    );
+  }
+  
+  return $grants;
+}
+
+function tac_node_grants($account, $op) {
+  $query = db_select('tac_map', 'm');
+  $query->addField('m', 'tid');
+  $query->condition('m.grant_' . $op, 1);
+  $query->condition('m.rid', array_keys($account->roles));
+  $tids = $query->execute()->fetchCol();
+  
+  $grants = array();
+  $grants['tac'] = $tids;
+  
+  return $grants;
+}

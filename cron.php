@@ -1,11 +1,27 @@
 <?php
-// $Id: cron.php,v 1.36 2006/08/09 07:42:55 dries Exp $
+// $Id: cron.php,v 1.43 2009/11/02 03:30:49 webchick Exp $
 
 /**
  * @file
  * Handles incoming requests to fire off regularly-scheduled tasks (cron jobs).
  */
 
-include_once './includes/bootstrap.inc';
+/**
+ * Root directory of Drupal installation.
+ */
+define('DRUPAL_ROOT', getcwd());
+
+include_once DRUPAL_ROOT . '/includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
-drupal_cron_run();
+
+if (!isset($_GET['cron_key']) || variable_get('cron_key', 'drupal') != $_GET['cron_key']) {
+  watchdog('cron', 'Cron could not run because an invalid key was used.', array(), WATCHDOG_NOTICE);
+  drupal_access_denied();
+}
+elseif (variable_get('maintenance_mode', 0)) {
+  watchdog('cron', 'Cron could not run because the site is in maintenance mode.', array(), WATCHDOG_NOTICE);
+  drupal_access_denied();
+}
+else {
+  drupal_cron_run();
+}

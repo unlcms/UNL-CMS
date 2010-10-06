@@ -1,0 +1,129 @@
+<?php
+
+function tac_schema()
+{
+  $schema = array();
+  
+  $schema['tac_map'] = array(
+    'description' => 'Identifies which term/role pairs a user must possess in order to view, update, or delete specific nodes.',
+    'fields' => array(
+      'rid' => array(
+        'description' => 'The {role}.rid this record affects.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'tid' => array(
+        'description' => "The {taxonomy}.tid this record affects.",
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'grant_view' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can view this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_update' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can edit this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_delete' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can delete this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('rid', 'tid'),
+    'foreign keys' => array(
+      'affected_node' => array(
+        'table' => 'role',
+        'columns' => array('rid' => 'rid'),
+      ),
+      'affected_term' => array(
+        'table' => 'taxonomy_term_dat',
+        'columns' => array('tid' => 'tid'),
+      )
+    ),
+  );
+  
+  return $schema;
+}
+
+function tac_update_7100()
+{
+  $table = array(
+    'description' => 'Identifies which term/role pairs a user must possess in order to view, update, or delete specific nodes.',
+    'fields' => array(
+      'rid' => array(
+        'description' => 'The {role}.rid this record affects.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'tid' => array(
+        'description' => "The {taxonomy}.tid this record affects.",
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'grant_view' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can view this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_update' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can edit this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_delete' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can delete this node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('rid', 'tid'),
+    'foreign keys' => array(
+      'affected_node' => array(
+        'table' => 'role',
+        'columns' => array('rid' => 'rid'),
+      ),
+      'affected_term' => array(
+        'table' => 'taxonomy_term_dat',
+        'columns' => array('tid' => 'tid'),
+      )
+    ),
+  );
+  
+  db_create_table('tac_map', $table);
+}
+
+
+
+
+
+

@@ -1,0 +1,8 @@
+/* $Id: ie-rtl.css,v 1.2 2010/08/22 13:58:29 dries Exp $ */
+
+fieldset legend {
+  left: 6px;
+}
+ul.action-links li a {
+  zoom: 1;
+}

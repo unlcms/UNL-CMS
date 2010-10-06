@@ -1,4 +1,5 @@
-// $Id: markitup.js,v 1.2 2009/06/06 05:56:34 sun Exp $
+// $Id: markitup.js,v 1.3 2009/09/26 05:37:57 sun Exp $
+(function($) {
 
 /**
  * Attach this editor to a target element.
@@ -26,3 +27,4 @@ Drupal.wysiwyg.editor.detach.markitup = function(context, params) {
   }
 };
 
+})(jQuery);

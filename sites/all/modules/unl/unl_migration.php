@@ -1,0 +1,716 @@
+<?php
+
+function unl_migration($form, &$form_state)
+{
+    $form['root'] = array(
+        '#type' => 'fieldset',
+        '#title' => 'Migration Tool'
+    );
+    
+    $form['root']['site_url'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Site URL'),
+        '#description' => t('Full URL to the existing site you wish to migrate'),
+        '#required' => TRUE
+    );
+    
+    $form['root']['frontier_path'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Frontier FTP Path'),
+        '#description' => t('Full path to the root of your site on frontier (if applicable).'),
+        '#required' => FALSE
+    );
+    $form['root']['frontier_user'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Frontier FTP Username'),
+        '#required' => FALSE
+    );
+    $form['root']['frontier_pass'] = array(
+        '#type' => 'password',
+        '#title' => t('Frontier FTP Password'),
+        '#required' => FALSE
+    );
+    
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Migrate'
+    );
+    
+    return $form;
+}
+
+function unl_migration_submit($form, &$form_state)
+{
+    Unl_Migration_Tool::migrate($form_state['values']['site_url'],
+                                $form_state['values']['frontier_path'],
+                                $form_state['values']['frontier_user'],
+                                $form_state['values']['frontier_pass']);
+}
+
+
+class Unl_Migration_Tool
+{
+    static public function migrate($baseUrl, $frontierPath, $frontierUser, $frontierPass)
+    {
+        $instance = new self($baseUrl, $frontierPath, $frontierUser, $frontierPass);
+        return $instance->_migrate();
+    }
+
+    /**
+     * base url to the site to migrate, eg: http://www.unl.edu/band/
+     *
+     * @var string
+     */
+    private $_baseUrl;
+
+    /**
+     * base path to frontier dir, eg: /cwis/data/band
+     *
+     * @var string
+     */
+    private $_frontierPath;
+    private $_frontierUser;
+    private $_frontierPass;
+    private $_frontier;
+
+    private $_curl;
+
+    private $_siteMap            = array();
+    private $_processedPages     = array();
+    private $_content            = array();
+    private $_lastModifications  = array();
+    private $_hrefTransform      = array();
+    private $_hrefTransformFiles = array();
+    private $_menu               = array();
+    private $_nodeMap            = array();
+    private $_pageTitles         = array();
+    private $_log                = array();
+    private $_blocks             = array();
+    
+    private function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
+    {
+        header('Content-type: text/plain');
+
+        // Add trailing slash if necessary
+        $baseUrl = trim($baseUrl);
+        if (substr($baseUrl, -1) != '/') {
+            $baseUrl .= '/';
+        }
+
+        $this->_frontierPath = $frontierPath;
+        $this->_frontierUser = $frontierUser;
+        $this->_frontierPass = $frontierPass;
+
+        
+        $this->_baseUrl = $baseUrl;
+        $this->_addSitePath('');
+        $this->_curl = curl_init();
+        $this->_frontierScan('/');
+    }
+    
+    private function _migrate()
+    {
+        ini_set('memory_limit', -1);
+        
+        // Parse the menu
+        $this->_processMenu();
+        $this->_process_blocks();
+        
+        // Process all of the pages on the site
+        do {
+            set_time_limit(30);
+            
+            $pagesToProcess = $this->_getPagesToProcess();
+            foreach ($pagesToProcess as $pageToProcess) {
+                $this->_processPage($pageToProcess);
+            }
+            //if ($i++ == 2) break;
+        } while (count($pagesToProcess) > 0);
+        
+        // Fix any links to files that got moved to sites/<site>/files
+        foreach ($this->_hrefTransform as $path => &$transforms) {
+            if (array_key_exists('', $transforms)) {
+                unset($transforms['']);
+            }
+            foreach ($transforms as $oldPath => &$newPath) {
+                if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
+                    $newPath = $this->_hrefTransformFiles[$newPath];
+                }
+            }
+        }
+        
+        // Update links and then create new page nodes.
+        foreach ($this->_content as $path => $content) {
+            set_time_limit(30);
+            
+            $hrefTransform = $this->_hrefTransform[$path];
+            
+            if (is_array($hrefTransform)) {
+                $content = strtr($content, $hrefTransform);
+            }
+            $pageTitle = $this->_pageTitles[$path];
+            $this->_createPage($pageTitle, $content, $path, '' == $path);
+        }
+        
+        $this->_createMenu();
+        $this->_create_blocks();
+    }
+    
+    private function _addSitePath($path)
+    {
+        if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
+            $path = substr($path, 0, $fragmentStart);
+        }
+        $this->_siteMap[hash('SHA256', $path)] = $path;
+    }
+    
+    private function _getPagesToProcess()
+    {
+        $pagesToProcess = array();
+        foreach ($this->_siteMap as $path) {
+            if (in_array($path, $this->_processedPages)) {
+                continue;
+            }
+            $pagesToProcess[] = $path;
+        }
+        return $pagesToProcess;
+    }
+    
+    private function _addProcessedPage($path)
+    {
+        $this->_processedPages[hash('SHA256', $path)] = $path;
+    }
+    
+    private function _processMenu()
+    {
+        $content = $this->_getUrl($this->_baseUrl);
+        $html = $content['content'];
+        
+        $dom = new DOMDocument();
+        $dom->loadHTML($html);
+        $navlinksNode = $dom->getElementById('navigation');
+    
+        $linkNodes = $navlinksNode->getElementsByTagName('a');
+        foreach ($linkNodes as $linkNode) {
+            $this->_processLinks($linkNode->getAttribute('href'), '');
+        }
+        
+        $navlinksUlNode = $navlinksNode->getElementsByTagName('ul')->item(0);
+        foreach ($navlinksUlNode->childNodes as $primaryLinkLiNode) {
+            if (strtolower($primaryLinkLiNode->nodeName) != 'li') {
+                continue;
+            }
+            $primaryLinkNode = $primaryLinkLiNode->getElementsByTagName('a')->item(0);
+            $menuItem = array('text' => trim($primaryLinkNode->textContent),
+                              'href' => $this->_makeLinkAbsolute($primaryLinkNode->getAttribute('href'), ''));
+            
+            $childLinksUlNode = $primaryLinkLiNode->getElementsByTagName('ul')->item(0);
+            if (!$childLinksUlNode) {
+                $this->_menu[] = $menuItem;
+                continue;
+            }
+            $childMenu = array();
+            foreach ($childLinksUlNode->childNodes as $childLinkLiNode) {
+                if (strtolower($childLinkLiNode->nodeName) != 'li') {
+                    continue;
+                }
+                $childLinkNode = $childLinkLiNode->getElementsByTagName('a')->item(0);
+                $childMenu[] = array('text' => trim($childLinkNode->textContent),
+                                     'href' => $this->_makeLinkAbsolute($childLinkNode->getAttribute('href'), ''));
+            }
+            $menuItem['children'] = $childMenu;
+            $this->_menu[] = $menuItem;
+        }
+        
+        if (count($this->_menu) == 0) {
+            $this->_log('Could not find the navigation menu for your site!');
+        }
+    }
+
+    private function _createMenu()
+    {
+        $primaryWeights = 1;
+        foreach ($this->_menu as $primaryMenu) {
+            $item = array(
+                'expanded' => TRUE,
+                'menu_name' => 'main-menu',
+                'link_title' => $primaryMenu['text'],
+                'link_path' => '',
+                'weight' => $primaryWeights++
+            );
+            $href = $primaryMenu['href'];
+            if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+                $path = substr($href, strlen($this->_baseUrl));
+                if (!$path) {
+                    $path = '';
+                }
+                if ($fragmentPos = strrpos($path, '#') !== FALSE) {
+                    $item['options']['fragment'] = substr($path, $fragmentPos + 1);
+                    $path = substr($path, 0, $fragmentPos);
+                }
+                if (substr($path, -1) == '/') {
+                    $path = substr($path, 0, -1);
+                }
+                $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                if ($nodeId) {
+                    $item['link_path'] = 'node/' . $nodeId;
+                }  
+            } else {
+                $item['link_path'] = $href;
+            }
+            
+            if ($item['link_path']) {
+                menu_link_save($item);
+                $this->_log('Created menu item "' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
+            } else {
+                $this->_log('Error: could not find a node to link to the ' . $item['link_title'] . ' menu item.');
+                continue;
+            }
+            
+            if (!array_key_exists('children', $primaryMenu)) {
+                continue;
+            }
+            
+            $plid = $item['mlid'];
+            $parentTitle = $item['link_title'];
+            $childWeights = 1;
+            foreach ($primaryMenu['children'] as $childMenu) {
+                $item = array(
+                    'menu_name' => 'main-menu',
+                    'link_title' => $childMenu['text'],
+                    'link_path' => '',
+                    'plid' => $plid,
+                    'weight' => $childWeights++
+                );
+                $href = $childMenu['href'];
+                if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+                    $path = substr($href, strlen($this->_baseUrl));
+                    if (!$path) {
+                        $path = '';
+                    }
+                    if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
+                        $item['options']['fragment'] = substr($path, $fragmentPos + 1);
+                        $path = substr($path, 0, $fragmentPos);
+                    }
+                    if (substr($path, -1) == '/') {
+                        $path = substr($path, 0, -1);
+                    }
+                    $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                    if ($nodeId) {
+                        $item['link_path'] = 'node/' . $nodeId;
+                    }
+                } else {
+                    $item['link_path'] = $href;
+                }
+                
+                if ($item['link_path']) {
+                    menu_link_save($item);
+                    $this->_log('Created menu item "' . $parentTitle . ' / ' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
+                } else {
+                    $this->_log('Error: could not find a node to link to the "' . $parentTitle . ' / ' . $item['link_title'] . '" menu.');
+                }
+            }
+        }
+    }
+    
+    private function _process_blocks() {
+      $content = $this->_getUrl($this->_baseUrl);
+      $html = $content['content'];
+      
+      $this->_blocks['related_links'] = $this->_get_instance_editable_content($html, 'leftcollinks');
+      $this->_blocks['contact_info'] = $this->_get_instance_editable_content($html, 'contactinfo');
+      $this->_blocks['optional_footer'] = $this->_get_instance_editable_content($html, 'optionalfooter');
+      $this->_blocks['footer_content'] = $this->_get_instance_editable_content($html, 'footercontent');
+      
+      $this->_blocks['related_links'] = trim(strtr($this->_blocks['related_links'], array('<h3>Related Links</h3>' => '')));
+      $this->_blocks['contact_info'] = trim(strtr($this->_blocks['contact_info'], array('<h3>Contacting Us</h3>' => '')));
+    }
+    
+    private function _create_blocks() {
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['contact_info'],
+        ))
+        ->condition('bid', 101)
+        ->execute();
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['related_links'],
+        ))
+        ->condition('bid', 102)
+        ->execute();
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['optional_footer'],
+        ))
+        ->condition('bid', 103)
+        ->execute();
+      db_update('block_custom')
+        ->fields(array(
+          'body'   => $this->_blocks['footer_content'],
+        ))
+        ->condition('bid', 104)
+        ->execute();
+    }
+    
+    private function _processPage($path)
+    {
+        $this->_addProcessedPage($path);
+        $fullPath = $this->_baseUrl . $path;
+        
+        $url = $this->_baseUrl . $path;
+    
+        $data = $this->_getUrl($url);
+        if (!$data['content']) {
+            $this->_log('The file at ' . $fullPath . ' was empty! Ignoring.');
+            return;
+        }
+        if ($data['lastModified']) {
+            $this->_lastModifications[$path] = $data['lastModified'];
+        }
+        if (strpos($data['contentType'], 'html') === FALSE) {
+            if (!$data['contentType']) {
+                $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.');
+                return;
+            }
+            @drupal_mkdir('public://' . dirname($path), NULL, TRUE);
+            $file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
+            $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
+            return;
+        }
+        $html = $data['content'];
+        
+        if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
+            $charset = $matches[1];
+            $html = iconv($charset, 'UTF-8', $html);
+        }
+        
+        $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        if (!$maincontentarea) {
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
+            return;
+        }
+        
+        $dom = new DOMDocument();
+        $dom->loadHTML($html);
+        
+        $pageTitle = '';
+        $pageTitleNode = $dom->getElementById('pagetitle');
+        if ($pageTitleNode) {
+            $pageTitleH2Nodes = $pageTitleNode->getElementsByTagName('h2');
+            if ($pageTitleH2Nodes->length > 0) {
+                $pageTitle = $pageTitleH2Nodes->item(0)->textContent;
+            }
+        }
+        
+        if (!$pageTitle) {
+            $titleText = '';
+            $titleNodes = $dom->getElementsByTagName('title');
+            if ($titleNodes->length > 0) {
+                $titleText = $titleNodes->item(0)->textContent; 
+            }
+            $titleParts = explode('|', $titleText);
+            if (count($titleParts) > 2) {
+                $pageTitle = trim(array_pop($titleParts));
+            }
+        }
+        
+        if (!$pageTitle) {
+            $this->_log('No page title was found at ' . $fullPath . '.');
+            $pageTitle = 'Untitled';
+        }
+        
+        $maincontentNode = $dom->getElementById('maincontent');
+        if (!$maincontentNode) {
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
+            return;
+        }
+        
+        $linkNodes = $maincontentNode->getElementsByTagName('a');
+        foreach ($linkNodes as $linkNode) {
+            $this->_processLinks($linkNode->getAttribute('href'), $path);
+        }
+    
+        $linkNodes = $maincontentNode->getElementsByTagName('img');
+        foreach ($linkNodes as $linkNode) {
+            $this->_processLinks($linkNode->getAttribute('src'), $path);
+        }
+        
+        $this->_content[$path] = $maincontentarea;
+        $this->_pageTitles[$path] = $pageTitle;
+    }
+    
+    private function _processLinks($originalHref, $path)
+    {
+        if (substr($originalHref, 0, 1) == '#') {
+            return;
+        }
+        $href = $this->_makeLinkAbsolute($originalHref, $path);
+        if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+            $newPath = substr($href, strlen($this->_baseUrl));
+            if ($newPath === FALSE) {
+                $newPath = '';
+            }
+            $this->_hrefTransform[$path][$originalHref] = $newPath;
+            $this->_addSitePath($newPath);
+        }
+    }
+    
+    private function _makeLinkAbsolute($href, $path)
+    {
+        if (substr($path, -1) == '/') {
+            $intermediatePath = $path;
+        } else {
+            $intermediatePath = dirname($path);
+        }
+        if ($intermediatePath == '.') {
+            $intermediatePath = '';
+        }
+        if (strlen($intermediatePath) > 0 && substr($intermediatePath, -1) != '/') {
+            $intermediatePath .= '/';
+        }
+        
+        $parts = parse_url($href);
+        if (isset($parts['scheme']) && $parts['scheme'] == 'mailto') {
+            return $href;
+        }
+        if (isset($parts['scheme'])) {
+            $absoluteUrl = $href;
+        } else if (isset($parts['path']) && substr($parts['path'], 0, 1) == '/') {
+            $baseParts = parse_url($this->_baseUrl);
+            $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
+            if ($parts['fragment']) {
+                $absoluteUrl .= '#' . $parts['fragment'];
+            }
+        } else if (substr($href, 0, 1) == '#') {
+            $absoluteUrl = $this->_baseUrl . $path . $href;
+        } else {
+            $absoluteUrl = $this->_baseUrl . $intermediatePath . $href;
+        }
+        $parts = parse_url($absoluteUrl);
+        
+     /*   $this->_log('Absolute URL ' . $absoluteUrl . ' converted to parts:'
+            .' scheme:' . $parts['scheme']
+            .' host:' . $parts['host']
+            .' port:' . $parts['port']
+            .' user:' . $parts['user']
+            .' pass:' . $parts['pass']
+            .' path:' . $parts['path']
+            .' query:' . $parts['query']
+            .' fragment:' . $parts['fragment']); */
+        
+        if (isset($parts['path'])) {
+            while (strpos($parts['path'], '/./') !== FALSE) {
+                $parts['path'] = strtr($parts['path'], array('/./', '/'));
+            }
+            $i = 0;
+            while (strpos($parts['path'], '/../') !== FALSE) {
+                $parts['path'] = preg_replace('/\\/[^\\/]*\\/\\.\\.\\//', '/', $parts['path']);
+                $parts['path'] = preg_replace('/^\\/\\.\\.\\//', '/', $parts['path']);
+                // Prevent infinite loops if we get some crazy url.
+                if ($i++ > 100) exit;
+            }
+        }
+        
+        $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
+        $absoluteUrl .= isset($parts['path']) ? $parts['path'] : '';
+        $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+        
+        return $absoluteUrl;
+    }
+    
+    private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
+    {
+        
+        if (substr($alias, -1) == '/') {
+            $alias = substr($alias, 0, -1);
+        }
+        
+        $node = new StdClass();
+        $node->uid = $GLOBALS['user']->uid;
+        $node->type = 'page';
+        $node->title = $title;
+        $node->language = 'und';
+        $node->path['alias'] = $alias;
+        $node->body = array(
+            'und' => array(
+                array(
+                    'value' => $content,
+                    'format' => filter_default_format()
+                )
+            )
+        );
+        
+        node_submit($node);
+        try {
+            node_save($node);
+        } catch (Exception $e) {
+            $this->_log('Error saving page at ' . $alias . '. This is probably a case sensitivity conflict.');
+            return;
+        }
+        
+        if ($this->_lastModifications[$alias]) {
+            $mtime = $this->_lastModifications[$alias];
+            $mtimes = array(
+                'created' => $mtime,
+                'changed' => $mtime
+            );
+            $result = db_update('node')
+                ->fields($mtimes)
+                ->condition('nid', $node->nid)
+                ->execute();
+        }
+        
+        $this->_nodeMap[$node->nid] = $alias;
+        
+        if ($makeFrontPage) {
+            variable_set('site_frontpage', 'node/' . $node->nid);
+        }
+        
+        $this->_log('Created page "' . $title . '" with node id ' . $node->nid . ' at ' . $alias . '.');
+    }
+    
+    private function _getUrl($url)
+    {
+        $url = strtr($url, array(' ' => '%20'));
+        curl_setopt($this->_curl, CURLOPT_URL, $url);
+        curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
+        
+        $data = curl_exec($this->_curl);
+        $meta = curl_getinfo($this->_curl);
+        
+        $rawHeaders = substr($data, 0, $meta['header_size']);
+        $rawHeaders = trim($rawHeaders);
+        $rawHeaders = explode("\n", $rawHeaders);
+        array_shift($rawHeaders);
+        $headers = array();
+        foreach ($rawHeaders as $rawHeader) {
+            $splitPos = strpos($rawHeader, ':');
+            $headerKey = substr($rawHeader, 0, $splitPos);
+            $headerValue = substr($rawHeader, $splitPos+1);
+            $headers[$headerKey] = trim($headerValue);
+        }
+        
+        $content = substr($data, $meta['header_size']);
+        
+        if (in_array($meta['http_code'], array(301, 302))) {
+            $location = $headers['Location'];
+            $path = substr($location, strlen($this->_baseUrl));
+            $this->_addSitePath($path);
+            $this->_log('Found a redirect from ' . $url . ' to ' . $location . '. Some links may need to be updated.');
+            return FALSE;
+        } else if ($meta['http_code'] != 200) {
+            $this->_log('Error: HTTP ' . $meta['http_code'] . ' while fetching ' . $url . '. Possible dead link.');
+            return FALSE;
+        }
+        
+        $data = array(
+            'content' => $content,
+            'contentType' => $meta['content_type'],
+        );
+        
+        if ($this->_frontierPath) {
+            $mtime = $this->_getModifiedDate($url);
+            if ($mtime) {
+                $data['lastModified'] = $mtime;
+            } else if ($headers['Last-Modified']) {
+                $data['lastModified'] = strtotime($headers['Last-Modified']);
+            }
+        }
+        
+        return $data;
+    }
+    
+    private function _getModifiedDate($url)
+    {
+        if (!$this->_frontierConnect()) {
+            return NULL;
+        }
+        
+        //Don't want url encoded chars like %20 in ftp file path 
+        $url = urldecode($url);
+        
+        $path = substr($url, strlen($this->_baseUrl));
+        if ($path[0] != '/') {
+            $path = '/'.$path;
+        }
+        
+        $ftpPath = $this->_frontierPath . $path;
+        if (substr($ftpPath, -1) == '/') {
+            $ftpPath .= 'index.shtml';
+        }
+        
+        $files = ftp_rawlist($this->_frontier, $ftpPath);
+        $mtime = substr($files[0], 43, 12);
+        $mtime = strtotime($mtime);
+        return $mtime;
+    }
+    
+    private function _frontierConnect()
+    {
+        if (!$this->_frontierPath) {
+            return NULL;
+        }
+        
+        if (!$this->_frontier) {
+            $this->_frontier = ftp_ssl_connect('frontier.unl.edu');
+            //TODO: make this a login that only has read access to everything.
+            $login = ftp_login($this->_frontier, $this->_frontierUser, $this->_frontierPass);
+            if (!$login) {
+                $this->_frontier = NULL;
+                $this->_log('Error: could not connect to frontier with user ' . $this->_frontierUser . '.');
+            }
+        }
+        return $this->_frontier;
+    }
+    
+    private function _frontierScan($path)
+    {
+        if (!$this->_frontierConnect()) {
+            return;
+        }
+        
+        $ftpPath = $this->_frontierPath . $path;
+        $rawFileList = ftp_rawlist($this->_frontier, $ftpPath);
+        $fileList = ftp_nlist($this->_frontier, $ftpPath);
+        $files = array();
+        foreach ($rawFileList as $index => $rawListing) {
+            $file = substr($fileList[$index], strlen($ftpPath));
+            if (substr($rawListing, 0, 1) == 'd') {
+                //file is a directory
+                $this->_frontierScan($path . $file . '/');
+            } else {
+                $files[] = $file;
+                if ($file == 'index.shtml') {
+                    $this->_addSitePath($path);
+                } else {
+                    $this->_addSitePath($path . $file);
+                }
+            }
+        }
+    }
+    
+    private function _log($message)
+    {
+        $this->_log[] = $message;
+        drupal_set_message($message, 'status');
+    }
+
+  private function _get_instance_editable_content($html, $name) {
+    $start_token = '<!-- InstanceBeginEditable name="' . $name . '" -->';
+    $end_token = '<!-- InstanceEndEditable -->';
+    
+    $content_start = strpos($html, $start_token);
+    $content_end = strpos($html, $end_token, $content_start);
+    $content = substr($html,
+                      $content_start + strlen($start_token),
+                      $content_end - $content_start - strlen($start_token));
+    $content = trim($content);
+    if (!$content || $content_start === FALSE || $content_end === FALSE) {
+      return FALSE;
+    }
+    return $content;
+  }
+}
+

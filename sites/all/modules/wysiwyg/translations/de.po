@@ -1,4 +1,4 @@
-# $Id: de.po,v 1.6.2.5 2009/11/22 01:34:44 thomaszahreddin Exp $
+# $Id: de.po,v 1.8 2009/06/17 21:22:23 hass Exp $
 #
 # LANGUAGE translation of Drupal (general)
 # Copyright YEAR NAME <EMAIL@ADDRESS>
@@ -7,33 +7,24 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: German translation of WYSIWYG editor\n"
-"POT-Creation-Date: 2009-11-22 02:28+0100\n"
-"PO-Revision-Date: 2009-11-22 02:32+0100\n"
-"Last-Translator: Thomas Zahreddin <tz@it-arts.org>\n"
-"Language-Team: Alexander Hass + Thomas Zahreddin <tz@it-arts.org>\n"
+"POT-Creation-Date: 2009-06-17 21:00+0200\n"
+"PO-Revision-Date: 2009-06-17 23:21+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Alexander Hass\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n!=1);\n"
 "X-Poedit-Language: German\n"
 "X-Poedit-Country: GERMANY\n"
-"X-Poedit-SourceCharset: UTF-8\n"
 
-#: wysiwyg.api.php:53
-msgid "Image Assist"
-msgstr "Image Assist"
+#: wysiwyg.api.php:51;52
+msgid "My plugin title"
+msgstr "Mein Plugin-Titel"
 
-#: wysiwyg.api.php:59
-msgid "IMCE"
-msgstr "IMCE"
-
-#: wysiwyg.api.php:136
-msgid "Awesome plugin"
-msgstr "Herausragendes Plugin"
-
-#: wysiwyg.api.php:145
-msgid "Do something"
-msgstr "Etwas machen."
+#: wysiwyg.api.php:61
+msgid "Button title (optional)"
+msgstr "Schaltknopftitel (optional)"
 
 #: wysiwyg.admin.inc:51
 msgid "%editor profile for %format"
@@ -105,8 +96,9 @@ msgstr "Ausrichtung der Schaltknöpfe"
 
 # context senstive issues
 #: wysiwyg.admin.inc:166
+#, fuzzy
 msgid "Center"
-msgstr "Zentriert"
+msgstr "Mitte"
 
 #: wysiwyg.admin.inc:166
 msgid "Left"
@@ -139,7 +131,7 @@ msgstr "Schaltfläche zur Größenanpassung aktivieren"
 # "Path location toolbar" not literally
 #: wysiwyg.admin.inc:183
 msgid "This option gives you the ability to enable/disable the resizing button. If enabled, the Path location toolbar must be set to \"Top\" or \"Bottom\" in order to display the resize icon."
-msgstr "Diese Option ermöglicht die Schaltfläche zur Größenanpassung zu aktivieren/deaktivieren.  Sobald aktiviert, muss die Pfad-Leiste auf „Oben“ oder „Unten“ eingestellt werden, damit das Symbol zur Größenanpassung angezeigt werden kann."
+msgstr "Diese Option ermöglicht die Schaltfläche zur Größenanpassung zu aktivieren/deaktivieren. Sobald aktiviert, muss die Pfad-Leiste auf „Oben“ oder „Unten“ eingestellt werden, damit das Symbol zur Größenanpassung angezeigt wird."
 
 #: wysiwyg.admin.inc:188
 msgid "Cleanup and output"
@@ -183,7 +175,7 @@ msgstr "Quellcodeformatierung anwenden"
 
 #: wysiwyg.admin.inc:230
 msgid "If enabled, the editor will re-format the HTML source code. Disabling this option could avoid conflicts with other input filters."
-msgstr "Der Editor wird den HTML-Quellcode reformatieren. Die Deaktivierung dieser Option kann Konflikte mit anderen Eingabefiltern verhindern."
+msgstr "Sobald aktiviert, wird der Editor den HTML-Quelltext neu formatieren. Die Deaktivierung dieser Option kann Konflikte mit anderen Eingabefiltern verhindern."
 
 #: wysiwyg.admin.inc:235
 msgid "Force cleanup on standard paste"
@@ -231,7 +223,7 @@ msgstr "CSS-Verzeichnis"
 
 #: wysiwyg.admin.inc:271
 msgid "If \"Define CSS\" was selected above, enter path to a CSS file or a list of CSS files separated by a comma."
-msgstr "Wenn  \"CSS definieren\" ausgewählt wurde, dann geben Sie den Pfad zu einer CSS-Datei oder eine Liste von CSS-Dateien durch ein Komma getrennt an."
+msgstr ""
 
 #: wysiwyg.admin.inc:271
 msgid "Available tokens: <code>%b</code> (base path, eg: <code>/</code>), <code>%t</code> (path to theme, eg: <code>themes/garland</code>)"
@@ -247,9 +239,9 @@ msgstr "CSS-Klassen"
 
 #: wysiwyg.admin.inc:278
 msgid "Optionally define CSS classes for the \"Font style\" dropdown list.<br />Enter one class on each line in the format: !format. Example: !example<br />If left blank, CSS classes are automatically imported from all loaded stylesheet(s)."
-msgstr "Optional CSS-Klassen definieren für die \"Schriftstil\" Dropdown-Liste. <br /> Geben Sie eine Klasse in jeder Zeile an, im Format: !format. Beispiel: !example <br /> Wenn leer, werden CSS-Klassen automatisch aus allen geladenen Stylesheets  importiert."
+msgstr ""
 
-#: wysiwyg.admin.inc:283;453
+#: wysiwyg.admin.inc:283;438
 msgid "Save"
 msgstr "Speichern"
 
@@ -284,61 +276,49 @@ msgstr "Installationsanweisungen"
 
 #: wysiwyg.admin.inc:405
 msgid "There are no editor libraries installed currently. The following list contains a list of currently supported editors:"
-msgstr "Derzeit sind keine Editor-Bibliotheken installiert. Die Liste der derzeit unterstützten Editoren:"
+msgstr "Derzeit sind keine Editor-Bibliotheken installiert. Die folgende Liste enthält eine Liste der derzeit unterstützten Editoren:"
 
-#: wysiwyg.admin.inc:418
-msgid "Wysiwyg profiles"
-msgstr "WYSIWYG-Profile"
-
-#: wysiwyg.admin.inc:419
-msgid "Once an editor has been associated with an input format, the editor association cannot be changed without first deleting the profile and then creating a new one. Delete a profile by clicking on the \"delete\" link and afterwards, set up a new profile as usual."
-msgstr "Sobald ein Editor mit einem Eingabeformat verbunden wurden, kann die Verbindung im Editor nicht geändert werden, ohne zuerst das Profil zu löschen und dann einen neues zu erstellen. Ein Profil löschen mit dem Link \"Löschen\" und danach ein neues Profil wie gewohnt einrichten."
-
-#: wysiwyg.admin.inc:445
+#: wysiwyg.admin.inc:430
 #: wysiwyg.module:26
 msgid "Edit"
 msgstr "Bearbeiten"
 
-#: wysiwyg.admin.inc:448
-msgid "Delete"
-msgstr "Löschen"
-
-#: wysiwyg.admin.inc:465
-msgid "Input format"
-msgstr "Eingabeformat"
-
-#: wysiwyg.admin.inc:465
-msgid "Editor"
-msgstr "Editor"
-
-#: wysiwyg.admin.inc:465
-msgid "Operations"
-msgstr "Operationen"
-
-#: wysiwyg.admin.inc:502
-msgid "Are you sure you want to remove the profile for %name?"
-msgstr "Soll das Profil für %name wirklich gelöscht werden?"
-
-#: wysiwyg.admin.inc:504
-msgid "This action cannot be undone."
-msgstr "Diese Aktion kann nicht rückgängig gemacht werden."
-
-#: wysiwyg.admin.inc:504
+#: wysiwyg.admin.inc:433;489
 #: wysiwyg.module:36
 msgid "Remove"
 msgstr "Entfernen"
 
-#: wysiwyg.admin.inc:504
+#: wysiwyg.admin.inc:450
+msgid "Input format"
+msgstr "Eingabeformat"
+
+#: wysiwyg.admin.inc:450
+msgid "Editor"
+msgstr "Editor"
+
+#: wysiwyg.admin.inc:450
+msgid "Operations"
+msgstr "Operationen"
+
+#: wysiwyg.admin.inc:487
+msgid "Are you sure you want to remove the profile for %name?"
+msgstr "Soll das Profil für %name wirklich gelöscht werden?"
+
+#: wysiwyg.admin.inc:489
+msgid "This action cannot be undone."
+msgstr "Diese Aktion kann nicht rückgängig gemacht werden."
+
+#: wysiwyg.admin.inc:489
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: wysiwyg.admin.inc:516
+#: wysiwyg.admin.inc:501
 msgid "Wysiwyg profile for %name has been deleted."
 msgstr "Das Wysiwyg-Profil für %name wurde gelöscht."
 
 #: wysiwyg.module:80
-msgid "A Wysiwyg profile is associated with an input format. A Wysiwyg profile defines which client-side editor is loaded with a particular input format, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions."
-msgstr "Ein Wysiwyg Profil ist einem  Einganbe-Format zugeordnet. Ein Wysiwyg-Profil definiert, welches Eingabeformat mit dem Client-Editor mit einem bestimmten Eingabeformat, Buttons oder Themes angezeigt wird  und ein paar anderen Editor-spezifischen Funktionen geladen wird."
+msgid "A Wysiwyg profile can be associated to an input format. A Wysiwyg profile defines which client-side editor is loaded, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions."
+msgstr ""
 
 #: wysiwyg.module:306
 msgid "Disable rich-text"
@@ -348,23 +328,23 @@ msgstr "Rich-Text deaktivieren"
 msgid "Enable rich-text"
 msgstr "Rich-Text aktivieren"
 
-#: wysiwyg.module:610
+#: wysiwyg.module:608
 msgid "Wysiwyg Editor settings"
 msgstr "Einstellungen für Wysiwyg-Editor"
 
-#: wysiwyg.module:617
+#: wysiwyg.module:615
 msgid "Enable editor by default"
 msgstr "Editor standardmäßig aktivieren"
 
-#: wysiwyg.module:620
+#: wysiwyg.module:618
 msgid "If enabled, rich-text editing is enabled by default in textarea fields."
 msgstr "Sobald aktiviert, wird die Rich-Text-Bearbeitung in Textfeldern standardmässig aktiviert."
 
-#: wysiwyg.module:704
+#: wysiwyg.module:702
 msgid "The version of %editor could not be detected."
 msgstr "Die Version von %editor konnte nicht erkannt werden."
 
-#: wysiwyg.module:717
+#: wysiwyg.module:715
 msgid "The installed version %version of %editor is not supported."
 msgstr "Die installierte Version %version von %editor ist nicht unterstützt."
 
@@ -381,9 +361,13 @@ msgstr "Client-seitige Editor-Profile konfigurieren."
 msgid "Profiles"
 msgstr "Profile"
 
+#: wysiwyg.module:0
+msgid "wysiwyg"
+msgstr "wysiwyg"
+
 #: wysiwyg.install:10
 msgid "Stores Wysiwyg profiles."
-msgstr "Speichert Wysiwyg-Profile."
+msgstr ""
 
 #: wysiwyg.info:0
 msgid "Allows users to edit contents with client-side editors."
@@ -393,32 +377,27 @@ msgstr "Ermöglicht Benutzern die Bearbeitung von Inhalten mit clientseitigen Ed
 msgid "User interface"
 msgstr "Benutzeroberfläche"
 
-#: editors/ckeditor.inc:282
-#: editors/fckeditor.inc:214
+#: editors/fckeditor.inc:217
 #: editors/markitup.inc:105;170
 #: editors/nicedit.inc:103
 #: editors/openwysiwyg.inc:140
 #: editors/tinymce.inc:377
 #: editors/whizzywig.inc:113
-#: editors/wymeditor.inc:190
 #: editors/yui.inc:276
 msgid "Bold"
 msgstr "Fett"
 
-#: editors/ckeditor.inc:282
-#: editors/fckeditor.inc:214
+#: editors/fckeditor.inc:217
 #: editors/markitup.inc:112;170
 #: editors/nicedit.inc:103
 #: editors/openwysiwyg.inc:140
 #: editors/tinymce.inc:377
 #: editors/whizzywig.inc:113
-#: editors/wymeditor.inc:190
 #: editors/yui.inc:276
 msgid "Italic"
 msgstr "Kursiv"
 
-#: editors/ckeditor.inc:282
-#: editors/fckeditor.inc:214
+#: editors/fckeditor.inc:217
 #: editors/nicedit.inc:103
 #: editors/openwysiwyg.inc:140
 #: editors/tinymce.inc:377
@@ -427,8 +406,7 @@ msgstr "Kursiv"
 msgid "Underline"
 msgstr "Unterstrichen"
 
-#: editors/ckeditor.inc:283
-#: editors/fckeditor.inc:215
+#: editors/fckeditor.inc:218
 #: editors/markitup.inc:119;171
 #: editors/nicedit.inc:104
 #: editors/openwysiwyg.inc:141
@@ -437,8 +415,7 @@ msgstr "Unterstrichen"
 msgid "Strike-through"
 msgstr "Durchgestrichen"
 
-#: editors/ckeditor.inc:284
-#: editors/fckeditor.inc:216
+#: editors/fckeditor.inc:219
 #: editors/nicedit.inc:105
 #: editors/openwysiwyg.inc:142
 #: editors/tinymce.inc:379
@@ -447,8 +424,7 @@ msgstr "Durchgestrichen"
 msgid "Align left"
 msgstr "Linksbündig"
 
-#: editors/ckeditor.inc:284
-#: editors/fckeditor.inc:216
+#: editors/fckeditor.inc:219
 #: editors/nicedit.inc:105
 #: editors/openwysiwyg.inc:142
 #: editors/tinymce.inc:379
@@ -457,8 +433,7 @@ msgstr "Linksbündig"
 msgid "Align center"
 msgstr "Zentriert"
 
-#: editors/ckeditor.inc:284
-#: editors/fckeditor.inc:216
+#: editors/fckeditor.inc:219
 #: editors/nicedit.inc:105
 #: editors/openwysiwyg.inc:142
 #: editors/tinymce.inc:379
@@ -467,119 +442,99 @@ msgstr "Zentriert"
 msgid "Align right"
 msgstr "Rechtsbündig"
 
-#: editors/ckeditor.inc:284
-#: editors/fckeditor.inc:216
+#: editors/fckeditor.inc:219
 #: editors/openwysiwyg.inc:142
 #: editors/tinymce.inc:379
 #: editors/yui.inc:278
 msgid "Justify"
 msgstr "Blocksatz"
 
-#: editors/ckeditor.inc:285
-#: editors/fckeditor.inc:217
+#: editors/fckeditor.inc:220
 #: editors/nicedit.inc:106
 #: editors/openwysiwyg.inc:143
 #: editors/tinymce.inc:380
 #: editors/whizzywig.inc:115
-#: editors/wymeditor.inc:191
 #: editors/yui.inc:279
 msgid "Bullet list"
 msgstr "Aufzählungszeichen"
 
-#: editors/ckeditor.inc:285
-#: editors/fckeditor.inc:217
+#: editors/fckeditor.inc:220
 #: editors/nicedit.inc:106
 #: editors/openwysiwyg.inc:143
 #: editors/tinymce.inc:380
 #: editors/whizzywig.inc:115
-#: editors/wymeditor.inc:191
 #: editors/yui.inc:279
 msgid "Numbered list"
 msgstr "Nummerierte Liste"
 
-#: editors/ckeditor.inc:286
-#: editors/fckeditor.inc:218
+#: editors/fckeditor.inc:221
 #: editors/nicedit.inc:107
 #: editors/openwysiwyg.inc:144
 #: editors/tinymce.inc:381
 #: editors/whizzywig.inc:116
-#: editors/wymeditor.inc:192
 #: editors/yui.inc:280
 msgid "Outdent"
 msgstr "Einzug verkleinern"
 
-#: editors/ckeditor.inc:286
-#: editors/fckeditor.inc:218
+#: editors/fckeditor.inc:221
 #: editors/nicedit.inc:107
 #: editors/openwysiwyg.inc:144
 #: editors/tinymce.inc:381
 #: editors/whizzywig.inc:116
-#: editors/wymeditor.inc:192
 #: editors/yui.inc:280
 msgid "Indent"
 msgstr "Einzug vergrößern"
 
-#: editors/ckeditor.inc:287
-#: editors/fckeditor.inc:219
+#: editors/fckeditor.inc:222
 #: editors/openwysiwyg.inc:145
 #: editors/tinymce.inc:382
 #: editors/whizzywig.inc:117
-#: editors/wymeditor.inc:193
 #: editors/yui.inc:281
 msgid "Undo"
 msgstr "Rückgängig"
 
-#: editors/ckeditor.inc:287
-#: editors/fckeditor.inc:219
+#: editors/fckeditor.inc:222
 #: editors/openwysiwyg.inc:145
 #: editors/tinymce.inc:382
 #: editors/whizzywig.inc:117
-#: editors/wymeditor.inc:193
 #: editors/yui.inc:281
 msgid "Redo"
 msgstr "Wiederholen"
 
 # not literally and not context senstive issue, should be "Link einfügen/bearbeiten"
-#: editors/ckeditor.inc:288
-#: editors/fckeditor.inc:220
-#: editors/markitup.inc:132;172
+#: editors/fckeditor.inc:223
+#: editors/markitup.inc:132;173
 #: editors/nicedit.inc:114
 #: editors/openwysiwyg.inc:146
 #: editors/tinymce.inc:383
 #: editors/whizzywig.inc:121
-#: editors/wymeditor.inc:194
 #: editors/yui.inc:282
+#, fuzzy
 msgid "Link"
 msgstr "Link"
 
-#: editors/ckeditor.inc:288
-#: editors/fckeditor.inc:220
+#: editors/fckeditor.inc:223
 #: editors/nicedit.inc:114
 #: editors/tinymce.inc:383
-#: editors/wymeditor.inc:194
 msgid "Unlink"
 msgstr "Link entfernen"
 
-#: editors/ckeditor.inc:288
-#: editors/fckeditor.inc:220
+#: editors/fckeditor.inc:223
 #: editors/tinymce.inc:383
 msgid "Anchor"
 msgstr "Anker"
 
-#: editors/ckeditor.inc:289
-#: editors/fckeditor.inc:221
-#: editors/markitup.inc:126;173
+#: editors/fckeditor.inc:224
+#: editors/markitup.inc:126;172
 #: editors/nicedit.inc:108
 #: editors/openwysiwyg.inc:147
 #: editors/tinymce.inc:384
 #: editors/whizzywig.inc:118;122
-#: editors/wymeditor.inc:195
 #: editors/yui.inc:283
 msgid "Image"
 msgstr "Bild"
 
-#: editors/ckeditor.inc:290
-#: editors/fckeditor.inc:222
+#: editors/fckeditor.inc:225
 #: editors/nicedit.inc:109
 #: editors/openwysiwyg.inc:149
 #: editors/tinymce.inc:386
@@ -587,8 +542,7 @@ msgstr "Bild"
 msgid "Forecolor"
 msgstr "Vordergrundfarbe"
 
-#: editors/ckeditor.inc:290
-#: editors/fckeditor.inc:222
+#: editors/fckeditor.inc:225
 #: editors/nicedit.inc:109
 #: editors/openwysiwyg.inc:149
 #: editors/tinymce.inc:386
@@ -596,41 +550,29 @@ msgstr "Vordergrundfarbe"
 msgid "Backcolor"
 msgstr "Hintergrundfarbe"
 
-#: editors/ckeditor.inc:291
-#: editors/fckeditor.inc:223
-#: editors/nicedit.inc:110
-#: editors/tinymce.inc:387
-#: editors/wymeditor.inc:196
+#: editors/fckeditor.inc:226
 msgid "Superscript"
 msgstr "Hochgestellt"
 
-#: editors/ckeditor.inc:291
-#: editors/fckeditor.inc:223
-#: editors/nicedit.inc:110
-#: editors/tinymce.inc:387
-#: editors/wymeditor.inc:196
+#: editors/fckeditor.inc:226
 msgid "Subscript"
 msgstr "Tiefgestellt"
 
-#: editors/ckeditor.inc:292
-#: editors/fckeditor.inc:224
+#: editors/fckeditor.inc:227
 #: editors/openwysiwyg.inc:151
 #: editors/tinymce.inc:388
 msgid "Blockquote"
 msgstr "Zitatblock"
 
-#: editors/ckeditor.inc:292
-#: editors/fckeditor.inc:224
+#: editors/fckeditor.inc:227
 #: editors/nicedit.inc:116
 #: editors/openwysiwyg.inc:151
 #: editors/tinymce.inc:388
 #: editors/whizzywig.inc:125
-#: editors/wymeditor.inc:197
 msgid "Source code"
 msgstr "Quellcode"
 
-#: editors/ckeditor.inc:293
-#: editors/fckeditor.inc:225
+#: editors/fckeditor.inc:228
 #: editors/nicedit.inc:111
 #: editors/openwysiwyg.inc:152
 #: editors/tinymce.inc:389
@@ -638,66 +580,55 @@ msgstr "Quellcode"
 msgid "Horizontal rule"
 msgstr "Horizontale Linie"
 
-#: editors/ckeditor.inc:294
-#: editors/fckeditor.inc:226
+#: editors/fckeditor.inc:229
 #: editors/openwysiwyg.inc:153
 #: editors/tinymce.inc:390
 msgid "Cut"
 msgstr "Ausschneiden"
 
-#: editors/ckeditor.inc:294
-#: editors/fckeditor.inc:226
+#: editors/fckeditor.inc:229
 #: editors/openwysiwyg.inc:153
 #: editors/tinymce.inc:390
 msgid "Copy"
 msgstr "Kopieren"
 
-#: editors/ckeditor.inc:294
-#: editors/fckeditor.inc:226
+#: editors/fckeditor.inc:229
 #: editors/openwysiwyg.inc:153
 #: editors/tinymce.inc:390
-#: editors/wymeditor.inc:198
 msgid "Paste"
 msgstr "Einfügen"
 
-#: editors/ckeditor.inc:295
-#: editors/fckeditor.inc:227
+#: editors/fckeditor.inc:230
 msgid "Paste Text"
 msgstr "Text einfügen"
 
-#: editors/ckeditor.inc:295
-#: editors/fckeditor.inc:227
+#: editors/fckeditor.inc:230
 #: editors/tinymce.inc:494
 msgid "Paste from Word"
 msgstr "Aus MS-Word einfügen"
 
-#: editors/ckeditor.inc:296
-#: editors/fckeditor.inc:228
+#: editors/fckeditor.inc:231
 msgid "Show blocks"
 msgstr "Blöcke anzeigen"
 
-#: editors/ckeditor.inc:297
-#: editors/fckeditor.inc:229
+#: editors/fckeditor.inc:232
 #: editors/openwysiwyg.inc:155
 #: editors/tinymce.inc:392
 #: editors/yui.inc:287
 msgid "Remove format"
 msgstr "Formatierungen entfernen"
 
-#: editors/ckeditor.inc:298
-#: editors/fckeditor.inc:230
+#: editors/fckeditor.inc:233
 #: editors/openwysiwyg.inc:156
 #: editors/tinymce.inc:393
 msgid "Character map"
 msgstr "Sonderzeichen"
 
-#: editors/ckeditor.inc:299
-#: editors/fckeditor.inc:231
+#: editors/fckeditor.inc:234
 msgid "About"
 msgstr "Über"
 
-#: editors/ckeditor.inc:300
-#: editors/fckeditor.inc:232
+#: editors/fckeditor.inc:235
 #: editors/nicedit.inc:115
 #: editors/openwysiwyg.inc:157
 #: editors/tinymce.inc:452
@@ -706,8 +637,7 @@ msgstr "Über"
 msgid "HTML block format"
 msgstr "HTML-Blockformat"
 
-#: editors/ckeditor.inc:300
-#: editors/fckeditor.inc:232
+#: editors/fckeditor.inc:235
 #: editors/nicedit.inc:115
 #: editors/openwysiwyg.inc:157
 #: editors/tinymce.inc:452
@@ -716,8 +646,7 @@ msgstr "HTML-Blockformat"
 msgid "Font"
 msgstr "Schriftart"
 
-#: editors/ckeditor.inc:300
-#: editors/fckeditor.inc:232
+#: editors/fckeditor.inc:235
 #: editors/nicedit.inc:115
 #: editors/openwysiwyg.inc:157
 #: editors/tinymce.inc:452
@@ -726,140 +655,135 @@ msgstr "Schriftart"
 msgid "Font size"
 msgstr "Schriftgröße"
 
-#: editors/ckeditor.inc:300
-#: editors/fckeditor.inc:232
+# ???
+#: editors/fckeditor.inc:235
 #: editors/tinymce.inc:452
+#, fuzzy
 msgid "Font style"
-msgstr "Schriftschnitt"
+msgstr "Formatstil"
 
-#: editors/ckeditor.inc:301
-#: editors/fckeditor.inc:233
+#: editors/fckeditor.inc:236
 #: editors/openwysiwyg.inc:161
 #: editors/tinymce.inc:529
 #: editors/whizzywig.inc:123
-#: editors/wymeditor.inc:199
 msgid "Table"
 msgstr "Tabelle"
 
-#: editors/ckeditor.inc:302
-#: editors/fckeditor.inc:234
+#: editors/fckeditor.inc:237
 #: editors/tinymce.inc:515
 msgid "Search"
 msgstr "Suchen"
 
-#: editors/ckeditor.inc:302
-#: editors/fckeditor.inc:234
+#: editors/fckeditor.inc:237
 #: editors/tinymce.inc:515
 msgid "Replace"
 msgstr "Ersetzen"
 
-#: editors/ckeditor.inc:302
-#: editors/fckeditor.inc:234
+#: editors/fckeditor.inc:237
 #: editors/tinymce.inc:494
 msgid "Select all"
 msgstr "Alles markieren"
 
-#: editors/ckeditor.inc:303
-#: editors/fckeditor.inc:235
+#: editors/fckeditor.inc:238
 msgid "Create DIV container"
 msgstr "DIV-Block erstellen"
 
-#: editors/ckeditor.inc:304
-#: editors/fckeditor.inc:236
+#: editors/fckeditor.inc:239
 #: editors/tinymce.inc:538
 msgid "Flash"
 msgstr "Flash"
 
-#: editors/ckeditor.inc:304
-#: editors/fckeditor.inc:236
+#: editors/fckeditor.inc:239
 msgid "Smiley"
 msgstr "Smiley"
 
-#: editors/ckeditor.inc:305
-#: editors/fckeditor.inc:237
+#: editors/fckeditor.inc:240
+#, fuzzy
 msgid "FitWindow"
 msgstr "Fenster anpassen"
 
-#: editors/ckeditor.inc:306
-#: editors/fckeditor.inc:238
+#: editors/fckeditor.inc:241
 msgid "Check spelling"
 msgstr "Rechtschreibung überprüfen"
 
-#: editors/ckeditor.inc:306
-msgid "Check spelling as you type"
-msgstr "Rechtschreibung während der Eingabe überprüfen"
-
-#: editors/fckeditor.inc:245
+#: editors/fckeditor.inc:248
+#, fuzzy
 msgid "Autogrow"
 msgstr "Automatische Größenanpassung"
 
-#: editors/fckeditor.inc:256
+#: editors/fckeditor.inc:259
 #: editors/tinymce.inc:564
 msgid "BBCode"
 msgstr "BBCode"
 
-#: editors/fckeditor.inc:264
+#: editors/fckeditor.inc:267
+#, fuzzy
 msgid "Table drag/resize"
-msgstr "Tabelle zur Größenänderung mit der Maus ziehen.\n"
+msgstr "Tabelle verschieben/skalieren"
 
-#: editors/fckeditor.inc:272
+#: editors/fckeditor.inc:275
 msgid "Table: Cell properties"
 msgstr "Tabelle: Zellen-Eigenschaften"
 
-#: editors/fckeditor.inc:273
+#: editors/fckeditor.inc:276
 msgid "Table: Insert row after"
 msgstr "Tabelle: Zeile unterhalb einfügen"
 
-#: editors/fckeditor.inc:274
+#: editors/fckeditor.inc:277
 msgid "Table: Insert column after"
 msgstr "Tabelle: Spalte rechts danach einfügen"
 
-#: editors/fckeditor.inc:275
+#: editors/fckeditor.inc:278
 msgid "Table: Insert cell after"
 msgstr "Tabelle: Zelle danach einfügen"
 
-#: editors/fckeditor.inc:276
+#: editors/fckeditor.inc:279
 msgid "Table: Delete rows"
 msgstr "Tabelle: Zeilen entfernen"
 
-#: editors/fckeditor.inc:277
+#: editors/fckeditor.inc:280
 msgid "Table: Delete columns"
 msgstr "Tabelle: Spalten löschen"
 
-#: editors/fckeditor.inc:278
+#: editors/fckeditor.inc:281
 msgid "Table: Delete cells"
 msgstr "Tabelle: Zellen löschen"
 
-#: editors/fckeditor.inc:279
+#: editors/fckeditor.inc:282
 msgid "Table: Merge cells"
 msgstr "Tabelle: Zellen verbinden"
 
-#: editors/fckeditor.inc:280
+#: editors/fckeditor.inc:283
 msgid "Table: Horizontal split cell"
 msgstr "Tabelle: Zelle horizontal teilen"
 
 #: editors/markitup.inc:142;175
 #: editors/openwysiwyg.inc:159
 #: editors/tinymce.inc:501
-#: editors/wymeditor.inc:200
 msgid "Preview"
 msgstr "Vorschau"
+
+#: editors/nicedit.inc:110
+#: editors/openwysiwyg.inc:150
+#: editors/tinymce.inc:387
+#: editors/yui.inc:285
+#, fuzzy
+msgid "Sup"
+msgstr "Hochgestellt"
+
+#: editors/nicedit.inc:110
+#: editors/openwysiwyg.inc:150
+#: editors/tinymce.inc:387
+#: editors/yui.inc:285
+#, fuzzy
+msgid "Sub"
+msgstr "Tiefgestellt"
 
 #: editors/openwysiwyg.inc:148
 #: editors/tinymce.inc:385
 #: editors/whizzywig.inc:124
 msgid "Clean-up"
 msgstr "Bereinigen"
-
-#: editors/openwysiwyg.inc:150
-#: editors/yui.inc:285
-msgid "Sup"
-msgstr "<sup>Hoch</sup>gestellt"
-
-#: editors/openwysiwyg.inc:150
-#: editors/yui.inc:285
-msgid "Sub"
-msgstr "Unter-Platzhalter"
 
 #: editors/openwysiwyg.inc:154
 #: editors/tinymce.inc:391
@@ -886,12 +810,14 @@ msgid "Advanced horizontal rule"
 msgstr "Erweiterte horizontale Linie"
 
 #: editors/tinymce.inc:408
+#, fuzzy
 msgid "Advanced image"
-msgstr "Advanced Image"
+msgstr "Erweitertes Bild"
 
 #: editors/tinymce.inc:416
+#, fuzzy
 msgid "Advanced link"
-msgstr "Advanced Link"
+msgstr "Erweiterter Link"
 
 #: editors/tinymce.inc:424
 msgid "Auto save"
@@ -914,6 +840,7 @@ msgid "Emotions"
 msgstr "Emotionen"
 
 #: editors/tinymce.inc:466
+#, fuzzy
 msgid "Inline popups"
 msgstr "Inline-Popups"
 
@@ -931,13 +858,15 @@ msgstr "Ebene einfügen"
 
 # oder "In den Vordergrund"?
 #: editors/tinymce.inc:487
+#, fuzzy
 msgid "Move forward"
-msgstr "Vorwärts"
+msgstr "Eine Ebene nach vorne"
 
 # oder "In den Hintergrund"?
 #: editors/tinymce.inc:487
+#, fuzzy
 msgid "Move backward"
-msgstr "rückwärts"
+msgstr "Eine Ebene nach hinten"
 
 #: editors/tinymce.inc:487
 msgid "Absolute"
@@ -952,8 +881,9 @@ msgid "Style properties"
 msgstr "Design-Einstellungen"
 
 #: editors/tinymce.inc:548
+#, fuzzy
 msgid "Media"
-msgstr "Medium"
+msgstr "Medien"
 
 #: editors/tinymce.inc:555
 msgid "Citation"
@@ -973,6 +903,7 @@ msgstr "Akronym"
 
 # NICHT Eingefügt
 #: editors/tinymce.inc:555
+#, fuzzy
 msgid "Inserted"
 msgstr "Eingefügt"
 
@@ -997,17 +928,11 @@ msgid "Show/hide hidden elements"
 msgstr "Ein-/Ausblenden versteckter Elemente"
 
 #: plugins/break.inc:14
+#, fuzzy
 msgid "Teaser break"
-msgstr "Endemarkierung für den Anrisstext"
+msgstr "Anrisstext trennen"
 
 #: plugins/break.inc:17
 msgid "Separate the teaser and body of this content"
 msgstr "Separiert den Anrisstext und Textkörper des Inhalts an dieser Stelle"
-
-#~ msgid "My plugin title"
-#~ msgstr "Mein Plugin-Titel"
-#~ msgid "Button title (optional)"
-#~ msgstr "Schaltknopftitel (optional)"
-#~ msgid "wysiwyg"
-#~ msgstr "wysiwyg"
 

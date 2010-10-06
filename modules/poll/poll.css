@@ -1,5 +1,8 @@
-/* $Id: poll.css,v 1.6 2008/01/22 07:47:57 goba Exp $ */
+/* $Id: poll.css,v 1.8 2010/04/06 15:25:51 dries Exp $ */
 
+.poll {
+  overflow: hidden;
+}
 .poll .bar {
   height: 1em;
   margin: 1px 0;
@@ -32,6 +35,14 @@
 }
 .node-form #edit-poll-more {
   margin: 0;
+}
+.node-form #poll-choice-table .form-text {
+  display: inline;
+  width: auto;
+}
+.node-form #poll-choice-table td.choice-flag {
+  white-space: nowrap;
+  width: 4em;
 }
 td.poll-chtext {
   width: 80%;

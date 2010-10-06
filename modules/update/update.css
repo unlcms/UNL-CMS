@@ -1,4 +1,4 @@
-/* $Id: update.css,v 1.3.2.2 2009/04/29 17:17:20 goba Exp $ */
+/* $Id: update.css,v 1.7 2010/04/28 20:08:39 dries Exp $ */
 
 .update .project {
   font-weight: bold;
@@ -52,7 +52,8 @@
   background: #ffe;
 }
 
-.current-version, .new-version {
+.current-version,
+.new-version {
   direction: ltr; /* Note: version numbers should always be LTR. */
 }
 
@@ -108,3 +109,17 @@ table.update,
 .update .check-manually {
   padding-left: 1em; /* LTR */
 }
+
+.update-major-version-warning {
+  color: #ff0000;
+}
+
+table tbody tr.update-security,
+table tbody tr.update-unsupported {
+  background: #fcc;
+}
+
+th.update-project-name {
+  width: 50%;
+}
+

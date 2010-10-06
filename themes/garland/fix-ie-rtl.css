@@ -1,10 +1,8 @@
-/* $Id: fix-ie-rtl.css,v 1.2 2007/11/09 22:14:41 goba Exp $ */
+/* $Id: fix-ie-rtl.css,v 1.6 2010/04/28 20:08:39 dries Exp $ */
 
 body {
   /* Center layout */
   text-align: center;
-  /* Allow text resizing */
-  font-size: 80%;
 }
 
 #squeeze {
@@ -12,11 +10,12 @@ body {
   direction: ltr;
 }
 
-#squeeze .left-corner{
+#squeeze .left-corner {
   direction: rtl
 }
 
-#header-region, #wrapper #container {
+#header-region,
+#wrapper #container {
   /* Reset text alignment */
   text-align: right;
 }
@@ -38,7 +37,6 @@ fieldset {
 
 /* Prevent fieldsets from shifting when changing collapsed state. */
 html.js fieldset.collapsible {
-  position: relative;
   top: -1em;
 }
 
@@ -57,7 +55,8 @@ tr.menu-disabled {
   height: 1em;
 }
 
-#attach-hide label, #uploadprogress div.message {
+#attach-hide label,
+#uploadprogress div.message {
   /* Fading elements in IE causes the text to bleed unless they have a background. */
   background-color: #ffffff;
 }

@@ -1,4 +1,4 @@
-// $Id: ckeditor-3.0.js,v 1.2.4.5 2009/11/17 15:31:33 twod Exp $
+// $Id: ckeditor-3.0.js,v 1.6 2009/11/17 15:32:09 twod Exp $
 (function($) {
 
 Drupal.wysiwyg.editor.init.ckeditor = function(settings) {

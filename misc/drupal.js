@@ -1,21 +1,26 @@
-// $Id: drupal.js,v 1.41.2.4 2009/07/21 08:59:10 goba Exp $
+// $Id: drupal.js,v 1.69 2010/07/28 01:38:28 dries Exp $
 
-var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'themes': {}, 'locale': {} };
+var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'locale': {} };
 
-/**
- * Set the variable that indicates if JavaScript behaviors should be applied
- */
-Drupal.jsEnabled = document.getElementsByTagName && document.createElement && document.createTextNode && document.documentElement && document.getElementById;
+// Allow other JavaScript libraries to use $.
+jQuery.noConflict();
+
+(function ($) {
 
 /**
  * Attach all registered behaviors to a page element.
  *
  * Behaviors are event-triggered actions that attach to page elements, enhancing
  * default non-Javascript UIs. Behaviors are registered in the Drupal.behaviors
- * object as follows:
+ * object using the method 'attach' and optionally also 'detach' as follows:
  * @code
- *    Drupal.behaviors.behaviorName = function () {
- *      ...
+ *    Drupal.behaviors.behaviorName = {
+ *      attach: function (context, settings) {
+ *        ...
+ *      },
+ *      detach: function (context, settings, trigger) {
+ *        ...
+ *      }
  *    };
  * @endcode
  *
@@ -25,29 +30,90 @@ Drupal.jsEnabled = document.getElementsByTagName && document.createElement && do
  * loaded, feeding in an element to be processed, in order to attach all
  * behaviors to the new content.
  *
- * Behaviors should use a class in the form behaviorName-processed to ensure
- * the behavior is attached only once to a given element. (Doing so enables
- * the reprocessing of given elements, which may be needed on occasion despite
- * the ability to limit behavior attachment to a particular element.)
+ * Behaviors should use
+ * @code
+ *   $(selector).once('behavior-name', function () {
+ *     ...
+ *   });
+ * @endcode
+ * to ensure the behavior is attached only once to a given element. (Doing so
+ * enables the reprocessing of given elements, which may be needed on occasion
+ * despite the ability to limit behavior attachment to a particular element.)
  *
  * @param context
  *   An element to attach behaviors to. If none is given, the document element
  *   is used.
+ * @param settings
+ *   An object containing settings for the current context. If none given, the
+ *   global Drupal.settings object is used.
  */
-Drupal.attachBehaviors = function(context) {
+Drupal.attachBehaviors = function (context, settings) {
   context = context || document;
-  if (Drupal.jsEnabled) {
-    // Execute all of them.
-    jQuery.each(Drupal.behaviors, function() {
-      this(context);
-    });
-  }
+  settings = settings || Drupal.settings;
+  // Execute all of them.
+  $.each(Drupal.behaviors, function () {
+    if ($.isFunction(this.attach)) {
+      this.attach(context, settings);
+    }
+  });
+};
+
+/**
+ * Detach registered behaviors from a page element.
+ *
+ * Developers implementing AHAH/AJAX in their solutions should call this
+ * function before page content is about to be removed, feeding in an element
+ * to be processed, in order to allow special behaviors to detach from the
+ * content.
+ *
+ * Such implementations should look for the class name that was added in their
+ * corresponding Drupal.behaviors.behaviorName.attach implementation, i.e.
+ * behaviorName-processed, to ensure the behavior is detached only from
+ * previously processed elements.
+ *
+ * @param context
+ *   An element to detach behaviors from. If none is given, the document element
+ *   is used.
+ * @param settings
+ *   An object containing settings for the current context. If none given, the
+ *   global Drupal.settings object is used.
+ * @param trigger
+ *   A string containing what's causing the behaviors to be detached. The
+ *   possible triggers are:
+ *   - unload: (default) The context element is being removed from the DOM.
+ *   - move: The element is about to be moved within the DOM (for example,
+ *     during a tabledrag row swap). After the move is completed,
+ *     Drupal.attachBehaviors() is called, so that the behavior can undo
+ *     whatever it did in response to the move. Many behaviors won't need to
+ *     do anything simply in response to the element being moved, but because
+ *     IFRAME elements reload their "src" when being moved within the DOM,
+ *     behaviors bound to IFRAME elements (like WYSIWYG editors) may need to
+ *     take some action.
+ *   - serialize: When an AJAX form is submitted, this is called with the
+ *     form as the context. This provides every behavior within the form an
+ *     opportunity to ensure that the field elements have correct content
+ *     in them before the form is serialized. The canonical use-case is so
+ *     that WYSIWYG editors can update the hidden textarea to which they are
+ *     bound.
+ *
+ * @see Drupal.attachBehaviors
+ */
+Drupal.detachBehaviors = function (context, settings, trigger) {
+  context = context || document;
+  settings = settings || Drupal.settings;
+  trigger = trigger || 'unload';
+  // Execute all of them.
+  $.each(Drupal.behaviors, function () {
+    if ($.isFunction(this.detach)) {
+      this.detach(context, settings, trigger);
+    }
+  });
 };
 
 /**
  * Encode special characters in a plain-text string for display as HTML.
  */
-Drupal.checkPlain = function(str) {
+Drupal.checkPlain = function (str) {
   str = String(str);
   var replace = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
   for (var character in replace) {
@@ -75,24 +141,24 @@ Drupal.checkPlain = function(str) {
  * @return
  *   The translated string.
  */
-Drupal.t = function(str, args) {
+Drupal.t = function (str, args) {
   // Fetch the localized version of the string.
   if (Drupal.locale.strings && Drupal.locale.strings[str]) {
     str = Drupal.locale.strings[str];
   }
 
   if (args) {
-    // Transform arguments before inserting them
+    // Transform arguments before inserting them.
     for (var key in args) {
       switch (key.charAt(0)) {
-        // Escaped only
+        // Escaped only.
         case '@':
           args[key] = Drupal.checkPlain(args[key]);
         break;
-        // Pass-through
+        // Pass-through.
         case '!':
           break;
-        // Escaped and placeholder
+        // Escaped and placeholder.
         case '%':
         default:
           args[key] = Drupal.theme('placeholder', args[key]);
@@ -135,7 +201,7 @@ Drupal.t = function(str, args) {
  * @return
  *   A translated string.
  */
-Drupal.formatPlural = function(count, singular, plural, args) {
+Drupal.formatPlural = function (count, singular, plural, args) {
   var args = args || {};
   args['@count'] = count;
   // Determine the index of the plural form.
@@ -148,9 +214,9 @@ Drupal.formatPlural = function(count, singular, plural, args) {
     return Drupal.t(plural, args);
   }
   else {
-    args['@count['+ index +']'] = args['@count'];
+    args['@count[' + index + ']'] = args['@count'];
     delete args['@count'];
-    return Drupal.t(plural.replace('@count', '@count['+ index +']'));
+    return Drupal.t(plural.replace('@count', '@count[' + index + ']'), args);
   }
 };
 
@@ -173,7 +239,7 @@ Drupal.formatPlural = function(count, singular, plural, args) {
  *   Any data the theme function returns. This could be a plain HTML string,
  *   but also a complex object.
  */
-Drupal.theme = function(func) {
+Drupal.theme = function (func) {
   for (var i = 1, args = []; i < arguments.length; i++) {
     args.push(arguments[i]);
   }
@@ -182,58 +248,43 @@ Drupal.theme = function(func) {
 };
 
 /**
- * Parse a JSON response.
- *
- * The result is either the JSON object, or an object with 'status' 0 and 'data' an error message.
- */
-Drupal.parseJson = function (data) {
-  if ((data.substring(0, 1) != '{') && (data.substring(0, 1) != '[')) {
-    return { status: 0, data: data.length ? data : Drupal.t('Unspecified error') };
-  }
-  return eval('(' + data + ');');
-};
-
-/**
  * Freeze the current body height (as minimum height). Used to prevent
  * unnecessary upwards scrolling when doing DOM manipulations.
  */
 Drupal.freezeHeight = function () {
   Drupal.unfreezeHeight();
-  var div = document.createElement('div');
-  $(div).css({
+  $('<div id="freeze-height"></div>').css({
     position: 'absolute',
     top: '0px',
     left: '0px',
     width: '1px',
     height: $('body').css('height')
-  }).attr('id', 'freeze-height');
-  $('body').append(div);
+  }).appendTo('body');
 };
 
 /**
- * Unfreeze the body height
+ * Unfreeze the body height.
  */
 Drupal.unfreezeHeight = function () {
   $('#freeze-height').remove();
 };
 
 /**
- * Wrapper around encodeURIComponent() which avoids Apache quirks (equivalent of
- * drupal_urlencode() in PHP). This function should only be used on paths, not
- * on query string arguments.
+ * Encodes a Drupal path for use in a URL.
+ *
+ * For aesthetic reasons slashes are not escaped.
  */
-Drupal.encodeURIComponent = function (item, uri) {
+Drupal.encodePath = function (item, uri) {
   uri = uri || location.href;
-  item = encodeURIComponent(item).replace(/%2F/g, '/');
-  return (uri.indexOf('?q=') != -1) ? item : item.replace(/%26/g, '%2526').replace(/%23/g, '%2523').replace(/\/\//g, '/%252F');
+  return encodeURIComponent(item).replace(/%2F/g, '/');
 };
 
 /**
  * Get the text selection in a textarea.
  */
 Drupal.getSelection = function (element) {
-  if (typeof(element.selectionStart) != 'number' && document.selection) {
-    // The current selection
+  if (typeof element.selectionStart != 'number' && document.selection) {
+    // The current selection.
     var range1 = document.selection.createRange();
     var range2 = range1.duplicate();
     // Select all text.
@@ -249,34 +300,55 @@ Drupal.getSelection = function (element) {
 };
 
 /**
- * Build an error message from ahah response.
+ * Build an error message from an AJAX response.
  */
-Drupal.ahahError = function(xmlhttp, uri) {
-  if (xmlhttp.status == 200) {
-    if (jQuery.trim($(xmlhttp.responseText).text())) {
-      var message = Drupal.t("An error occurred. \n@uri\n@text", {'@uri': uri, '@text': xmlhttp.responseText });
-    }
-    else {
-      var message = Drupal.t("An error occurred. \n@uri\n(no information available).", {'@uri': uri, '@text': xmlhttp.responseText });
-    }
+Drupal.ajaxError = function (xmlhttp, uri) {
+  var statusCode, statusText, pathText, responseText, readyStateText, message;
+  if (xmlhttp.status) {
+    statusCode = "\n" + Drupal.t("An AJAX HTTP error occurred.") +  "\n" + Drupal.t("HTTP Result Code: !status", {'!status': xmlhttp.status});
   }
   else {
-    var message = Drupal.t("An HTTP error @status occurred. \n@uri", {'@uri': uri, '@status': xmlhttp.status });
+    statusCode = "\n" + Drupal.t("An AJAX HTTP request terminated abnormally.");
   }
-  return message;
-}
+  statusCode += "\n" + Drupal.t("Debugging information follows.");
+  pathText = "\n" + Drupal.t("Path: !uri", {'!uri': uri} );
+  statusText = xmlhttp.statusText ? ("\n" + Drupal.t("StatusText: !statusText", {'!statusText': $.trim(xmlhttp.statusText)})) : "";
+  responseText = xmlhttp.responseText ? ("\n" + Drupal.t("ResponseText: !responseText", {'!responseText': $.trim(xmlhttp.responseText)})) : "";
+  // Make the responseText more readable by stripping HTML tags and newlines.
+  responseText = responseText.replace(/<("[^"]*"|'[^']*'|[^'">])*>/gi,"");
+  responseText = responseText.replace(/[\n]+\s+/g,"\n");
 
-// Global Killswitch on the <html> element
-if (Drupal.jsEnabled) {
-  // Global Killswitch on the <html> element
-  $(document.documentElement).addClass('js');
-  // 'js enabled' cookie
-  document.cookie = 'has_js=1; path=/';
-  // Attach all behaviors.
-  $(document).ready(function() {
-    Drupal.attachBehaviors(this);
-  });
-}
+  // We don't need readyState except for status == 0.
+  readyStateText = xmlhttp.status == 0 ? ("\n" + Drupal.t("ReadyState: !readyState", {'!readyState': xmlhttp.readyState})) : "";
+
+  message = statusCode + pathText + statusText + responseText + readyStateText;
+  return message;
+};
+
+// Class indicating that JS is enabled; used for styling purpose.
+$('html').addClass('js');
+
+// 'js enabled' cookie.
+document.cookie = 'has_js=1; path=/';
+
+/**
+ * Additions to jQuery.support.
+ */
+$(function () {
+  /**
+   * Boolean indicating whether or not position:fixed is supported.
+   */
+  if (jQuery.support.positionFixed === undefined) {
+    var el = $('<div style="position:fixed; top:10px" />').appendTo(document.body);
+    jQuery.support.positionFixed = el[0].offsetTop === 10;
+    el.remove();
+  }
+});
+
+//Attach all behaviors.
+$(function () {
+  Drupal.attachBehaviors(document, Drupal.settings);
+});
 
 /**
  * The default themes.
@@ -291,7 +363,9 @@ Drupal.theme.prototype = {
    * @return
    *   The formatted text (html).
    */
-  placeholder: function(str) {
+  placeholder: function (str) {
     return '<em>' + Drupal.checkPlain(str) + '</em>';
   }
 };
+
+})(jQuery);

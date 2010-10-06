@@ -1,4 +1,24 @@
-// $Id: system.js,v 1.14.2.2 2009/07/21 08:59:12 goba Exp $
+// $Id: system.js,v 1.40 2010/01/30 00:29:10 webchick Exp $
+(function ($) {
+
+/**
+ * Show/hide the 'Email site administrator when updates are available' checkbox
+ * on the install page.
+ */
+Drupal.hideEmailAdministratorCheckbox = function () {
+  // Make sure the secondary box is shown / hidden as necessary on page load.
+  if ($('#edit-update-status-module-1').is(':checked')) {
+    $('.form-item-update-status-module-2').show();
+  }
+  else {
+    $('.form-item-update-status-module-2').hide();
+  }
+
+  // Toggle the display as necessary when the checkbox is clicked.
+  $('#edit-update-status-module-1').change( function () {
+    $('.form-item-update-status-module-2').toggle();
+  });
+};
 
 /**
  * Internal function to check using Ajax if clean URLs can be enabled on the
@@ -7,32 +27,24 @@
  * This function is not used to verify whether or not clean URLs
  * are currently enabled.
  */
-Drupal.behaviors.cleanURLsSettingsCheck = function(context) {
-  // This behavior attaches by ID, so is only valid once on a page.
-  // Also skip if we are on an install page, as Drupal.cleanURLsInstallCheck will handle
-  // the processing.
-  if ($("#clean-url.clean-url-processed, #clean-url.install").size()) {
-    return;
-  }
-  var url = Drupal.settings.basePath +"admin/settings/clean-urls/check";
-  $("#clean-url .description span").html('<div id="testing">'+ Drupal.t('Testing clean URLs...') +"</div>");
-  $("#clean-url p").hide();
-  $.ajax({
-    url: location.protocol +"//"+ location.host + url,
-    dataType: 'json',
-    success: function () {
-      // Check was successful.
-      $("#clean-url input.form-radio").attr("disabled", false);
-      $("#clean-url .description span").append('<div class="ok">'+ Drupal.t('Your server has been successfully tested to support this feature.') +"</div>");
-      $("#testing").hide();
-    },
-    error: function() {
-      // Check failed.
-      $("#clean-url .description span").append('<div class="warning">'+ Drupal.t('Your system configuration does not currently support this feature. The <a href="http://drupal.org/node/15365">handbook page on Clean URLs</a> has additional troubleshooting information.') +"</div>");
-      $("#testing").hide();
+Drupal.behaviors.cleanURLsSettingsCheck = {
+  attach: function (context, settings) {
+    // This behavior attaches by ID, so is only valid once on a page.
+    // Also skip if we are on an install page, as Drupal.cleanURLsInstallCheck will handle
+    // the processing.
+    if (!($('#edit-clean-url').length) || $('#edit-clean-url.install').once('clean-url').length) {
+      return;
     }
-  });
-  $("#clean-url").addClass('clean-url-processed');
+    var url = settings.basePath + 'admin/config/search/clean-urls/check';
+    $.ajax({
+      url: location.protocol + '//' + location.host + url,
+      dataType: 'json',
+      success: function () {
+        // Check was successful. Redirect using a "clean URL". This will force the form that allows enabling clean URLs.
+        location = settings.basePath +"admin/config/search/clean-urls";
+      }
+    });
+  }
 };
 
 /**
@@ -42,27 +54,19 @@ Drupal.behaviors.cleanURLsSettingsCheck = function(context) {
  * This function is not used to verify whether or not clean URLs
  * are currently enabled.
  */
-Drupal.cleanURLsInstallCheck = function() {
-  var url = location.protocol +"//"+ location.host + Drupal.settings.basePath +"admin/settings/clean-urls/check";
-  $("#clean-url .description").append('<span><div id="testing">'+ Drupal.settings.cleanURL.testing +"</div></span>");
-  $("#clean-url.install").css("display", "block");
+Drupal.cleanURLsInstallCheck = function () {
+  var url = location.protocol + '//' + location.host + Drupal.settings.basePath + 'admin/config/search/clean-urls/check';
+  // Submit a synchronous request to avoid database errors associated with
+  // concurrent requests during install.
   $.ajax({
+    async: false,
     url: url,
     dataType: 'json',
     success: function () {
       // Check was successful.
-      $("#clean-url input.form-radio").attr("disabled", false);
-      $("#clean-url input.form-radio").attr("checked", 1);
-      $("#clean-url .description span").append('<div class="ok">'+ Drupal.settings.cleanURL.success +"</div>");
-      $("#testing").hide();
-    },
-    error: function() {
-      // Check failed.
-      $("#clean-url .description span").append('<div class="warning">'+ Drupal.settings.cleanURL.failure +"</div>");
-      $("#testing").hide();
+      $('#edit-clean-url').attr('value', 1);
     }
   });
-  $("#clean-url").addClass('clean-url-processed');
 };
 
 /**
@@ -70,44 +74,152 @@ Drupal.cleanURLsInstallCheck = function() {
  * use the same value. In the installer this is used to populate the
  * administrator e-mail address with the same value as the site e-mail address.
  */
-Drupal.behaviors.copyFieldValue = function (context) {
-  for (var sourceId in Drupal.settings.copyFieldValue) {
-    // Get the list of target fields.
-    targetIds = Drupal.settings.copyFieldValue[sourceId];
-    if (!$('#'+ sourceId + '.copy-field-values-processed').size(), context) {
-      // Add the behavior to update target fields on blur of the primary field.
-      sourceField = $('#' + sourceId);
-      sourceField.bind('blur', function() {
+Drupal.behaviors.copyFieldValue = {
+  attach: function (context, settings) {
+    for (var sourceId in settings.copyFieldValue) {
+      $('#' + sourceId, context).once('copy-field-values').bind('blur', function () {
+        // Get the list of target fields.
+        var targetIds = settings.copyFieldValue[sourceId];
+        // Add the behavior to update target fields on blur of the primary field.
         for (var delta in targetIds) {
-          var targetField = $('#'+ targetIds[delta]);
+          var targetField = $('#' + targetIds[delta]);
           if (targetField.val() == '') {
             targetField.val(this.value);
           }
         }
       });
-      sourceField.addClass('copy-field-values-processed');
     }
   }
 };
 
 /**
- * Show/hide custom format sections on the date-time settings page.
+ * Show/hide custom format sections on the regional settings page.
  */
-Drupal.behaviors.dateTime = function(context) {
-  // Show/hide custom format depending on the select's value.
-  $('select.date-format:not(.date-time-processed)', context).change(function() {
-    $(this).addClass('date-time-processed').parents("div.date-container").children("div.custom-container")[$(this).val() == "custom" ? "show" : "hide"]();
-  });
+Drupal.behaviors.dateTime = {
+  attach: function (context, settings) {
+    for (var value in settings.dateTime) {
+      var settings = settings.dateTime[value];
+      var source = '#edit-' + value;
+      var suffix = source + '-suffix';
 
-  // Attach keyup handler to custom format inputs.
-  $('input.custom-format:not(.date-time-processed)', context).addClass('date-time-processed').keyup(function() {
-    var input = $(this);
-    var url = Drupal.settings.dateTime.lookup +(Drupal.settings.dateTime.lookup.match(/\?q=/) ? "&format=" : "?format=") + encodeURIComponent(input.val());
-    $.getJSON(url, function(data) {
-      $("div.description span", input.parent()).html(data);
-    });
-  });
-
-  // Trigger the event handler to show the form input if necessary.
-  $('select.date-format', context).trigger('change');
+      // Attach keyup handler to custom format inputs.
+      $('input' + source, context).once('date-time').keyup(function () {
+        var input = $(this);
+        var url = settings.lookup + (settings.lookup.match(/\?q=/) ? '&format=' : '?format=') + encodeURIComponent(input.val());
+        $.getJSON(url, function (data) {
+          $(suffix).empty().append(' ' + settings.text + ': <em>' + data + '</em>');
+        });
+      });
+    }
+  }
 };
+
+/**
+ * Show the powered by Drupal image preview
+ */
+Drupal.behaviors.poweredByPreview = {
+  attach: function (context, settings) {
+    $('#edit-color, #edit-size').change(function () {
+      var path = settings.basePath + 'misc/' + $('#edit-color').val() + '-' + $('#edit-size').val() + '.png';
+      $('img.powered-by-preview').attr('src', path);
+    });
+  }
+};
+
+
+ /**
+ * Show/hide settings for page caching depending on whether page caching is
+ * enabled or not.
+ */
+Drupal.behaviors.pageCache = {
+  attach: function (context, settings) {
+    $('#edit-cache-0', context).change(function () {
+      $('#page-compression-wrapper').hide();
+      $('#cache-error').hide();
+    });
+    $('#edit-cache-1', context).change(function () {
+      $('#page-compression-wrapper').show();
+      $('#cache-error').hide();
+    });
+    $('#edit-cache-2', context).change(function () {
+      $('#page-compression-wrapper').show();
+      $('#cache-error').show();
+    });
+  }
+};
+
+/**
+ * Attach the auto machine readable name behavior.
+ *
+ * Settings are expected to be an object of elements to process, where the key
+ * defines the source element in the form and the value is an object defining
+ * the following properties:
+ * - text: The label to display before the auto-generated value.
+ * - target: The target form element name.
+ * - searchPattern: A regular expression (without modifiers) matching disallowed
+ *   characters in the machine readable name, f.e. '[^a-z0-9]+'.
+ * - replaceToken: A replacement string to replace disallowed characters, f.e.
+ *   '-' or '_'.
+ *
+ * @see menu_edit_menu()
+ */
+Drupal.behaviors.machineReadableValue = {
+  attach: function () {
+    var self = this;
+
+    for (var value in Drupal.settings.machineReadableValue) {
+      var settings = Drupal.settings.machineReadableValue[value];
+
+      // Build selector for the source name entered by a user.
+      var source = '#edit-' + value;
+      var suffix = source + '-suffix';
+      // Build selector for the machine readable name.
+      var target = '#edit-' + settings.target;
+      // Build selector for the wrapper element around the target field.
+      var wrapper = '.form-item-' + settings.target;
+
+      // Do not process the element if we got an error or the given name and the
+      // machine readable name are identical or the machine readable name is
+      // empty.
+      if (!$(target).hasClass('error') && ($(target).val() == '' || $(target).val() == self.transliterate($(source).val(), settings))) {
+        // Hide wrapper element.
+        $(wrapper).hide();
+        // Bind keyup event to source element.
+        $(source).keyup(function () {
+          var machine = self.transliterate($(this).val(), settings);
+          if (machine != '_' && machine != '') {
+            // Set machine readable name to the user entered value.
+            $(target).val(machine);
+            // Append the machine readable name and a link to edit it to the source field.
+            $(suffix).empty().append(' ' + settings.text + ': ' + machine + ' [').append($('<a href="#">' + Drupal.t('Edit') + '</a>').click(function () {
+              $(wrapper).show();
+              $(target).focus();
+              $(suffix).hide();
+              $(source).unbind('keyup');
+              return false;
+            })).append(']');
+          }
+          else {
+            $(target).val(machine);
+            $(suffix).text('');
+          }
+        });
+        // Call keyup event on source element.
+        $(source).keyup();
+      }
+    }
+  },
+
+  /**
+   * Transliterate a human-readable name to a machine name.
+   *
+   * The result should not contain any character matching settings.searchPattern,
+   * invalid characters are typically replaced with settings.replaceToken.
+   */
+  transliterate: function (source, settings) {
+    var searchPattern = new RegExp(settings.searchPattern, 'g');
+    return source.toLowerCase().replace(searchPattern, settings.replaceToken);
+  }
+};
+
+})(jQuery);

@@ -1,8 +1,8 @@
 <?php
-// $Id: search-result.tpl.php,v 1.1.2.1 2008/08/28 08:21:44 dries Exp $
+// $Id: search-result.tpl.php,v 1.7 2010/08/18 18:40:50 dries Exp $
 
 /**
- * @file search-result.tpl.php
+ * @file
  * Default theme implementation for displaying a single search result.
  *
  * This template renders a single search result and is collected into
@@ -16,7 +16,8 @@
  * - $info: String of all the meta information ready for print. Does not apply
  *   to user searches.
  * - $info_split: Contains same data as $info, split into a keyed array.
- * - $type: The type of search, e.g., "node" or "user".
+ * - $module: The machine-readable name of the module (tab) being searched, such
+ *   as "node" or "user".
  *
  * Default keys within $info_split:
  * - $info_split['type']: Node type.
@@ -30,7 +31,7 @@
  *
  * Since $info_split is keyed, a direct print of the item is possible.
  * This array does not apply to user searches so it is recommended to check
- * for their existance before printing. The default keys of 'type', 'user' and
+ * for their existence before printing. The default keys of 'type', 'user' and
  * 'date' always exist for node searches. Modules may provide other data.
  *
  *   <?php if (isset($info_split['comment'])) : ?>
@@ -46,14 +47,16 @@
  * @see template_preprocess_search_result()
  */
 ?>
-<dt class="title">
-  <a href="<?php print $url; ?>"><?php print $title; ?></a>
-</dt>
-<dd>
-  <?php if ($snippet) : ?>
-    <p class="search-snippet"><?php print $snippet; ?></p>
-  <?php endif; ?>
-  <?php if ($info) : ?>
-  <p class="search-info"><?php print $info; ?></p>
-  <?php endif; ?>
-</dd>
+<li>
+  <h3 class="title">
+    <a href="<?php print $url; ?>"><?php print $title; ?></a>
+  </h3>
+  <div class="search-snippet-info">
+    <?php if ($snippet) : ?>
+      <p class="search-snippet"><?php print $snippet; ?></p>
+    <?php endif; ?>
+    <?php if ($info) : ?>
+      <p class="search-info"><?php print $info; ?></p>
+    <?php endif; ?>
+  </div>
+</li>

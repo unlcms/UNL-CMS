@@ -1,5 +1,5 @@
 <?php
-// $Id: forum.pages.inc,v 1.2.2.1 2009/07/01 20:51:55 goba Exp $
+// $Id: forum.pages.inc,v 1.4 2010/04/28 05:54:55 webchick Exp $
 
 /**
  * @file
@@ -9,21 +9,21 @@
 /**
  * Menu callback; prints a forum listing.
  */
-function forum_page($tid = 0) {
-  if (!is_numeric($tid)) {
-    return MENU_NOT_FOUND;
+function forum_page($forum_term = NULL) {
+  if (!isset($forum_term)) {
+    // On the main page, display all the top-level forums.
+    $forum_term = forum_forum_load(0);
   }
-  $tid = (int)$tid;
 
-  $topics = '';
   $forum_per_page = variable_get('forum_per_page', 25);
   $sortby = variable_get('forum_order', 1);
 
-  $forums = forum_get_forums($tid);
-  $parents = taxonomy_get_parents_all($tid);
-  if ($tid && !in_array($tid, variable_get('forum_containers', array()))) {
-    $topics = forum_get_topics($tid, $sortby, $forum_per_page);
+  if (empty($forum_term->container)) {
+    $topics = forum_get_topics($forum_term->tid, $sortby, $forum_per_page);
+  }
+  else {
+    $topics = '';
   }
 
-  return theme('forums', $forums, $topics, $parents, $tid, $sortby, $forum_per_page);
+  return theme('forums', array('forums' => $forum_term->forums, 'topics' => $topics, 'parents' => $forum_term->parents, 'tid' => $forum_term->tid, 'sortby' => $sortby, 'forums_per_page' => $forum_per_page));
 }

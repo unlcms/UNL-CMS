@@ -1,4 +1,5 @@
-// $Id: none.js,v 1.6 2009/05/17 00:13:21 sun Exp $
+// $Id: none.js,v 1.8 2010/03/20 14:54:29 sun Exp $
+(function($) {
 
 /**
  * Attach this editor to a target element.
@@ -15,10 +16,10 @@
  */
 Drupal.wysiwyg.editor.attach.none = function(context, params, settings) {
   if (params.resizable) {
-    $('#' + params.field).addClass('resizable');
-    $('#' + params.field).css({display: ''});
-    if (Drupal.behaviors.textarea) {
-      Drupal.behaviors.textarea();
+    var $wrapper = $('#' + params.field).parents('.form-textarea-wrapper:first');
+    $wrapper.addClass('resizable');
+    if (Drupal.behaviors.textarea.attach) {
+      Drupal.behaviors.textarea.attach();
     }
   }
 };
@@ -36,10 +37,9 @@ Drupal.wysiwyg.editor.attach.none = function(context, params, settings) {
  */
 Drupal.wysiwyg.editor.detach.none = function(context, params) {
   if (typeof params != 'undefined') {
-    var $textarea = $('#' + params.field, context).removeClass('textarea-processed');
-    var $div = $textarea.parents('div.resizable-textarea');
-    $div.before($textarea);
-    $div.remove();
+    var $wrapper = $('#' + params.field).parents('.form-textarea-wrapper:first');
+    $wrapper.removeOnce('textarea').removeClass('.resizable-textarea')
+      .find('.grippie').remove();
   }
 };
 
@@ -68,3 +68,5 @@ Drupal.wysiwyg.editor.instance.none = {
     }
   }
 };
+
+})(jQuery);

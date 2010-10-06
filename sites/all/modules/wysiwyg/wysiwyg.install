@@ -1,11 +1,10 @@
 <?php
-// $Id: wysiwyg.install,v 1.4.2.1 2009/07/18 19:17:40 sun Exp $
+// $Id: wysiwyg.install,v 1.7 2010/09/10 00:39:16 sun Exp $
 
 /**
  * Implementation of hook_schema().
  */
 function wysiwyg_schema() {
-  $schema = array();
   $schema['wysiwyg'] = array(
     'description' => t('Stores Wysiwyg profiles.'),
     'fields' => array(
@@ -19,26 +18,13 @@ function wysiwyg_schema() {
 }
 
 /**
- * Implementation of hook_install().
- */
-function wysiwyg_install() {
-  drupal_install_schema('wysiwyg');
-}
-
-/**
- * Implementation of hook_uninstall()
- */
-function wysiwyg_uninstall() {
-  drupal_uninstall_schema('wysiwyg');
-}
-
-/**
  * Implementation of hook_enable().
  */
 function wysiwyg_enable() {
   // Disable conflicting, obsolete editor integration modules whenever this
   // module is enabled. This is crude, but the only way to ensure no conflicts.
   module_disable(array(
+    'ckeditor',
     'editarea',
     'editonpro',
     'editor',

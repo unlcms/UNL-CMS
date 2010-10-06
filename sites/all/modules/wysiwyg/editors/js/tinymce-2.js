@@ -1,4 +1,5 @@
-// $Id: tinymce-2.js,v 1.10 2009/03/06 03:22:37 sun Exp $
+// $Id: tinymce-2.js,v 1.13 2010/09/25 03:00:16 twod Exp $
+(function($) {
 
 /**
  * Initialize editor instances.
@@ -10,15 +11,18 @@
  *   An object containing editor settings for each input format.
  */
 Drupal.wysiwyg.editor.init.tinymce = function(settings) {
-  // If JS compression is enabled, TinyMCE is unable to find its own base path
-  // and exec mode, hence we need to define it manually.
+  // If JS compression is enabled, TinyMCE is unable to autodetect its global
+  // settinge, hence we need to define them manually.
   // @todo Move global library settings somewhere else.
-  tinyMCE.baseURL = Drupal.settings.wysiwyg.editorBasePath;
-  tinyMCE.srcMode = (Drupal.settings.wysiwyg.execMode == 'src' ? '_src' : '');
-  tinyMCE.gzipMode = (Drupal.settings.wysiwyg.execMode == 'gzip');
+  tinyMCE.baseURL = settings.global.editorBasePath;
+  tinyMCE.srcMode = (settings.global.execMode == 'src' ? '_src' : '');
+  tinyMCE.gzipMode = (settings.global.execMode == 'gzip');
 
   // Initialize editor configurations.
   for (var format in settings) {
+    if (format == 'global') {
+      continue;
+    }
     tinyMCE.init(settings[format]);
     if (Drupal.settings.wysiwyg.plugins[format]) {
       // Load native external plugins.
@@ -44,6 +48,11 @@ Drupal.wysiwyg.editor.attach.tinymce = function(context, params, settings) {
   for (var setting in settings) {
     tinyMCE.settings[setting] = settings[setting];
   }
+
+  // #715228: Remove extra mceItem class added by Wysiwyg < v2.1.
+  $field = $('#' + params.field);
+  $field.val($field.val().replace(/class=(['"].*?)\bmceItem\b(.*?['"])/ig, 'class=$1$2'));
+
   // Attach editor.
   tinyMCE.execCommand('mceAddControl', true, params.field);
 };
@@ -196,3 +205,4 @@ Drupal.wysiwyg.editor.instance.tinymce = {
   }
 };
 
+})(jQuery);

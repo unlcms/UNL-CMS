@@ -1,5 +1,5 @@
 <?php
-// $Id: nicedit.inc,v 1.6.2.1 2009/08/03 22:37:15 sun Exp $
+// $Id: nicedit.inc,v 1.7 2009/08/03 22:37:12 sun Exp $
 
 /**
  * @file

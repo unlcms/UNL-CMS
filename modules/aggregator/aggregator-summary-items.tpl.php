@@ -1,8 +1,8 @@
 <?php
-// $Id: aggregator-summary-items.tpl.php,v 1.1 2007/09/13 08:02:38 goba Exp $
+// $Id: aggregator-summary-items.tpl.php,v 1.3 2008/08/03 16:10:50 dries Exp $
 
 /**
- * @file aggregator-summary-items.tpl.php
+ * @file
  * Default theme implementation to present feeds as list items.
  *
  * Each iteration generates a single feed source or category.
@@ -17,7 +17,7 @@
  * @see template_preprocess_aggregator_summary-items()
  */
 ?>
-<h2><?php print $title; ?></h2>
+<h3><?php print $title; ?></h3>
 <?php print $summary_list; ?>
 <div class="links">
   <a href="<?php print $source_url; ?>"><?php print t('More'); ?></a>

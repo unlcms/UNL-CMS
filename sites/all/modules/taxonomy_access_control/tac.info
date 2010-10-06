@@ -1,0 +1,8 @@
+name = Taxonomy Access Control
+description = Enhances the Taxonomy feature of drupal to be used for Access Control.
+core = 7.x
+version = "7.x-1.0-20100901"
+
+dependencies[] = taxonomy
+files[] = tac.install
+files[] = tac.module

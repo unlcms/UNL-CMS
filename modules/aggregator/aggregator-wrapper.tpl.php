@@ -1,8 +1,8 @@
 <?php
-// $Id: aggregator-wrapper.tpl.php,v 1.1 2007/09/13 08:02:38 goba Exp $
+// $Id: aggregator-wrapper.tpl.php,v 1.3 2009/07/23 22:14:26 webchick Exp $
 
 /**
- * @file comment-wrapper.tpl.php
+ * @file
  * Default theme implementation to wrap aggregator content.
  *
  * Available variables:
@@ -10,7 +10,7 @@
  * - $page: Pager links rendered through theme_pager().
  *
  * @see template_preprocess()
- * @see template_preprocess_comment_wrapper()
+ * @see template_preprocess_aggregator_wrapper()
  */
 ?>
 <div id="aggregator">

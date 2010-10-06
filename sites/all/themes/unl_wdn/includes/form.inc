@@ -1,138 +1,129 @@
-<?php 
-/**
- * Return a themed form element.
- *
- * @param element
- *   An associative array containing the properties of the element.
- *   Properties used: title, description, id, required
- * @param $value
- *   The form element's data.
- * @return
- *   A string representing the form element.
- *
- * @ingroup themeable
- */
-function unl_wdn_form_element($element, $value) {
-	//Based on
-	//http://api.drupal.org/api/function/theme_form_element/5
-	//
-//print_r($element);
-  $output = '';
-  $output .= '<!-- start ' . $element['#type'] . '::' . $element['#id'] . ' -->' . PHP_EOL;
+<?php
+
+function unl_wdn_form($variables)
+{
+    if (!theme_get_setting('zen_forms')) {
+        return theme_form($variables);
+    }
+
+    $output = <<<EOF
+<script type="text/javascript">
+//<![CDATA[
+	WDN.jQuery(document).ready(function(){
+	     WDN.initializePlugin('zenform');
+	});
+//]]>
+</script>
+
+EOF;
     
-  $output  .= '<li class="form-item">'."\n";
-  $required = !empty($element['#required']) ? '<span class="required" title="'. t('This field is required.') .'">*</span>' : '';
+    $element = $variables['element'];
+    $element['#attributes']['class'][] = 'zenform';
+    $action = $element['#action'] ? 'action="' . check_url($element['#action']) . '" ' : '';
+    $output .= PHP_EOL . '<!-- FORM STARTS HERE -->' . PHP_EOL . PHP_EOL;
+    $output .= '<form ' . $action . ' accept-charset="UTF-8" method="' . $element['#method'] . '" id="' . $element['#id'] . '"' . drupal_attributes($element['#attributes']) . ">\n" . $element['#children'] . "\n</form>\n";
+    $output .= PHP_EOL . PHP_EOL . '<!-- FORM ENDS HERE -->' . PHP_EOL;
+    return $output;
+}
 
-  if (!empty($element['#title'])) {
-    $title = $element['#title'];
+function unl_wdn_fieldset($variables)
+{
+    if (!theme_get_setting('zen_forms')) {
+        return theme_fieldset($variables);
+    }
+    
+    $element = $variables['element'];
+
+    $output = '<fieldset' . drupal_attributes($element['#attributes']) . '>';
+    if (!empty($element['#title'])) {
+        // Always wrap fieldset legends in a SPAN for CSS positioning.
+        $output .= '<legend>' . $element['#title'] . '</legend>';
+    }
+    if (!empty($element['#description'])) {
+        $output .= '<div>' . $element['#description'] . '</div>';
+    }
+    $output .= '<ol>' . $element['#children'] . '</ol>';
+    if (isset($element['#value'])) {
+        $output .= $element['#value'];
+    }
+    $output .= "</fieldset>\n";
+    return $output;
+}
+
+function unl_wdn_form_element($variables)
+{
+    if (!theme_get_setting('zen_forms')) {
+        return theme_form_element($variables);
+    }
+    
+    $element = $variables['element'];
+    // This is also used in the installer, pre-database setup.
+    $t = get_t();
+    
+    // Add element #id for #type 'item'.
+    if (isset($element['#markup']) && !empty($element['#id'])) {
+        $attributes['id'] = $element['#id'];
+    }
+    // Add element's #type and #name as class to aid with JS/CSS selectors.
+    $attributes['class'] = array();
+    $output = '<li' . drupal_attributes($attributes) . '>' . "\n";
+    
+    // If #title is not set, we don't display any label or required marker.
+    if (!isset($element['#title'])) {
+        $element['#title_display'] = 'none';
+    }
+    $prefix = isset($element['#field_prefix']) ? '<span class="field-prefix">' . $element['#field_prefix'] . '</span> ' : '';
+    $suffix = isset($element['#field_suffix']) ? ' <span class="field-suffix">' . $element['#field_suffix'] . '</span>' : '';
+    
+    switch ($element['#title_display']) {
+        case 'before':
+            $output .= ' ' . theme('form_element_label', $variables);
+            $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+            break;
+        
+        case 'invisible':
+        case 'after':
+            $output .= ' ' . $prefix . $element['#children'] . $suffix;
+            $output .= ' ' . theme('form_element_label', $variables) . "\n";
+            break;
+        
+        case 'none':
+        case 'attribute':
+            // Output no label and no required marker, only the children.
+            $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+            break;
+    }
+    
+    $output .= "</li>\n";
+    
+    return $output;
+}
+
+
+function unl_wdn_form_element_label($variables)
+{
+    if (!theme_get_setting('zen_forms')) {
+        return theme_form_element_label($variables);
+    }
+    
+    $element = $variables['element'];
+    
+    if (!$element['#title']) {
+        return '';
+    }
+    
+    $attributes = array();
     if (!empty($element['#id'])) {
-      $output .= ' <label for="'. $element['#id'] .'">'. t('!title: !required', array('!title' => filter_xss_admin($title), '!required' => $required)) ."</label>\n";
+        $attributes['for'] = $element['#id'];
     }
-    else {
-      $output .= ' <label>'. t('!title: !required', array('!title' => filter_xss_admin($title), '!required' => $required)) ."</label>\n";
-    }
-  }
-  
-  if ($element['#children']) {
-    $output .= '<ol>' . PHP_EOL;
-  }
-
-  $output .= " $value\n";
-
-  if ($element['#children']) {
-    $output .= '</ol>' . PHP_EOL;
-  }
-
-  if (!empty($element['#description'])) {
-    $output .= ' <div class="description">'. $element['#description'] ."</div>\n";
-  }  
-  $output .= "</li>\n";
-  
-  $output .= '<!-- end ' . $element['#id'] . ' -->' . PHP_EOL;
-
-  return $output;
+    
+    $output = '<label ' . drupal_attributes($attributes) . '>' . PHP_EOL
+            . ($element['#required'] ? '<span class="required">*</span>' . PHP_EOL : '')
+            . filter_xss_admin($element['#title']) . PHP_EOL
+            . (isset($element['#description']) ? '<span class="helper">' . $element['#description'] . '</span>' . PHP_EOL : '')
+            .'</label>' . PHP_EOL;
+    
+    return $output;
 }
-
-/**
- * Format a set of radio buttons.
- *
- * @param $element
- *   An associative array containing the properties of the element.
- *   Properties used: title, value, options, description, required and attributes.
- * @return
- *   A themed HTML string representing the radio button set.
- *
- * @ingroup themeable
- */
-function unl_wdn_radios($element) {
-  $class = 'form-radios';
-  if (isset($element['#attributes']['class'])) {
-    $class .= ' '. $element['#attributes']['class'];
-  }
-//  $element['#children'] = '<div class="'. $class .'">'. (!empty($element['#children']) ? $element['#children'] : '') .'</div>';
-  if ($element['#title'] || $element['#description']) {
-    unset($element['#id']);
-    return theme('form_element', $element, $element['#children']);
-  }
-  else {
-    return $element['#children'];
-  }
-}
-
-/**
- * Format a group of form items.
- *
- * @param $element
- *   An associative array containing the properties of the element.
- *   Properties used: attributes, title, value, description, children, collapsible, collapsed
- * @return
- *   A themed HTML string representing the form item group.
- *
- * @ingroup themeable
- */
-function unl_wdn_fieldset($element) {
-  if (!empty($element['#collapsible'])) {
-    drupal_add_js('misc/collapse.js');
-
-    if (!isset($element['#attributes']['class'])) {
-      $element['#attributes']['class'] = '';
-    }
-
-    $element['#attributes']['class'] .= ' collapsible';
-    if (!empty($element['#collapsed'])) {
-      $element['#attributes']['class'] .= ' collapsed';
-    }
-  }
-
-  return '<fieldset'. drupal_attributes($element['#attributes']) .'>'
-       . ($element['#title'] ? '<legend>'. $element['#title'] .'</legend>' : '')
-       . (isset($element['#description']) && $element['#description'] ? '<div class="description">' . $element['#description'] .'</div>' : '')
-       . '<ol>' . PHP_EOL
-       . (!empty($element['#children']) ? $element['#children'] : '')
-       . (isset($element['#value']) ? $element['#value'] : '')
-       . "</ol></fieldset>\n";
-}
-/**
- * Format a form.
- *
- * @param $element
- *   An associative array containing the properties of the element.
- *   Properties used: action, method, attributes, children
- * @return
- *   A themed HTML string representing the form.
- *
- * @ingroup themeable
- */
-function unl_wdn_form($element) {
-  // Anonymous div to satisfy XHTML compliance.
-  $action = $element['#action'] ? 'action="'. check_url($element['#action']) .'" ' : '';
-  return '<script type="text/javascript">
-			WDN.loadCSS("http://localhost/wdn/templates_3.0/css/content/forms.css");
-			WDN.loadCSS("http://localhost/workspace/UNL_ENews/www/css/all.css");
-		</script>
-		<form class="energetic" '. $action .' accept-charset="UTF-8" method="'. $element['#method'] .'" id="'. $element['#id'] .'"'. drupal_attributes($element['#attributes']) .">\n". $element['#children'] ."\n</form>\n";
-}
-
-
 
 

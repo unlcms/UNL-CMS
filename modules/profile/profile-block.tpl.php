@@ -1,13 +1,13 @@
 <?php
-// $Id: profile-block.tpl.php,v 1.2 2007/08/07 08:39:35 goba Exp $
+// $Id: profile-block.tpl.php,v 1.4 2009/08/06 05:05:59 webchick Exp $
 
 /**
- * @file profile-block.tpl.php
+ * @file
  * Default theme implementation for displaying a users profile within a
  * block. It only shows in relation to a node displayed as a full page.
  *
  * Available variables:
- * - $picture: Image configured for the account linking to the users page.
+ * - $user_picture: Image configured for the account linking to the users page.
  * - $profile: Keyed array of all profile fields that have a value.
  *
  * Each $field in $profile contains:
@@ -30,7 +30,7 @@
  * @see template_preprocess_profile_block()
  */
 ?>
-<?php print $picture; ?>
+<?php print $user_picture; ?>
 
 <?php foreach ($profile as $field) : ?>
   <p>

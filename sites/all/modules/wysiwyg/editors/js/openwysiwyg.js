@@ -1,7 +1,9 @@
-// $Id: openwysiwyg.js,v 1.1 2009/06/06 05:20:09 sun Exp $
+// $Id: openwysiwyg.js,v 1.2 2009/09/26 05:37:57 sun Exp $
 
 // Reset $() to jQuery.  Yuck!
 $ = jQuery;
+
+(function($) {
 
 /**
  * Attach this editor to a target element.
@@ -95,3 +97,4 @@ WYSIWYG.viewText = function (n, id) {
   $ = jQuery;
 };
 
+})(jQuery);

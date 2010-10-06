@@ -1,5 +1,5 @@
 <?php
-// $Id: wymeditor.inc,v 1.4.2.1 2009/08/03 22:37:15 sun Exp $
+// $Id: wymeditor.inc,v 1.8 2010/04/02 14:05:36 sun Exp $
 
 /**
  * @file
@@ -14,7 +14,7 @@ function wysiwyg_wymeditor_editor() {
     'title' => 'WYMeditor',
     'vendor url' => 'http://www.wymeditor.org/',
     'download url' => 'http://www.wymeditor.org/download/',
-    'library path' => wysiwyg_get_path('wymeditor/wymeditor'),
+    'library path' => wysiwyg_get_path('wymeditor') . '/wymeditor',
     'libraries' => array(
       'min' => array(
         'title' => 'Minified',
@@ -53,6 +53,9 @@ function wysiwyg_wymeditor_editor() {
  */
 function wysiwyg_wymeditor_version($editor) {
   $script = $editor['library path'] . '/jquery.wymeditor.js';
+  if (!file_exists($script)) {
+    return;
+  }
   $script = fopen($script, 'r');
   fgets($script);
   $line = fgets($script);

@@ -1,4 +1,4 @@
-# $Id: robots.txt,v 1.9.2.1 2008/12/10 20:12:19 goba Exp $
+# $Id: robots.txt,v 1.14 2009/09/11 04:17:07 webchick Exp $
 #
 # robots.txt
 #
@@ -25,7 +25,6 @@ Disallow: /misc/
 Disallow: /modules/
 Disallow: /profiles/
 Disallow: /scripts/
-Disallow: /sites/
 Disallow: /themes/
 # Files
 Disallow: /CHANGELOG.txt
@@ -43,19 +42,19 @@ Disallow: /xmlrpc.php
 Disallow: /admin/
 Disallow: /comment/reply/
 Disallow: /contact/
-Disallow: /logout/
 Disallow: /node/add/
 Disallow: /search/
 Disallow: /user/register/
 Disallow: /user/password/
 Disallow: /user/login/
+Disallow: /user/logout/
 # Paths (no clean URLs)
 Disallow: /?q=admin/
 Disallow: /?q=comment/reply/
 Disallow: /?q=contact/
-Disallow: /?q=logout/
 Disallow: /?q=node/add/
 Disallow: /?q=search/
 Disallow: /?q=user/password/
 Disallow: /?q=user/register/
 Disallow: /?q=user/login/
+Disallow: /?q=user/logout/

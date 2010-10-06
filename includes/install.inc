@@ -1,21 +1,74 @@
 <?php
-// $Id: install.inc,v 1.56.2.4 2009/02/16 10:25:02 goba Exp $
+// $Id: install.inc,v 1.142 2010/08/22 15:31:18 dries Exp $
 
+/**
+ * Indicates that a module has not been installed yet.
+ */
 define('SCHEMA_UNINSTALLED', -1);
+
+/**
+ * Indicates that a module has been installed.
+ */
 define('SCHEMA_INSTALLED', 0);
 
+/**
+ * Requirement severity -- Informational message only.
+ */
 define('REQUIREMENT_INFO', -1);
+
+/**
+ * Requirement severity -- Requirement successfully met.
+ */
 define('REQUIREMENT_OK', 0);
+
+/**
+ * Requirement severity -- Warning condition; proceed but flag warning.
+ */
 define('REQUIREMENT_WARNING', 1);
+
+/**
+ * Requirement severity -- Error condition; abort installation.
+ */
 define('REQUIREMENT_ERROR', 2);
 
-define('FILE_EXIST',          1);
-define('FILE_READABLE',       2);
-define('FILE_WRITABLE',       4);
-define('FILE_EXECUTABLE',     8);
-define('FILE_NOT_EXIST',      16);
-define('FILE_NOT_READABLE',   32);
-define('FILE_NOT_WRITABLE',   64);
+/**
+ * File permission check -- File exists.
+ */
+define('FILE_EXIST', 1);
+
+/**
+ * File permission check -- File is readable.
+ */
+define('FILE_READABLE', 2);
+
+/**
+ * File permission check -- File is writable.
+ */
+define('FILE_WRITABLE', 4);
+
+/**
+ * File permission check -- File is executable.
+ */
+define('FILE_EXECUTABLE', 8);
+
+/**
+ * File permission check -- File does not exist.
+ */
+define('FILE_NOT_EXIST', 16);
+
+/**
+ * File permission check -- File is not readable.
+ */
+define('FILE_NOT_READABLE', 32);
+
+/**
+ * File permission check -- File is not writable.
+ */
+define('FILE_NOT_WRITABLE', 64);
+
+/**
+ * File permission check -- File is not executable.
+ */
 define('FILE_NOT_EXECUTABLE', 128);
 
 /**
@@ -35,25 +88,41 @@ function drupal_load_updates() {
  * @param $module
  *   A module name.
  * @return
- *   If the module has updates, an array of available updates sorted by version. 
+ *   If the module has updates, an array of available updates sorted by version.
  *   Otherwise, FALSE.
  */
 function drupal_get_schema_versions($module) {
-  $updates = array();
-  $functions = get_defined_functions();
-  foreach ($functions['user'] as $function) {
-    if (strpos($function, $module .'_update_') === 0) {
-      $version = substr($function, strlen($module .'_update_'));
-      if (is_numeric($version)) {
-        $updates[] = $version;
+  $updates = &drupal_static(__FUNCTION__, NULL);
+  if (!isset($updates[$module])) {
+    $updates = array();
+
+    foreach (module_list() as $loaded_module) {
+      $updates[$loaded_module] = array();
+    }
+
+    // Prepare regular expression to match all possible defined hook_update_N().
+    $regexp = '/^(?P<module>.+)_update_(?P<version>\d+)$/';
+    $functions = get_defined_functions();
+    // Narrow this down to functions ending with an integer, since all
+    // hook_update_N() functions end this way, and there are other
+    // possible functions which match '_update_'. We use preg_grep() here
+    // instead of foreaching through all defined functions, since the loop
+    // through all PHP functions can take significant page execution time
+    // and this function is called on every administrative page via
+    // system_requirements().
+    foreach (preg_grep('/_\d+$/', $functions['user']) as $function) {
+      // If this function is a module update function, add it to the list of
+      // module updates.
+      if (preg_match($regexp, $function, $matches)) {
+        $updates[$matches['module']][] = $matches['version'];
       }
     }
+    // Ensure that updates are applied in numerical order.
+    foreach ($updates as &$module_updates) {
+      sort($module_updates, SORT_NUMERIC);
+    }
   }
-  if (count($updates) == 0) {
-    return FALSE;
-  }
-  sort($updates, SORT_NUMERIC);
-  return $updates;
+  return empty($updates[$module]) ? FALSE : $updates[$module];
 }
 
 /**
@@ -67,7 +136,8 @@ function drupal_get_schema_versions($module) {
  *   Set to TRUE if you want to get information about all modules in the
  *   system.
  * @return
- *   The currently installed schema version.
+ *   The currently installed schema version, or SCHEMA_UNINSTALLED if the
+ *   module is not installed.
  */
 function drupal_get_installed_schema_version($module, $reset = FALSE, $array = FALSE) {
   static $versions = array();
@@ -78,13 +148,18 @@ function drupal_get_installed_schema_version($module, $reset = FALSE, $array = F
 
   if (!$versions) {
     $versions = array();
-    $result = db_query("SELECT name, schema_version FROM {system} WHERE type = '%s'", 'module');
-    while ($row = db_fetch_object($result)) {
+    $result = db_query("SELECT name, schema_version FROM {system} WHERE type = :type", array(':type' => 'module'));
+    foreach ($result as $row) {
       $versions[$row->name] = $row->schema_version;
     }
   }
 
-  return $array ? $versions : $versions[$module];
+  if ($array) {
+    return $versions;
+  }
+  else {
+    return isset($versions[$module]) ? $versions[$module] : SCHEMA_UNINSTALLED;
+  }
 }
 
 /**
@@ -96,29 +171,34 @@ function drupal_get_installed_schema_version($module, $reset = FALSE, $array = F
  *   The new schema version.
  */
 function drupal_set_installed_schema_version($module, $version) {
-  db_query("UPDATE {system} SET schema_version = %d WHERE name = '%s'", $version, $module);
+  db_update('system')
+    ->fields(array('schema_version' => $version))
+    ->condition('name', $module)
+    ->execute();
 }
 
 /**
- * Loads the profile definition, extracting the profile's defined name.
+ * Loads the install profile, extracting its defined distribution name.
  *
  * @return
- *   The name defined in the profile's _profile_details() hook.
+ *   The distribution name defined in the profile's .info file. Defaults to
+ *   "Drupal" if none is explicitly provided by the install profile.
+ *
+ * @see install_profile_info()
  */
-function drupal_install_profile_name() {
-  global $profile;
-  static $name = NULL;
-
-  if (!isset($name)) {
-    // Load profile details.
-    $function = $profile .'_profile_details';
-    if (function_exists($function)) {
-      $details = $function();
-    }
-    $name = isset($details['name']) ? $details['name'] : 'Drupal';
+function drupal_install_profile_distribution_name() {
+  // During installation, the profile information is stored in the global
+  // installation state (it might not be saved anywhere yet).
+  if (drupal_installation_attempted()) {
+    global $install_state;
+    return $install_state['profile_info']['distribution_name'];
   }
-
-  return $name;
+  // At all other times, we load the profile via standard methods.
+  else {
+    $profile = drupal_get_profile();
+    $info = install_profile_info($profile);
+    return $info['distribution_name'];
+  }
 }
 
 /**
@@ -127,15 +207,13 @@ function drupal_install_profile_name() {
  * @param $file
  *   The name of the file calling this function so we can strip it out of
  *   the URI when generating the base_url.
- *
  * @return
  *   The auto-detected $base_url that should be configured in settings.php
  */
 function drupal_detect_baseurl($file = 'install.php') {
-  global $profile;
   $proto = $_SERVER['HTTPS'] ? 'https://' : 'http://';
   $host = $_SERVER['SERVER_NAME'];
-  $port = ($_SERVER['SERVER_PORT'] == 80 ? '' : ':'. $_SERVER['SERVER_PORT']);
+  $port = ($_SERVER['SERVER_PORT'] == 80 ? '' : ':' . $_SERVER['SERVER_PORT']);
   $uri = preg_replace("/\?.*/", '', $_SERVER['REQUEST_URI']);
   $dir = str_replace("/$file", '', $uri);
 
@@ -143,8 +221,7 @@ function drupal_detect_baseurl($file = 'install.php') {
 }
 
 /**
- * Detect all databases supported by Drupal that are compiled into the current
- * PHP installation.
+ * Detect all supported databases that are compiled into PHP.
  *
  * @return
  *  An array of database types compiled into PHP.
@@ -152,29 +229,209 @@ function drupal_detect_baseurl($file = 'install.php') {
 function drupal_detect_database_types() {
   $databases = array();
 
-  foreach (array('mysql', 'mysqli', 'pgsql') as $type) {
-    if (file_exists('./includes/install.'. $type .'.inc')) {
-      include_once './includes/install.'. $type .'.inc';
-      $function = $type .'_is_available';
-      if ($function()) {
-        $databases[$type] = $type;
-      }
+  // We define a driver as a directory in /includes/database that in turn
+  // contains a database.inc file. That allows us to drop in additional drivers
+  // without modifying the installer.
+  // Because we have no registry yet, we need to also include the install.inc
+  // file for the driver explicitly.
+  require_once DRUPAL_ROOT . '/includes/database/database.inc';
+  spl_autoload_register('db_autoload');
+  foreach (file_scan_directory(DRUPAL_ROOT . '/includes/database', '/^[a-z]*$/i', array('recurse' => FALSE)) as $file) {
+    if (file_exists($file->uri . '/database.inc') && file_exists($file->uri . '/install.inc')) {
+      $drivers[$file->filename] = $file->uri;
     }
+  }
+
+  foreach ($drivers as $driver => $file) {
+    $class = 'DatabaseTasks_' . $driver;
+    $installer = new $class();
+    if ($installer->installable()) {
+      $databases[$driver] = $installer->name();
+    }
+  }
+
+  // Usability: unconditionally put the MySQL driver on top.
+  if (isset($databases['mysql'])) {
+    $mysql_database = $databases['mysql'];
+    unset($databases['mysql']);
+    $databases = array('mysql' => $mysql_database) + $databases;
   }
 
   return $databases;
 }
 
 /**
- * Read settings.php into a buffer line by line, changing values specified in
- * $settings array, then over-writing the old settings.php file.
+ * Database installer structure.
+ *
+ * Defines basic Drupal requirements for databases.
+ */
+abstract class DatabaseTasks {
+
+  /**
+   * Structure that describes each task to run.
+   *
+   * @var array
+   *
+   * Each value of the tasks array is an associative array defining the function
+   * to call (optional) and any arguments to be passed to the function.
+   */
+  protected $tasks = array(
+    array(
+      'arguments'   => array(
+        'CREATE TABLE drupal_install_test (id int NULL)',
+        'Drupal can use CREATE TABLE database commands.',
+        'Failed to <strong>CREATE</strong> a test table on your database server with the command %query. The server reports the following message: %error.<p>Are you sure the configured username has the necessary permissions to create tables in the database?</p>',
+        TRUE,
+      ),
+    ),
+    array(
+      'arguments'   => array(
+        'INSERT INTO drupal_install_test (id) VALUES (1)',
+        'Drupal can use INSERT database commands.',
+        'Failed to <strong>INSERT</strong> a value into a test table on your database server. We tried inserting a value with the command %query and the server reported the following error: %error.',
+      ),
+    ),
+    array(
+      'arguments'   => array(
+        'UPDATE drupal_install_test SET id = 2',
+        'Drupal can use UPDATE database commands.',
+        'Failed to <strong>UPDATE</strong> a value in a test table on your database server. We tried updating a value with the command %query and the server reported the following error: %error.',
+      ),
+    ),
+    array(
+      'arguments'   => array(
+        'DELETE FROM drupal_install_test',
+        'Drupal can use DELETE database commands.',
+        'Failed to <strong>DELETE</strong> a value from a test table on your database server. We tried deleting a value with the command %query and the server reported the following error: %error.',
+      ),
+    ),
+    array(
+      'arguments'   => array(
+        'DROP TABLE drupal_install_test',
+        'Drupal can use DROP TABLE database commands.',
+        'Failed to <strong>DROP</strong> a test table from your database server. We tried dropping a table with the command %query and the server reported the following error %error.',
+      ),
+    ),
+  );
+  /**
+   * Results from tasks.
+   *
+   * @var array
+   */
+  protected $results = array();
+
+  /**
+   * Ensure the PDO driver is supported by the version of PHP in use.
+   */
+  protected function hasPdoDriver() {
+    return in_array($this->pdoDriver, PDO::getAvailableDrivers());
+  }
+
+  /**
+   * Assert test as failed.
+   */
+  protected function fail($message) {
+    $this->results[$message] = FALSE;
+  }
+
+  /**
+   * Assert test as a pass.
+   */
+  protected function pass($message) {
+    $this->results[$message] = TRUE;
+  }
+
+  /**
+   * Check whether Drupal is installable on the database.
+   */
+  public function installable() {
+    return $this->hasPdoDriver() && empty($this->error);
+  }
+
+  abstract public function name();
+
+  /**
+   * Run database tasks and tests to see if Drupal can run on the database.
+   */
+  public function runTasks() {
+    // We need to establish a connection before we can run tests.
+    if ($this->connect()) {
+      foreach ($this->tasks as $task) {
+        if (!isset($task['function'])) {
+          $task['function'] = 'runTestQuery';
+        }
+        if (method_exists($this, $task['function'])) {
+          // Returning false is fatal. No other tasks can run.
+          if (FALSE === call_user_func_array(array($this, $task['function']), $task['arguments'])) {
+            break;
+          }
+        }
+        else {
+          throw new DatabaseTaskException(st("Failed to run all tasks against the database server. The task %task wasn't found.", array('%task' => $task['function'])));
+        }
+      }
+    }
+    // Check for failed results and compile message
+    $message = '';
+    foreach ($this->results as $result => $success) {
+      if (!$success) {
+        $message .= '<p class="error">' . $result  . '</p>';
+      }
+    }
+    if (!empty($message)) {
+      $message = '<p>In order for Drupal to work, and to continue with the installation process, you must resolve all issues reported below. For more help with configuring your database server, see the <a href="http://drupal.org/getting-started/install">installation handbook</a>. If you are unsure what any of this means you should probably contact your hosting provider.</p>' . $message;
+      throw new DatabaseTaskException($message);
+    }
+  }
+
+  /**
+   * Check if we can connect to the database.
+   */
+  protected function connect() {
+    try {
+      // This doesn't actually test the connection.
+      db_set_active();
+      // Now actually do a check.
+      Database::getConnection();
+      $this->pass('Drupal can CONNECT to the database ok.');
+    }
+    catch (Exception $e) {
+      $this->fail(st('Failed to connect to your database server. The server reports the following message: %error.<ul><li>Is the database server running?</li><li>Does the database exist, and have you entered the correct database name?</li><li>Have you entered the correct username and password?</li><li>Have you entered the correct database hostname?</li></ul>', array('%error' => $e->getMessage())));
+      return FALSE;
+    }
+    return TRUE;
+  }
+
+  /**
+   * Run SQL tests to ensure the database can execute commands with the current user.
+   */
+  protected function runTestQuery($query, $pass, $fail, $fatal = FALSE) {
+    try {
+      db_query($query);
+      $this->pass(st($pass));
+    }
+    catch (Exception $e) {
+      $this->fail(st($fail, array('%query' => $query, '%error' => $e->getMessage(), '%name' => $this->name())));
+      return !$fatal;
+    }
+  }
+}
+/**
+ * @class Exception class used to throw error if the DatabaseInstaller fails.
+ */
+class DatabaseTaskException extends Exception {
+}
+
+/**
+ * Replace values in settings.php with values in the submitted array.
  *
  * @param $settings
  *   An array of settings that need to be updated.
  */
 function drupal_rewrite_settings($settings = array(), $prefix = '') {
-  $default_settings = './sites/default/default.settings.php';
-  $settings_file = './'. conf_path(FALSE, TRUE) .'/'. $prefix .'settings.php';
+  $default_settings = 'sites/default/default.settings.php';
+  drupal_static_reset('conf_path');
+  $settings_file = conf_path(FALSE) . '/' . $prefix . 'settings.php';
 
   // Build list of setting names and insert the values into the global namespace.
   $keys = array();
@@ -185,7 +442,7 @@ function drupal_rewrite_settings($settings = array(), $prefix = '') {
 
   $buffer = NULL;
   $first = TRUE;
-  if ($fp = fopen($default_settings, 'r')) {
+  if ($fp = fopen(DRUPAL_ROOT . '/' . $default_settings, 'r')) {
     // Step line by line through settings.php.
     while (!feof($fp)) {
       $line = fgets($fp);
@@ -198,7 +455,7 @@ function drupal_rewrite_settings($settings = array(), $prefix = '') {
         preg_match('/define\(\s*[\'"]([A-Z_-]+)[\'"]\s*,(.*?)\);/', $line, $variable);
         if (in_array($variable[1], $keys)) {
           $setting = $settings[$variable[1]];
-          $buffer .= str_replace($variable[2], " '". $setting['value'] ."'", $line);
+          $buffer .= str_replace($variable[2], " '" . $setting['value'] . "'", $line);
           unset($settings[$variable[1]]);
           unset($settings[$variable[2]]);
         }
@@ -213,7 +470,7 @@ function drupal_rewrite_settings($settings = array(), $prefix = '') {
           // Write new value to settings.php in the following format:
           //    $'setting' = 'value'; // 'comment'
           $setting = $settings[$variable[1]];
-          $buffer .= '$'. $variable[1] ." = '". $setting['value'] ."';". (!empty($setting['comment']) ? ' // '. $setting['comment'] ."\n" : "\n");
+          $buffer .= '$' . $variable[1] . " = " . var_export($setting['value'], TRUE) . ";" . (!empty($setting['comment']) ? ' // ' . $setting['comment'] . "\n" : "\n");
           unset($settings[$variable[1]]);
         }
         else {
@@ -229,123 +486,70 @@ function drupal_rewrite_settings($settings = array(), $prefix = '') {
     // Add required settings that were missing from settings.php.
     foreach ($settings as $setting => $data) {
       if ($data['required']) {
-        $buffer .= "\$$setting = '". $data['value'] ."';\n";
+        $buffer .= "\$$setting = " . var_export($data['value'], TRUE) . ";\n";
       }
     }
 
-    $fp = fopen($settings_file, 'w');
+    $fp = fopen(DRUPAL_ROOT . '/' . $settings_file, 'w');
     if ($fp && fwrite($fp, $buffer) === FALSE) {
-      drupal_set_message(st('Failed to modify %settings, please verify the file permissions.', array('%settings' => $settings_file)), 'error');
+      throw new Exception(st('Failed to modify %settings. Verify the file permissions.', array('%settings' => $settings_file)));
     }
   }
   else {
-    drupal_set_message(st('Failed to open %settings, please verify the file permissions.', array('%settings' => $default_settings)), 'error');
+    throw new Exception(st('Failed to open %settings. Verify the file permissions.', array('%settings' => $default_settings)));
   }
 }
 
 /**
- * Get list of all .install files.
+ * Verify an install profile for installation.
  *
- * @param $module_list
- *   An array of modules to search for their .install files.
- */
-function drupal_get_install_files($module_list = array()) {
-  $installs = array();
-  foreach ($module_list as $module) {
-    $installs = array_merge($installs, drupal_system_listing($module .'.install$', 'modules'));
-  }
-  return $installs;
-}
-
-/**
- * Verify a profile for installation.
- *
- * @param profile
- *   Name of profile to verify.
- * @param locale
- *   Name of locale used (if any).
+ * @param $install_state
+ *   An array of information about the current installation state.
  * @return
  *   The list of modules to install.
  */
-function drupal_verify_profile($profile, $locale) {
-  include_once './includes/file.inc';
-  include_once './includes/common.inc';
+function drupal_verify_profile($install_state) {
+  $profile = $install_state['parameters']['profile'];
+  $locale = $install_state['parameters']['locale'];
 
-  $profile_file = "./profiles/$profile/$profile.profile";
+  include_once DRUPAL_ROOT . '/includes/file.inc';
+  include_once DRUPAL_ROOT . '/includes/common.inc';
+
+  $profile_file = DRUPAL_ROOT . "/profiles/$profile/$profile.profile";
 
   if (!isset($profile) || !file_exists($profile_file)) {
-    install_no_profile_error();
+    throw new Exception(install_no_profile_error());
   }
-
-  require_once($profile_file);
-
-  // Get a list of modules required by this profile.
-  $function = $profile .'_profile_modules';
-  $module_list = array_merge(drupal_required_modules(), $function(), ($locale != 'en' && !empty($locale) ? array('locale') : array()));
+  $info = $install_state['profile_info'];
 
   // Get a list of modules that exist in Drupal's assorted subdirectories.
   $present_modules = array();
-  foreach (drupal_system_listing('\.module$', 'modules', 'name', 0) as $present_module) {
+  foreach (drupal_system_listing('/\.module$/', 'modules', 'name', 0) as $present_module) {
     $present_modules[] = $present_module->name;
   }
 
+  // The install profile is also a module, which needs to be installed after all the other dependencies
+  // have been installed.
+  $present_modules[] = drupal_get_profile();
+
   // Verify that all of the profile's required modules are present.
-  $missing_modules = array_diff($module_list, $present_modules);
+  $missing_modules = array_diff($info['dependencies'], $present_modules);
+
+  $requirements = array();
+
   if (count($missing_modules)) {
+    $modules = array();
     foreach ($missing_modules as $module) {
-      drupal_set_message(st('The %module module is required but was not found. Please move it into the <em>modules</em> subdirectory.', array('%module' => $module)), 'error');
+      $modules[] = '<span class="admin-missing">' . drupal_ucfirst($module) . '</span>';
     }
+    $requirements['required_modules'] = array(
+      'title'       => st('Required modules'),
+      'value'       => st('Required modules not found.'),
+      'severity'    => REQUIREMENT_ERROR,
+      'description' => st('The following modules are required but were not found. Move them into the appropriate modules subdirectory, such as <em>sites/all/modules</em>. Missing modules: !modules', array('!modules' => implode(', ', $modules))),
+    );
   }
-  else {
-    return $module_list;
-  }
-}
-
-/**
- * Calls the install function and updates the system table for a given list of
- * modules.
- *
- * @param module_list
- *   The modules to install.
- */
-function drupal_install_modules($module_list = array()) {
-  $files = module_rebuild_cache();
-  $module_list = array_flip(array_values($module_list));
-  do {
-    $moved = FALSE;
-    foreach ($module_list as $module => $weight) {
-      $file = $files[$module];
-      if (isset($file->info['dependencies']) && is_array($file->info['dependencies'])) {
-        foreach ($file->info['dependencies'] as $dependency) {
-          if (isset($module_list[$dependency]) && $module_list[$module] < $module_list[$dependency] +1) {
-            $module_list[$module] = $module_list[$dependency] +1;
-            $moved = TRUE;
-          }
-        }
-      }
-    }
-  } while ($moved);
-  asort($module_list);
-  $module_list = array_keys($module_list);
-  array_filter($module_list, '_drupal_install_module');
-  module_enable($module_list);
-}
-
-/**
- * Callback to install an individual profile module.
- *
- * Used during installation to install modules one at a time and then
- * enable them, or to install a number of modules at one time
- * from admin/build/modules.
- */
-function _drupal_install_module($module) {
-  if (drupal_get_installed_schema_version($module, TRUE) == SCHEMA_UNINSTALLED) {
-    module_load_install($module);
-    module_invoke($module, 'install');
-    $versions = drupal_get_schema_versions($module);
-    drupal_set_installed_schema_version($module, $versions ? max($versions) : SCHEMA_INSTALLED);
-    return TRUE;
-  }
+  return $requirements;
 }
 
 /**
@@ -355,57 +559,80 @@ function _drupal_install_module($module) {
  * functions can be made available while other modules are installed.
  */
 function drupal_install_system() {
-  $system_path = dirname(drupal_get_filename('module', 'system', NULL));
-  require_once './'. $system_path .'/system.install';
+  $system_path = drupal_get_path('module', 'system');
+  require_once DRUPAL_ROOT . '/' . $system_path . '/system.install';
   module_invoke('system', 'install');
+
   $system_versions = drupal_get_schema_versions('system');
   $system_version = $system_versions ? max($system_versions) : SCHEMA_INSTALLED;
-  db_query("INSERT INTO {system} (filename, name, type, owner, status, throttle, bootstrap, schema_version) VALUES('%s', '%s', '%s', '%s', %d, %d, %d, %d)", $system_path .'/system.module', 'system', 'module', '', 1, 0, 0, $system_version);
-  // Now that we've installed things properly, bootstrap the full Drupal environment
-  drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
-  module_rebuild_cache();
+  db_insert('system')
+    ->fields(array('filename', 'name', 'type', 'owner', 'status', 'schema_version', 'bootstrap'))
+    ->values(array(
+        'filename' => $system_path . '/system.module',
+        'name' => 'system',
+        'type' => 'module',
+        'owner' => '',
+        'status' => 1,
+        'schema_version' => $system_version,
+        'bootstrap' => 0,
+      ))
+    ->execute();
+  system_rebuild_module_data();
 }
-
 
 /**
  * Calls the uninstall function and updates the system table for a given module.
  *
- * @param $module
- *   The module to uninstall.
+ * @param $module_list
+ *   The modules to uninstall.
  */
-function drupal_uninstall_module($module) {
-  // First, retrieve all the module's menu paths from db.
-  drupal_load('module', $module);
-  $paths = module_invoke($module, 'menu');
+function drupal_uninstall_modules($module_list = array()) {
+  foreach ($module_list as $module) {
+    // First, retrieve all the module's menu paths from db.
+    drupal_load('module', $module);
+    $paths = module_invoke($module, 'menu');
 
-  // Uninstall the module(s).
-  module_load_install($module);
-  module_invoke($module, 'uninstall');
+    // Uninstall the module.
+    module_load_install($module);
+    module_invoke($module, 'uninstall');
+    drupal_uninstall_schema($module);
 
-  // Now remove the menu links for all paths declared by this module.
-  if (!empty($paths)) {
-    $paths = array_keys($paths);
-    // Clean out the names of load functions.
-    foreach ($paths as $index => $path) {
-      $parts = explode('/', $path, MENU_MAX_PARTS);
-      foreach ($parts as $k => $part) {
-        if (preg_match('/^%[a-z_]*$/', $part)) {
-          $parts[$k] = '%';
+    watchdog('system', '%module module uninstalled.', array('%module' => $module), WATCHDOG_INFO);
+
+    // Now remove the menu links for all paths declared by this module.
+    if (!empty($paths)) {
+      $paths = array_keys($paths);
+      // Clean out the names of load functions.
+      foreach ($paths as $index => $path) {
+        $parts = explode('/', $path, MENU_MAX_PARTS);
+        foreach ($parts as $k => $part) {
+          if (preg_match('/^%[a-z_]*$/', $part)) {
+            $parts[$k] = '%';
+          }
         }
+        $paths[$index] = implode('/', $parts);
       }
-      $paths[$index] = implode('/', $parts);
-    }
-    $placeholders = implode(', ', array_fill(0, count($paths), "'%s'"));
 
-    $result = db_query('SELECT * FROM {menu_links} WHERE router_path IN ('. $placeholders .') AND external = 0 ORDER BY depth DESC', $paths);
-    // Remove all such items. Starting from those with the greatest depth will
-    // minimize the amount of re-parenting done by menu_link_delete().
-    while ($item = db_fetch_array($result)) {
-      _menu_delete_item($item, TRUE);
+      $result = db_select('menu_links')
+        ->fields('menu_links')
+        ->condition('router_path', $paths, 'IN')
+        ->condition('external', 0)
+        ->orderBy('depth')
+        ->execute();
+      // Remove all such items. Starting from those with the greatest depth will
+      // minimize the amount of re-parenting done by menu_link_delete().
+      foreach ($result as $item) {
+        _menu_delete_item($item, TRUE);
+      }
     }
+
+    drupal_set_installed_schema_version($module, SCHEMA_UNINSTALLED);
   }
 
-  drupal_set_installed_schema_version($module, SCHEMA_UNINSTALLED);
+  if (!empty($module_list)) {
+    // Call hook_module_uninstall to let other modules act
+    module_invoke_all('modules_uninstalled', $module_list);
+  }
 }
 
 /**
@@ -428,7 +655,7 @@ function drupal_verify_install_file($file, $mask = NULL, $type = 'file') {
   }
   // Verify that the file is the type of file it is supposed to be.
   if (isset($type) && file_exists($file)) {
-    $check = 'is_'. $type;
+    $check = 'is_' . $type;
     if (!function_exists($check) || !$check($file)) {
       $return = FALSE;
     }
@@ -490,13 +717,12 @@ function drupal_verify_install_file($file, $mask = NULL, $type = 'file') {
 /**
  * Create a directory with specified permissions.
  *
- * @param file
+ * @param $file
  *  The name of the directory to create;
- * @param mask
+ * @param $mask
  *  The permissions of the directory to create.
  * @param $message
  *  (optional) Whether to output messages. Defaults to TRUE.
- *
  * @return
  *  TRUE/FALSE whether or not the directory was successfully created.
  */
@@ -507,19 +733,19 @@ function drupal_install_mkdir($file, $mask, $message = TRUE) {
     if ($mask & $m) {
       switch ($m) {
         case FILE_READABLE:
-          $mod += 444;
+          $mod |= 0444;
           break;
         case FILE_WRITABLE:
-          $mod += 222;
+          $mod |= 0222;
           break;
         case FILE_EXECUTABLE:
-          $mod += 111;
+          $mod |= 0111;
           break;
       }
     }
   }
 
-  if (@mkdir($file, intval("0$mod", 8))) {
+  if (@drupal_mkdir($file, $mod)) {
     return TRUE;
   }
   else {
@@ -545,11 +771,15 @@ function drupal_install_mkdir($file, $mask, $message = TRUE) {
  *  The desired permissions for the file.
  * @param $message
  *  (optional) Whether to output messages. Defaults to TRUE.
- *
  * @return
  *  TRUE/FALSE whether or not we were able to fix the file's permissions.
  */
 function drupal_install_fix_file($file, $mask, $message = TRUE) {
+  // If $file does not exist, fileperms() issues a PHP warning.
+  if (!file_exists($file)) {
+    return FALSE;
+  }
+
   $mod = fileperms($file) & 0777;
   $masks = array(FILE_READABLE, FILE_WRITABLE, FILE_EXECUTABLE, FILE_NOT_READABLE, FILE_NOT_WRITABLE, FILE_NOT_EXECUTABLE);
 
@@ -607,40 +837,52 @@ function drupal_install_fix_file($file, $mask, $message = TRUE) {
 
 
 /**
- * Send the user to a different installer page. This issues an on-site HTTP
- * redirect. Messages (and errors) are erased.
+ * Send the user to a different installer page.
+ *
+ * This issues an on-site HTTP redirect. Messages (and errors) are erased.
  *
  * @param $path
  *   An installer path.
  */
 function install_goto($path) {
   global $base_url;
-  header('Location: '. $base_url .'/'. $path);
+  include_once DRUPAL_ROOT . '/includes/common.inc';
+  header('Location: ' . $base_url . '/' . $path);
   header('Cache-Control: no-cache'); // Not a permanent redirect.
-  exit();
+  drupal_exit();
 }
 
 /**
- * Hardcoded function for doing the equivalent of t() during
- * the install process, when database, theme, and localization
+ * Functional equivalent of t(), used when some systems are not available.
+ *
+ * Used during the install process, when database, theme, and localization
  * system is possibly not yet available.
+ *
+ * @see t()
+ * @ingroup sanitization
  */
-function st($string, $args = array()) {
+function st($string, array $args = array(), array $options = array()) {
   static $locale_strings = NULL;
-  global $profile, $install_locale;
+  global $install_state;
+
+  if (empty($options['context'])) {
+    $options['context'] = '';
+  }
 
   if (!isset($locale_strings)) {
     $locale_strings = array();
-    $filename = './profiles/'. $profile .'/translations/'. $install_locale .'.po';
-    if (file_exists($filename)) {
-      require_once './includes/locale.inc';
-      $file = (object) array('filepath' => $filename);
-      _locale_import_read_po('mem-store', $file);
-      $locale_strings = _locale_import_one_string('mem-report');
+    if (isset($install_state['parameters']['profile']) && isset($install_state['parameters']['locale'])) {
+      $filename = 'profiles/' . $install_state['parameters']['profile'] . '/translations/' . $install_state['parameters']['locale'] . '.po';
+      if (file_exists(DRUPAL_ROOT . '/' . $filename)) {
+        require_once DRUPAL_ROOT . '/includes/locale.inc';
+        $file = (object) array('uri' => $filename);
+        _locale_import_read_po('mem-store', $file);
+        $locale_strings = _locale_import_one_string('mem-report');
+      }
     }
   }
 
-  require_once './includes/theme.inc';
+  require_once DRUPAL_ROOT . '/includes/theme.inc';
   // Transform arguments before inserting them
   foreach ($args as $key => $value) {
     switch ($key[0]) {
@@ -651,45 +893,41 @@ function st($string, $args = array()) {
       // Escaped and placeholder
       case '%':
       default:
-        $args[$key] = '<em>'. check_plain($value) .'</em>';
+        $args[$key] = '<em>' . check_plain($value) . '</em>';
         break;
       // Pass-through
       case '!':
     }
   }
-  return strtr((!empty($locale_strings[$string]) ? $locale_strings[$string] : $string), $args);
+  return strtr((!empty($locale_strings[$options['context']][$string]) ? $locale_strings[$options['context']][$string] : $string), $args);
 }
 
 /**
- * Check a profile's requirements.
+ * Check an install profile's requirements.
  *
- * @param profile
- *   Name of profile to check.
+ * @param $profile
+ *   Name of install profile to check.
+ * @return
+ *   Array of the install profile's requirements.
  */
 function drupal_check_profile($profile) {
-  include_once './includes/file.inc';
+  include_once DRUPAL_ROOT . '/includes/file.inc';
 
-  $profile_file = "./profiles/$profile/$profile.profile";
+  $profile_file = DRUPAL_ROOT . "/profiles/$profile/$profile.profile";
 
   if (!isset($profile) || !file_exists($profile_file)) {
-    install_no_profile_error();
+    throw new Exception(install_no_profile_error());
   }
 
-  require_once($profile_file);
+  $info = install_profile_info($profile);
 
-  // Get a list of modules required by this profile.
-  $function = $profile .'_profile_modules';
-  $module_list = array_unique(array_merge(drupal_required_modules(), $function()));
-
-  // Get a list of all .install files.
-  $installs = drupal_get_install_files($module_list);
-
-  // Collect requirement testing results
+  // Collect requirement testing results.
   $requirements = array();
-  foreach ($installs as $install) {
-    require_once $install->filename;
-    if (module_hook($install->name, 'requirements')) {
-      $requirements = array_merge($requirements, module_invoke($install->name, 'requirements', 'install'));
+  foreach ($info['dependencies'] as $module) {
+    module_load_install($module);
+    $function = $module . '_requirements';
+    if (function_exists($function)) {
+      $requirements = array_merge($requirements, $function('install'));
     }
   }
   return $requirements;
@@ -697,6 +935,12 @@ function drupal_check_profile($profile) {
 
 /**
  * Extract highest severity from requirements array.
+ *
+ * @param $requirements
+ *   An array of requirements, in the same format as is returned by
+ *   hook_requirements().
+ * @return
+ *   The highest severity in the array.
  */
 function drupal_requirements_severity(&$requirements) {
   $severity = REQUIREMENT_OK;
@@ -710,13 +954,15 @@ function drupal_requirements_severity(&$requirements) {
 
 /**
  * Check a module's requirements.
+ *
+ * @param $module
+ *   Machine name of module to check.
+ * @return
+ *   TRUE/FALSE depending on the requirements are in place.
  */
 function drupal_check_module($module) {
-  // Include install file
-  $install = drupal_get_install_files(array($module));
-  if (isset($install[$module])) {
-    require_once $install[$module]->filename;
-
+  module_load_install($module);
+  if (module_hook($module, 'requirements')) {
     // Check requirements
     $requirements = module_invoke($module, 'requirements', 'install');
     if (is_array($requirements) && drupal_requirements_severity($requirements) == REQUIREMENT_ERROR) {
@@ -725,7 +971,7 @@ function drupal_check_module($module) {
         if (isset($requirement['severity']) && $requirement['severity'] == REQUIREMENT_ERROR) {
           $message = $requirement['description'];
           if (isset($requirement['value']) && $requirement['value']) {
-            $message .= ' ('. t('Currently using !item !version', array('!item' => $requirement['title'], '!version' => $requirement['value'])) .')';
+            $message .= ' (' . t('Currently using !item !version', array('!item' => $requirement['title'], '!version' => $requirement['value'])) . ')';
           }
           drupal_set_message($message, 'error');
         }
@@ -733,5 +979,79 @@ function drupal_check_module($module) {
       return FALSE;
     }
   }
+  return TRUE;
+}
+
+/**
+ * Retrieve info about an install profile from its .info file.
+ *
+ * The information stored in a profile .info file is similar to that stored in
+ * a normal Drupal module .info file. For example:
+ * - name: The real name of the install profile for display purposes.
+ * - description: A brief description of the profile.
+ * - dependencies: An array of shortnames of other modules this install profile requires.
+ *
+ * Additional, less commonly-used information that can appear in a profile.info
+ * file but not in a normal Drupal module .info file includes:
+ * - distribution_name: The name of the Drupal distribution that is being
+ *   installed, to be shown throughout the installation process. Defaults to
+ *   'Drupal'.
+ *
+ * Example of .info file:
+ * @code
+ *    name = Minimal
+ *    description = Start fresh, with only a few modules enabled.
+ *    dependencies[] = block
+ *    dependencies[] = dblog
+ * @endcode
+ *
+ * @param profile
+ *   Name of profile.
+ * @param locale
+ *   Name of locale used (if any).
+ * @return
+ *   The info array.
+ */
+function install_profile_info($profile, $locale = 'en') {
+  $cache = &drupal_static(__FUNCTION__, array());
+
+  if (!isset($cache[$profile])) {
+    // Set defaults for module info.
+    $defaults = array(
+      'dependencies' => array(),
+      'description' => '',
+      'distribution_name' => 'Drupal',
+      'version' => NULL,
+      'hidden' => FALSE,
+      'php' => DRUPAL_MINIMUM_PHP,
+    );
+    $info = drupal_parse_info_file("profiles/$profile/$profile.info") + $defaults;
+    $info['dependencies'] = array_unique(array_merge(
+      drupal_required_modules(),
+      $info['dependencies'],
+      ($locale != 'en' && !empty($locale) ? array('locale') : array()))
+    );
+
+    // drupal_required_modules() includes the current profile as a dependency.
+    // Since a module can't depend on itself we remove that element of the array.
+    array_shift($info['dependencies']);
+
+    $cache[$profile] = $info;
+  }
+  return $cache[$profile];
+}
+
+/**
+ * Ensures the environment for a Drupal database on a predefined connection.
+ *
+ * This will run tasks that check that Drupal can perform all of the functions
+ * on a database, that Drupal needs. Tasks include simple checks like CREATE
+ * TABLE to database specific functions like stored procedures and client
+ * encoding.
+ */
+function db_run_tasks($driver) {
+  $task_class = 'DatabaseTasks_' . $driver;
+  $DatabaseTasks = new $task_class();
+  $DatabaseTasks->runTasks();
   return TRUE;
 }

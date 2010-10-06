@@ -1,0 +1,3 @@
+[defaults]
+temp_dir = "/tmp/"
+error_level = 2

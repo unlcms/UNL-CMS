@@ -1,5 +1,5 @@
 <?php
-// $Id: fckeditor.inc,v 1.17.2.1 2009/06/22 03:00:15 sun Exp $
+// $Id: fckeditor.inc,v 1.20 2010/04/02 14:05:36 sun Exp $
 
 /**
  * @file
@@ -52,6 +52,9 @@ function wysiwyg_fckeditor_editor() {
  */
 function wysiwyg_fckeditor_version($editor) {
   $library = $editor['library path'] . '/fckeditor.js';
+  if (!file_exists($library)) {
+    return;
+  }
   $library = fopen($library, 'r');
   $max_lines = 100;
   while ($max_lines && $line = fgets($library, 60)) {
@@ -120,6 +123,9 @@ function wysiwyg_fckeditor_settings($editor, $config, $theme) {
   }
   if (isset($config['apply_source_formatting'])) {
     $settings['FormatOutput'] = $settings['FormatSource'] = $config['apply_source_formatting'];
+  }
+  if (isset($config['paste_auto_cleanup_on_paste'])) {
+    $settings['AutoDetectPasteFromWord'] = $config['paste_auto_cleanup_on_paste'];
   }
 
   if (isset($config['css_setting'])) {

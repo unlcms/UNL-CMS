@@ -1,25 +1,26 @@
 <?php
-// $Id: comment.tpl.php,v 1.10 2008/01/04 19:24:24 goba Exp $
+// $Id: comment.tpl.php,v 1.20 2010/01/04 03:57:19 webchick Exp $
 ?>
-<div class="comment<?php print ($comment->new) ? ' comment-new' : ''; print ' '. $status; print ' '. $zebra; ?>">
+<div class="<?php print $classes . ' ' . $zebra; ?>"<?php print $attributes; ?>>
 
-  <div class="clear-block">
-  <?php if ($submitted): ?>
-    <span class="submitted"><?php print $submitted; ?></span>
-  <?php endif; ?>
+  <div class="clearfix">
 
-  <?php if ($comment->new) : ?>
+    <span class="submitted"><?php print $created; ?> — <?php print $author; ?></span>
+
+  <?php if ($new) : ?>
     <span class="new"><?php print drupal_ucfirst($new) ?></span>
   <?php endif; ?>
 
   <?php print $picture ?>
 
-    <h3><?php print $title ?></h3>
+    <?php print render($title_prefix); ?>
+    <h3<?php print $title_attributes; ?>><?php print $title ?></h3>
+    <?php print render($title_suffix); ?>
 
-    <div class="content">
-      <?php print $content ?>
+    <div class="content"<?php print $content_attributes; ?>>
+      <?php hide($content['links']); print render($content); ?>
       <?php if ($signature): ?>
-      <div class="clear-block">
+      <div class="clearfix">
         <div>—</div>
         <?php print $signature ?>
       </div>
@@ -27,7 +28,5 @@
     </div>
   </div>
 
-  <?php if ($links): ?>
-    <div class="links"><?php print $links ?></div>
-  <?php endif; ?>
+  <?php print render($content['links']) ?>
 </div>

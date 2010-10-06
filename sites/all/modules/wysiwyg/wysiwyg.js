@@ -1,4 +1,5 @@
-// $Id: wysiwyg.js,v 1.15.2.1 2009/07/23 16:36:37 sun Exp $
+// $Id: wysiwyg.js,v 1.19 2010/09/25 00:46:33 twod Exp $
+(function($) {
 
 /**
  * Initialize editor libraries.
@@ -37,39 +38,45 @@ Drupal.wysiwygInit = function() {
  * @param context
  *   A DOM element, supplied by Drupal.attachBehaviors().
  */
-Drupal.behaviors.attachWysiwyg = function(context) {
-  // This breaks in Konqueror. Prevent it from running.
-  if (/KDE/.test(navigator.vendor)) {
-    return;
-  }
-
-  $('.wysiwyg:not(.wysiwyg-processed)', context).each(function() {
-    var params = Drupal.wysiwyg.getParams(this);
-    var $this = $(this).addClass('wysiwyg-processed');
-    // Directly attach this editor, if the input format is enabled or there is
-    // only one input format at all.
-    if (($this.is(':input') && $this.is(':checked')) || $this.is('div')) {
-      Drupal.wysiwygAttach(context, params);
+Drupal.behaviors.attachWysiwyg = {
+  attach: function(context, settings) {
+    // This breaks in Konqueror. Prevent it from running.
+    if (/KDE/.test(navigator.vendor)) {
+      return;
     }
-    // Attach onChange handlers to input format selector elements.
-    if ($this.is(':input')) {
-      $this.change(function() {
-        // If not disabled, detach the current and attach a new editor.
-        Drupal.wysiwygDetach(context, params);
-        Drupal.wysiwygAttach(context, params);
-      });
-      // IE triggers onChange after blur only.
-      if ($.browser.msie) {
-        $this.click(function () {
-          this.blur();
+
+    $('.wysiwyg', context).once('wysiwyg', function() {
+      if (!this.id || !this.value || typeof Drupal.settings.wysiwyg.triggers[this.id] === 'undefined') {
+        return;
+      }
+      var $this = $(this);
+      var params = Drupal.settings.wysiwyg.triggers[this.id];
+      for (var format in params) {
+        params[format].format = format;
+        params[format].trigger = this.id;
+        params[format].field = params.field;
+      }
+      var format = 'format' + this.value;
+      // Directly attach this editor, if the input format is enabled or there is
+      // only one input format at all.
+      if ($this.is(':input')) {
+        Drupal.wysiwygAttach(context, params[format]);
+      }
+      // Attach onChange handlers to input format selector elements.
+      if ($this.is('select')) {
+        $this.change(function() {
+          // If not disabled, detach the current and attach a new editor.
+          Drupal.wysiwygDetach(context, params[format]);
+          format = 'format' + this.value;
+          Drupal.wysiwygAttach(context, params[format]);
         });
       }
-    }
-    // Detach any editor when the containing form is submitted.
-    $('#' + params.field).parents('form').submit(function () {
-      Drupal.wysiwygDetach(context, params);
+      // Detach any editor when the containing form is submitted.
+      $('#' + params.field).parents('form').submit(function () {
+        Drupal.wysiwygDetach(context, params[format]);
+      });
     });
-  });
+  }
 };
 
 /**
@@ -169,7 +176,7 @@ Drupal.wysiwygAttachToggleLink = function(context, params) {
         // Before enabling the editor, detach default behaviors.
         Drupal.wysiwyg.editor.detach.none(context, params);
         // Attach new editor using parameters of the currently selected input format.
-        Drupal.wysiwyg.getParams($('.wysiwyg-field-' + params.field + ':checked, div.wysiwyg-field-' + params.field, context).get(0), params);
+        params = Drupal.settings.wysiwyg.triggers[params.trigger]['format' + $('#' + params.trigger).val()];
         params.status = true;
         Drupal.wysiwygAttach(context, params);
         $(this).html(Drupal.settings.wysiwyg.disable).blur();
@@ -194,7 +201,7 @@ Drupal.wysiwygAttachToggleLink = function(context, params) {
 Drupal.wysiwyg.getParams = function(element, params) {
   var classes = element.className.split(' ');
   var params = params || {};
-  for (var i in classes) {
+  for (var i = 0; i < classes.length; i++) {
     if (classes[i].substr(0, 8) == 'wysiwyg-') {
       var parts = classes[i].split('-');
       var value = parts.slice(2).join('-');
@@ -215,3 +222,4 @@ Drupal.wysiwyg.getParams = function(element, params) {
  */
 Drupal.wysiwygInit();
 
+})(jQuery);

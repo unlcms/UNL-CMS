@@ -1,40 +1,16 @@
 <?php
-// $Id: statistics.install,v 1.13.2.3 2009/09/14 08:19:24 goba Exp $
+// $Id: statistics.install,v 1.27 2010/08/22 13:55:53 dries Exp $
 
 /**
- * Implementation of hook_install().
+ * @file
+ * Install, update and uninstall functions for the statistics module.
  */
-function statistics_install() {
-  // Create tables.
-  drupal_install_schema('statistics');
-}
 
 /**
- * Changes session ID  field to VARCHAR(64) to add support for SHA-1 hashes.
- */
-function statistics_update_1000() {
-  $ret = array();
-
-  switch ($GLOBALS['db_type']) {
-    case 'mysql':
-    case 'mysqli':
-      $ret[] = update_sql("ALTER TABLE {accesslog} CHANGE COLUMN sid sid varchar(64) NOT NULL default ''");
-      break;
-    case 'pgsql':
-      db_change_column($ret, 'accesslog', 'sid', 'sid', 'varchar(64)', array('not null' => TRUE, 'default' => "''"));
-      break;
-  }
-
-  return $ret;
-}
-
-/**
- * Implementation of hook_uninstall().
+ * Implements hook_uninstall().
  */
 function statistics_uninstall() {
-  // Remove tables.
-  drupal_uninstall_schema('statistics');
-
+  // Remove variables.
   variable_del('statistics_count_content_views');
   variable_del('statistics_enable_access_log');
   variable_del('statistics_flush_accesslog_timer');
@@ -45,7 +21,7 @@ function statistics_uninstall() {
 }
 
 /**
- * Implementation of hook_schema().
+ * Implements hook_schema().
  */
 function statistics_schema() {
   $schema['accesslog'] = array(
@@ -113,26 +89,59 @@ function statistics_schema() {
       'uid' => array('uid'),
     ),
     'primary key' => array('aid'),
+    'foreign keys' => array(
+      'visitor' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
+    ),
+  );
+
+  $schema['node_counter'] = array(
+    'description' => 'Access statistics for {node}s.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The {node}.nid for these statistics.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'totalcount' => array(
+        'description' => 'The total number of times the {node} has been viewed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'big',
+      ),
+      'daycount' => array(
+        'description' => 'The total number of times the {node} has been viewed today.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'medium',
+      ),
+      'timestamp' => array(
+        'description' => 'The most recent time the {node} has been viewed.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('nid'),
   );
 
   return $schema;
 }
 
 /**
- * @defgroup updates-6.x-extra Extra statistics updates for 6.x
+ * @defgroup updates-6.x-to-7.x statistics updates from 6.x to 7.x
  * @{
  */
 
 /**
- * Allow longer referrers.
- */
-function statistics_update_6000() {
-  $ret = array();
-  db_change_field($ret, 'accesslog', 'url', 'url', array('type' => 'text', 'not null' => FALSE));
-  return $ret;
-}
-
-/**
- * @} End of "defgroup updates-6.x-extra"
- * The next series of updates should start at 7000.
+ * @} End of "defgroup updates-6.x-to-7.x"
+ * The next series of updates should start at 8000.
  */

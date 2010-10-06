@@ -1,9 +1,9 @@
 <?php
-// $Id: ckeditor.inc,v 1.2.6.4 2009/11/17 15:31:33 twod Exp $
+// $Id: ckeditor.inc,v 1.8 2010/09/10 02:13:59 sun Exp $
 
 /**
  * @file
- * Editor integration functions for CKeditor.
+ * Editor integration functions for CKEditor.
  */
 
 /**
@@ -11,9 +11,9 @@
  */
 function wysiwyg_ckeditor_editor() {
   $editor['ckeditor'] = array(
-    'title' => 'CKeditor',
+    'title' => 'CKEditor',
     'vendor url' => 'http://ckeditor.com',
-    'download url' => 'http://ckeditor.com',
+    'download url' => 'http://ckeditor.com/download',
     'libraries' => array(
       '' => array(
         'title' => 'Default',
@@ -60,6 +60,9 @@ function wysiwyg_ckeditor_editor() {
  */
 function wysiwyg_ckeditor_version($editor) {
   $library = $editor['library path'] . '/ckeditor.js';
+  if (!file_exists($library)) {
+    return;
+  }
   $library = fopen($library, 'r');
   $max_lines = 8;
   while ($max_lines && $line = fgets($library, 140)) {
@@ -100,6 +103,7 @@ function wysiwyg_ckeditor_themes($editor, $profile) {
       }
     }
     closedir($dir_handle);
+    natcasesort($themes);
     return !empty($themes) ? $themes : array('default');
   }
   else {
@@ -123,25 +127,35 @@ function wysiwyg_ckeditor_themes($editor, $profile) {
  */
 function wysiwyg_ckeditor_settings($editor, $config, $theme) {
   $settings = array(
-    'baseHref' => base_path(),
+    'baseHref' => $GLOBALS['base_url'] . '/',
     'width' => '100%',
+    // For better compatibility with smaller textareas.
+    'resize_minWidth' => 450,
     'height' => 420,
     // @todo Do not use skins as themes and add separate skin handling.
     'theme' => 'default',
     'skin' => !empty($theme) ? $theme : 'kama',
-    // By default, CKeditor converts most characters into HTML entities. Since
+    // By default, CKEditor converts most characters into HTML entities. Since
     // it does not support a custom definition, but Drupal supports Unicode, we
-    // disable at least the additional character sets. CKeditor always converts
+    // disable at least the additional character sets. CKEditor always converts
     // XML default characters '&', '<', '>'.
     // @todo Check whether completely disabling ProcessHTMLEntities is an option.
     'entities_latin' => FALSE,
     'entities_greek' => FALSE,
   );
-  $extra_plugins = array();
+
+  // Add HTML block format settings; common block formats are already predefined
+  // by CKEditor.
   if (isset($config['block_formats'])) {
-    // @todo This is now format_tags and needs format_[tag] settings per tag.
-    //$settings['FontFormats'] = strtr($config['block_formats'], array(',' => ';'));
+    $block_formats = explode(',', drupal_strtolower($config['block_formats']));
+    $predefined_formats = array('h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'pre', 'address', 'div');
+    foreach (array_diff($block_formats, $predefined_formats) as $tag) {
+      $tag = trim($tag);
+      $settings["format_$tag"] = array('element' => $tag);
+    }
+    $settings['format_tags'] = implode(';', $block_formats);
   }
+
   if (isset($config['apply_source_formatting'])) {
     $settings['apply_source_formatting'] = $config['apply_source_formatting'];
   }
@@ -177,6 +191,7 @@ function wysiwyg_ckeditor_settings($editor, $config, $theme) {
   }
 
   if (!empty($config['buttons'])) {
+    $extra_plugins = array();
     $settings['toolbar'] = array();
     $plugins = wysiwyg_get_plugins($editor['name']);
     foreach ($config['buttons'] as $plugin => $buttons) {
@@ -293,17 +308,22 @@ function wysiwyg_ckeditor_plugins($editor) {
         'ShowBlocks' => t('Show blocks'),
         'RemoveFormat' => t('Remove format'),
         'SpecialChar' => t('Character map'),
-        'About' => t('About'),
         'Format' => t('HTML block format'), 'Font' => t('Font'), 'FontSize' => t('Font size'), 'Styles' => t('Font style'),
         'Table' => t('Table'),
-        'Find' => t('Search'), 'Replace' => t('Replace'), 'SelectAll' => t('Select all'),
+        'SelectAll' => t('Select all'), 'Find' => t('Search'), 'Replace' => t('Replace'),
         'Flash' => t('Flash'), 'Smiley' => t('Smiley'),
+        'CreateDiv' => t('Div container'),
         'Maximize' => t('Maximize'),
         'SpellChecker' => t('Check spelling'), 'Scayt' => t('Check spelling as you type'),
+        'About' => t('About'),
       ),
       'internal' => TRUE,
     ),
   );
+
+  if (version_compare($editor['installed version'], '3.1.0.4885', '<')) {
+    unset($plugins['default']['buttons']['CreateDiv']);
+  }
   return $plugins;
 }
 

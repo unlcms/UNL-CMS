@@ -1,12 +1,19 @@
-; $Id: filter.info,v 1.4 2007/06/08 05:50:54 dries Exp $
+; $Id: filter.info,v 1.13 2009/11/17 21:24:18 dries Exp $
 name = Filter
-description = Handles the filtering of content in preparation for display.
-package = Core - required
+description = Filters content in preparation for display.
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = filter.module
+files[] = filter.admin.inc
+files[] = filter.pages.inc
+files[] = filter.install
+files[] = filter.test
+required = TRUE
+configure = admin/config/content/formats
 
-; Information added by drupal.org packaging script on 2010-03-04
-version = "6.16"
+; Information added by drupal.org packaging script on 2010-09-16
+version = "7.0-alpha7"
 project = "drupal"
-datestamp = "1267662008"
+datestamp = "1284599761"
 

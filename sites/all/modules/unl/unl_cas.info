@@ -1,5 +1,6 @@
 ; $Id$
 name = UNL CAS
 description = Enables UNL CAS authentication/registration of users.
-core = 6.x
-
+core = 7.x
+files[] = unl_cas.module
+files[] = unl_loader.php

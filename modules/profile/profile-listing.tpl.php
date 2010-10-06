@@ -1,8 +1,8 @@
 <?php
-// $Id: profile-listing.tpl.php,v 1.2 2007/08/07 08:39:35 goba Exp $
+// $Id: profile-listing.tpl.php,v 1.7 2009/08/06 05:05:59 webchick Exp $
 
 /**
- * @file profile-listing.tpl.php
+ * @file
  * Default theme implementation for displaying a user and their profile data
  * for member listing pages.
  *
@@ -10,7 +10,8 @@
  *      where all the data is collected and printed out.
  *
  * Available variables:
- * - $picture: Image configured for the account linking to the users page.
+ * - $account: User's account object.
+ * - $user_picture: Image configured for the account linking to the users page.
  * - $name: User's account name linking to the users page.
  * - $profile: Keyed array of all profile fields that are set as visible
  *   in member list pages (configured by site administrators). It also needs
@@ -36,8 +37,8 @@
  * @see template_preprocess_profile_listing()
  */
 ?>
-<div class="profile">
-  <?php print $picture; ?>
+<div class="profile clearfix">
+  <?php print $user_picture; ?>
 
   <div class="name">
     <?php print $name; ?>
