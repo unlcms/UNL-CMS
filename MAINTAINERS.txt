@@ -1,4 +1,4 @@
-// $Id: MAINTAINERS.txt,v 1.46 2010/09/11 14:49:42 dries Exp $
+// $Id: MAINTAINERS.txt,v 1.48 2010/09/30 13:28:08 dries Exp $
 
 Drupal core is maintained by the community.  To participate, go to
 
@@ -31,6 +31,9 @@ Base system
 
 Batch system
 - Yves Chedemois 'yched' <http://drupal.org/user/39567>
+
+Cache system
+- Damien Tournoud 'DamZ' <http://drupal.org/user/22211>
 
 Cron system
 - Károly Négyesi 'chx' <http://drupal.org/user/9446>
@@ -277,12 +280,13 @@ Theme maintainers
 
 Bartik theme
 - Jen Simmons 'jensimmons' <http://drupal.org/user/140882>
+- Jeff Burns 'Jeff Burnz' <http://drupal.org/user/61393>
 
 Garland theme
 - ?
 
 Seven theme
-- ?
+- Jeff Burns 'Jeff Burnz' <http://drupal.org/user/61393>
 
 Stark theme
 - John Wilkins 'JohnAlbin' <http://drupal.org/user/32095>

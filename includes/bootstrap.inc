@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.418 2010/09/16 01:09:34 webchick Exp $
+// $Id: bootstrap.inc,v 1.422 2010/10/07 03:32:59 webchick Exp $
 
 /**
  * @file
@@ -9,7 +9,7 @@
 /**
  * The current system version.
  */
-define('VERSION', '7.0-alpha7');
+define('VERSION', '7.0-beta1');
 
 /**
  * Core API compatibility.
@@ -690,7 +690,7 @@ function drupal_get_filename($type, $name, $filename = NULL) {
     try {
       if (function_exists('db_query')) {
         $file = db_query("SELECT filename FROM {system} WHERE name = :name AND type = :type", array(':name' => $name, ':type' => $type))->fetchField();
-        if (file_exists($file)) {
+        if (file_exists(DRUPAL_ROOT . '/' . $file)) {
           $files[$type][$name] = $file;
         }
       }
@@ -2593,7 +2593,6 @@ function drupal_get_schema($table = NULL, $rebuild = FALSE) {
       // On some databases this function may be called before bootstrap has
       // been completed, so we force the functions we need to load just in case.
       if (function_exists('module_load_all_includes')) {
-
         // There is currently a bug in module_list() where it caches what it
         // was last called with, which is not always what you want.
         // module_load_all_includes() calls module_list(), but if this function
@@ -2601,7 +2600,7 @@ function drupal_get_schema($table = NULL, $rebuild = FALSE) {
         // uninitialized and therefore return no modules. Instead, we have to
         // "prime" module_list() here to to values we want, specifically
         // "yes rebuild the list and don't limit to bootstrap".
-        // TODO: Remove this call after http://drupal.org/node/222109 is fixed.
+        // @todo Remove this call after http://drupal.org/node/222109 is fixed.
         module_list(TRUE, FALSE);
         module_load_all_includes('install');
       }
@@ -2613,7 +2612,9 @@ function drupal_get_schema($table = NULL, $rebuild = FALSE) {
         // would cause array_merge() to set the $schema variable to NULL as well.
         // That would break modules which use $schema further down the line.
         $current = (array) module_invoke($module, 'schema');
-        _drupal_schema_initialize($module, $current);
+        // Set 'module' and 'name' keys for each table, and remove descriptions,
+        // as they needlessly slow down cache_get() for every single request.
+        _drupal_schema_initialize($current, $module);
         $schema = array_merge($schema, $current);
       }
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: drupal_web_test_case.php,v 1.232 2010/09/11 21:14:31 webchick Exp $
+// $Id: drupal_web_test_case.php,v 1.240 2010/10/05 06:17:29 webchick Exp $
 
 /**
  * Global variable that holds information about the tests being run.
@@ -603,7 +603,11 @@ class DrupalUnitTestCase extends DrupalTestCase {
 
     // Generate temporary prefixed database to ensure that tests have a clean starting point.
     $this->databasePrefix = Database::getConnection()->prefixTables('{simpletest' . mt_rand(1000, 1000000) . '}');
-    $conf['file_public_path'] = $this->originalFileDirectory . '/' . $this->databasePrefix;
+
+    // Create test directory.
+    $public_files_directory = $this->originalFileDirectory . '/simpletest/' . substr($this->databasePrefix, 10);
+    file_prepare_directory($public_files_directory, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
+    $conf['file_public_path'] = $public_files_directory;
 
     // Clone the current connection and replace the current prefix.
     $connection_info = Database::getConnectionInfo('default');
@@ -688,6 +692,13 @@ class DrupalWebTestCase extends DrupalTestCase {
    * @var string
    */
   protected $plainTextContent;
+
+  /**
+   * The value of the Drupal.settings JavaScript variable for the page currently loaded in the internal browser.
+   *
+   * @var Array
+   */
+  protected $drupalSettings;
 
   /**
    * The parsed version of the page.
@@ -980,7 +991,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   A fully loaded user object with pass_raw property, or FALSE if account
    *   creation fails.
    */
-  protected function drupalCreateUser($permissions = array('access comments', 'access content', 'post comments', 'post comments without approval')) {
+  protected function drupalCreateUser($permissions = array('access comments', 'access content', 'post comments', 'skip comment approval')) {
     // Create a role with the given permission set.
     if (!($rid = $this->drupalCreateRole($permissions))) {
       return FALSE;
@@ -1303,9 +1314,6 @@ class DrupalWebTestCase extends DrupalTestCase {
     // Rebuild caches.
     drupal_static_reset();
     drupal_flush_all_caches();
-
-    // Register actions declared by any modules.
-    actions_synchronize();
 
     // Reload global $conf array and permissions.
     $this->refreshVariables();
@@ -1698,8 +1706,14 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   Note that this is not the Drupal $form_id, but rather the HTML ID of the
    *   form, which is typically the same thing but with hyphens replacing the
    *   underscores.
+   * @param $extra_post
+   *   (optional) A string of additional data to append to the POST submission.
+   *   This can be used to add POST data for which there are no HTML fields, as
+   *   is done by drupalPostAJAX(). This string is literally appended to the
+   *   POST data, so it must already be urlencoded and contain a leading "&"
+   *   (e.g., "&extra_var1=hello+world&extra_var2=you%26me").
    */
-  protected function drupalPost($path, $edit, $submit, array $options = array(), array $headers = array(), $form_html_id = NULL) {
+  protected function drupalPost($path, $edit, $submit, array $options = array(), array $headers = array(), $form_html_id = NULL, $extra_post = NULL) {
     $submit_matches = FALSE;
     $ajax = is_array($submit);
     if (isset($path)) {
@@ -1750,23 +1764,7 @@ class DrupalWebTestCase extends DrupalTestCase {
               // http://www.w3.org/TR/html4/interact/forms.html#h-17.13.4.1
               $post[$key] = urlencode($key) . '=' . urlencode($value);
             }
-            // For AJAX requests, add '_triggering_element_*' and
-            // 'ajax_html_ids' to the POST data, as ajax.js does.
-            if ($ajax) {
-              if (is_array($submit['triggering_element'])) {
-                // Get the first key/value pair in the array.
-                $post['_triggering_element_value'] = '_triggering_element_value=' . urlencode(reset($submit['triggering_element']));
-                $post['_triggering_element_name'] = '_triggering_element_name=' . urlencode(key($submit['triggering_element']));
-              }
-              else {
-                $post['_triggering_element_name'] = '_triggering_element_name=' . urlencode($submit['triggering_element']);
-              }
-              foreach ($this->xpath('//*[@id]') as $element) {
-                $id = (string) $element['id'];
-                $post[] = urlencode('ajax_html_ids[]') . '=' . urlencode($id);
-              }
-            }
-            $post = implode('&', $post);
+            $post = implode('&', $post) . $extra_post;
           }
           $out = $this->curlExec(array(CURLOPT_URL => $action, CURLOPT_POST => TRUE, CURLOPT_POSTFIELDS => $post, CURLOPT_HTTPHEADER => $headers));
           // Ensure that any changes to variables in the other thread are picked up.
@@ -1803,70 +1801,131 @@ class DrupalWebTestCase extends DrupalTestCase {
    *
    * @see ajax.js
    */
-  protected function drupalPostAJAX($path, $edit, $triggering_element, $ajax_path = 'system/ajax', array $options = array(), array $headers = array(), $form_html_id = NULL, $ajax_settings = array()) {
+  protected function drupalPostAJAX($path, $edit, $triggering_element, $ajax_path = 'system/ajax', array $options = array(), array $headers = array(), $form_html_id = NULL, $ajax_settings = NULL) {
     // Get the content of the initial page prior to calling drupalPost(), since
     // drupalPost() replaces $this->content.
     if (isset($path)) {
       $this->drupalGet($path, $options);
     }
-    $content = $this->drupalGetContent();
-    $return = drupal_json_decode($this->drupalPost(NULL, $edit, array('path' => $ajax_path, 'triggering_element' => $triggering_element), $options, $headers, $form_html_id));
+    $content = $this->content;
+    $drupal_settings = $this->drupalSettings;
 
-    // We need $ajax_settings['wrapper'] to perform DOM manipulation.
+    // Get the AJAX settings bound to the triggering element.
+    if (!isset($ajax_settings)) {
+      if (is_array($triggering_element)) {
+        $xpath = '//*[@name="' . key($triggering_element) . '" and @value="' . current($triggering_element) . '"]';
+      }
+      else {
+        $xpath = '//*[@name="' . $triggering_element . '"]';
+      }
+      if (isset($form_html_id)) {
+        $xpath = '//form[@id="' . $form_html_id . '"]' . $xpath;
+      }
+      $element = $this->xpath($xpath);
+      $element_id = (string) $element[0]['id'];
+      $ajax_settings = $drupal_settings['ajax'][$element_id];
+    }
+
+    // Add extra information to the POST data as ajax.js does.
+    $extra_post = '';
+    if (isset($ajax_settings['submit'])) {
+      foreach ($ajax_settings['submit'] as $key => $value) {
+        $extra_post .= '&' . urlencode($key) . '=' . urlencode($value);
+      }
+    }
+    foreach ($this->xpath('//*[@id]') as $element) {
+      $id = (string) $element['id'];
+      $extra_post .= '&' . urlencode('ajax_html_ids[]') . '=' . urlencode($id);
+    }
+
+    // Submit the POST request.
+    $return = drupal_json_decode($this->drupalPost(NULL, $edit, array('path' => $ajax_path, 'triggering_element' => $triggering_element), $options, $headers, $form_html_id, $extra_post));
+
+    // Change the page content by applying the returned commands.
     if (!empty($ajax_settings) && !empty($return)) {
+      // ajax.js applies some defaults to the settings object, so do the same
+      // for what's used by this function.
+      $ajax_settings += array(
+        'method' => 'replaceWith',
+      );
       // DOM can load HTML soup. But, HTML soup can throw warnings, suppress
       // them.
       @$dom = DOMDocument::loadHTML($content);
       foreach ($return as $command) {
-        // @todo ajax.js can process commands other than 'insert' and can
-        //   process commands that include a 'selector', but these are hard to
-        //   emulate with DOMDocument. For now, we only implement 'insert'
-        //   commands that use $ajax_settings['wrapper'].
-        if ($command['command'] == 'insert' && !isset($command['selector'])) {
-          // $dom->getElementById() doesn't work when drupalPostAJAX() is
-          // invoked multiple times for a page, so use XPath instead. This also
-          // sets us up for adding support for $command['selector'], though it
-          // will require transforming a jQuery selector to XPath.
-          $xpath = new DOMXPath($dom);
-          $wrapperNode = $xpath->query('//*[@id="' . $ajax_settings['wrapper'] . '"]')->item(0);
-          if ($wrapperNode) {
-            // ajax.js adds an enclosing DIV to work around a Safari bug.
-            $newDom = new DOMDocument();
-            $newDom->loadHTML('<div>' . $command['data'] . '</div>');
-            $newNode = $dom->importNode($newDom->documentElement->firstChild->firstChild, TRUE);
-            $method = isset($command['method']) ? $command['method'] : $ajax_settings['method'];
-            // The "method" is a jQuery DOM manipulation function. Emulate each
-            // one using PHP's DOMNode API.
-            switch ($method) {
-              case 'replaceWith':
-                $wrapperNode->parentNode->replaceChild($newNode, $wrapperNode);
-                break;
-              case 'append':
-                $wrapperNode->appendChild($newNode);
-                break;
-              case 'prepend':
-                // If no firstChild, insertBefore() falls back to appendChild().
-                $wrapperNode->insertBefore($newNode, $wrapperNode->firstChild);
-                break;
-              case 'before':
-                $wrapperNode->parentNode->insertBefore($newNode, $wrapperNode);
-                break;
-              case 'after':
-                // If no nextSibling, insertBefore() falls back to appendChild().
-                $wrapperNode->parentNode->insertBefore($newNode, $wrapperNode->nextSibling);
-                break;
-              case 'html':
-                foreach ($wrapperNode->childNodes as $childNode) {
-                  $wrapperNode->removeChild($childNode);
+        switch ($command['command']) {
+          case 'settings':
+            $drupal_settings = array_merge_recursive($drupal_settings, $command['settings']);
+            break;
+
+          case 'insert':
+            // @todo ajax.js can process commands that include a 'selector', but
+            //   these are hard to emulate with DOMDocument. For now, we only
+            //   implement 'insert' commands that use $ajax_settings['wrapper'].
+            if (!isset($command['selector'])) {
+              // $dom->getElementById() doesn't work when drupalPostAJAX() is
+              // invoked multiple times for a page, so use XPath instead. This
+              // also sets us up for adding support for $command['selector'] in
+              // the future, once we figure out how to transform a jQuery
+              // selector to XPath.
+              $xpath = new DOMXPath($dom);
+              $wrapperNode = $xpath->query('//*[@id="' . $ajax_settings['wrapper'] . '"]')->item(0);
+              if ($wrapperNode) {
+                // ajax.js adds an enclosing DIV to work around a Safari bug.
+                $newDom = new DOMDocument();
+                $newDom->loadHTML('<div>' . $command['data'] . '</div>');
+                $newNode = $dom->importNode($newDom->documentElement->firstChild->firstChild, TRUE);
+                $method = isset($command['method']) ? $command['method'] : $ajax_settings['method'];
+                // The "method" is a jQuery DOM manipulation function. Emulate
+                // each one using PHP's DOMNode API.
+                switch ($method) {
+                  case 'replaceWith':
+                    $wrapperNode->parentNode->replaceChild($newNode, $wrapperNode);
+                    break;
+                  case 'append':
+                    $wrapperNode->appendChild($newNode);
+                    break;
+                  case 'prepend':
+                    // If no firstChild, insertBefore() falls back to
+                    // appendChild().
+                    $wrapperNode->insertBefore($newNode, $wrapperNode->firstChild);
+                    break;
+                  case 'before':
+                    $wrapperNode->parentNode->insertBefore($newNode, $wrapperNode);
+                    break;
+                  case 'after':
+                    // If no nextSibling, insertBefore() falls back to
+                    // appendChild().
+                    $wrapperNode->parentNode->insertBefore($newNode, $wrapperNode->nextSibling);
+                    break;
+                  case 'html':
+                    foreach ($wrapperNode->childNodes as $childNode) {
+                      $wrapperNode->removeChild($childNode);
+                    }
+                    $wrapperNode->appendChild($newNode);
+                    break;
                 }
-                $wrapperNode->appendChild($newNode);
-                break;
+              }
             }
-          }
+            break;
+
+          // @todo Add suitable implementations for these commands in order to
+          //   have full test coverage of what ajax.js can do.
+          case 'remove':
+            break;
+          case 'changed':
+            break;
+          case 'css':
+            break;
+          case 'data':
+            break;
+          case 'restripe':
+            break;
         }
       }
-      $this->drupalSetContent($dom->saveHTML());
+      $content = $dom->saveHTML();
     }
+    $this->drupalSetContent($content);
+    $this->drupalSetSettings($drupal_settings);
     return $return;
   }
 
@@ -2398,6 +2457,13 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
+   * Gets the value of the Drupal.settings JavaScript variable for the currently loaded page.
+   */
+  protected function drupalGetSettings() {
+    return $this->drupalSettings;
+  }
+
+  /**
    * Gets an array containing all e-mails sent during this test case.
    *
    * @param $filter
@@ -2435,6 +2501,42 @@ class DrupalWebTestCase extends DrupalTestCase {
     $this->url = $url;
     $this->plainTextContent = FALSE;
     $this->elements = FALSE;
+    $this->drupalSettings = array();
+    if (preg_match('/jQuery\.extend\(Drupal\.settings, (.*?)\);/', $content, $matches)) {
+      $this->drupalSettings = drupal_json_decode($matches[1]);
+    }
+  }
+
+  /**
+   * Sets the value of the Drupal.settings JavaScript variable for the currently loaded page.
+   */
+  protected function drupalSetSettings($settings) {
+    $this->drupalSettings = $settings;
+  }
+
+  /**
+   * Pass if the internal browser's URL matches the given path.
+   *
+   * @param $path
+   *   The expected system path.
+   * @param $options
+   *   (optional) Any additional options to pass for $path to url().
+   * @param $message
+   *   Message to display.
+   * @param $group
+   *   The group this message belongs to, defaults to 'Other'.
+   *
+   * @return
+   *   TRUE on pass, FALSE on fail.
+   */
+  protected function assertUrl($path, array $options = array(), $message = '', $group = 'Other') {
+    if (!$message) {
+      $message = t('Current URL is @url.', array(
+        '@url' => var_export(url($path, $options), TRUE),
+      ));
+    }
+    $options['absolute'] = TRUE;
+    return $this->assertEqual($this->getUrl(), url($path, $options), $message, $group);
   }
 
   /**
@@ -2662,7 +2764,14 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertTitle($title, $message = '', $group = 'Other') {
-    return $this->assertEqual(current($this->xpath('//title')), $title, $message, $group);
+    $actual = (string) current($this->xpath('//title'));
+    if (!$message) {
+      $message = t('Page title @actual is equal to @expected.', array(
+        '@actual' => var_export($actual, TRUE),
+        '@expected' => var_export($title, TRUE),
+      ));
+    }
+    return $this->assertEqual($actual, $title, $message, $group);
   }
 
   /**
@@ -2678,7 +2787,14 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertNoTitle($title, $message = '', $group = 'Other') {
-    return $this->assertNotEqual(current($this->xpath('//title')), $title, $message, $group);
+    $actual = (string) current($this->xpath('//title'));
+    if (!$message) {
+      $message = t('Page title @actual is not equal to @unexpected.', array(
+        '@actual' => var_export($actual, TRUE),
+        '@unexpected' => var_export($title, TRUE),
+      ));
+    }
+    return $this->assertNotEqual($actual, $title, $message, $group);
   }
 
   /**
@@ -3013,6 +3129,24 @@ class DrupalWebTestCase extends DrupalTestCase {
     $curl_code = curl_getinfo($this->curlHandle, CURLINFO_HTTP_CODE);
     $match = is_array($code) ? in_array($curl_code, $code) : $curl_code == $code;
     return $this->assertTrue($match, $message ? $message : t('HTTP response expected !code, actual !curl_code', array('!code' => $code, '!curl_code' => $curl_code)), t('Browser'));
+  }
+
+  /**
+   * Assert the page did not return the specified response code.
+   *
+   * @param $code
+   *   Response code. For example 200 is a successful page request. For a list
+   *   of all codes see http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html.
+   * @param $message
+   *   Message to display.
+   *
+   * @return
+   *   Assertion result.
+   */
+  protected function assertNoResponse($code, $message = '') {
+    $curl_code = curl_getinfo($this->curlHandle, CURLINFO_HTTP_CODE);
+    $match = is_array($code) ? in_array($curl_code, $code) : $curl_code == $code;
+    return $this->assertFalse($match, $message ? $message : t('HTTP response not expected !code, actual !curl_code', array('!code' => $code, '!curl_code' => $curl_code)), t('Browser'));
   }
 
   /**

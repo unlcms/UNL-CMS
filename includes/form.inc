@@ -1,5 +1,5 @@
 <?php
-// $Id: form.inc,v 1.492 2010/09/14 21:42:05 dries Exp $
+// $Id: form.inc,v 1.501 2010/10/05 19:59:10 dries Exp $
 
 /**
  * @defgroup forms Form builder functions
@@ -219,11 +219,13 @@ function drupal_get_form($form_id) {
  *     request (so a browser refresh does not re-submit the form). However, if
  *     'rebuild' has been set to TRUE, then a new copy of the form is
  *     immediately built and sent to the browser; instead of a redirect. This is
- *     used for multi-step forms, such as wizards and confirmation forms. Also,
- *     if a form validation handler has set 'rebuild' to TRUE and a validation
- *     error occurred, then the form is rebuilt prior to being returned,
- *     enabling form elements to be altered, as appropriate to the particular
- *     validation error.
+ *     used for multi-step forms, such as wizards and confirmation forms.
+ *     Normally, $form_state['rebuild'] is set by a submit handler, since it is
+ *     usually logic within a submit handler that determines whether a form is
+ *     done or requires another step. However, a validation handler may already
+ *     set $form_state['rebuild'] to cause the form processing to bypass submit
+ *     handlers and rebuild the form instead, even if there are no validation
+ *     errors.
  *   - input: An array of input that corresponds to $_POST or $_GET, depending
  *     on the 'method' chosen (see below).
  *   - method: The HTTP form method to use for finding the input for this form.
@@ -362,6 +364,7 @@ function form_state_defaults() {
     'build_info' => array('args' => array()),
     'temporary' => array(),
     'submitted' => FALSE,
+    'executed' => FALSE,
     'programmed' => FALSE,
     'cache'=> FALSE,
     'method' => 'post',
@@ -526,6 +529,7 @@ function form_state_keys_no_cache() {
     'method',
     'submit_handlers',
     'submitted',
+    'executed',
     'validate_handlers',
     'values',
   );
@@ -804,23 +808,39 @@ function drupal_process_form($form_id, &$form, &$form_state) {
     if (!empty($form_state['programmed'])) {
       return;
     }
+
+    // If $form_state['rebuild'] has been set and input has been processed
+    // without validation errors, we are in a multi-step workflow that is not
+    // yet complete. A new $form needs to be constructed based on the changes
+    // made to $form_state during this request. Normally, a submit handler sets
+    // $form_state['rebuild'] if a fully executed form requires another step.
+    // However, for forms that have not been fully executed (e.g., AJAX
+    // submissions triggered by non-buttons), there is no submit handler to set
+    // $form_state['rebuild']. It would not make sense to redisplay the
+    // identical form without an error for the user to correct, so we also
+    // rebuild error-free non-executed forms, regardless of
+    // $form_state['rebuild'].
+    // @todo D8: Simplify this logic; considering AJAX and non-HTML front-ends,
+    //   along with element-level #submit properties, it makes no sense to have
+    //   divergent form execution based on whether the triggering element has
+    //   #executes_submit_callback set to TRUE.
+    if (($form_state['rebuild'] || !$form_state['executed']) && !form_get_errors()) {
+      // Form building functions (e.g., _form_builder_handle_input_element())
+      // may use $form_state['rebuild'] to determine if they are running in the
+      // context of a rebuild, so ensure it is set.
+      $form_state['rebuild'] = TRUE;
+      $form = drupal_rebuild_form($form_id, $form_state, $form);
+    }
   }
 
-  // If $form_state['rebuild'] has been set and input has been processed without
-  // validation errors, we're in a multi-step workflow that is not yet complete.
-  // We need to construct a new $form based on the changes made to $form_state
-  // during this request.
-  if ($form_state['rebuild'] && $form_state['process_input'] && !form_get_errors()) {
-    $form = drupal_rebuild_form($form_id, $form_state, $form);
-  }
   // After processing the form, the form builder or a #process callback may
   // have set $form_state['cache'] to indicate that the form and form state
   // shall be cached. But the form may only be cached if the 'no_cache' property
   // is not set to TRUE. Only cache $form as it was prior to form_builder(),
   // because form_builder() must run for each request to accomodate new user
-  // input. We do not cache here for forms that have been rebuilt, because
-  // drupal_rebuild_form() takes care of that.
-  elseif ($form_state['cache'] && empty($form_state['no_cache'])) {
+  // input. Rebuilt forms are not cached here, because drupal_rebuild_form()
+  // already takes care of that.
+  if (!$form_state['rebuild'] && $form_state['cache'] && empty($form_state['no_cache'])) {
     form_set_cache($form['#build_id'], $unprocessed_form, $form_state);
   }
 }
@@ -1142,6 +1162,19 @@ function _form_validate(&$elements, &$form_state, $form_id = NULL) {
             }
           }
         }
+        // Non-multiple select fields always have a value in HTML. If the user
+        // does not change the form, it will be the value of the first option.
+        // Because of this, form validation for the field will almost always
+        // pass, even if the user did not select anything. To work around this
+        // browser behavior, required select fields without a #default_value get
+        // an additional, first empty option. In case the submitted value is
+        // identical to the empty option's value, we reset the element's value
+        // to NULL to trigger the regular #required handling below.
+        // @see form_process_select()
+        elseif ($elements['#type'] == 'select' && !$elements['#multiple'] && $elements['#required'] && !isset($elements['#default_value']) && $elements['#value'] === $elements['#empty_value']) {
+          $elements['#value'] = NULL;
+          form_set_value($elements, NULL, $form_state);
+        }
         elseif (!isset($options[$elements['#value']])) {
           form_error($elements, $t('An illegal choice has been detected. Please contact the site administrator.'));
           watchdog('form', 'Illegal choice %choice in %name element.', array('%choice' => $elements['#value'], '%name' => empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']), WATCHDOG_ERROR);
@@ -1183,13 +1216,27 @@ function _form_validate(&$elements, &$form_state, $form_id = NULL) {
     }
 
     // Make sure a value is passed when the field is required.
-    // A simple call to empty() will not cut it here as some fields, like
-    // checkboxes, can return a valid value of '0'. Instead, check the
-    // length if it's a string, and the item count if it's an array.
-    // An unchecked checkbox has a #value of integer 0, different than string
-    // '0', which could be a valid value.
-    if (isset($elements['#needs_validation']) && $elements['#required'] && (!count($elements['#value']) || (is_string($elements['#value']) && strlen(trim($elements['#value'])) == 0) || $elements['#value'] === 0)) {
-      form_error($elements, $t('!name field is required.', array('!name' => $elements['#title'])));
+    if (isset($elements['#needs_validation']) && $elements['#required']) {
+      // A simple call to empty() will not cut it here as some fields, like
+      // checkboxes, can return a valid value of '0'. Instead, check the
+      // length if it's a string, and the item count if it's an array.
+      // An unchecked checkbox has a #value of integer 0, different than string
+      // '0', which could be a valid value.
+      $is_empty_multiple = (!count($elements['#value']));
+      $is_empty_string = (is_string($elements['#value']) && drupal_strlen(trim($elements['#value'])) == 0);
+      $is_empty_value = ($elements['#value'] === 0);
+      if ($is_empty_multiple || $is_empty_string || $is_empty_value) {
+        // Although discouraged, a #title is not mandatory for form elements. In
+        // case there is no #title, we cannot set a form error message.
+        // Instead of setting no #title, form constructors are encouraged to set
+        // #title_display to 'invisible' to improve accessibility.
+        if (isset($elements['#title'])) {
+          form_error($elements, $t('!name field is required.', array('!name' => $elements['#title'])));
+        }
+        else {
+          form_error($elements);
+        }
+      }
     }
 
     // Call user-defined form level validators.
@@ -1414,17 +1461,20 @@ function form_get_errors() {
 }
 
 /**
- * Return the error message filed against the form with the specified name.
+ * Returns the error message filed against the given form element.
+ *
+ * Form errors higher up in the form structure override deeper errors as well as
+ * errors on the element itself.
  */
 function form_get_error($element) {
   $form = form_set_error();
-  $key = $element['#parents'][0];
-  if (isset($form[$key])) {
-    return $form[$key];
-  }
-  $key = implode('][', $element['#parents']);
-  if (isset($form[$key])) {
-    return $form[$key];
+  $parents = array();
+  foreach ($element['#parents'] as $parent) {
+    $parents[] = $parent;
+    $key = implode('][', $parents);
+    if (isset($form[$key])) {
+      return $form[$key];
+    }
   }
 }
 
@@ -2059,7 +2109,7 @@ function form_type_checkboxes_value($element, $input = FALSE) {
     // checkboxes to the server at all). This will not affect non-programmatic
     // form submissions, since a checkbox can never legitimately be NULL.
     foreach ($input as $key => $value) {
-      if (is_null($value)) {
+      if (!isset($value)) {
         unset($input[$key]);
       }
     }
@@ -2114,6 +2164,15 @@ function form_type_select_value($element, $input = FALSE) {
       else {
         return (isset($element['#default_value']) && is_array($element['#default_value'])) ? $element['#default_value'] : array();
       }
+    }
+    // Non-multiple select elements may have an empty option preprended to them
+    // (see form_process_select()). When this occurs, usually #empty_value is
+    // an empty string, but some forms set #empty_value to integer 0 or some
+    // other non-string constant. PHP receives all submitted form input as
+    // strings, but if the empty option is selected, set the value to match the
+    // empty value exactly.
+    elseif (isset($element['#empty_value']) && $input === (string) $element['#empty_value']) {
+      return $element['#empty_value'];
     }
     else {
       return $input;
@@ -2235,6 +2294,72 @@ function _form_options_flatten($array) {
 }
 
 /**
+ * Processes a select list form element.
+ *
+ * This process callback is mandatory for select fields, since all user agents
+ * automatically preselect the first available option of single (non-multiple)
+ * select lists.
+ *
+ * @param $element
+ *   The form element to process. Properties used:
+ *   - #multiple: (optional) Indicates whether one or more options can be
+ *     selected. Defaults to FALSE.
+ *   - #default_value: Must be NULL or not set in case there is no value for the
+ *     element yet, in which case a first default option is inserted by default.
+ *     Whether this first option is a valid option depends on whether the field
+ *     is #required or not.
+ *   - #required: (optional) Whether the user needs to select an option (TRUE)
+ *     or not (FALSE). Defaults to FALSE.
+ *   - #empty_option: (optional) The label to show for the first default option.
+ *     By default, the label is automatically set to "- Please select -" for a
+ *     required field and "- None -" for an optional field.
+ *   - #empty_value: (optional) The value for the first default option, which is
+ *     used to determine whether the user submitted a value or not.
+ *     - If #required is TRUE, this defaults to '' (an empty string).
+ *     - If #required is not TRUE and this value isn't set, then no extra option
+ *       is added to the select control, leaving the control in a slightly
+ *       illogical state, because there's no way for the user to select nothing,
+ *       since all user agents automatically preselect the first available
+ *       option. But people are used to this being the behavior of select
+ *       controls.
+ *       @todo Address the above issue in Drupal 8.
+ *     - If #required is not TRUE and this value is set (most commonly to an
+ *       empty string), then an extra option (see #empty_option above)
+ *       representing a "non-selection" is added with this as its value.
+ *
+ * @see _form_validate()
+ */
+function form_process_select($element) {
+  // #multiple select fields need a special #name.
+  if ($element['#multiple']) {
+    $element['#attributes']['multiple'] = 'multiple';
+    $element['#attributes']['name'] = $element['#name'] . '[]';
+  }
+  // A non-#multiple select needs special handling to prevent user agents from
+  // preselecting the first option without intention. #multiple select lists do
+  // not get an empty option, as it would not make sense, user interface-wise.
+  else {
+    $required = $element['#required'];
+    // If the element is required and there is no #default_value, then add an
+    // empty option that will fail validation, so that the user is required to
+    // make a choice. Also, if there's a value for #empty_value or
+    // #empty_option, then add an option that represents emptiness.
+    if (($required && !isset($element['#default_value'])) || isset($element['#empty_value']) || isset($element['#empty_option'])) {
+      $element += array(
+        '#empty_value' => '',
+        '#empty_option' => $required ? t('- Select - ') : t('- None -'),
+      );
+      // The empty option is prepended to #options and purposively not merged
+      // to prevent another option in #options mistakenly using the same value
+      // as #empty_value.
+      $empty_option = array($element['#empty_value'] => $element['#empty_option']);
+      $element['#options'] = $empty_option + $element['#options'];
+    }
+  }
+  return $element;
+}
+
+/**
  * Returns HTML for a select form element.
  *
  * It is possible to group options together; to do this, change the format of
@@ -2251,10 +2376,10 @@ function _form_options_flatten($array) {
  */
 function theme_select($variables) {
   $element = $variables['element'];
-  $size = $element['#size'] ? ' size="' . $element['#size'] . '"' : '';
+  element_set_attributes($element, array('id', 'name', 'size'));
   _form_set_class($element, array('form-select'));
-  $multiple = $element['#multiple'];
-  return '<select name="' . $element['#name'] . '' . ($multiple ? '[]' : '') . '"' . ($multiple ? ' multiple="multiple" ' : '') . drupal_attributes($element['#attributes']) . ' id="' . $element['#id'] . '" ' . $size . '>' . form_select_options($element) . '</select>';
+
+  return '<select' . drupal_attributes($element['#attributes']) . '>' . form_select_options($element) . '</select>';
 }
 
 /**
@@ -2276,7 +2401,7 @@ function form_select_options($element, $choices = NULL) {
   // array_key_exists() accommodates the rare event where $element['#value'] is NULL.
   // isset() fails in this situation.
   $value_valid = isset($element['#value']) || array_key_exists('#value', $element);
-  $value_is_array = is_array($element['#value']);
+  $value_is_array = $value_valid && is_array($element['#value']);
   $options = '';
   foreach ($choices as $key => $choice) {
     if (is_array($choice)) {
@@ -2364,6 +2489,8 @@ function form_get_options($element, $key) {
  */
 function theme_fieldset($variables) {
   $element = $variables['element'];
+  element_set_attributes($element, array('id'));
+  _form_set_class($element, array('form-wrapper'));
 
   $output = '<fieldset' . drupal_attributes($element['#attributes']) . '>';
   if (!empty($element['#title'])) {
@@ -2397,10 +2524,9 @@ function theme_fieldset($variables) {
 function theme_radio($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'radio';
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['value'] = $element['#return_value'];
-  if (check_plain($element['#value']) == $element['#return_value']) {
+  element_set_attributes($element, array('id', 'name', '#return_value' => 'value'));
+
+  if (isset($element['#return_value']) && check_plain($element['#value']) == $element['#return_value']) {
     $element['#attributes']['checked'] = 'checked';
   }
   _form_set_class($element, array('form-radio'));
@@ -2422,7 +2548,7 @@ function theme_radio($variables) {
 function theme_radios($variables) {
   $element = $variables['element'];
   $attributes = array();
-  if (!empty($element['#id'])) {
+  if (isset($element['#id'])) {
     $attributes['id'] = $element['#id'];
   }
   $attributes['class'] = 'form-radios';
@@ -2507,9 +2633,11 @@ function theme_date($variables) {
 function form_process_date($element) {
   // Default to current date
   if (empty($element['#value'])) {
-    $element['#value'] = array('day' => format_date(REQUEST_TIME, 'custom', 'j'),
-                            'month' => format_date(REQUEST_TIME, 'custom', 'n'),
-                            'year' => format_date(REQUEST_TIME, 'custom', 'Y'));
+    $element['#value'] = array(
+      'day' => format_date(REQUEST_TIME, 'custom', 'j'),
+      'month' => format_date(REQUEST_TIME, 'custom', 'n'),
+      'year' => format_date(REQUEST_TIME, 'custom', 'Y'),
+    );
   }
 
   $element['#tree'] = TRUE;
@@ -2529,9 +2657,11 @@ function form_process_date($element) {
       case 'day':
         $options = drupal_map_assoc(range(1, 31));
         break;
+
       case 'month':
         $options = drupal_map_assoc(range(1, 12), 'map_month');
         break;
+
       case 'year':
         $options = drupal_map_assoc(range(1900, 2050));
         break;
@@ -2632,11 +2762,10 @@ function theme_checkbox($variables) {
   $element = $variables['element'];
   $t = get_t();
   $element['#attributes']['type'] = 'checkbox';
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['value'] = $element['#return_value'];
+  element_set_attributes($element, array('id', 'name', '#return_value' => 'value'));
+
   // Unchecked checkbox has #value of integer 0.
-  if ($element['#value'] !== 0 && $element['#value'] == $element['#return_value']) {
+  if (isset($element['#return_value']) && isset($element['#value']) && $element['#value'] !== 0 && $element['#value'] == $element['#return_value']) {
     $element['#attributes']['checked'] = 'checked';
   }
   _form_set_class($element, array('form-checkbox'));
@@ -2657,12 +2786,12 @@ function theme_checkbox($variables) {
 function theme_checkboxes($variables) {
   $element = $variables['element'];
   $attributes = array();
-  if (!empty($element['#id'])) {
+  if (isset($element['#id'])) {
     $attributes['id'] = $element['#id'];
   }
-  $attributes['class'] = 'form-checkboxes';
+  $attributes['class'][] = 'form-checkboxes';
   if (!empty($element['#attributes']['class'])) {
-    $attributes['class'] .= ' ' . implode(' ', $element['#attributes']['class']);
+    $attributes['class'] = array_merge($attributes['class'], $element['#attributes']['class']);
   }
   return '<div' . drupal_attributes($attributes) . '>' . (!empty($element['#children']) ? $element['#children'] : '') . '</div>';
 }
@@ -2823,12 +2952,13 @@ function theme_tableselect($variables) {
     // Add an empty header or a "Select all" checkbox to provide room for the
     // checkboxes/radios in the first table column.
     if ($element['#js_select']) {
-      // Add a "Select all" checkbox when checkboxes are displayed.
+      // Add a "Select all" checkbox.
       drupal_add_js('misc/tableselect.js');
       array_unshift($header, array('class' => array('select-all')));
     }
     else {
-      // Add an empty header when radio buttons are displayed.
+      // Add an empty header when radio buttons are displayed or a "Select all"
+      // checkbox is not desired.
       array_unshift($header, '');
     }
   }
@@ -2931,14 +3061,13 @@ function form_process_fieldset(&$element, &$form_state) {
   }
 
   // Contains form element summary functionalities.
-  $element['#attached']['js']['misc/form.js'] = array('weight' => JS_LIBRARY + 1);
+  $element['#attached']['js']['misc/form.js'] = array('group' => JS_LIBRARY, 'weight' => 1);
 
   // The .form-wrapper class is required for #states to treat fieldsets like
   // containers.
   if (!isset($element['#attributes']['class'])) {
     $element['#attributes']['class'] = array();
   }
-  $element['#attributes']['class'][] = 'form-wrapper';
 
   // Collapsible fieldsets
   if (!empty($element['#collapsible'])) {
@@ -2948,7 +3077,6 @@ function form_process_fieldset(&$element, &$form_state) {
       $element['#attributes']['class'][] = 'collapsed';
     }
   }
-  $element['#attributes']['id'] = $element['#id'];
 
   return $element;
 }
@@ -2964,6 +3092,10 @@ function form_process_fieldset(&$element, &$form_state) {
  *   The modified element with all group members.
  */
 function form_pre_render_fieldset($element) {
+  // Fieldsets may be rendered outside of a Form API context.
+  if (!isset($element['#parents']) || !isset($element['#groups'])) {
+    return $element;
+  }
   // Inject group member elements belonging to this group.
   $parents = implode('][', $element['#parents']);
   $children = element_children($element['#groups'][$parents]);
@@ -3073,8 +3205,7 @@ function theme_vertical_tabs($variables) {
  * @ingroup themeable
  */
 function theme_submit($variables) {
-  $element = $variables['element'];
-  return theme('button', $element);
+  return theme('button', $variables['element']);
 }
 
 /**
@@ -3090,11 +3221,8 @@ function theme_submit($variables) {
 function theme_button($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'submit';
-  if (!empty($element['#name'])) {
-    $element['#attributes']['name'] = $element['#name'];
-  }
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['value'] = $element['#value'];
+  element_set_attributes($element, array('id', 'name', 'value'));
+
   $element['#attributes']['class'][] = 'form-' . $element['#button_type'];
   if (!empty($element['#attributes']['disabled'])) {
     $element['#attributes']['class'][] = 'form-button-disabled';
@@ -3116,11 +3244,8 @@ function theme_button($variables) {
 function theme_image_button($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'image';
-  $element['#attributes']['name'] = $element['#name'];
-  if (!empty($element['#value'])) {
-    $element['#attributes']['value'] = $element['#value'];
-  }
-  $element['#attributes']['id'] = $element['#id'];
+  element_set_attributes($element, array('id', 'name', 'value'));
+
   $element['#attributes']['src'] = file_create_url($element['#src']);
   if (!empty($element['#title'])) {
     $element['#attributes']['alt'] = $element['#title'];
@@ -3148,9 +3273,7 @@ function theme_image_button($variables) {
 function theme_hidden($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'hidden';
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['value'] = $element['#value'];
+  element_set_attributes($element, array('name', 'value'));
   return '<input' . drupal_attributes($element['#attributes']) . " />\n";
 }
 
@@ -3168,15 +3291,7 @@ function theme_hidden($variables) {
 function theme_textfield($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'text';
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['value'] = $element['#value'];
-  if (!empty($element['#size'])) {
-    $element['#attributes']['size'] = $element['#size'];
-  }
-  if (!empty($element['#maxlength'])) {
-    $element['#attributes']['maxlength'] = $element['#maxlength'];
-  }
+  element_set_attributes($element, array('id', 'name', 'value', 'size', 'maxlength'));
   _form_set_class($element, array('form-text'));
 
   $extra = '';
@@ -3186,7 +3301,7 @@ function theme_textfield($variables) {
 
     $attributes = array();
     $attributes['type'] = 'hidden';
-    $attributes['id'] = $element['#id'] . '-autocomplete';
+    $attributes['id'] = $element['#attributes']['id'] . '-autocomplete';
     $attributes['value'] = url($element['#autocomplete_path'], array('absolute' => TRUE));
     $attributes['disabled'] = 'disabled';
     $attributes['class'][] = 'autocomplete';
@@ -3210,14 +3325,13 @@ function theme_textfield($variables) {
  */
 function theme_form($variables) {
   $element = $variables['element'];
-  if (!empty($element['#action'])) {
+  if (isset($element['#action'])) {
     $element['#attributes']['action'] = drupal_strip_dangerous_protocols($element['#action']);
   }
-  $element['#attributes']['method'] = $element['#method'];
+  element_set_attributes($element, array('method', 'id'));
   if (empty($element['#attributes']['accept-charset'])) {
     $element['#attributes']['accept-charset'] = "UTF-8";
   }
-  $element['#attributes']['id'] = $element['#id'];
   // Anonymous DIV to satisfy XHTML compliance.
   return '<form' . drupal_attributes($element['#attributes']) . '><div>' . $element['#children'] . '</div></form>';
 }
@@ -3235,10 +3349,7 @@ function theme_form($variables) {
  */
 function theme_textarea($variables) {
   $element = $variables['element'];
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['cols'] = $element['#cols'];
-  $element['#attributes']['rows'] = $element['#rows'];
+  element_set_attributes($element, array('id', 'name', 'cols', 'rows'));
   _form_set_class($element, array('form-textarea'));
 
   $wrapper_attributes = array(
@@ -3271,15 +3382,7 @@ function theme_textarea($variables) {
 function theme_password($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'password';
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  $element['#attributes']['value'] = $element['#value'];
-  if (!empty($element['#size'])) {
-    $element['#attributes']['size'] = $element['#size'];
-  }
-  if (!empty($element['#maxlength'])) {
-    $element['#attributes']['maxlength'] = $element['#maxlength'];
-  }
+  element_set_attributes($element, array('id', 'name', 'value', 'size', 'maxlength'));
   _form_set_class($element, array('form-text'));
 
   return '<input' . drupal_attributes($element['#attributes']) . ' />';
@@ -3316,11 +3419,7 @@ function form_process_weight($element) {
 function theme_file($variables) {
   $element = $variables['element'];
   $element['#attributes']['type'] = 'file';
-  $element['#attributes']['name'] = $element['#name'];
-  $element['#attributes']['id'] = $element['#id'];
-  if (!empty($element['#size'])) {
-    $element['#attributes']['size'] = $element['#size'];
-  }
+  element_set_attributes($element, array('id', 'name', 'size'));
   _form_set_class($element, array('form-file'));
 
   return '<input' . drupal_attributes($element['#attributes']) . ' />';
@@ -3373,9 +3472,15 @@ function theme_file($variables) {
  * @ingroup themeable
  */
 function theme_form_element($variables) {
-  $element = $variables['element'];
+  $element = &$variables['element'];
   // This is also used in the installer, pre-database setup.
   $t = get_t();
+
+  // This function is invoked as theme wrapper, but the rendered form element
+  // may not necessarily have been processed by form_builder().
+  $element += array(
+    '#title_display' => 'before',
+  );
 
   // Add element #id for #type 'item'.
   if (isset($element['#markup']) && !empty($element['#id'])) {
@@ -3404,11 +3509,11 @@ function theme_form_element($variables) {
 
   switch ($element['#title_display']) {
     case 'before':
+    case 'invisible':
       $output .= ' ' . theme('form_element_label', $variables);
       $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
       break;
 
-    case 'invisible':
     case 'after':
       $output .= ' ' . $prefix . $element['#children'] . $suffix;
       $output .= ' ' . theme('form_element_label', $variables) . "\n";
@@ -3422,7 +3527,7 @@ function theme_form_element($variables) {
   }
 
   if (!empty($element['#description'])) {
-    $output .= ' <div class="description">' . $element['#description'] . "</div>\n";
+    $output .= '<div class="description">' . $element['#description'] . "</div>\n";
   }
 
   $output .= "</div>\n";
@@ -3521,10 +3626,13 @@ function _form_set_class(&$element, $class = array()) {
     }
     $element['#attributes']['class'] = array_merge($element['#attributes']['class'], $class);
   }
-  if ($element['#required']) {
+  // This function is invoked from form element theme functions, but the
+  // rendered form element may not necessarily have been processed by
+  // form_builder().
+  if (!empty($element['#required'])) {
     $element['#attributes']['class'][] = 'required';
   }
-  if (form_get_error($element)) {
+  if (isset($element['#parents']) && form_get_error($element)) {
     $element['#attributes']['class'][] = 'error';
   }
 }
@@ -3897,7 +4005,7 @@ function _batch_queue($batch_set) {
 
   // The class autoloader is not available when running update.php, so make
   // sure the files are manually included.
-  if (is_null($queues)) {
+  if (!isset($queues)) {
     $queues = array();
     require_once DRUPAL_ROOT . '/modules/system/system.queue.inc';
     require_once DRUPAL_ROOT . '/includes/batch.queue.inc';

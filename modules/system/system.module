@@ -1,5 +1,5 @@
 <?php
-// $Id: system.module,v 1.960 2010/09/11 06:03:12 webchick Exp $
+// $Id: system.module,v 1.976 2010/10/05 19:59:10 dries Exp $
 
 /**
  * @file
@@ -87,7 +87,7 @@ function system_help($path, $arg) {
       $output .= '<dd>' . t('Actions are individual tasks that the system can do, such as unpublishing a piece of content or banning a user. Modules, such as the <a href="@trigger-help">Trigger module</a>, can fire these actions when certain system events happen; for example, when a new post is added or when a user logs in. Modules may also provide additional actions. Visit the <a href="@actions">Actions page</a> to configure actions.', array('@trigger-help' => url('admin/help/trigger'), '@actions' => url('admin/config/system/actions'))) . '</dd>';
       $output .= '</dl>';
       return $output;
-    case 'admin/by-module':
+    case 'admin/index':
       return '<p>' . t('This page shows you all available administration tasks for each module.') . '</p>';
     case 'admin/appearance':
       $output = '<p>' . t('Set and configure the default theme for your website.  Alternative <a href="@themes">themes</a> are available.', array('@themes' => 'http://drupal.org/project/themes')) . '</p>';
@@ -184,7 +184,7 @@ function system_theme() {
       'variables' => array('content' => NULL),
       'file' => 'system.admin.inc',
     ),
-    'system_admin_by_module' => array(
+    'system_admin_index' => array(
       'variables' => array('menu_items' => NULL),
       'file' => 'system.admin.inc',
     ),
@@ -399,9 +399,8 @@ function system_element_info() {
   );
   $types['select'] = array(
     '#input' => TRUE,
-    '#size' => 0,
     '#multiple' => FALSE,
-    '#process' => array('ajax_process_form'),
+    '#process' => array('form_process_select', 'ajax_process_form'),
     '#theme' => 'select',
     '#theme_wrappers' => array('form_element'),
   );
@@ -510,6 +509,7 @@ function system_menu() {
     'page callback' => 'ajax_form_callback',
     'delivery callback' => 'ajax_deliver',
     'access callback' => TRUE,
+    'theme callback' => 'ajax_base_page_theme',
     'type' => MENU_CALLBACK,
     'file path' => 'includes',
     'file' => 'form.inc',
@@ -522,9 +522,9 @@ function system_menu() {
     'file' => 'system.admin.inc',
   );
   $items['admin'] = array(
-    'title' => 'Administer',
+    'title' => 'Administration',
     'access arguments' => array('access administration pages'),
-    'page callback' => 'system_main_admin_page',
+    'page callback' => 'system_admin_menu_block_page',
     'weight' => 9,
     'menu_name' => 'management',
     'theme callback' => 'variable_get',
@@ -538,17 +538,14 @@ function system_menu() {
     'type' => MENU_CALLBACK,
     'file' => 'system.admin.inc',
   );
-  $items['admin/by-task'] = array(
-    'title' => 'By task',
-    'page callback' => 'system_main_admin_page',
-    'access arguments' => array('access administration pages'),
+  $items['admin/tasks'] = array(
+    'title' => 'Tasks',
     'type' => MENU_DEFAULT_LOCAL_TASK,
-    'file' => 'system.admin.inc',
     'weight' => -20,
   );
-  $items['admin/by-module'] = array(
-    'title' => 'By module',
-    'page callback' => 'system_admin_by_module',
+  $items['admin/index'] = array(
+    'title' => 'Index',
+    'page callback' => 'system_admin_index',
     'access arguments' => array('access administration pages'),
     'type' => MENU_LOCAL_TASK,
     'weight' => -18,
@@ -568,7 +565,7 @@ function system_menu() {
   // Appearance.
   $items['admin/appearance'] = array(
     'title' => 'Appearance',
-    'description' => 'Select and configure your themes',
+    'description' => 'Select and configure your themes.',
     'page callback' => 'system_themes_page',
     'access arguments' => array('administer themes'),
     'position' => 'left',
@@ -634,7 +631,7 @@ function system_menu() {
   // Modules.
   $items['admin/modules'] = array(
     'title' => 'Modules',
-    'description' => 'Enable or disable modules',
+    'description' => 'Enable or disable modules.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_modules'),
     'access arguments' => array('administer modules'),
@@ -648,7 +645,7 @@ function system_menu() {
   $items['admin/modules/list/confirm'] = array(
     'title' => 'List',
     'access arguments' => array('administer modules'),
-    'type' => MENU_CALLBACK,
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
   );
   $items['admin/modules/uninstall'] = array(
     'title' => 'Uninstall',
@@ -661,14 +658,14 @@ function system_menu() {
   $items['admin/modules/uninstall/confirm'] = array(
     'title' => 'Uninstall',
     'access arguments' => array('administer modules'),
-    'type' => MENU_CALLBACK,
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'system.admin.inc',
   );
 
   // Configuration.
   $items['admin/config'] = array(
     'title' => 'Configuration',
-    'description' => 'Administer settings',
+    'description' => 'Administer settings.',
     'page callback' => 'system_admin_config_page',
     'access arguments' => array('access administration pages'),
     'file' => 'system.admin.inc',
@@ -688,7 +685,6 @@ function system_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_ip_blocking_delete', 5),
     'access arguments' => array('block IP addresses'),
-    'type' => MENU_CALLBACK,
     'file' => 'system.admin.inc',
   );
 
@@ -829,7 +825,6 @@ function system_menu() {
   $items['admin/config/regional/date-time/types/%/delete'] = array(
     'title' => 'Delete date type',
     'description' => 'Allow users to delete a configured date type.',
-    'type' => MENU_CALLBACK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_delete_date_format_type_form', 5),
     'access arguments' => array('administer site configuration'),
@@ -857,7 +852,6 @@ function system_menu() {
   $items['admin/config/regional/date-time/formats/%/edit'] = array(
     'title' => 'Edit date format',
     'description' => 'Allow users to edit a configured date format.',
-    'type' => MENU_CALLBACK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_configure_date_formats_form', 5),
     'access arguments' => array('administer site configuration'),
@@ -866,7 +860,6 @@ function system_menu() {
   $items['admin/config/regional/date-time/formats/%/delete'] = array(
     'title' => 'Delete date format',
     'description' => 'Allow users to delete a configured date format.',
-    'type' => MENU_CALLBACK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_date_delete_format_form', 5),
     'access arguments' => array('administer site configuration'),
@@ -874,9 +867,9 @@ function system_menu() {
   );
   $items['admin/config/regional/date-time/formats/lookup'] = array(
     'title' => 'Date and time lookup',
-    'type' => MENU_CALLBACK,
     'page callback' => 'system_date_time_lookup',
     'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
     'file' => 'system.admin.inc',
   );
 
@@ -938,7 +931,7 @@ function system_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_actions_configure'),
     'access arguments' => array('administer actions'),
-    'type' => MENU_CALLBACK,
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'system.admin.inc',
   );
   $items['admin/config/system/actions/delete/%actions'] = array(
@@ -947,7 +940,6 @@ function system_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('system_actions_delete_form', 5),
     'access arguments' => array('administer actions'),
-    'type' => MENU_CALLBACK,
     'file' => 'system.admin.inc',
   );
   $items['admin/config/system/actions/orphan'] = array(
@@ -1007,7 +999,7 @@ function system_menu() {
   // Reports.
   $items['admin/reports'] = array(
     'title' => 'Reports',
-    'description' => 'View reports, updates, and errors',
+    'description' => 'View reports, updates, and errors.',
     'page callback' => 'system_admin_menu_block_page',
     'access arguments' => array('access site reports'),
     'weight' => 5,
@@ -1074,9 +1066,8 @@ function system_library() {
     'website' => 'http://jquery.com',
     'version' => '1.4.2',
     'js' => array(
-      'misc/jquery.js' => array('weight' => JS_LIBRARY - 20),
+      'misc/jquery.js' => array('group' => JS_LIBRARY, 'weight' => -20),
     ),
-    'preprocess' => TRUE,
   );
 
   // jQuery Once.
@@ -1085,9 +1076,8 @@ function system_library() {
     'website' => 'http://plugins.jquery.com/project/once',
     'version' => '1.2',
     'js' => array(
-      'misc/jquery.once.js' => array('weight' => JS_LIBRARY - 19),
+      'misc/jquery.once.js' => array('group' => JS_LIBRARY, 'weight' => -19),
     ),
-    'preprocess' => TRUE,
   );
 
   // jQuery Form Plugin.
@@ -1152,7 +1142,7 @@ function system_library() {
     'website' => 'http://jqueryui.com',
     'version' => '1.8',
     'js' => array(
-      'misc/ui/jquery.ui.core.min.js' => array('weight' => JS_LIBRARY - 11),
+      'misc/ui/jquery.ui.core.min.js' => array('group' => JS_LIBRARY, 'weight' => -11),
     ),
     'css' => array(
       'misc/ui/jquery.ui.core.css' => array(),
@@ -1369,7 +1359,7 @@ function system_library() {
     'website' => 'http://docs.jquery.com/UI/Widget',
     'version' => '1.8',
     'js' => array(
-      'misc/ui/jquery.ui.widget.min.js' => array('weight' => JS_LIBRARY - 10),
+      'misc/ui/jquery.ui.widget.min.js' => array('group' => JS_LIBRARY, 'weight' => -10),
     ),
     'dependencies' => array(
       array('system', 'ui'),
@@ -1380,7 +1370,7 @@ function system_library() {
     'website' => 'http://jqueryui.com/demos/effect/',
     'version' => '1.8',
     'js' => array(
-      'misc/ui/jquery.effects.core.min.js' => array('weight' => JS_LIBRARY - 9),
+      'misc/ui/jquery.effects.core.min.js' => array('group' => JS_LIBRARY, 'weight' => -9),
     ),
   );
   $libraries['effects.blind'] = array(
@@ -1730,7 +1720,7 @@ function system_filetransfer_backends() {
   $backends = array();
 
   // This is the default, will be available on most systems.
-  if (function_exists('ftp_connect') || ini_get('allow_url_fopen')) {
+  if (function_exists('ftp_connect')) {
     $backends['ftp'] = array(
       'title' => t('FTP'),
       'class' => 'FileTransferFTP',
@@ -1829,14 +1819,15 @@ function _system_filetransfer_backend_form_common() {
  */
 function system_init() {
   $path = drupal_get_path('module', 'system');
-  // Add the CSS for this module.
+  // Add the CSS for this module. These aren't in system.info, because they
+  // need to be in the CSS_SYSTEM group rather than the CSS_DEFAULT group.
+  drupal_add_css($path . '/system.base.css', array('group' => CSS_SYSTEM, 'every_page' => TRUE));
   if (arg(0) == 'admin' || (variable_get('node_admin_theme', '0') && arg(0) == 'node' && (arg(1) == 'add' || arg(2) == 'edit' || arg(2) == 'delete'))) {
-    drupal_add_css($path . '/admin.css', array('weight' => CSS_SYSTEM));
+    drupal_add_css($path . '/system.admin.css', array('group' => CSS_SYSTEM));
   }
-  drupal_add_css($path . '/system.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
-  drupal_add_css($path . '/system-behavior.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
-  drupal_add_css($path . '/system-menus.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
-  drupal_add_css($path . '/system-messages.css', array('weight' => CSS_SYSTEM, 'preprocess' => TRUE));
+  drupal_add_css($path . '/system.menus.css', array('group' => CSS_SYSTEM, 'every_page' => TRUE));
+  drupal_add_css($path . '/system.messages.css', array('group' => CSS_SYSTEM, 'every_page' => TRUE));
+  drupal_add_css($path . '/system.theme.css', array('group' => CSS_SYSTEM, 'every_page' => TRUE));
 
   // Ignore slave database servers for this request.
   //
@@ -1872,13 +1863,13 @@ function system_add_module_assets() {
     if (!empty($info['stylesheets'])) {
       foreach ($info['stylesheets'] as $media => $stylesheets) {
         foreach ($stylesheets as $stylesheet) {
-          drupal_add_css($stylesheet, array('media' => $media, 'preprocess' => TRUE));
+          drupal_add_css($stylesheet, array('every_page' => TRUE, 'media' => $media));
         }
       }
     }
     if (!empty($info['scripts'])) {
       foreach ($info['scripts'] as $script) {
-        drupal_add_js($script, array('preprocess' => TRUE));
+        drupal_add_js($script, array('every_page' => TRUE));
       }
     }
   }
@@ -2031,6 +2022,14 @@ function system_preprocess_block(&$variables) {
  */
 function system_admin_menu_block($item) {
   $cache = &drupal_static(__FUNCTION__, array());
+  // If we are calling this function for a menu item that corresponds to a
+  // local task (for example, admin/tasks), then we want to retrieve the
+  // parent item's child links, not this item's (since this item won't have
+  // any).
+  if ($item['tab_root'] != $item['path']) {
+    $item = menu_get_item($item['tab_root_href']);
+  }
+
   if (!isset($item['mlid'])) {
     $item += db_query("SELECT mlid, menu_name FROM {menu_links} ml WHERE ml.router_path = :path AND module = 'system'", array(':path' => $item['path']))->fetchAssoc();
   }
@@ -2040,52 +2039,30 @@ function system_admin_menu_block($item) {
   }
 
   $content = array();
-  $default_task = NULL;
-  $has_subitems = FALSE;
-  $result = db_query("
-    SELECT m.load_functions, m.to_arg_functions, m.access_callback, m.access_arguments, m.page_callback, m.page_arguments, m.delivery_callback, m.title, m.title_callback, m.title_arguments, m.theme_callback, m.theme_arguments, m.type, m.description, m.path, m.weight as router_weight, ml.*
-    FROM {menu_router} m
-    LEFT JOIN {menu_links} ml ON m.path = ml.router_path
-    WHERE (ml.plid = :plid AND ml.menu_name = :name AND hidden = 0) OR (m.tab_parent = :path AND m.type IN (:local_task, :default_task))", array(':plid' => $item['mlid'], ':name' => $item['menu_name'], ':path' => $item['path'], ':local_task' => MENU_LOCAL_TASK, ':default_task' => MENU_DEFAULT_LOCAL_TASK), array('fetch' => PDO::FETCH_ASSOC));
-  foreach ($result as $link) {
-    if (!isset($link['link_path'])) {
-      // If this was not an actual link, fake the tab as a menu link, so we
-      // don't need to special case it beyond this point.
-      $link['link_title'] = $link['title'];
-      $link['link_path'] = $link['path'];
-      $link['options'] = 'a:0:{}';
-      $link['weight'] = $link['router_weight'];
-    }
-    else {
-      // We found a non-tab subitem, remember that.
-      $has_subitems = TRUE;
-    }
+  $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
+  $query->join('menu_router', 'm', 'm.path = ml.router_path');
+  $query
+    ->fields('ml')
+    // Weight should be taken from {menu_links}, not {menu_router}.
+    ->fields('m', array_diff(drupal_schema_fields_sql('menu_router'), array('weight')))
+    ->condition('ml.plid', $item['mlid'])
+    ->condition('ml.menu_name', $item['menu_name'])
+    ->condition('ml.hidden', 0);
+
+  foreach ($query->execute() as $link) {
     _menu_link_translate($link);
-    if (!$link['access']) {
-      continue;
+    if ($link['access']) {
+      // The link description, either derived from 'description' in
+      // hook_menu() or customized via menu module is used as title attribute.
+      if (!empty($link['localized_options']['attributes']['title'])) {
+        $link['description'] = $link['localized_options']['attributes']['title'];
+        unset($link['localized_options']['attributes']['title']);
+      }
+      // Prepare for sorting as in function _menu_tree_check_access().
+      // The weight is offset so it is always positive, with a uniform 5-digits.
+      $key = (50000 + $link['weight']) . ' ' . drupal_strtolower($link['title']) . ' ' . $link['mlid'];
+      $content[$key] = $link;
     }
-
-    // The link 'description' — either derived from the hook_menu 'description' or
-    // entered by the user via menu module — is saved as the title attribute.
-    // The title attribute is then unset to reduce redundancy in admin pages
-    // for screen readers.
-    if (!empty($link['localized_options']['attributes']['title'])) {
-      $link['description'] = $link['localized_options']['attributes']['title'];
-      unset($link['localized_options']['attributes']['title']);
-    }
-
-    // Prepare for sorting as in function _menu_tree_check_access().
-    // The weight is offset so it is always positive, with a uniform 5-digits.
-    $key = (50000 + $link['weight']) . ' ' . drupal_strtolower($link['title']) . ' ' . $link['mlid'];
-    $content[$key] = $link;
-    if ($link['type'] == MENU_DEFAULT_LOCAL_TASK) {
-      $default_task = $key;
-    }
-  }
-  if ($has_subitems) {
-    // If we've had at least one non-tab subitem, remove the link for the
-    // default task, since that is already broken down to subitems.
-    unset($content[$default_task]);
   }
   ksort($content);
   $cache[$item['mlid']] = $content;
@@ -2093,9 +2070,10 @@ function system_admin_menu_block($item) {
 }
 
 /**
- * Checks the existence of the directory specified in $form_element. This
- * function is called from the system_settings form to check both core file
- * directories (file_public_path, file_private_path, file_temporary_path).
+ * Checks the existence of the directory specified in $form_element.
+ *
+ * This function is called from the system_settings form to check all core
+ * file directories (file_public_path, file_private_path, file_temporary_path).
  *
  * @param $form_element
  *   The form element containing the name of the directory to check.
@@ -2214,7 +2192,7 @@ function system_update_files_database(&$files, $type) {
 
   // All remaining files are not in the system table, so we need to add them.
   $query = db_insert('system')->fields(array('filename', 'name', 'type', 'owner', 'info'));
-  foreach($files as &$file) {
+  foreach ($files as &$file) {
     if (isset($file->exists)) {
       unset($file->exists);
     }
@@ -2301,7 +2279,6 @@ function _system_rebuild_module_data() {
   // Set defaults for module info.
   $defaults = array(
     'dependencies' => array(),
-    'dependents' => array(),
     'description' => '',
     'package' => 'Other',
     'version' => NULL,
@@ -2621,23 +2598,21 @@ function system_find_base_themes($themes, $key, $used_keys = array()) {
  *   An array of regions in the form $region['name'] = 'description'.
  */
 function system_region_list($theme_key, $show = REGIONS_ALL) {
-  $list = &drupal_static(__FUNCTION__, array());
+  $themes = list_themes();
+  if (!isset($themes[$theme_key])) {
+    return array();
+  }
 
-  if (empty($list[$theme_key][$show])) {
-    $themes = list_themes();
-    if (!isset($themes[$theme_key])) {
-      $list[$theme_key][$show] = array();
-      return $list[$theme_key][$show];
-    }
-    $info = $themes[$theme_key]->info;
-    // If requested, suppress hidden regions. See block_admin_display_form().
-    foreach ($info['regions'] as $name => $label) {
-      if ($show == REGIONS_ALL || !isset($info['regions_hidden']) || !in_array($name, $info['regions_hidden'])) {
-        $list[$theme_key][$show][$name] = $label;
-      }
+  $list = array();
+  $info = $themes[$theme_key]->info;
+  // If requested, suppress hidden regions. See block_admin_display_form().
+  foreach ($info['regions'] as $name => $label) {
+    if ($show == REGIONS_ALL || !isset($info['regions_hidden']) || !in_array($name, $info['regions_hidden'])) {
+      $list[$name] = $label;
     }
   }
-  return $list[$theme_key][$show];
+
+  return $list;
 }
 
 /**
@@ -2782,7 +2757,6 @@ function confirm_form($form, $question, $path, $description = NULL, $yes = NULL,
   else {
     $options = array('path' => $path);
   }
-  $cancel = l($no ? $no : t('Cancel'), $options['path'], $options);
 
   drupal_set_title($question, PASS_THROUGH);
 
@@ -2790,12 +2764,17 @@ function confirm_form($form, $question, $path, $description = NULL, $yes = NULL,
   $form['description'] = array('#markup' => $description);
   $form[$name] = array('#type' => 'hidden', '#value' => 1);
 
-  $form['actions'] = array(
-    '#type' => 'actions',
-    '#attributes' => array('class' => array('container-inline')),
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => $yes ? $yes : t('Confirm'),
   );
-  $form['actions']['submit'] = array('#type' => 'submit', '#value' => $yes ? $yes : t('Confirm'));
-  $form['actions']['cancel'] = array('#markup' => $cancel);
+  $form['actions']['cancel'] = array(
+    '#type' => 'link',
+    '#title' => $no ? $no : t('Cancel'),
+    '#href' => $options['path'],
+    '#options' => $options,
+  );
   // By default, render the form using theme_confirm_form().
   if (!isset($form['#theme'])) {
     $form['#theme'] = 'confirm_form';
@@ -2831,38 +2810,61 @@ function system_admin_compact_page($mode = 'off') {
  *
  * @param $module
  *   Module name.
+ * @param $info
+ *   The module's information, as provided by system_get_info().
+ *
  * @return
  *   An array of task links.
  */
-function system_get_module_admin_tasks($module) {
-  $items = &drupal_static(__FUNCTION__, array());
+function system_get_module_admin_tasks($module, $info) {
+  $links = &drupal_static(__FUNCTION__);
 
-  if (empty($items)) {
-    $result = db_query("
-       SELECT m.load_functions, m.to_arg_functions, m.access_callback, m.access_arguments, m.page_callback, m.page_arguments, m.delivery_callback, m.title, m.title_callback, m.title_arguments, m.theme_callback, m.theme_arguments, m.type, ml.*
-       FROM {menu_links} ml INNER JOIN {menu_router} m ON ml.router_path = m.path WHERE ml.link_path LIKE 'admin/%' AND hidden >= 0 AND module = 'system' AND m.number_parts > 2", array(), array('fetch' => PDO::FETCH_ASSOC));
-    foreach ($result as $item) {
-      _menu_link_translate($item);
-      if ($item['access']) {
-        $items[$item['router_path']] = $item;
+  if (!isset($links)) {
+    $links = array();
+    $query = db_select('menu_links', 'ml', array('fetch' => PDO::FETCH_ASSOC));
+    $query->join('menu_router', 'm', 'm.path = ml.router_path');
+    $query
+      ->fields('ml')
+      // Weight should be taken from {menu_links}, not {menu_router}.
+      ->fields('m', array_diff(drupal_schema_fields_sql('menu_router'), array('weight')))
+      ->condition('ml.link_path', 'admin/%', 'LIKE')
+      ->condition('ml.hidden', 0, '>=')
+      ->condition('ml.module', 'system')
+      ->condition('m.number_parts', 1, '>')
+      ->condition('m.page_callback', 'system_admin_menu_block_page', '!=');
+    foreach ($query->execute() as $link) {
+      _menu_link_translate($link);
+      if ($link['access']) {
+        $links[$link['router_path']] = $link;
       }
     }
   }
 
-  $admin_access = user_access('administer permissions');
   $admin_tasks = array();
-  $admin_task_count = 0;
-  // Check for permissions.
-  if (in_array($module, module_implements('permission')) && $admin_access) {
-    $admin_tasks[-1] = l(t('Configure permissions'), 'admin/people/permissions', array('fragment' => 'module-' . $module));
+  if ($menu = module_invoke($module, 'menu')) {
+    foreach ($menu as $path => $item) {
+      if (isset($links[$path])) {
+        $task = $links[$path];
+        // The link description, either derived from 'description' in
+        // hook_menu() or customized via menu module is used as title attribute.
+        if (!empty($task['localized_options']['attributes']['title'])) {
+          $task['description'] = $task['localized_options']['attributes']['title'];
+          unset($task['localized_options']['attributes']['title']);
+        }
+        $admin_tasks[$path] = $task;
+      }
+    }
   }
 
-  // Check for menu items that are admin links.
-  if (in_array($module, module_implements('menu')) && $menu = module_invoke($module, 'menu')) {
-    foreach (array_keys($menu) as $path) {
-      if (isset($items[$path])) {
-        $admin_tasks[$items[$path]['title'] . $admin_task_count ++] = l($items[$path]['title'], $path);
-      }
+  // Append link for permissions.
+  if (module_hook($module, 'permission')) {
+    $item = menu_get_item('admin/people/permissions');
+    if (!empty($item['access'])) {
+      $item['link_path'] = $item['href'];
+      $item['title'] = t('Configure @module permissions', array('@module' => $info['name']));
+      unset($item['description']);
+      $item['localized_options']['fragment'] = 'module-' . $module;
+      $admin_tasks["admin/people/permissions#module-$module"] = $item;
     }
   }
 
@@ -3767,6 +3769,35 @@ function theme_confirm_form($variables) {
  */
 function theme_system_settings_form($variables) {
   return drupal_render_children($variables['form']);
+}
+
+/**
+ * Returns HTML for an exposed filter form.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - form: An associative array containing the structure of the form.
+ *
+ * @return
+ *   A string containing an HTML-formatted form.
+ *
+ * @ingroup themeable
+ */
+function theme_exposed_filters($variables) {
+  $form = $variables['form'];
+  $output = '';
+
+  if (isset($form['current'])) {
+    $items = array();
+    foreach (element_children($form['current']) as $key) {
+      $items[] = drupal_render($form['current'][$key]);
+    }
+    $output .= theme('item_list', array('items' => $items, 'attributes' => array('class' => array('clearfix', 'current-filters'))));
+  }
+
+  $output .= drupal_render_children($form);
+
+  return '<div class="exposed-filters">' . $output . '</div>';
 }
 
 /**

@@ -1,5 +1,5 @@
 <?php
-// $Id: form.test,v 1.64 2010/09/13 06:41:23 webchick Exp $
+// $Id: form.test,v 1.72 2010/10/04 18:00:46 dries Exp $
 
 /**
  * @file
@@ -148,6 +148,70 @@ class FormsTestCase extends DrupalWebTestCase {
         '%widget' => var_export($widget, TRUE),
         '%expected' => var_export($expected_value, TRUE),
         '%value' => var_export($values[$widget], TRUE),
+      )));
+    }
+  }
+
+  /**
+   * Tests validation of #type 'select' elements.
+   */
+  function testSelect() {
+    $form = $form_state = array();
+    $form = form_test_select($form, $form_state);
+    $error = '!name field is required.';
+    $this->drupalGet('form-test/select');
+
+    // Posting without any values should throw validation errors.
+    $this->drupalPost(NULL, array(), 'Submit');
+    $this->assertNoText(t($error, array('!name' => $form['select']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['select_required']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['select_optional']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['empty_value']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['empty_value_one']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['no_default_optional']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default_empty_option']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['no_default_empty_option_optional']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default_empty_value']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['no_default_empty_value_one']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['no_default_empty_value_optional']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['multiple']['#title'])));
+    $this->assertNoText(t($error, array('!name' => $form['multiple_no_default']['#title'])));
+    $this->assertText(t($error, array('!name' => $form['multiple_no_default_required']['#title'])));
+
+    // Post values for required fields.
+    $edit = array(
+      'no_default' => 'three',
+      'no_default_empty_option' => 'three',
+      'no_default_empty_value' => 'three',
+      'no_default_empty_value_one' => 'three',
+      'multiple_no_default_required[]' => 'three',
+    );
+    $this->drupalPost(NULL, $edit, 'Submit');
+    $values = drupal_json_decode($this->drupalGetContent());
+
+    // Verify expected values.
+    $expected = array(
+      'select' => 'one',
+      'empty_value' => 'one',
+      'empty_value_one' => 'one',
+      'no_default' => 'three',
+      'no_default_optional' => 'one',
+      'no_default_optional_empty_value' => '',
+      'no_default_empty_option' => 'three',
+      'no_default_empty_option_optional' => '',
+      'no_default_empty_value' => 'three',
+      'no_default_empty_value_one' => 'three',
+      'no_default_empty_value_optional' => 0,
+      'multiple' => array('two' => 'two'),
+      'multiple_no_default' => array(),
+      'multiple_no_default_required' => array('three' => 'three'),
+    );
+    foreach ($expected as $key => $value) {
+      $this->assertIdentical($values[$key], $value, t('@name: @actual is equal to @expected.', array(
+        '@name' => $key,
+        '@actual' => var_export($values[$key], TRUE),
+        '@expected' => var_export($value, TRUE),
       )));
     }
   }
@@ -464,14 +528,14 @@ class FormsElementsLabelsTestCase extends DrupalWebTestCase {
     $elements = $this->xpath('//input[@id="edit-form-textfield-test-no-title-required"]/preceding-sibling::label[@for="edit-form-textfield-test-no-title-required"]/span[@class="form-required"]');
     $this->assertTrue(isset($elements[0]), t("Label tag with required marker preceeds required textfield with no title."));
 
+    $elements = $this->xpath('//input[@id="edit-form-textfield-test-title-invisible"]/preceding-sibling::label[@for="edit-form-textfield-test-title-invisible" and @class="element-invisible"]');
+    $this->assertTrue(isset($elements[0]), t("Label preceeding field and label class is element-invisible."));
+
     $elements = $this->xpath('//input[@id="edit-form-textfield-test-title"]/preceding-sibling::span[@class="form-required"]');
     $this->assertFalse(isset($elements[0]), t("No required marker on non-required field."));
 
     $elements = $this->xpath('//input[@id="edit-form-textfield-test-title-after"]/following-sibling::label[@for="edit-form-textfield-test-title-after" and @class="option"]');
     $this->assertTrue(isset($elements[0]), t("Label after field and label option class correct for text field."));
-
-    $elements = $this->xpath('//input[@id="edit-form-textfield-test-title-invisible"]/following-sibling::label[@for="edit-form-textfield-test-title-invisible" and @class="element-invisible"]');
-    $this->assertTrue(isset($elements[0]), t("Label after field and label class is element-invisible."));
 
     $elements = $this->xpath('//label[@for="edit-form-textfield-test-title-no-show"]');
     $this->assertFalse(isset($elements[0]), t("No label tag when title set not to display."));
@@ -727,24 +791,21 @@ class FormsFormStorageTestCase extends DrupalWebTestCase {
     $this->assertText('Form constructions: 1');
 
     $edit = array('title' => 'new', 'value' => 'value_is_set');
-    // Reload the form, but don't rebuild.
-    $this->drupalPost(NULL, $edit, 'Reload');
-    $this->assertText('Form constructions: 2');
 
-    // Now use form rebuilding triggered by a submit button.
+    // Use form rebuilding triggered by a submit button.
     $this->drupalPost(NULL, $edit, 'Continue submit');
+    $this->assertText('Form constructions: 2');
     $this->assertText('Form constructions: 3');
-    $this->assertText('Form constructions: 4');
 
     // Reset the form to the values of the storage, using a form rebuild
     // triggered by button of type button.
     $this->drupalPost(NULL, array('title' => 'changed'), 'Reset');
     $this->assertFieldByName('title', 'new', 'Values have been resetted.');
     // After rebuilding, the form has been cached.
-    $this->assertText('Form constructions: 5');
+    $this->assertText('Form constructions: 4');
 
     $this->drupalPost(NULL, $edit, 'Save');
-    $this->assertText('Form constructions: 5');
+    $this->assertText('Form constructions: 4');
     $this->assertText('Title: new', t('The form storage has stored the values.'));
   }
 
@@ -756,11 +817,8 @@ class FormsFormStorageTestCase extends DrupalWebTestCase {
     $this->assertText('Form constructions: 1');
 
     $edit = array('title' => 'new', 'value' => 'value_is_set');
-    // Reload the form, but don't rebuild.
-    $this->drupalPost(NULL, $edit, 'Reload');
-    $this->assertNoText('Form constructions');
 
-    // Now use form rebuilding triggered by a submit button.
+    // Use form rebuilding triggered by a submit button.
     $this->drupalPost(NULL, $edit, 'Continue submit');
     $this->assertText('Form constructions: 2');
 
@@ -830,7 +888,7 @@ class FormsFormStorageTestCase extends DrupalWebTestCase {
       array(),
       array('query' => array('cache' => 1)),
     );
-    foreach($run_options as $options) {
+    foreach ($run_options as $options) {
       $this->drupalPost('form-test/state-persist', array(), t('Submit'), $options);
       // The submit handler outputs the value in $form_state, assert it's there.
       $this->assertText('State persisted.');
@@ -996,11 +1054,7 @@ class FormsRebuildTestCase extends DrupalWebTestCase {
     // submission and verify it worked by ensuring the updated page has two text
     // field items in the field for which we just added an item.
     $this->drupalGet('node/add/page');
-    preg_match('/jQuery\.extend\(Drupal\.settings, (.*?)\);/', $this->content, $matches);
-    $settings = drupal_json_decode($matches[1]);
-    $button = $this->xpath('//input[@name="field_ajax_test_add_more"]');
-    $button_id = (string) $button[0]['id'];
-    $this->drupalPostAJAX(NULL, array(), array('field_ajax_test_add_more' => t('Add another item')), 'system/ajax', array(), array(), 'page-node-form', $settings['ajax'][$button_id]);
+    $this->drupalPostAJAX(NULL, array(), array('field_ajax_test_add_more' => t('Add another item')), 'system/ajax', array(), array(), 'page-node-form');
     $this->assert(count($this->xpath('//div[contains(@class, "field-name-field-ajax-test")]//input[@type="text"]')) == 2, t('AJAX submission succeeded.'));
 
     // Submit the form with the non-AJAX "Save" button, leaving the title field

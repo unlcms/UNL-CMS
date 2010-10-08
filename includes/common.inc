@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1220 2010/09/15 04:34:26 webchick Exp $
+// $Id: common.inc,v 1.1236 2010/10/07 00:28:19 webchick Exp $
 
 /**
  * @file
@@ -56,33 +56,33 @@ define('SAVED_UPDATED', 2);
 define('SAVED_DELETED', 3);
 
 /**
- * The default weight of system CSS files added to the page.
+ * The default group for system CSS files added to the page.
  */
 define('CSS_SYSTEM', -100);
 
 /**
- * The default weight of CSS files added to the page.
+ * The default group for module CSS files added to the page.
  */
 define('CSS_DEFAULT', 0);
 
 /**
- * The default weight of theme CSS files added to the page.
+ * The default group for theme CSS files added to the page.
  */
 define('CSS_THEME', 100);
 
 /**
- * The weight of JavaScript libraries, settings or jQuery plugins being
- * added to the page.
+ * The default group for JavaScript libraries, settings or jQuery plugins added
+ * to the page.
  */
 define('JS_LIBRARY', -100);
 
 /**
- * The default weight of JavaScript being added to the page.
+ * The default group for module JavaScript code added to the page.
  */
 define('JS_DEFAULT', 0);
 
 /**
- * The weight of theme JavaScript code being added to the page.
+ * The default group for theme JavaScript code added to the page.
  */
 define('JS_THEME', 100);
 
@@ -162,7 +162,7 @@ define('DRUPAL_CACHE_GLOBAL', 0x0008);
 function drupal_add_region_content($region = NULL, $data = NULL) {
   static $content = array();
 
-  if (!is_null($region) && !is_null($data)) {
+  if (isset($region) && isset($data)) {
     $content[$region][] = $data;
   }
   return $content;
@@ -230,7 +230,7 @@ function drupal_get_profile() {
 function drupal_set_breadcrumb($breadcrumb = NULL) {
   $stored_breadcrumb = &drupal_static(__FUNCTION__);
 
-  if (!is_null($breadcrumb)) {
+  if (isset($breadcrumb)) {
     $stored_breadcrumb = $breadcrumb;
   }
   return $stored_breadcrumb;
@@ -242,7 +242,7 @@ function drupal_set_breadcrumb($breadcrumb = NULL) {
 function drupal_get_breadcrumb() {
   $breadcrumb = drupal_set_breadcrumb();
 
-  if (is_null($breadcrumb)) {
+  if (!isset($breadcrumb)) {
     $breadcrumb = menu_get_active_breadcrumb();
   }
 
@@ -1616,7 +1616,7 @@ function format_rss_item($title, $link, $description, $args = array()) {
  * Format XML elements.
  *
  * @param $array
- *   An array where each item represent an element and is either a:
+ *   An array where each item represents an element and is either a:
  *   - (key => value) pair (<key>value</key>)
  *   - Associative array with fields:
  *     - 'key': element name
@@ -2270,9 +2270,9 @@ function l($text, $path, array $options = array()) {
 
   // Merge in defaults.
   $options += array(
-      'attributes' => array(),
-      'html' => FALSE,
-    );
+    'attributes' => array(),
+    'html' => FALSE,
+  );
 
   // Append active class.
   if (($path == $_GET['q'] || ($path == '<front>' && drupal_is_front_page())) &&
@@ -2434,7 +2434,7 @@ function drupal_deliver_html_page($page_callback_result) {
         // Print a 404 page.
         drupal_add_http_header('Status', '404 Not Found');
 
-        watchdog('page not found', 'page not found: %q.', array('%q' => $_GET['q']), WATCHDOG_WARNING);
+        watchdog('page not found', check_plain($_GET['q']), NULL, WATCHDOG_WARNING);
 
         // Keep old path for reference, and to allow forms to redirect to it.
         if (!isset($_GET['destination'])) {
@@ -2463,7 +2463,7 @@ function drupal_deliver_html_page($page_callback_result) {
       case MENU_ACCESS_DENIED:
         // Print a 403 page.
         drupal_add_http_header('Status', '403 Forbidden');
-        watchdog('access denied', 'access denied: %q', array('%q' => $_GET['q']), WATCHDOG_WARNING);
+        watchdog('access denied', check_plain($_GET['q']), NULL, WATCHDOG_WARNING);
 
         // Keep old path for reference, and to allow forms to redirect to it.
         if (!isset($_GET['destination'])) {
@@ -2737,19 +2737,50 @@ function drupal_add_html_head_link($attributes, $header = FALSE) {
  *     'modules/node/node.css' is 'node.css'. If the external library "node.js"
  *     ships with a 'node.css', then a different, unique basename would be
  *     'node.js.css'.
- *   - 'weight': The weight of the stylesheet specifies the order in which the
- *     CSS will appear when presented on the page. Available constants are:
+ *   - 'group': A number identifying the group in which to add the stylesheet.
+ *     Available constants are:
  *     - CSS_SYSTEM: Any system-layer CSS.
  *     - CSS_DEFAULT: Any module-layer CSS.
  *     - CSS_THEME: Any theme-layer CSS.
- *     If you need to embed a CSS file before any other module's stylesheets,
- *     for example, you would use CSS_DEFAULT - 1. Note that inline CSS is
- *     simply appended to the end of the specified scope (region), so they
- *     always come last.
+ *     The group number serves as a weight: the markup for loading a stylesheet
+ *     within a lower weight group is output to the page before the markup for
+ *     loading a stylesheet within a higher weight group, so CSS within higher
+ *     weight groups take precendence over CSS within lower weight groups.
+ *   - 'every_page': For optimal front-end performance when aggregation is
+ *     enabled, this should be set to TRUE if the stylesheet is present on every
+ *     page of the website for users for whom it is present at all. This
+ *     defaults to FALSE. It is set to TRUE for stylesheets added via module and
+ *     theme .info files. Modules that add stylesheets within hook_init()
+ *     implementations, or from other code that ensures that the stylesheet is
+ *     added to all website pages, should also set this flag to TRUE. All
+ *     stylesheets within the same group that have the 'every_page' flag set to
+ *     TRUE and do not have 'preprocess' set to FALSE are aggregated together
+ *     into a single aggregate file, and that aggregate file can be reused
+ *     across a user's entire site visit, leading to faster navigation between
+ *     pages. However, stylesheets that are only needed on pages less frequently
+ *     visited, can be added by code that only runs for those particular pages,
+ *     and that code should not set the 'every_page' flag. This minimizes the
+ *     size of the aggregate file that the user needs to download when first
+ *     visiting the website. Stylesheets without the 'every_page' flag are
+ *     aggregated into a separate aggregate file. This other aggregate file is
+ *     likely to change from page to page, and each new aggregate file needs to
+ *     be downloaded when first encountered, so it should be kept relatively
+ *     small by ensuring that most commonly needed stylesheets are added to
+ *     every page.
+ *   - 'weight': The weight of the stylesheet specifies the order in which the
+ *     CSS will appear relative to other stylesheets with the same group and
+ *     'every_page' flag. The exact ordering of stylesheets is as follows:
+ *     - First by group.
+ *     - Then by the 'every_page' flag, with TRUE coming before FALSE.
+ *     - Then by weight.
+ *     - Then by the order in which the CSS was added. For example, all else
+ *       being the same, a stylesheet added by a call to drupal_add_css() that
+ *       happened later in the page request gets added to the page after one for
+ *       which drupal_add_css() happened earlier in the page request.
  *   - 'media': The media type for the stylesheet, e.g., all, print, screen.
  *     Defaults to 'all'.
  *   - 'preprocess': If TRUE and CSS aggregation/compression is enabled, the
- *     styles will be aggregated and compressed. Defaults to FALSE.
+ *     styles will be aggregated and compressed. Defaults to TRUE.
  *   - 'browsers': An array containing information specifying which browsers
  *     should load the CSS item. See drupal_pre_render_conditional_comments()
  *     for details.
@@ -2775,9 +2806,11 @@ function drupal_add_css($data = NULL, $options = NULL) {
   if (isset($data)) {
     $options += array(
       'type' => 'file',
-      'weight' => CSS_DEFAULT,
+      'group' => CSS_DEFAULT,
+      'weight' => 0,
+      'every_page' => FALSE,
       'media' => 'all',
-      'preprocess' => FALSE,
+      'preprocess' => TRUE,
       'data' => $data,
       'browsers' => array(),
     );
@@ -2785,6 +2818,11 @@ function drupal_add_css($data = NULL, $options = NULL) {
       'IE' => TRUE,
       '!IE' => TRUE,
     );
+
+    // Files with a query string cannot be preprocessed.
+    if ($options['type'] === 'file' && $options['preprocess'] && strpos($options['data'], '?') !== FALSE) {
+      $options['preprocess'] = FALSE;
+    }
 
     // Always add a tiny value to the weight, to conserve the insertion order.
     $options['weight'] += count($css) / 1000;
@@ -2825,19 +2863,25 @@ function drupal_add_css($data = NULL, $options = NULL) {
  * @param $css
  *   (optional) An array of CSS files. If no array is provided, the default
  *   stylesheets array is used instead.
+ * @param $skip_alter
+ *   (optional) If set to TRUE, this function skips calling drupal_alter() on
+ *   $css, useful when the calling function passes a $css array that has already
+ *   been altered.
  * @return
  *   A string of XHTML CSS tags.
  */
-function drupal_get_css($css = NULL) {
+function drupal_get_css($css = NULL, $skip_alter = FALSE) {
   if (!isset($css)) {
     $css = drupal_add_css();
   }
 
   // Allow modules and themes to alter the CSS items.
-  drupal_alter('css', $css);
+  if (!$skip_alter) {
+    drupal_alter('css', $css);
+  }
 
-  // Sort CSS items according to their weights.
-  uasort($css, 'drupal_sort_weight');
+  // Sort CSS items, so that they appear in the correct order.
+  uasort($css, 'drupal_sort_css_js');
 
   // Remove the overridden CSS files. Later CSS files override former ones.
   $previous_item = array();
@@ -2858,7 +2902,53 @@ function drupal_get_css($css = NULL) {
     '#type' => 'styles',
     '#items' => $css,
   );
+
+  // Provide the page with information about the individual CSS files used,
+  // information not otherwise available when CSS aggregation is enabled.
+  $setting['ajaxPageState']['css'] = array_fill_keys(array_keys($css), 1);
+  $styles['#attached']['js'][] = array('type' => 'setting', 'data' => $setting);
+
   return drupal_render($styles);
+}
+
+/**
+ * Function used by uasort to sort the array structures returned by drupal_add_css() and drupal_add_js().
+ *
+ * This sort order helps optimize front-end performance while providing modules
+ * and themes with the necessary control for ordering the CSS and JavaScript
+ * appearing on a page.
+ */
+function drupal_sort_css_js($a, $b) {
+  // First order by group, so that, for example, all items in the CSS_SYSTEM
+  // group appear before items in the CSS_DEFAULT_GROUP, which appear before
+  // all items in the CSS_THEME group. Modules may create additional groups by
+  // defining their own constants.
+  if ($a['group'] < $b['group']) {
+    return -1;
+  }
+  elseif ($a['group'] > $b['group']) {
+    return 1;
+  }
+  // Within a group, order all infrequently needed, page-specific files after
+  // common files needed throughout the website. Separating this way allows for
+  // the aggregate file generated for all of the common files to be reused
+  // across a site visit without being cut by a page using a less common file.
+  elseif ($a['every_page'] && !$b['every_page']) {
+    return -1;
+  }
+  elseif (!$a['every_page'] && $b['every_page']) {
+    return 1;
+  }
+  // Finally, order by weight.
+  elseif ($a['weight'] < $b['weight']) {
+    return -1;
+  }
+  elseif ($a['weight'] > $b['weight']) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
 }
 
 /**
@@ -2924,7 +3014,10 @@ function drupal_group_css($css) {
     switch ($item['type']) {
       case 'file':
         // Group file items if their 'preprocess' flag is TRUE.
-        $group_keys = $item['preprocess'] ? array($item['type'], $item['media'], $item['browsers']) : FALSE;
+        // Help ensure maximum reuse of aggregate files by only grouping
+        // together items that share the same 'group' value and 'every_page'
+        // flag. See drupal_add_css() for details about that.
+        $group_keys = $item['preprocess'] ? array($item['type'], $item['group'], $item['every_page'], $item['media'], $item['browsers']) : FALSE;
         break;
       case 'inline':
         // Always group inline items.
@@ -3119,12 +3212,24 @@ function drupal_pre_render_styles($elements) {
         elseif ($group['preprocess']) {
           $import = array();
           foreach ($group['items'] as $item) {
-            // The dummy query string needs to be added to the URL to control
-            // browser-caching. IE7 does not support a media type on the @import
-            // statement, so we instead specify the media for the group on the
-            // STYLE tag.
-            $query_string_separator = (strpos($item['data'], '?') !== FALSE) ? '&' : '?';
-            $import[] = '@import url("' . check_plain(file_create_url($item['data']) . $query_string_separator . $query_string) . '");';
+            // A theme's .info file may have an entry for a file that doesn't
+            // exist as a way of overriding a module or base theme CSS file from
+            // being added to the page. Normally, file_exists() calls that need
+            // to run for every page request should be minimized, but this one
+            // is okay, because it only runs when CSS aggregation is disabled.
+            // On a server under heavy enough load that file_exists() calls need
+            // to be minimized, CSS aggregation should be enabled, in which case
+            // this code is not run. When aggregation is enabled,
+            // drupal_load_stylesheet() checks file_exists(), but only when
+            // building the aggregate file, which is then reused for many page
+            // requests.
+            if (file_exists($item['data'])) {
+              // The dummy query string needs to be added to the URL to control
+              // browser-caching. IE7 does not support a media type on the
+              // @import statement, so we instead specify the media for the
+              // group on the STYLE tag.
+              $import[] = '@import url("' . check_plain(file_create_url($item['data']) . '?' . $query_string) . '");';
+            }
           }
           // In addition to IE's limit of 31 total CSS inclusion tags, it also
           // has a limit of 31 @import statements per STYLE tag.
@@ -3143,6 +3248,14 @@ function drupal_pre_render_styles($elements) {
         else {
           foreach ($group['items'] as $item) {
             $element = $link_element_defaults;
+            // We do not check file_exists() here, because this code runs for
+            // files whose 'preprocess' is set to FALSE, and therefore, even
+            // when aggregation is enabled, and we want to avoid needlessly
+            // taxing a server that may be under heavy load. The file_exists()
+            // performed above for files whose 'preprocess' is TRUE is done for
+            // the benefit of theme .info files, but code that deals with files
+            // whose 'preprocess' is FALSE is responsible for ensuring the file
+            // exists.
             // The dummy query string needs to be added to the URL to control
             // browser-caching.
             $query_string_separator = (strpos($item['data'], '?') !== FALSE) ? '&' : '?';
@@ -3654,27 +3767,63 @@ function drupal_region_class($region) {
  *   - scope: The location in which you want to place the script. Possible
  *     values are 'header' or 'footer'. If your theme implements different
  *     regions, you can also use these. Defaults to 'header'.
- *   - weight: A number defining the order in which the JavaScript is added to
- *     the page. In some cases, the order in which the JavaScript is presented
- *     on the page is very important. jQuery, for example, must be added to
- *     the page before any jQuery code is run, so jquery.js uses a weight of
- *     JS_LIBRARY - 20, jquery.once.js (a library drupal.js depends on) uses
- *     a weight of JS_LIBRARY - 19, drupal.js uses a weight of JS_LIBRARY - 1,
- *     and all following scripts depending on jQuery and Drupal behaviors are
- *     simply added using the default weight of JS_DEFAULT. Available constants
- *     are:
+ *   - 'group': A number identifying the group in which to add the JavaScript.
+ *     Available constants are:
  *     - JS_LIBRARY: Any libraries, settings, or jQuery plugins.
  *     - JS_DEFAULT: Any module-layer JavaScript.
  *     - JS_THEME: Any theme-layer JavaScript.
- *     If you need to invoke a JavaScript file before any other module's
- *     JavaScript, for example, you would use JS_DEFAULT - 1.
+ *     The group number serves as a weight: JavaScript within a lower weight
+ *     group is presented on the page before JavaScript within a higher weight
+ *     group.
+ *  - 'every_page': For optimal front-end performance when aggregation is
+ *     enabled, this should be set to TRUE if the JavaScript is present on every
+ *     page of the website for users for whom it is present at all. This
+ *     defaults to FALSE. It is set to TRUE for JavaScript files that are added
+ *     via module and theme .info files. Modules that add JavaScript within
+ *     hook_init() implementations, or from other code that ensures that the
+ *     JavaScript is added to all website pages, should also set this flag to
+ *     TRUE. All JavaScript files within the same group and that have the
+ *     'every_page' flag set to TRUE and do not have 'preprocess' set to FALSE
+ *     are aggregated together into a single aggregate file, and that aggregate
+ *     file can be reused across a user's entire site visit, leading to faster
+ *     navigation between pages. However, JavaScript that is only needed on
+ *     pages less frequently visited, can be added by code that only runs for
+ *     those particular pages, and that code should not set the 'every_page'
+ *     flag. This minimizes the size of the aggregate file that the user needs
+ *     to download when first visiting the website. JavaScript without the
+ *     'every_page' flag is aggregated into a separate aggregate file. This
+ *     other aggregate file is likely to change from page to page, and each new
+ *     aggregate file needs to be downloaded when first encountered, so it
+ *     should be kept relatively small by ensuring that most commonly needed
+ *     JavaScript is added to every page.
+ *   - weight: A number defining the order in which the JavaScript is added to
+ *     the page relative to other JavaScript with the same 'scope', 'group',
+ *     and 'every_page' value. In some cases, the order in which the JavaScript
+ *     is presented on the page is very important. jQuery, for example, must be
+ *     added to the page before any jQuery code is run, so jquery.js uses the
+ *     JS_LIBRARY group and a weight of -20, jquery.once.js (a library drupal.js
+ *     depends on) uses the JS_LIBRARY group and a weight of -19, drupal.js uses
+ *     the JS_LIBRARY group and a weight of -1, other libraries use the
+ *     JS_LIBRARY group and a weight of 0 or higher, and all other scripts use
+ *     one of the other group constants. The exact ordering of JavaScript is as
+ *     follows:
+ *     - First by scope, with 'header' first, 'footer' last, and any other
+ *       scopes provided by a custom theme coming in between, as determined by
+ *       the theme.
+ *     - Then by group.
+ *     - Then by the 'every_page' flag, with TRUE coming before FALSE.
+ *     - Then by weight.
+ *     - Then by the order in which the JavaScript was added. For example, all
+ *       else being the same, JavaScript added by a call to drupal_add_js() that
+ *       happened later in the page request gets added to the page after one for
+ *       which drupal_add_js() happened earlier in the page request.
  *   - defer: If set to TRUE, the defer attribute is set on the &lt;script&gt;
  *     tag.  Defaults to FALSE.
  *   - cache: If set to FALSE, the JavaScript file is loaded anew on every page
  *     call; in other words, it is not cached. Used only when 'type' references
  *     a JavaScript file. Defaults to TRUE.
  *   - preprocess: If TRUE and JavaScript aggregation is enabled, the script
- *     file will be aggregated. Defaults to FALSE.
+ *     file will be aggregated. Defaults to TRUE.
  *
  * @return
  *   The current array of JavaScript files, settings, and in-line code,
@@ -3715,21 +3864,25 @@ function drupal_add_js($data = NULL, $options = NULL) {
           ),
           'type' => 'setting',
           'scope' => 'header',
-          'weight' => JS_LIBRARY,
+          'group' => JS_LIBRARY,
+          'every_page' => TRUE,
+          'weight' => 0,
         ),
         'misc/drupal.js' => array(
           'data' => 'misc/drupal.js',
           'type' => 'file',
           'scope' => 'header',
-          'weight' => JS_LIBRARY - 1,
+          'group' => JS_LIBRARY,
+          'every_page' => TRUE,
+          'weight' => -1,
+          'preprocess' => TRUE,
           'cache' => TRUE,
           'defer' => FALSE,
-          'preprocess' => TRUE,
         ),
       );
       // Register all required libraries.
-      drupal_add_library('system', 'jquery');
-      drupal_add_library('system', 'once');
+      drupal_add_library('system', 'jquery', TRUE);
+      drupal_add_library('system', 'once', TRUE);
     }
 
     switch ($options['type']) {
@@ -3763,11 +3916,13 @@ function drupal_add_js($data = NULL, $options = NULL) {
 function drupal_js_defaults($data = NULL) {
   return array(
     'type' => 'file',
-    'weight' => JS_DEFAULT,
+    'group' => JS_DEFAULT,
+    'every_page' => FALSE,
+    'weight' => 0,
     'scope' => 'header',
     'cache' => TRUE,
     'defer' => FALSE,
-    'preprocess' => FALSE,
+    'preprocess' => TRUE,
     'version' => NULL,
     'data' => $data,
   );
@@ -3794,13 +3949,17 @@ function drupal_js_defaults($data = NULL) {
  * @param $javascript
  *   (optional) An array with all JavaScript code. Defaults to the default
  *   JavaScript array for the given scope.
+ * @param $skip_alter
+ *   (optional) If set to TRUE, this function skips calling drupal_alter() on
+ *   $javascript, useful when the calling function passes a $javascript array
+ *   that has already been altered.
  * @return
  *   All JavaScript code segments and includes for the scope as HTML tags.
  * @see drupal_add_js()
  * @see locale_js_alter()
  * @see drupal_js_defaults()
  */
-function drupal_get_js($scope = 'header', $javascript = NULL) {
+function drupal_get_js($scope = 'header', $javascript = NULL, $skip_alter = FALSE) {
   if (!isset($javascript)) {
     $javascript = drupal_add_js();
   }
@@ -3809,13 +3968,15 @@ function drupal_get_js($scope = 'header', $javascript = NULL) {
   }
 
   // Allow modules to alter the JavaScript.
-  drupal_alter('js', $javascript);
+  if (!$skip_alter) {
+    drupal_alter('js', $javascript);
+  }
 
   // Filter out elements of the given scope.
   $items = array();
-  foreach ($javascript as $item) {
+  foreach ($javascript as $key => $item) {
     if ($item['scope'] == $scope) {
-      $items[] = $item;
+      $items[$key] = $item;
     }
   }
 
@@ -3845,8 +4006,24 @@ function drupal_get_js($scope = 'header', $javascript = NULL) {
   // third-party code might require the use of a different query string.
   $js_version_string = variable_get('drupal_js_version_query_string', 'v=');
 
-  // Sort the JavaScript by weight so that it appears in the correct order.
-  uasort($items, 'drupal_sort_weight');
+  // Sort the JavaScript so that it appears in the correct order.
+  uasort($items, 'drupal_sort_css_js');
+
+  // Provide the page with information about the individual JavaScript files
+  // used, information not otherwise available when aggregation is enabled.
+  $setting['ajaxPageState']['js'] = array_fill_keys(array_keys($items), 1);
+  unset($setting['ajaxPageState']['js']['settings']);
+  drupal_add_js($setting, 'setting');
+
+  // If we're outputting the header scope, then this might be the final time
+  // that drupal_get_js() is running, so add the setting to this output as well
+  // as to the drupal_add_js() cache. If $items['settings'] doesn't exist, it's
+  // because drupal_get_js() was intentionally passed a $javascript argument
+  // stripped off settings, potentially in order to override how settings get
+  // output, so in this case, do not add the setting to this output.
+  if ($scope == 'header' && isset($items['settings'])) {
+    $items['settings']['data'][] = $setting;
+  }
 
   // Loop through the JavaScript to construct the rendered output.
   $element = array(
@@ -3891,8 +4068,13 @@ function drupal_get_js($scope = 'header', $javascript = NULL) {
         }
         else {
           // By increasing the index for each aggregated file, we maintain
-          // the relative ordering of JS by weight.
-          $key = 'aggregate' . $index;
+          // the relative ordering of JS by weight. We also set the key such
+          // that groups are split by items sharing the same 'group' value and
+          // 'every_page' flag. While this potentially results in more aggregate
+          // files, it helps make each one more reusable across a site visit,
+          // leading to better front-end performance of a website as a whole.
+          // See drupal_add_js() for details.
+          $key = 'aggregate_' . $item['group'] . '_' . $item['every_page'] . '_' . $index;
           $processed[$key] = '';
           $files[$key][$item['data']] = $item;
         }
@@ -3956,9 +4138,9 @@ function drupal_get_js($scope = 'header', $javascript = NULL) {
  *
  * @param $elements
  *   The structured array describing the data being rendered.
- * @param $weight
- *   The default weight of JavaScript and CSS being added. This is only applied
- *   to the stylesheets and JavaScript items that don't have an explicit weight
+ * @param $group
+ *   The default group of JavaScript and CSS being added. This is only applied
+ *   to the stylesheets and JavaScript items that don't have an explicit group
  *   assigned to them.
  * @param $dependency_check
  *   When TRUE, will exit if a given library's dependencies are missing. When
@@ -3974,7 +4156,7 @@ function drupal_get_js($scope = 'header', $javascript = NULL) {
  * @see drupal_add_css()
  * @see drupal_render()
  */
-function drupal_process_attached($elements, $weight = JS_DEFAULT, $dependency_check = FALSE) {
+function drupal_process_attached($elements, $group = JS_DEFAULT, $dependency_check = FALSE, $every_page = NULL) {
   // Add defaults to the special attached structures that should be processed differently.
   $elements['#attached'] += array(
     'library' => array(),
@@ -3985,7 +4167,7 @@ function drupal_process_attached($elements, $weight = JS_DEFAULT, $dependency_ch
   // Add the libraries first.
   $success = TRUE;
   foreach ($elements['#attached']['library'] as $library) {
-    if (drupal_add_library($library[0], $library[1]) === FALSE) {
+    if (drupal_add_library($library[0], $library[1], $every_page) === FALSE) {
       $success = FALSE;
       // Exit if the dependency is missing.
       if ($dependency_check) {
@@ -4012,9 +4194,13 @@ function drupal_process_attached($elements, $weight = JS_DEFAULT, $dependency_ch
         $data = $options['data'];
         unset($options['data']);
       }
-      // Apply the default weight if the weight isn't explicitly given.
-      if (!isset($options['weight'])) {
-        $options['weight'] = $weight;
+      // Apply the default group if it isn't explicitly given.
+      if (!isset($options['group'])) {
+        $options['group'] = $group;
+      }
+      // Set the every_page flag if one was passed.
+      if (isset($every_page)) {
+        $options['every_page'] = $every_page;
       }
       call_user_func('drupal_add_' . $type, $data, $options);
     }
@@ -4161,7 +4347,7 @@ function drupal_process_attached($elements, $weight = JS_DEFAULT, $dependency_ch
  * @see form_example_states_form()
  */
 function drupal_process_states(&$elements) {
-  $elements['#attached']['js']['misc/states.js'] = array('weight' => JS_LIBRARY + 1);
+  $elements['#attached']['js']['misc/states.js'] = array('group' => JS_LIBRARY, 'weight' => 1);
   $elements['#attached']['js'][] = array(
     'type' => 'setting',
     'data' => array('states' => array('#' . $elements['#id'] => $elements['#states'])),
@@ -4190,7 +4376,7 @@ function drupal_process_states(&$elements) {
  * @see hook_library()
  * @see hook_library_alter()
  */
-function drupal_add_library($module, $name) {
+function drupal_add_library($module, $name, $every_page = NULL) {
   $added = &drupal_static(__FUNCTION__, array());
 
   // Only process the library if it exists and it was not added already.
@@ -4202,7 +4388,7 @@ function drupal_add_library($module, $name) {
         'js' => $library['js'],
         'css' => $library['css'],
       );
-      $added[$module][$name] = drupal_process_attached($elements, JS_LIBRARY, TRUE);
+      $added[$module][$name] = drupal_process_attached($elements, JS_LIBRARY, TRUE, $every_page);
     }
     else {
       // Requested library does not exist.
@@ -4383,8 +4569,8 @@ function drupal_add_tabledrag($table_id, $action, $relationship, $group, $subgro
     // Add the table drag JavaScript to the page before the module JavaScript
     // to ensure that table drag behaviors are registered before any module
     // uses it.
-    drupal_add_js('misc/jquery.cookie.js', array('weight' => JS_DEFAULT - 2));
-    drupal_add_js('misc/tabledrag.js', array('weight' => JS_DEFAULT - 1));
+    drupal_add_js('misc/jquery.cookie.js', array('weight' => -2));
+    drupal_add_js('misc/tabledrag.js', array('weight' => -1));
     $js_added = TRUE;
   }
 
@@ -5605,6 +5791,31 @@ function element_get_visible_children(array $elements) {
 }
 
 /**
+ * Sets HTML attributes based on element properties.
+ *
+ * @param $element
+ *   The renderable element to process.
+ * @param $map
+ *   An associative array whose keys are element property names and whose values
+ *   are the HTML attribute names to set for corresponding the property; e.g.,
+ *   array('#propertyname' => 'attributename'). If both names are identical
+ *   except for the leading '#', then an attribute name value is sufficient and
+ *   no property name needs to be specified.
+ */
+function element_set_attributes(array &$element, array $map) {
+  foreach ($map as $property => $attribute) {
+    // If the key is numeric, the attribute name needs to be taken over.
+    if (is_int($property)) {
+      $property = '#' . $attribute;
+    }
+    // Do not overwrite already existing attributes.
+    if (isset($element[$property]) && !isset($element['#attributes'][$attribute])) {
+      $element['#attributes'][$attribute] = $element[$property];
+    }
+  }
+}
+
+/**
  * Sets a value in a nested array with variable depth.
  *
  * This helper function should be used when the depth of the array element you
@@ -5821,7 +6032,7 @@ function drupal_common_theme() {
       // - http://dev.w3.org/html5/spec/Overview.html#alt
       // The title attribute is optional in all cases, so it is omitted by
       // default.
-      'variables' => array('path' => NULL, 'alt' => '', 'title' => NULL, 'attributes' => array(), 'getsize' => TRUE),
+      'variables' => array('path' => NULL, 'width' => NULL, 'height' => NULL, 'alt' => '', 'title' => NULL, 'attributes' => array()),
     ),
     'breadcrumb' => array(
       'variables' => array('breadcrumb' => NULL),
@@ -5937,6 +6148,9 @@ function drupal_common_theme() {
     'date' => array(
       'render element' => 'element',
     ),
+    'exposed_filters' => array(
+      'render element' => 'form',
+    ),
     'checkbox' => array(
       'render element' => 'element',
     ),
@@ -6005,7 +6219,7 @@ function drupal_common_theme() {
  */
 function drupal_install_schema($module) {
   $schema = drupal_get_schema_unprocessed($module);
-  _drupal_schema_initialize($module, $schema);
+  _drupal_schema_initialize($schema, $module, FALSE);
 
   foreach ($schema as $name => $table) {
     db_create_table($name, $table);
@@ -6028,7 +6242,7 @@ function drupal_install_schema($module) {
  */
 function drupal_uninstall_schema($module) {
   $schema = drupal_get_schema_unprocessed($module);
-  _drupal_schema_initialize($module, $schema);
+  _drupal_schema_initialize($schema, $module, FALSE);
 
   foreach ($schema as $table) {
     if (db_table_exists($table['name'])) {
@@ -6066,7 +6280,7 @@ function drupal_get_schema_unprocessed($module, $table = NULL) {
   module_load_install($module);
   $schema = module_invoke($module, 'schema');
 
-  if (!is_null($table) && isset($schema[$table])) {
+  if (isset($table) && isset($schema[$table])) {
     return $schema[$table];
   }
   elseif (!empty($schema)) {
@@ -6078,20 +6292,30 @@ function drupal_get_schema_unprocessed($module, $table = NULL) {
 /**
  * Fill in required default values for table definitions returned by hook_schema().
  *
- * @param $module
- *   The module for which hook_schema() was invoked.
  * @param $schema
  *   The schema definition array as it was returned by the module's
  *   hook_schema().
+ * @param $module
+ *   The module for which hook_schema() was invoked.
+ * @param $remove_descriptions
+ *   (optional) Whether to additionally remove 'description' keys of all tables
+ *   and fields to improve performance of serialize() and unserialize().
+ *   Defaults to TRUE.
  */
-function _drupal_schema_initialize($module, &$schema) {
+function _drupal_schema_initialize(&$schema, $module, $remove_descriptions = TRUE) {
   // Set the name and module key for all tables.
-  foreach ($schema as $name => $table) {
+  foreach ($schema as $name => &$table) {
     if (empty($table['module'])) {
-      $schema[$name]['module'] = $module;
+      $table['module'] = $module;
     }
     if (!isset($table['name'])) {
-      $schema[$name]['name'] = $name;
+      $table['name'] = $name;
+    }
+    if ($remove_descriptions) {
+      unset($table['description']);
+      foreach ($table['fields'] as &$field) {
+        unset($field['description']);
+      }
     }
   }
 }
@@ -6180,7 +6404,7 @@ function drupal_write_record($table, &$record, $primary_keys = array()) {
     }
 
     if (!property_exists($object, $field)) {
-      // Skip fields that are not provided, default values are already known 
+      // Skip fields that are not provided, default values are already known
       // by the database.
       continue;
     }
@@ -6199,7 +6423,7 @@ function drupal_write_record($table, &$record, $primary_keys = array()) {
     // MySQL PDO silently casts e.g. FALSE and '' to 0 when inserting the value
     // into an integer column, but PostgreSQL PDO does not. Also type cast NULL
     // when the column does not allow this.
-    if (!is_null($object->$field) || !empty($info['not null'])) {
+    if (isset($object->$field) || !empty($info['not null'])) {
       if ($info['type'] == 'int' || $info['type'] == 'serial') {
         $fields[$field] = (int) $fields[$field];
       }
@@ -6506,8 +6730,13 @@ function drupal_flush_all_caches() {
   system_rebuild_theme_data();
   drupal_theme_rebuild();
 
-  menu_rebuild();
   node_types_rebuild();
+  // node_menu() defines menu items based on node types so it needs to come
+  // after node types are rebuilt.
+  menu_rebuild();
+
+  // Synchronize to catch any actions that were added or removed.
+  actions_synchronize();
 
   // Don't clear cache_form - in-progress form submissions may break.
   // Ordered so clearing the page cache will always be the last action.
@@ -6769,10 +6998,10 @@ function entity_create_stub_entity($entity_type, $ids) {
   $entity = new stdClass();
   $info = entity_get_info($entity_type);
   $entity->{$info['entity keys']['id']} = $ids[0];
-  if (!empty($info['entity keys']['revision']) && !is_null($ids[1])) {
+  if (!empty($info['entity keys']['revision']) && isset($ids[1])) {
     $entity->{$info['entity keys']['revision']} = $ids[1];
   }
-  if (!empty($info['entity keys']['bundle']) && !is_null($ids[2])) {
+  if (!empty($info['entity keys']['bundle']) && isset($ids[2])) {
     $entity->{$info['entity keys']['bundle']} = $ids[2];
   }
   return $entity;
@@ -6786,15 +7015,16 @@ function entity_create_stub_entity($entity_type, $ids) {
  * database access if loaded again during the same page request.
  *
  * The actual loading is done through a class that has to implement the
- * DrupalEntityController interface. By default, DrupalDefaultEntityController
- * is used. Entity types can specify that a different class should be used by
- * setting the 'controller class' key in hook_entity_info(). These classes can
- * either implement the DrupalEntityController interface, or, most commonly,
- * extend the DrupalDefaultEntityController class. See node_entity_info() and
- * the NodeController in node.module as an example.
+ * DrupalEntityControllerInterface interface. By default,
+ * DrupalDefaultEntityController is used. Entity types can specify that a
+ * different class should be used by setting the 'controller class' key in
+ * hook_entity_info(). These classes can either implement the
+ * DrupalEntityControllerInterface interface, or, most commonly, extend the
+ * DrupalDefaultEntityController class. See node_entity_info() and the
+ * NodeController in node.module as an example.
  *
  * @see hook_entity_info()
- * @see DrupalEntityController
+ * @see DrupalEntityControllerInterface
  * @see DrupalDefaultEntityController
  *
  * @param $entity_type
@@ -6809,7 +7039,7 @@ function entity_create_stub_entity($entity_type, $ids) {
  * @return
  *   An array of entity objects indexed by their ids.
  */
-function entity_load($entity_type, $ids = array(), $conditions = array(), $reset = FALSE) {
+function entity_load($entity_type, $ids = FALSE, $conditions = array(), $reset = FALSE) {
   if ($reset) {
     entity_get_controller($entity_type)->resetCache();
   }

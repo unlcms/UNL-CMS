@@ -1,5 +1,5 @@
 <?php
-// $Id: database.inc,v 1.135 2010/09/11 21:14:31 webchick Exp $
+// $Id: database.inc,v 1.140 2010/10/03 01:29:40 dries Exp $
 
 /**
  * @file
@@ -41,7 +41,7 @@
  * @code
  * $result = db_query_range('SELECT n.nid, n.title, n.created
  *   FROM {node} n WHERE n.uid = :uid', 0, 10, array(':uid' => $uid));
- * foreach($result as $record) {
+ * foreach ($result as $record) {
  *   // Perform operations on $node->title, etc. here.
  * }
  * @endcode
@@ -50,7 +50,8 @@
  * out into an argument passed to db_query() so that SQL injection attacks
  * from user input can be caught and nullified. The LIMIT syntax varies between
  * database servers, so that is abstracted into db_query_range() arguments.
- * Finally, note the PDO-based ability to foreach() over the result set.
+ * Finally, note the PDO-based ability to iterate over the result set using
+ * foreach ().
  *
  * All queries are passed as a prepared statement string. A
  * prepared statement is a "template" of a query that omits literal or variable
@@ -166,6 +167,8 @@
  *   }
  * }
  * @endcode
+ *
+ * @link http://drupal.org/developing/api/database
  */
 
 
@@ -815,6 +818,7 @@ abstract class DatabaseConnection extends PDO {
    * Force all alias names to be strictly alphanumeric-plus-underscore. In
    * contrast to DatabaseConnection::escapeField() /
    * DatabaseConnection::escapeTable(), this doesn't allow the period (".")
+   * because that is not allowed in aliases.
    *
    * @return
    *   The sanitized field name string.
@@ -1065,7 +1069,9 @@ abstract class DatabaseConnection extends PDO {
   /**
    * Returns the version of the database server.
    */
-  abstract public function version();
+  public function version() {
+    return $this->getAttribute(PDO::ATTR_SERVER_VERSION);
+  }
 
   /**
    * Determines if this driver supports transactions.
@@ -2184,9 +2190,12 @@ function db_autoload($class) {
 /**
  * Executes an arbitrary query string against the active database.
  *
+ * Use this function for SELECT queries if it is just a simple query string.
+ * If the caller or other modules need to change the query, use db_select()
+ * instead.
+ *
  * Do not use this function for INSERT, UPDATE, or DELETE queries. Those should
- * be handled via the appropriate query builder factory. Use this function for
- * SELECT queries that do not require a query builder.
+ * be handled via db_insert(), db_update() and db_delete() respectively.
  *
  * @param $query
  *   The prepared statement query to run. Although it will accept both named and

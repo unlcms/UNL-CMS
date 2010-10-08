@@ -1,5 +1,5 @@
 <?php
-// $Id: file.test,v 1.67 2010/09/11 21:14:31 webchick Exp $
+// $Id: file.test,v 1.71 2010/10/05 06:23:18 webchick Exp $
 
 /**
  *  @file
@@ -174,7 +174,7 @@ class FileTestCase extends DrupalWebTestCase {
    */
   function createDirectory($path = NULL) {
     // A directory to operate on.
-    if (is_null($path)) {
+    if (!isset($path)) {
       $path = file_default_scheme() . '://' . $this->randomName();
     }
     $this->assertTrue(drupal_mkdir($path) && is_dir($path), t('Directory was created successfully.'));
@@ -198,12 +198,12 @@ class FileTestCase extends DrupalWebTestCase {
    *   File object.
    */
   function createFile($filepath = NULL, $contents = NULL, $scheme = 'public') {
-    if (is_null($filepath)) {
+    if (!isset($filepath)) {
       $filepath = $this->randomName();
     }
     $filepath = $scheme . '://' . $filepath;
 
-    if (is_null($contents)) {
+    if (!isset($contents)) {
       $contents = "file_put_contents() doesn't seem to appreciate empty strings so let's put in some data.";
     }
 
@@ -282,7 +282,7 @@ class FileHookTestCase extends FileTestCase {
   function assertFileHookCalled($hook, $expected_count = 1, $message = NULL) {
     $actual_count = count(file_test_get_calls($hook));
 
-    if (is_null($message)) {
+    if (!isset($message)) {
       if ($actual_count == $expected_count) {
         $message = t('hook_file_@name was called correctly.', array('@name' => $hook));
       }
@@ -899,7 +899,6 @@ class FileDirectoryTest extends FileTestCase {
       // in the directory on any recent version of Windows.
 
       // Make directory read only.
-      debug($directory);
       @drupal_chmod($directory, 0444);
       $this->assertFalse(file_prepare_directory($directory, 0), t('Error reported for a non-writeable directory.'), 'File');
 
@@ -973,8 +972,19 @@ class FileDirectoryTest extends FileTestCase {
     $path = file_destination($destination, FILE_EXISTS_ERROR);
     $this->assertEqual($path, FALSE, t('An error is returned when filepath destination already exists with FILE_EXISTS_ERROR.'), 'File');
   }
-}
 
+  /**
+   * Ensure that the file_directory_temp() function always returns a value.
+   */
+  function testFileDirectoryTemp() {
+    // Start with an empty variable to ensure we have a clean slate.
+    variable_set('file_temporary_path', '');
+    $tmp_directory = file_directory_temp();
+    $this->assertEqual(empty($tmp_directory), FALSE, t('file_directory_temp() returned a non-empty value.'));
+    $setting = variable_get('file_temporary_path', '');
+    $this->assertEqual($setting, $tmp_directory, t("The 'file_temporary_path' variable has the same value that file_directory_temp() returned."));
+  }
+}
 
 /**
  * Tests the file_scan_directory() function.
@@ -1972,25 +1982,36 @@ class FileUsageTest extends FileTestCase {
         'module' => 'testing',
         'type' => 'bar',
         'id' => 2,
-        'count' => 2
+        'count' => 3,
       ))
       ->execute();
 
+    // Normal decrement.
     file_usage_delete($file, 'testing', 'bar', 2);
     $count = db_select('file_usage', 'f')
       ->fields('f', array('count'))
       ->condition('f.fid', $file->fid)
       ->execute()
       ->fetchField();
-    $this->assertEqual(1, $count, t('The count was decremented correctly.'));
+    $this->assertEqual(2, $count, t('The count was decremented correctly.'));
 
+    // Multiple decrement and removal.
+    file_usage_delete($file, 'testing', 'bar', 2, 2);
+    $count = db_select('file_usage', 'f')
+      ->fields('f', array('count'))
+      ->condition('f.fid', $file->fid)
+      ->execute()
+      ->fetchField();
+    $this->assertIdentical(FALSE, $count, t('The count was removed entirely when empty.'));
+
+    // Non-existent decrement.
     file_usage_delete($file, 'testing', 'bar', 2);
     $count = db_select('file_usage', 'f')
       ->fields('f', array('count'))
       ->condition('f.fid', $file->fid)
       ->execute()
       ->fetchField();
-    $this->assertEqual(0, $count, t('The count was decremented correctly.'));
+    $this->assertIdentical(FALSE, $count, t('Decrementing non-exist record complete.'));
   }
 }
 

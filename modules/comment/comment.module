@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.module,v 1.898 2010/09/13 05:52:18 webchick Exp $
+// $Id: comment.module,v 1.904 2010/10/05 06:17:28 webchick Exp $
 
 /**
  * @file
@@ -82,8 +82,8 @@ function comment_help($path, $arg) {
       $output .= '<dl>';
       $output .= '<dt>' . t('Default and custom settings') . '</dt>';
       $output .= '<dd>' . t("Each <a href='@content-type'>content type</a> can have its own default comment settings configured as: <em>Open</em> to allow new comments, <em>Hidden</em> to hide existing comments and prevent new comments, or <em>Closed</em> to view existing comments, but prevent new comments. These defaults will apply to all new content created (changes to the settings on existing content must be done manually). Other comment settings can also be customized per content type, and can be overridden for any given item of content. When a comment has no replies, it remains editable by its author, as long as the author has a user account and is logged in.", array('@content-type' => url('admin/structure/types'))) . '</dd>';
-      $output .= '<dt>' . t('Comment moderation') . '</dt>';
-      $output .= '<dd>' . t("Comments from users who do not have the <em>Post comments without approval</em> permission are placed in the <a href='@comment-approval'>Unapproved comments</a> queue, until a user who has permission to <em>Administer comments</em> moderates them as either published or deleted. Published comments can be bulk managed on the <a href='@admin-comment'>Published comments</a> administration page.", array('@comment-approval' => url('admin/content/comment/approval'), '@admin-comment' => url('admin/content/comment'))) . '</dd>';
+      $output .= '<dt>' . t('Comment approval') . '</dt>';
+      $output .= '<dd>' . t("Comments from users who have the <em>Skip comment approval</em> permission are published immediately. All other comments are placed in the <a href='@comment-approval'>Unapproved comments</a> queue, until a user who has permission to <em>Administer comments</em> publishes or deletes them. Published comments can be bulk managed on the <a href='@admin-comment'>Published comments</a> administration page.", array('@comment-approval' => url('admin/content/comment/approval'), '@admin-comment' => url('admin/content/comment'))) . '</dd>';
       $output .= '</dl>';
       return $output;
   }
@@ -220,7 +220,7 @@ function comment_menu() {
     'description' => 'List and edit site comments and the comment approval queue.',
     'page callback' => 'comment_admin',
     'access arguments' => array('administer comments'),
-    'type' => MENU_LOCAL_TASK,
+    'type' => MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
     'file' => 'comment.admin.inc',
   );
   // Tabs begin here.
@@ -241,7 +241,6 @@ function comment_menu() {
     'page callback' => 'comment_permalink',
     'page arguments' => array(1),
     'access arguments' => array('access comments'),
-    'type' => MENU_CALLBACK,
   );
   $items['comment/%/view'] = array(
     'title' => 'View comment',
@@ -264,7 +263,6 @@ function comment_menu() {
     'page callback' => 'comment_approve',
     'page arguments' => array(1),
     'access arguments' => array('administer comments'),
-    'type' => MENU_CALLBACK,
     'file' => 'comment.pages.inc',
     'weight' => 1,
   );
@@ -283,7 +281,6 @@ function comment_menu() {
     'page arguments' => array(2),
     'access callback' => 'node_access',
     'access arguments' => array('view', 2),
-    'type' => MENU_CALLBACK,
     'file' => 'comment.pages.inc',
   );
 
@@ -295,7 +292,7 @@ function comment_menu() {
  */
 function comment_menu_alter(&$items) {
   // Add comments to the description for admin/content.
-  $items['admin/content']['description'] = "Administer content and comments";
+  $items['admin/content']['description'] = 'Administer content and comments.';
 
   // Adjust the Field UI tabs on admin/structure/types/manage/[node-type].
   // See comment_entity_info().
@@ -389,10 +386,10 @@ function comment_permission() {
       'title' => t('View comments'),
     ),
     'post comments' => array(
-      'title' => t('Post comments with approval'),
+      'title' => t('Post comments'),
     ),
-    'post comments without approval' => array(
-      'title' => t('Post comments without approval'),
+    'skip comment approval' => array(
+      'title' => t('Skip comment approval'),
     ),
     'edit own comments' => array(
       'title' => t('Edit own comments'),
@@ -890,13 +887,20 @@ function comment_prepare_thread(&$comments) {
  *   The node the comment is attached to.
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
+ * @param $langcode
+ *   (optional) A language code to use for rendering. Defaults to the global
+ *   content language of the current request.
  *
  * @return
  *   An array as expected by drupal_render().
  */
-function comment_view($comment, $node, $view_mode = 'full') {
+function comment_view($comment, $node, $view_mode = 'full', $langcode = NULL) {
+  if (!isset($langcode)) {
+    $langcode = $GLOBALS['language_content']->language;
+  }
+
   // Populate $comment->content with a render() array.
-  comment_build_content($comment, $node, $view_mode);
+  comment_build_content($comment, $node, $view_mode, $langcode);
 
   $build = $comment->content;
   // We don't need duplicate rendering info in comment->content.
@@ -907,6 +911,7 @@ function comment_view($comment, $node, $view_mode = 'full') {
     '#comment' => $comment,
     '#node' => $node,
     '#view_mode' => $view_mode,
+    '#language' => $langcode,
   );
 
   if (empty($comment->in_preview)) {
@@ -951,15 +956,22 @@ function comment_view($comment, $node, $view_mode = 'full') {
  *   The node the comment is attached to.
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
+ * @param $langcode
+ *   (optional) A language code to use for rendering. Defaults to the global
+ *   content language of the current request.
  */
-function comment_build_content($comment, $node, $view_mode = 'full') {
+function comment_build_content($comment, $node, $view_mode = 'full', $langcode = NULL) {
+  if (!isset($langcode)) {
+    $langcode = $GLOBALS['language_content']->language;
+  }
+
   // Remove previously built content, if exists.
   $comment->content = array();
 
   // Build fields content.
   field_attach_prepare_view('comment', array($comment->cid => $comment), $view_mode);
   entity_prepare_view('comment', array($comment->cid => $comment));
-  $comment->content += field_attach_view('comment', $comment, $view_mode);
+  $comment->content += field_attach_view('comment', $comment, $view_mode, $langcode);
 
   if (empty($comment->in_preview)) {
     $comment->content['links']['comment'] = array(
@@ -970,7 +982,7 @@ function comment_build_content($comment, $node, $view_mode = 'full') {
   }
 
   // Allow modules to make their own additions to the comment.
-  module_invoke_all('comment_view', $comment, $view_mode);
+  module_invoke_all('comment_view', $comment, $view_mode, $langcode);
 }
 
 /**
@@ -1046,10 +1058,14 @@ function comment_links($comment, $node) {
  *   View mode, e.g. 'full', 'teaser'...
  * @param $weight
  *   An integer representing the weight of the first comment in the list.
+ * @param $langcode
+ *   A string indicating the language field values are to be shown in. If no
+ *   language is provided the current content language is used.
+ *
  * @return
  *   An array in the format expected by drupal_render().
  */
-function comment_view_multiple($comments, $node, $view_mode = 'full', $weight = 0) {
+function comment_view_multiple($comments, $node, $view_mode = 'full', $weight = 0, $langcode = NULL) {
   field_attach_prepare_view('comment', $comments, $view_mode);
   entity_prepare_view('comment', $comments);
 
@@ -1057,7 +1073,7 @@ function comment_view_multiple($comments, $node, $view_mode = 'full', $weight = 
     '#sorted' => TRUE,
   );
   foreach ($comments as $comment) {
-    $build[$comment->cid] = comment_view($comment, $node, $view_mode);
+    $build[$comment->cid] = comment_view($comment, $node, $view_mode, $langcode);
     $build[$comment->cid]['#weight'] = $weight;
     $weight++;
   }
@@ -1405,7 +1421,7 @@ function comment_save($comment) {
       'mail' => '',
       'homepage' => '',
       'name' => '',
-      'status' => user_access('post comments without approval') ? COMMENT_PUBLISHED : COMMENT_NOT_PUBLISHED,
+      'status' => user_access('skip comment approval') ? COMMENT_PUBLISHED : COMMENT_NOT_PUBLISHED,
     );
     foreach ($defaults as $key => $default) {
       if (!isset($comment->$key)) {
@@ -1851,7 +1867,7 @@ function comment_form($form, &$form_state, $comment) {
     else {
       $author = ($comment->name ? $comment->name : variable_get('anonymous', t('Anonymous')));
     }
-    $status = (user_access('post comments without approval') ? COMMENT_PUBLISHED : COMMENT_NOT_PUBLISHED);
+    $status = (user_access('skip comment approval') ? COMMENT_PUBLISHED : COMMENT_NOT_PUBLISHED);
     $date = '';
   }
 
@@ -2204,8 +2220,10 @@ function template_preprocess_comment(&$variables) {
   $variables['signature'] = $comment->signature;
 
   $uri = entity_uri('comment', $comment);
+  $uri['options'] += array('attributes' => array('class' => 'permalink', 'rel' => 'bookmark'));
+
   $variables['title']     = l($comment->subject, $uri['path'], $uri['options']);
-  $variables['permalink'] = l('#', $uri['path'], $uri['options']);
+  $variables['permalink'] = l(t('Permalink'), $uri['path'], $uri['options']);
 
   // Preprocess fields.
   field_attach_preprocess('comment', $comment, $variables['elements'], $variables);
@@ -2264,7 +2282,7 @@ function theme_comment_post_forbidden($variables) {
     if (!isset($authenticated_post_comments)) {
       // We only output a link if we are certain that users will get permission
       // to post comments by logging in.
-      $authenticated_post_comments = array_key_exists(DRUPAL_AUTHENTICATED_RID, user_roles(TRUE, 'post comments') + user_roles(TRUE, 'post comments without approval'));
+      $authenticated_post_comments = array_key_exists(DRUPAL_AUTHENTICATED_RID, user_roles(TRUE, 'post comments') + user_roles(TRUE, 'skip comment approval'));
     }
 
     if ($authenticated_post_comments) {

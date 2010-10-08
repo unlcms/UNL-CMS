@@ -1,4 +1,4 @@
-/* $Id: style.css,v 1.69 2010/09/13 00:59:47 dries Exp $ */
+/* $Id: style.css,v 1.76 2010/10/05 21:03:17 webchick Exp $ */
 
 /**
  * Generic elements.
@@ -6,7 +6,7 @@
 body {
   color: #000;
   background: #fff;
-  font: 81.3%/1.538em normal Lucida Grande, Lucida Sans Unicode, sans-serif;
+  font: normal 81.3%/1.538em "Lucida Grande", "Lucida Sans Unicode", sans-serif;
 }
 a {
   color: #0074BD;
@@ -31,7 +31,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: bold;
+  font-weight: normal;
   margin: 10px 0;
 }
 h1 {
@@ -138,6 +138,10 @@ code,
 pre,
 kbd {
   font-size: 1.231em;
+}
+pre {
+  margin: 0.5em 0;
+  white-space: pre-wrap;
 }
 
 /**
@@ -375,7 +379,6 @@ ul.inline li {
 #secondary-links ul.links li a.active {
   background: #333;
 }
-ul.node-type-list li,
 ul.admin-list li {
   position: relative;
   padding-left: 30px;
@@ -394,23 +397,19 @@ ul.admin-list {
 }
 .admin-panel .item-list ul,
 ul.admin-list.compact {
-  margin-bottom: 8px;
+  margin: 8px 0;
 }
 .admin-panel .item-list li,
 ul.admin-list.compact li {
   border: none;
   background: none;
-  margin: 0.25em 0 0.25em 1.5em;
+  margin: 0 0 0.75em;
+  line-height: 1;
   padding: 0;
-  list-style-type: disc;
 }
 ul.admin-list li:last-child {
   border-bottom: none;
 }
-ul.node-type-list .label {
-  font-size: 1.154em;
-}
-ul.node-type-list li a,
 ul.admin-list li a {
   margin-left: -30px;
   padding: 0px 0 4px 30px;
@@ -420,11 +419,13 @@ ul.admin-list.compact li a {
   margin-left: 0;
   padding: 0;
 }
-ul.node-type-list li div.description a,
 ul.admin-list li div.description a {
   margin-left: 0px;
   padding: 0px;
   min-height: inherit;
+}
+div.submitted {
+  color: #898989;
 }
 
 /**
@@ -1004,15 +1005,4 @@ table tbody tr.update-unsupported {
   color: #840;
   background: #fffce5;
   border-bottom: 1px solid #ed5;
-}
-
-/* Vertical Tabs */
-div.vertical-tabs .vertical-tabs-list {
-  font-size: 1em;
-}
-div.vertical-tabs ul li.vertical-tab-button strong {
-  font-size: 0.923em;
-}
-div.vertical-tabs ul li.vertical-tab-button .summary {
-  font-size: 0.846em;
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: update.inc,v 1.67 2010/09/13 05:50:08 webchick Exp $
+// $Id: update.inc,v 1.76 2010/10/06 21:51:10 webchick Exp $
 
 /**
  * @file
@@ -8,6 +8,16 @@
  * This file contains functions to perform database updates for a Drupal
  * installation. It is included and used extensively by update.php.
  */
+
+/**
+ * Minimum schema version of Drupal 6 required for upgrade to Drupal 7.
+ *
+ * Upgrades from Drupal 6 to Drupal 7 require that Drupal 6 be running
+ * the most recent version, or the upgrade could fail. We can't easily
+ * check the Drupal 6 version once the update process has begun, so instead
+ * we check the schema version of system.module in the system table.
+ */
+define('REQUIRED_D6_SCHEMA_VERSION', '6055');
 
 /**
  * Disable any items in the {system} table that are not core compatible.
@@ -120,6 +130,24 @@ function update_prepare_d7_bootstrap() {
   // created yet.
   drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
 
+  // If the site has not updated to Drupal 7 yet, check to make sure that it is
+  // running an up-to-date version of Drupal 6 before proceeding. Note this has
+  // to happen AFTER the database bootstraps because of
+  // drupal_get_installed_schema_version().
+  $system_schema = drupal_get_installed_schema_version('system');
+  if ($system_schema < 7000) {
+    $has_required_schema = $system_schema >= REQUIRED_D6_SCHEMA_VERSION;
+    $requirements = array(
+      'drupal 6 version' => array(
+        'title' => 'Drupal 6 version',
+        'value' => $has_required_schema ? 'You are running a current version of Drupal 6.' : 'You are not running a current version of Drupal 6',
+        'severity' => $has_required_schema ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+        'description' => $has_required_schema ? '' : 'Please update your Drupal 6 installation to the most recent version before attempting to upgrade to Drupal 7',
+      ),
+    );
+    update_extra_requirements($requirements);
+  }
+
   // Create the registry tables.
   if (!db_table_exists('registry')) {
     $schema['registry'] = array(
@@ -146,6 +174,43 @@ function update_prepare_d7_bootstrap() {
       'primary key' => array('filename'),
     );
     db_create_table('registry_file', $schema['registry_file']);
+  }
+
+  // Older versions of Drupal 6 do not include the semaphore table, which is 
+  // required to bootstrap, so we add it now so that we can bootstrap and
+  // provide a reasonable error message.
+  if (!db_table_exists('semaphore')) {
+    $semaphore = array(
+      'description' => 'Table for holding semaphores, locks, flags, etc. that cannot be stored as Drupal variables since they must not be cached.',
+      'fields' => array(
+        'name' => array(
+          'description' => 'Primary Key: Unique name.',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => ''
+        ),
+        'value' => array(
+          'description' => 'A value for the semaphore.',
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => ''
+        ),
+        'expire' => array(
+          'description' => 'A Unix timestamp with microseconds indicating when the semaphore should expire.',
+          'type' => 'float',
+          'size' => 'big',
+          'not null' => TRUE
+        ),
+      ),
+      'indexes' => array(
+        'value' => array('value'),
+        'expire' => array('expire'),
+      ),
+      'primary key' => array('name'),
+    );
+    db_create_table('semaphore', $semaphore);
   }
 
   // The new cache_bootstrap bin is required to bootstrap to
@@ -295,6 +360,7 @@ function update_fix_d7_block_deltas(&$sandbox, $renamed_deltas, $moved_deltas) {
   $result = db_select('users', 'u')
     ->fields('u', array('uid', 'data'))
     ->condition('uid', $sandbox['last_user_processed'], '>')
+    ->orderBy('uid', 'ASC')
     ->where('data IS NOT NULL')
     ->range(0, $limit)
     ->execute();
@@ -436,7 +502,7 @@ function update_fix_d7_requirements() {
     db_create_table('role_permission', $schema['role_permission']);
 
     // Drops and recreates semaphore value index.
-    db_drop_index('semaphore', 'expire');
+    db_drop_index('semaphore', 'value');
     db_add_index('semaphore', 'value', array('value'));
 
     $schema['date_format_type'] = array(
@@ -637,6 +703,9 @@ function update_fix_d7_requirements() {
       db_change_field('languages', 'javascript', 'javascript', array('type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => ''));
     }
 
+    // Rename action description to label.
+    db_change_field('actions', 'description', 'label', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => '0'));
+
     variable_set('update_d7_requirements', TRUE);
   }
 
@@ -672,7 +741,6 @@ function update_fix_d7_install_profile() {
     // Merge in defaults.
     $info = $info + array(
       'dependencies' => array(),
-      'dependents' => array(),
       'description' => '',
       'package' => 'Other',
       'version' => NULL,
@@ -790,16 +858,9 @@ function update_do_one($module, $number, $dependency_map, &$context) {
     return;
   }
 
-  if (!isset($context['log'])) {
-    $context['log'] = variable_get('update_log_queries', 0);
-  }
-
   $ret = array();
   if (function_exists($function)) {
     try {
-      if ($context['log']) {
-        Database::startLog($function);
-      }
       $ret['results']['query'] = $function($context['sandbox']);
       $ret['results']['success'] = TRUE;
     }
@@ -812,10 +873,6 @@ function update_do_one($module, $number, $dependency_map, &$context) {
       require_once DRUPAL_ROOT . '/includes/errors.inc';
       $variables = _drupal_decode_exception($e);
       $ret['#abort'] = array('success' => FALSE, 'query' => t('%type: %message in %function (line %line of %file).', $variables));
-    }
-
-    if ($context['log']) {
-      $ret['queries'] = Database::getLog($function);
     }
   }
 

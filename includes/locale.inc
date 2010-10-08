@@ -1,10 +1,36 @@
 <?php
-// $Id: locale.inc,v 1.258 2010/07/30 02:47:27 dries Exp $
+// $Id: locale.inc,v 1.260 2010/10/06 13:38:39 dries Exp $
 
 /**
  * @file
  * Administration functions for locale.module.
  */
+
+/**
+ * The language is determined using a URL language indicator:
+ * path prefix or domain according to the configuration.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_URL', 'locale-url');
+
+/**
+ * The language is set based on the browser language settings.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_BROWSER', 'locale-browser');
+
+/**
+ * The language is determined using the current interface language.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_INTERFACE', 'locale-interface');
+
+/**
+ * The language is set based on the user language settings.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_USER', 'locale-user');
+
+/**
+ * The language is set based on the request/session parameters.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_SESSION', 'locale-session');
 
 /**
  * Regular expression pattern used to localize JavaScript strings.
@@ -155,6 +181,10 @@ function locale_language_from_session($languages) {
  */
 function locale_language_from_url($languages) {
   $language_url = FALSE;
+
+  if (!language_negotiation_get_any(LOCALE_LANGUAGE_NEGOTIATION_URL)) {
+    return $language_url;
+  }
 
   switch (variable_get('locale_language_negotiation_url_part', LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX)) {
     case LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX:
@@ -1585,7 +1615,7 @@ function _locale_translate_seek() {
   }
 
   $output .= theme('table', array('header' => $header, 'rows' => $rows, 'empty' => t('No strings available.')));
-  $output .= theme('pager', array('tags' => NULL));
+  $output .= theme('pager');
 
   return $output;
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: system.test,v 1.142 2010/09/11 21:14:32 webchick Exp $
+// $Id: system.test,v 1.146 2010/10/05 00:22:24 webchick Exp $
 
 /**
  * Helper class for module test cases.
@@ -317,6 +317,35 @@ class ModuleDependencyTestCase extends ModuleTestCase {
     $this->drupalPost(NULL, NULL, t('Continue'));
     $this->assertText(t('The configuration options have been saved.'), t('Modules status has been updated.'));
     $this->assertModules(array('taxonomy', 'forum'), TRUE);
+  }
+
+  /**
+   * Tests that module dependencies are enabled in the correct order via the
+   * UI. Dependencies should be enabled before their dependents.
+   */
+  function testModuleEnableOrder() {
+    module_enable(array('module_test'), FALSE);
+    $this->resetAll();
+    $this->assertModules(array('module_test'), TRUE);
+    variable_set('dependency_test', 'dependency');
+    // module_test creates a dependency chain: forum depends on poll, which
+    // depends on php. The correct enable order is, php, poll, forum.
+    $expected_order = array('php', 'poll', 'forum');
+
+    // Enable the modules through the UI, verifying that the dependency chain
+    // is correct.
+    $edit = array();
+    $edit['modules[Core][forum][enable]'] = 'forum';
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('forum'), FALSE);
+    $this->assertText(t('You must enable the Poll, PHP filter modules to install Forum.'), t('Dependency chain created.'));
+    $edit['modules[Core][poll][enable]'] = 'poll';
+    $edit['modules[Core][php][enable]'] = 'php';
+    $this->drupalPost('admin/modules', $edit, t('Save configuration'));
+    $this->assertModules(array('forum', 'poll', 'php'), TRUE);
+
+    // Check the actual order which is saved by module_test_modules_enabled().
+    $this->assertIdentical(variable_get('test_module_enable_order', FALSE), $expected_order, t('Modules enabled in the correct order.'));
   }
 }
 
@@ -653,8 +682,7 @@ class AccessDeniedTestCase extends DrupalWebTestCase {
     parent::setUp();
 
     // Create an administrative user.
-    $this->admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer blocks'));
-    $this->drupalLogin($this->admin_user);
+    $this->admin_user = $this->drupalCreateUser(array('access administration pages', 'administer site configuration', 'administer blocks'));
   }
 
   function testAccessDenied() {
@@ -662,6 +690,7 @@ class AccessDeniedTestCase extends DrupalWebTestCase {
     $this->assertText(t('Access denied'), t('Found the default 403 page'));
     $this->assertResponse(403);
 
+    $this->drupalLogin($this->admin_user);
     $edit = array(
       'title' => $this->randomName(10),
       'body' => array(LANGUAGE_NONE => array(array('value' => $this->randomName(100)))),
@@ -671,6 +700,7 @@ class AccessDeniedTestCase extends DrupalWebTestCase {
     // Use a custom 403 page.
     $this->drupalPost('admin/config/system/site-information', array('site_403' => 'node/' . $node->nid), t('Save configuration'));
 
+    $this->drupalLogout();
     $this->drupalGet('admin');
     $this->assertText($node->title, t('Found the custom 403 page'));
 
@@ -1666,6 +1696,73 @@ array_space[a b] = Value';
 }
 
 /**
+ * Tests the effectiveness of hook_system_info_alter().
+ */
+class SystemInfoAlterTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'System info alter',
+      'description' => 'Tests the effectiveness of hook_system_info_alter().',
+      'group' => 'System',
+    );
+  }
+
+  /**
+   * Tests that {system}.info is rebuilt after a module that implements
+   * hook_system_info_alter() is enabled. Also tests if core *_list() functions
+   * return freshly altered info.
+   */
+  function testSystemInfoAlter() {
+    // Enable our test module. Flush all caches, which we assert is the only
+    // thing necessary to use the rebuilt {system}.info.
+    module_enable(array('module_test'), FALSE);
+    drupal_flush_all_caches();
+    $this->assertTrue(module_exists('module_test'), t('Test module is enabled.'));
+
+    $info = $this->getSystemInfo('seven', 'theme');
+    $this->assertTrue(isset($info['regions']['test_region']), t('Altered theme info was added to {system}.info.'));
+    $seven_regions = system_region_list('seven');
+    $this->assertTrue(isset($seven_regions['test_region']), t('Altered theme info was returned by system_region_list().'));
+    $system_list_themes = system_list('theme');
+    $info = $system_list_themes['seven']->info;
+    $this->assertTrue(isset($info['regions']['test_region']), t('Altered theme info was returned by system_list().'));
+    $list_themes = list_themes();
+    $this->assertTrue(isset($list_themes['seven']->info['regions']['test_region']), t('Altered theme info was returned by list_themes().'));
+
+    // Disable the module and verify that {system}.info is rebuilt without it.
+    module_disable(array('module_test'), FALSE);
+    drupal_flush_all_caches();
+    $this->assertFalse(module_exists('module_test'), t('Test module is disabled.'));
+
+    $info = $this->getSystemInfo('seven', 'theme');
+    $this->assertFalse(isset($info['regions']['test_region']), t('Altered theme info was removed from {system}.info.'));
+    $seven_regions = system_region_list('seven');
+    $this->assertFalse(isset($seven_regions['test_region']), t('Altered theme info was not returned by system_region_list().'));
+    $system_list_themes = system_list('theme');
+    $info = $system_list_themes['seven']->info;
+    $this->assertFalse(isset($info['regions']['test_region']), t('Altered theme info was not returned by system_list().'));
+    $list_themes = list_themes();
+    $this->assertFalse(isset($list_themes['seven']->info['regions']['test_region']), t('Altered theme info was not returned by list_themes().'));
+  }
+
+  /**
+   * Returns the info array as it is stored in {system}.
+   *
+   * @param $name
+   *   The name of the record in {system}.
+   * @param $type
+   *   The type of record in {system}.
+   *
+   * @return
+   *   Array of info, or FALSE if the record is not found.
+   */
+  function getSystemInfo($name, $type) {
+    $raw_info = db_query("SELECT info FROM {system} WHERE name = :name AND type = :type", array(':name' => $name, ':type' => $type))->fetchField();
+    return $raw_info ? unserialize($raw_info) : FALSE;
+  }
+}
+
+/**
  * Tests for the update system functionality.
  */
 class UpdateScriptFunctionalTest extends DrupalWebTestCase {
@@ -1847,21 +1944,96 @@ class ShutdownFunctionsTest extends DrupalWebTestCase {
 }
 
 /**
- * Functional tests compact mode.
+ * Tests administrative overview pages.
  */
-class CompactModeTest extends DrupalWebTestCase {
+class SystemAdminTestCase extends DrupalWebTestCase {
   public static function getInfo() {
     return array(
-      'name' => 'Compact mode',
-      'description' => 'Tests compact mode functionality.',
+      'name' => 'Administrative pages',
+      'description' => 'Tests output on administrative pages and compact mode functionality.',
       'group' => 'System',
     );
   }
 
   function setUp() {
-    parent::setUp();
-    $admin_user = $this->drupalCreateUser(array('access administration pages'));
-    $this->drupalLogin($admin_user);
+    // testAdminPages() requires Locale module.
+    parent::setUp(array('locale'));
+
+    // Create an administrator with all permissions, as well as a regular user
+    // who can only access administration pages and perform some Locale module
+    // administrative tasks, but not all of them.
+    $this->admin_user = $this->drupalCreateUser(array_keys(module_invoke_all('permission')));
+    $this->web_user = $this->drupalCreateUser(array(
+      'access administration pages',
+      'translate interface',
+    ));
+    $this->drupalLogin($this->admin_user);
+  }
+
+  /**
+   * Tests output on administrative listing pages.
+   */
+  function testAdminPages() {
+    // Go to Administration.
+    $this->drupalGet('admin');
+
+    // Verify that all visible, top-level administration links are listed on
+    // the main administration page.
+    foreach (menu_get_router() as $path => $item) {
+      if (strpos($path, 'admin/') === 0 && ($item['type'] & MENU_VISIBLE_IN_TREE) && $item['_number_parts'] == 2) {
+        $this->assertLink($item['title']);
+        $this->assertLinkByHref($path);
+        $this->assertText($item['description']);
+      }
+    }
+
+    // For each administrative listing page on which the Locale module appears,
+    // verify that there are links to the module's primary configuration pages,
+    // but no links to its individual sub-configuration pages. Also verify that
+    // a user with access to only some Locale module administration pages only
+    // sees links to the pages they have access to.
+    $admin_list_pages = array(
+      'admin/index',
+      'admin/config',
+      'admin/config/regional',
+    );
+
+    foreach ($admin_list_pages as $page) {
+      // For the administrator, verify that there are links to Locale's primary
+      // configuration pages, but no links to individual sub-configuration
+      // pages.
+      $this->drupalLogin($this->admin_user);
+      $this->drupalGet($page);
+      $this->assertLinkByHref('admin/config');
+      $this->assertLinkByHref('admin/config/regional/settings');
+      $this->assertLinkByHref('admin/config/regional/date-time');
+      $this->assertLinkByHref('admin/config/regional/language');
+      $this->assertNoLinkByHref('admin/config/regional/language/configure/session');
+      $this->assertNoLinkByHref('admin/config/regional/language/configure/url');
+      $this->assertLinkByHref('admin/config/regional/translate');
+      // On admin/index only, the administrator should also see a "Configure
+      // permissions" link for the Locale module.
+      if ($page == 'admin/index') {
+        $this->assertLinkByHref("admin/people/permissions#module-locale");
+      }
+
+      // For a less privileged user, verify that there are no links to Locale's
+      // primary configuration pages, but a link to the translate page exists.
+      $this->drupalLogin($this->web_user);
+      $this->drupalGet($page);
+      $this->assertLinkByHref('admin/config');
+      $this->assertNoLinkByHref('admin/config/regional/settings');
+      $this->assertNoLinkByHref('admin/config/regional/date-time');
+      $this->assertNoLinkByHref('admin/config/regional/language');
+      $this->assertNoLinkByHref('admin/config/regional/language/configure/session');
+      $this->assertNoLinkByHref('admin/config/regional/language/configure/url');
+      $this->assertLinkByHref('admin/config/regional/translate');
+      // This user cannot configure permissions, so even on admin/index should
+      // not see a "Configure permissions" link for the Locale module.
+      if ($page == 'admin/index') {
+        $this->assertNoLinkByHref("admin/people/permissions#module-locale");
+      }
+    }
   }
 
   /**

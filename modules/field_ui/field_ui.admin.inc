@@ -1,5 +1,5 @@
 <?php
-// $Id: field_ui.admin.inc,v 1.65 2010/09/11 00:03:42 webchick Exp $
+// $Id: field_ui.admin.inc,v 1.71 2010/10/04 18:00:45 dries Exp $
 
 /**
  * @file
@@ -68,7 +68,7 @@ function field_ui_inactive_message($entity_type, $bundle) {
  * This is intended as a callback for array_reduce().
  */
 function _field_ui_reduce_order($array, $a) {
-  $array = is_null($array) ? array() : $array;
+  $array = !isset($array) ? array() : $array;
   if ($a['name']) {
     $array[] = $a['name'];
   }
@@ -304,7 +304,7 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       t('Widget'),
       array('data' => t('Operations'), 'colspan' => 2),
     ),
-    '#parent_options' => array('' => t('<none>')),
+    '#parent_options' => array(),
     '#regions' => array(
       'main' => array(),
       'add_new' => array('title' => '&nbsp;'),
@@ -432,8 +432,6 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
   $field_type_options = field_ui_field_type_options();
   $widget_type_options = field_ui_widget_type_options(NULL, TRUE);
   if ($field_type_options && $widget_type_options) {
-    array_unshift($field_type_options, t('- Select a field type -'));
-    array_unshift($widget_type_options, t('- Select a widget -'));
     $name = '_add_new_field';
     $table[$name] = array(
       '#attributes' => array('class' => array('draggable', 'tabledrag-leaf', 'add-new')),
@@ -482,6 +480,7 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'type' => array(
         '#type' => 'select',
         '#options' => $field_type_options,
+        '#empty_option' => t('- Select a field type -'),
         '#description' => t('Type of data to store.'),
         '#attributes' => array('class' => array('field-type-select')),
         '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
@@ -489,6 +488,7 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'widget_type' => array(
         '#type' => 'select',
         '#options' => $widget_type_options,
+        '#empty_option' => t('- Select a widget -'),
         '#description' => t('Form element to edit the data.'),
         '#attributes' => array('class' => array('widget-type-select')),
         '#cell_attributes' => array('colspan' => 3),
@@ -500,7 +500,6 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
   // Additional row: add existing field.
   $existing_field_options = field_ui_existing_field_options($entity_type, $bundle);
   if ($existing_field_options && $widget_type_options) {
-    array_unshift($existing_field_options, t('- Select an existing field -'));
     $name = '_add_existing_field';
     $table[$name] = array(
       '#attributes' => array('class' => array('draggable', 'tabledrag-leaf', 'add-new')),
@@ -540,6 +539,7 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'field_name' => array(
         '#type' => 'select',
         '#options' => $existing_field_options,
+        '#empty_option' => t('- Select an existing field -'),
         '#description' => t('Field to share'),
         '#attributes' => array('class' => array('field-select')),
         '#cell_attributes' => array('colspan' => 2),
@@ -548,6 +548,7 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'widget_type' => array(
         '#type' => 'select',
         '#options' => $widget_type_options,
+        '#empty_option' => t('- Select a widget -'),
         '#description' => t('Form element to edit the data.'),
         '#attributes' => array('class' => array('widget-type-select')),
         '#cell_attributes' => array('colspan' => 3),
@@ -747,7 +748,7 @@ function field_ui_field_overview_form_submit($form, &$form_state) {
       field_create_instance($instance);
 
       $destinations[] = $admin_path . '/fields/' . $field['field_name'] . '/field-settings';
-      $destinations[] = $admin_path . '/fields/' . $field['field_name'] . '/edit';
+      $destinations[] = $admin_path . '/fields/' . $field['field_name'];
 
       // Store new field information for any additional submit handlers.
       $form_state['fields_added']['_add_new_field'] = $field['field_name'];
@@ -844,7 +845,7 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       'visible' => array('message' => t('No field is displayed.')),
       'hidden' => array('title' => t('Hidden'), 'message' => t('No field is hidden.')),
     ),
-    '#parent_options' => array('' => t('<none>')),
+    '#parent_options' => array(),
     '#attributes' => array(
       'class' => array('field-ui-overview'),
       'id' => 'field-display-overview',
@@ -889,7 +890,6 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
         'parent' => array(
           '#type' => 'select',
           '#options' => $table['#parent_options'],
-          '#default_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#parents' => array('fields', $name, 'parent'),
         ),
@@ -1043,7 +1043,6 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
         'parent' => array(
           '#type' => 'select',
           '#options' => $table['#parent_options'],
-          '#default_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#parents' => array('fields', $name, 'parent'),
         ),
@@ -1114,7 +1113,7 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
     '#op' => 'refresh_table',
     // Do not check errors, but make sure we get the values of the
     // 'refresh_rows' input.
-    '#limit_validation_errors' => array('refresh_rows'),
+    '#limit_validation_errors' => array(array('refresh_rows')),
     '#submit' => array('field_ui_display_overview_multistep_submit'),
     '#ajax' => array(
       'callback' => 'field_ui_display_overview_multistep_js',
@@ -1648,13 +1647,22 @@ function field_ui_field_edit_form($form, &$form_state, $instance) {
   $bundles = field_info_bundles();
 
   // Create a form structure for the instance values.
-  $form['instance'] = array(
+  // @todo Fieldset element info needs to be merged in order to not skip the
+  //   default element definition for #pre_render. While the current default
+  //   value could simply be hard-coded, we'd possibly forget this location
+  //   when system_element_info() is updated. See also form_builder(). This
+  //   particular #pre_render, field_ui_field_edit_instance_pre_render(), might
+  //   as well be entirely needless though.
+  $form['instance'] = array_merge(element_info('fieldset'), array(
     '#tree' => TRUE,
     '#type' => 'fieldset',
     '#title' => t('%type settings', array('%type' => $bundles[$entity_type][$bundle]['label'])),
-    '#description' => t('These settings apply only to the %field field when used in the %type type.', array('%field' => $instance['label'], '%type' => $bundles[$entity_type][$bundle]['label'])),
+    '#description' => t('These settings apply only to the %field field when used in the %type type.', array(
+      '%field' => $instance['label'],
+      '%type' => $bundles[$entity_type][$bundle]['label'],
+    )),
     '#pre_render' => array('field_ui_field_edit_instance_pre_render'),
-  );
+  ));
 
   // Build the non-configurable instance values.
   $form['instance']['field_name'] = array(
@@ -1695,7 +1703,6 @@ function field_ui_field_edit_form($form, &$form_state, $instance) {
     '#default_value' => !empty($instance['description']) ? $instance['description'] : '',
     '#rows' => 5,
     '#description' => t('Instructions to present to the user below this field on the editing form.<br />Allowed HTML tags: @tags', array('@tags' => _field_filter_xss_display_allowed_tags())),
-    '#required' => FALSE,
     '#weight' => 0,
   );
 

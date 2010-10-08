@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.611 2010/09/14 21:42:05 dries Exp $
+// $Id: theme.inc,v 1.618 2010/10/05 19:59:10 dries Exp $
 
 /**
  * @file
@@ -102,6 +102,15 @@ function drupal_theme_initialize() {
 
   // Themes can have alter functions, so reset the drupal_alter() cache.
   drupal_static_reset('drupal_alter');
+
+  // Provide the page with information about the theme that's used, so that a
+  // later AJAX request can be rendered using the same theme.
+  // @see ajax_base_page_theme()
+  $setting['ajaxPageState'] = array(
+    'theme' => $theme_key,
+    'themeToken' => drupal_get_token($theme_key),
+  );
+  drupal_add_js($setting, 'setting');
 }
 
 /**
@@ -164,7 +173,7 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
   // And now add the stylesheets properly
   foreach ($final_stylesheets as $media => $stylesheets) {
     foreach ($stylesheets as $stylesheet) {
-      drupal_add_css($stylesheet, array('weight' => CSS_THEME, 'media' => $media, 'preprocess' => TRUE));
+      drupal_add_css($stylesheet, array('group' => CSS_THEME, 'every_page' => TRUE, 'media' => $media));
     }
   }
 
@@ -189,7 +198,7 @@ function _drupal_theme_initialize($theme, $base_theme = array(), $registry_callb
 
   // Add scripts used by this theme.
   foreach ($final_scripts as $script) {
-    drupal_add_js($script, array('weight' => JS_THEME, 'preprocess' => TRUE));
+    drupal_add_js($script, array('group' => JS_THEME, 'every_page' => TRUE));
   }
 
   $theme_engine = NULL;
@@ -581,11 +590,7 @@ function list_themes($refresh = FALSE) {
     // Also check that the site is not in the middle of an install or update.
     if (!defined('MAINTENANCE_MODE')) {
       try {
-        foreach (system_list('theme') as $theme) {
-          if (file_exists($theme->filename)) {
-            $themes[] = $theme;
-          }
-        }
+        $themes = system_list('theme');
       }
       catch (Exception $e) {
         // If the database is not available, rebuild the theme data.
@@ -870,6 +875,7 @@ function theme($hook, $variables = array()) {
   }
 
   // Generate the output using either a function or a template.
+  $output = '';
   if (isset($info['function'])) {
     if (function_exists($info['function'])) {
       $output = $info['function']($variables);
@@ -1118,7 +1124,7 @@ function theme_get_setting($setting_name, $theme = NULL) {
   $cache = &drupal_static(__FUNCTION__, array());
 
   // If no key is given, use the current theme if we can determine it.
-  if (is_null($theme)) {
+  if (!isset($theme)) {
     $theme = !empty($GLOBALS['theme_key']) ? $GLOBALS['theme_key'] : '';
   }
 
@@ -1479,6 +1485,8 @@ function theme_links($variables) {
  *   An associative array containing:
  *   - path: Either the path of the image file (relative to base_path()) or a
  *     full URL.
+ *   - width: The width of the image (if known).
+ *   - height: The height of the image (if known).
  *   - alt: The alternative text for text-based browsers. HTML 4 and XHTML 1.0
  *     always require an alt attribute. The HTML 5 draft allows the alt
  *     attribute to be omitted in some cases. Therefore, this variable defaults
@@ -1492,38 +1500,19 @@ function theme_links($variables) {
  *   - title: The title text is displayed when the image is hovered in some
  *     popular browsers.
  *   - attributes: Associative array of attributes to be placed in the img tag.
- *   - getsize: If set to TRUE, the image's dimension are fetched and added as
- *     width/height attributes.
  */
 function theme_image($variables) {
-  $path = $variables['path'];
-  $alt = $variables['alt'];
-  $title = $variables['title'];
   $attributes = $variables['attributes'];
-  $getsize = $variables['getsize'];
+  $attributes['src'] = file_create_url($variables['path']);
 
-  if (!$getsize || (is_file($path) && (list($width, $height) = @getimagesize($path)))) {
-    // The src attribute can be omitted, by passing NULL for $path and FALSE for
-    // $getsize.
-    if (isset($path)) {
-      $attributes['src'] = file_create_url($path);
+  foreach (array('width', 'height', 'alt', 'title') as $key) {
+
+    if (isset($variables[$key])) {
+      $attributes[$key] = $variables[$key];
     }
-    // The alt attribute defaults to an empty string. By passing NULL as value,
-    // it can be omitted.
-    if (isset($alt)) {
-      $attributes['alt'] = $alt;
-    }
-    if (isset($title)) {
-      $attributes['title'] = $title;
-    }
-    if (!isset($attributes['width']) && !empty($width)) {
-      $attributes['width'] = $width;
-    }
-    if (!isset($attributes['height']) && !empty($height)) {
-      $attributes['height'] = $height;
-    }
-    return '<img' . drupal_attributes($attributes) . ' />';
   }
+
+  return '<img' . drupal_attributes($attributes) . ' />';
 }
 
 /**
@@ -2257,7 +2246,6 @@ function template_preprocess_page(&$variables) {
 
   $variables['base_path']         = base_path();
   $variables['front_page']        = url();
-  $variables['breadcrumb']        = theme('breadcrumb', array('breadcrumb' => drupal_get_breadcrumb()));
   $variables['feed_icons']        = drupal_get_feeds();
   $variables['language']          = $GLOBALS['language'];
   $variables['language']->dir     = $GLOBALS['language']->direction ? 'rtl' : 'ltr';
@@ -2269,7 +2257,6 @@ function template_preprocess_page(&$variables) {
   $variables['site_name']         = (theme_get_setting('toggle_name') ? filter_xss_admin(variable_get('site_name', 'Drupal')) : '');
   $variables['site_slogan']       = (theme_get_setting('toggle_slogan') ? filter_xss_admin(variable_get('site_slogan', '')) : '');
   $variables['tabs']              = theme('menu_local_tasks');
-  $variables['title']             = drupal_get_title();
 
   if ($node = menu_get_object()) {
     $variables['node'] = $node;
@@ -2278,6 +2265,28 @@ function template_preprocess_page(&$variables) {
   // Populate the page template suggestions.
   if ($suggestions = theme_get_suggestions(arg(), 'page')) {
     $variables['theme_hook_suggestions'] = $suggestions;
+  }
+}
+
+/**
+ * Process variables for page.tpl.php
+ *
+ * Perform final addition of variables before passing them into the template.
+ * To customize these variables, simply set them in an earlier step.
+ *
+ * @see template_preprocess_page()
+ * @see page.tpl.php
+ */
+function template_process_page(&$variables) {
+  if (!isset($variables['breadcrumb'])) {
+    // Build the breadcrumb last, so as to increase the chance of being able to
+    // re-use the cache of an already rendered menu containing the active link
+    // for the current page.
+    // @see menu_tree_page_data()
+    $variables['breadcrumb'] = theme('breadcrumb', array('breadcrumb' => drupal_get_breadcrumb()));
+  }
+  if (!isset($variables['title'])) {
+    $variables['title'] = drupal_get_title();
   }
 }
 
