@@ -206,30 +206,40 @@ EOF;
 
     // Update the settings file to use shared database tables (unless this is the default site)
     if (conf_path() != 'sites/default') {
-        $shared_prefix = unl_profile_get_default_site_db_prefix();
+        $parent_site_database_settings = unl_profile_get_default_site_db_settings();
+    
         $new_prefix = $GLOBALS['databases']['default']['default']['prefix'];
+        $shared_prefix = $parent_site_database_settings['default']['default']['prefix'];
+        $new_prefixes = array(
+          // Localized tables, prefixed with site name
+          'default'       => $new_prefix,
+
+          // shared tables across all sites
+          'authmap'       => $shared_prefix,
+          'filter'        => $shared_prefix,
+          'filter_format' => $shared_prefix,
+          'role'          => $shared_prefix,
+          'sessions'      => $shared_prefix,
+          'users'         => $shared_prefix,
+          'users_roles'   => $shared_prefix,
+          'wysiwyg'       => $shared_prefix,
+        );
+        
         $settings['databases'] = array(
-            'value'    => $GLOBALS['databases'],
+            'value'    => $parent_site_database_settings,
             'required' => TRUE
         );
-        $settings['databases']['value']['default']['default']['prefix'] = array(
-
-            // Localized tables, prefixed with site name
-            'default'       => $new_prefix,
-
-            // shared tables across all sites
-            'authmap'       => $shared_prefix,
-            'filter'        => $shared_prefix,
-            'filter_format' => $shared_prefix,
-            'role'          => $shared_prefix,
-            'sessions'      => $shared_prefix,
-            'users'         => $shared_prefix,
-            'users_roles'   => $shared_prefix,
-            'wysiwyg'       => $shared_prefix
-        );
+        
+        foreach ($settings['databases']['value'] as &$database) {
+          $database['default']['prefix'] = $new_prefixes;
+          foreach ($database['slave'] as &$slave_database) {
+            $slave_database['prefix'] = $new_prefixes;
+          }
+        }
+        
         $settings['drupal_hash_salt'] = array(
-            'value'    => 'FOOBAR' . $GLOBALS['drupal_hash_salt'],
-            'required' => TRUE,
+          'value'    => 'FOOBAR' . $GLOBALS['drupal_hash_salt'],
+          'required' => TRUE,
         );
         
         $settings_dir = DRUPAL_ROOT . DIRECTORY_SEPARATOR . conf_path();
@@ -263,12 +273,12 @@ EOF;
 /**
  * Load the default site's config file and return the db_prefix value from it.
  */
-function unl_profile_get_default_site_db_prefix()
+function unl_profile_get_default_site_db_settings()
 {
     $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
     require $default_site_settings_file;
     
-    return $databases['default']['default']['prefix'];
+    return $databases;
 }
 
 function unl_profile_add_shortcut($title, $path)
