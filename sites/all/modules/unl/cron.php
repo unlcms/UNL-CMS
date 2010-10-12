@@ -125,7 +125,7 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   if (strlen($sites_subdir) <= strlen(DRUPAL_ROOT . '/sites/')) {
     return FALSE;
   }
- 
+
   foreach ($tables as $table) {
     $table = $db_prefix . $table;
     try {
@@ -138,7 +138,19 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   shell_exec('chmod -R u+w ' . escapeshellarg($sites_subdir));
   shell_exec('rm -rf ' . escapeshellarg($sites_subdir));
   
+  // Check to see if this site had any sub-sites.
+  // If so, we don't want to remove any symlinks.
+  // TODO: instead, iterate over all sites and rebuild directories/symlinks if needed.
+  $results = db_select('unl_sites', 's')
+    ->fields('s', array('uri'))
+    ->condition('uri', $uri . '/%', 'LIKE')
+    ->execute()
+    ->fetchAll();
+  if (count($results) > 0) {
+    return TRUE;
+  }
   
+  // Remove the symlink to the drupal root for this site.
   $subdir = explode('/', $site_path);
   $symlink_name = array_pop($subdir);
   $subdir_levels = count($subdir);
