@@ -73,10 +73,18 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
   $db_url = escapeshellarg($db_url);
   $db_prefix = escapeshellarg($db_prefix);
   
+  $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url";
+
   $subdir = explode('/', $site_path);
   $symlink_name = array_pop($subdir);
-  $subdir_levels = count($subdir);
   $subdir = implode('/', $subdir);
+
+  if ($subdir) {
+    mkdir($subdir, 0755, TRUE);
+  }
+  
+  $subdir = realpath($subdir);
+  $subdir_levels = count(explode('/', $subdir)) - count(explode('/', DRUPAL_ROOT));
   
   $symlink_target = array();
   for ($i = 0; $i < $subdir_levels; $i++) {
@@ -88,12 +96,11 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
     $symlink_target = '.';
   }
   
-  $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url";
-  
   if ($subdir) {
     mkdir($subdir, 0755, TRUE);
   }
-  symlink($symlink_target, DRUPAL_ROOT . '/' . $subdir . '/' . $symlink_name);
+  
+  symlink($symlink_target, $subdir . '/' . $symlink_name);
   shell_exec($command);
 }
 
