@@ -62,6 +62,13 @@ DirectoryIndex index.php index.html index.htm
 <IfModule mod_rewrite.c>
   RewriteEngine on
 
+  # THIS SECTION IS AUTOMATICALY GENERATED.
+  # DO NOT EDIT!!!!
+  
+  # %UNL_CREATION_TOOL_STUB%
+  
+  # END AUTOMATICALLY GENERATED AREA.
+  
   # Block access to "hidden" directories whose names begin with a period. This
   # includes directories used by version control systems such as Subversion or
   # Git to store control files. Files whose names begin with a period, as well
