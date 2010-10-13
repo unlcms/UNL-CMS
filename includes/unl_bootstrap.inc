@@ -13,8 +13,13 @@ function unl_bootstrap() {
   
   $previous_conf_path = '';
   $previous_script_name = '';
-  for ($i = count($path_parts); $i > 0; $i--) {
-    $_SERVER['SCRIPT_NAME'] = '/' . implode('/', array_slice($path_parts, 0, $i)) . '/index.php';
+  for ($i = count($path_parts); $i >= 0; $i--) {
+    if ($i == 0) {
+      $_SERVER['SCRIPT_NAME'] = '/index.php';
+    }
+    else {
+      $_SERVER['SCRIPT_NAME'] = '/' . implode('/', array_slice($path_parts, 0, $i)) . '/index.php';
+    }
     $conf_path = conf_path(TRUE, TRUE);
     
     if ($previous_conf_path && ($conf_path != $previous_conf_path)) {
