@@ -3,7 +3,8 @@
 function unl_bootstrap() {
   $original_script_name = $_SERVER['SCRIPT_NAME'];
   
-  $path_parts = explode('/', $_SERVER['SCRIPT_URL']);
+  $request_uri = parse_url($_SERVER['REQUEST_URI']);
+  $path_parts = explode('/', $request_uri['path']);
   foreach ($path_parts as $path_index => $path_part) {
     if (!$path_part) {
       unset($path_parts[$path_index]);
