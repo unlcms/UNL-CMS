@@ -124,7 +124,9 @@ EOF;
 UNL is an equal opportunity employer with a comprehensive plan for diversity. Find out more: <a href="https://employment.unl.edu/" target="_blank" title="Employment at UNL">employment.unl.edu</a><br />
 EOF;
     
+
     // Enable some standard blocks.
+    
     db_insert('block')
         ->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'))
         ->values(array(
@@ -169,31 +171,40 @@ EOF;
         ))
         ->execute();
     
+    
+    // Get the default filter_format from the parent database.
+    $parent_site_database_settings = unl_profile_get_default_site_db_settings();
+    $parent_site_prefix = $parent_site_database_settings['default']['default']['prefix'];
+    $results = db_query("SELECT * FROM {$parent_site_prefix}filter_format WHERE status=1 ORDER BY weight LIMIT 1");
+    foreach ($results as $result) {
+      $format = $result->format;
+    }
+    
     db_insert('block_custom')
         ->fields(array('bid', 'body', 'info', 'format'))
         ->values(array(
             'bid'    => 101,
             'body'   => $block_contents['contactinfo'],
             'info'   => 'Contact Info',
-            'format' => 3
+            'format' => $format,
         ))
         ->values(array(
             'bid'    => 102,
             'body'   => $block_contents['leftcollinks'],
             'info'   => 'Related Links',
-            'format' => 3
+            'format' => $format,
         ))
         ->values(array(
             'bid'    => 103,
             'body'   => $block_contents['optionalfooter'],
             'info'   => 'Optional Footer',
-            'format' => 3
+            'format' => $format,
         ))
         ->values(array(
             'bid'    => 104,
             'body'   => $block_contents['footercontent'],
             'info'   => 'Footer Content',
-            'format' => 3
+            'format' => $format,
         ))
         ->execute();
     
