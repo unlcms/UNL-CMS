@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.module,v 1.34 2010/06/02 08:31:10 ufku Exp $
+// $Id: imce.module,v 1.36 2010/10/09 05:48:35 ufku Exp $
 
 /**
  * @file
@@ -40,7 +40,7 @@ function imce_menu() {
     'title' => 'Add new profile',
     'page callback' => 'imce_profile_operations',
     'access arguments' => $access,
-    'type' => MENU_CALLBACK,
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
     'file' => 'inc/imce.admin.inc',
   );
   return $items;
@@ -101,26 +101,6 @@ function imce_file_download($uri) {
       'Content-type' => file_get_mimetype($uri),
       'Content-Length' => filesize($uri),
     );
-  }
-}
-
-/**
- * Implements hook_file_delete().
- */
-function imce_file_delete($file) {
-  db_delete('imce_files')->condition('fid', $file->fid)->execute();
-}
-
-/**
- * Implements of hook_file_references().
- */
-function imce_file_references($file) {
-  //do not report reference count on internal file deletion
-  if (isset($file->imce_noref) && $file->imce_noref) {
-    return;
-  }
-  if (db_query('SELECT 1 FROM {imce_files} WHERE fid = :fid', array(':fid' => $file->fid))->fetchField()) {
-    return array('imce' => 1);
   }
 }
 

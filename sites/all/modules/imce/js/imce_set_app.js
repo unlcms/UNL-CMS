@@ -1,4 +1,4 @@
-// $Id: imce_set_app.js,v 1.6 2010/06/02 08:28:47 ufku Exp $
+// $Id: imce_set_app.js,v 1.8 2010/08/29 03:46:54 ufku Exp $
 /*
  * IMCE Integration by URL
  * Ex-1: http://example.com/imce?app=XEditor|url@urlFieldId|width@widthFieldId|height@heightFieldId
@@ -82,7 +82,7 @@ var isFunc = function(str, scope) {
   var obj = scope || appWindow;
   var parts = str.split('.'), len = parts.length;
   for (var i = 0; i < len && (obj = obj[parts[i]]); i++);
-  return i == len && $.isFunction(obj) ? obj : false;
+  return obj && i == len && (typeof obj == 'function' || typeof obj != 'string' && !obj.nodeName && obj.constructor != Array && /^[\s[]?function/.test(obj.toString())) ? obj : false;
 }
 
 })(jQuery);
