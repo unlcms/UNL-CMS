@@ -11,7 +11,9 @@
  */
 define('DRUPAL_ROOT', getcwd());
 
+include_once DRUPAL_ROOT . '/includes/unl_bootstrap.inc';
 include_once DRUPAL_ROOT . '/includes/bootstrap.inc';
+unl_bootstrap();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
 if (!isset($_GET['cron_key']) || variable_get('cron_key', 'drupal') != $_GET['cron_key']) {

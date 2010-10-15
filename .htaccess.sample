@@ -65,6 +65,7 @@ DirectoryIndex index.php index.html index.htm
   # THIS SECTION IS AUTOMATICALY GENERATED.
   # DO NOT EDIT!!!!
   
+  RewriteRule .*/cron cron.php
   RewriteRule .*/update.php update.php
   
   # %UNL_CREATION_TOOL_STUB%
