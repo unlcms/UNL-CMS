@@ -2,6 +2,7 @@
 
 function unl_bootstrap() {
   $original_script_name = $_SERVER['SCRIPT_NAME'];
+  $php_file = basename($original_script_name);
   
   $request_uri = parse_url($_SERVER['REQUEST_URI']);
   $path_parts = explode('/', $request_uri['path']);
@@ -15,10 +16,10 @@ function unl_bootstrap() {
   $previous_script_name = '';
   for ($i = count($path_parts); $i >= 0; $i--) {
     if ($i == 0) {
-      $_SERVER['SCRIPT_NAME'] = '/index.php';
+      $_SERVER['SCRIPT_NAME'] = '/' . $php_file;
     }
     else {
-      $_SERVER['SCRIPT_NAME'] = '/' . implode('/', array_slice($path_parts, 0, $i)) . '/index.php';
+      $_SERVER['SCRIPT_NAME'] = '/' . implode('/', array_slice($path_parts, 0, $i)) . '/' . $php_file;
     }
     $conf_path = conf_path(TRUE, TRUE);
     
