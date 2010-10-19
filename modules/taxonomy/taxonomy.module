@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.module,v 1.605 2010/09/11 06:03:12 webchick Exp $
+// $Id: taxonomy.module,v 1.609 2010/10/03 01:15:33 dries Exp $
 
 /**
  * @file
@@ -287,7 +287,6 @@ function taxonomy_menu() {
     'page callback' => 'taxonomy_term_page',
     'page arguments' => array(2),
     'access arguments' => array('access content'),
-    'type' => MENU_CALLBACK,
     'file' => 'taxonomy.pages.inc',
   );
   $items['taxonomy/term/%taxonomy_term/view'] = array(
@@ -600,11 +599,18 @@ function taxonomy_term_delete($tid) {
  *   A term object.
  * @param $view_mode
  *   View mode, e.g. 'full', 'teaser'...
+ * @param $langcode
+ *   (optional) A language code to use for rendering. Defaults to the global
+ *   content language of the current request.
  *
  * @return
  *   An array as expected by drupal_render().
  */
-function taxonomy_term_view($term, $view_mode = 'full') {
+function taxonomy_term_view($term, $view_mode = 'full', $langcode = NULL) {
+  if (!isset($langcode)) {
+    $langcode = $GLOBALS['language_content']->language;
+  }
+
   field_attach_prepare_view('taxonomy_term', array($term->tid => $term), $view_mode);
   entity_prepare_view('taxonomy_term', array($term->tid => $term));
 
@@ -612,9 +618,10 @@ function taxonomy_term_view($term, $view_mode = 'full') {
     '#theme' => 'taxonomy_term',
     '#term' => $term,
     '#view_mode' => $view_mode,
+    '#language' => $langcode,
   );
 
-  $build += field_attach_view('taxonomy_term', $term, $view_mode);
+  $build += field_attach_view('taxonomy_term', $term, $view_mode, $langcode);
 
   $build['description'] = array(
     '#markup' => check_markup($term->description, $term->format, '', TRUE),
@@ -842,7 +849,7 @@ function taxonomy_get_tree($vid, $parent = 0, $max_depth = NULL, $depth = -1) {
     }
   }
 
-  $max_depth = (is_null($max_depth)) ? count($children[$vid]) : $max_depth;
+  $max_depth = (!isset($max_depth)) ? count($children[$vid]) : $max_depth;
   $tree = array();
   if ($max_depth > $depth && !empty($children[$vid][$parent])) {
     foreach ($children[$vid][$parent] as $child) {
@@ -1039,7 +1046,7 @@ function taxonomy_implode_tags($tags, $vid = NULL) {
   $typed_tags = array();
   foreach ($tags as $tag) {
     // Extract terms belonging to the vocabulary in question.
-    if (is_null($vid) || $tag->vid == $vid) {
+    if (!isset($vid) || $tag->vid == $vid) {
       // Make sure we have a completed loaded taxonomy term.
       if (isset($tag->name)) {
         // Commas and quotes in tag names are special cases, so encode 'em.
@@ -1059,7 +1066,7 @@ function taxonomy_implode_tags($tags, $vid = NULL) {
  *
  * Field settings:
  * - allowed_values: a list array of one or more vocabulary trees:
- *   - vid: a vocabulary ID.
+ *   - vocabulary: a vocabulary machine name.
  *   - parent: a term ID of a term whose children are allowed. This should be
  *     '0' if all terms in a vocabulary are allowed. The allowed values do not
  *     include the parent term.
@@ -1075,7 +1082,7 @@ function taxonomy_field_info() {
       'settings' => array(
         'allowed_values' => array(
           array(
-            'vid' => '0',
+            'vocabulary' => '',
             'parent' => '0',
           ),
         ),
@@ -1149,8 +1156,8 @@ function taxonomy_field_validate($entity_type, $entity, $field, $instance, $lang
         $validate = FALSE;
         foreach ($field['settings']['allowed_values'] as $settings) {
           // If no parent is specified, check if the term is in the vocabulary.
-          if (isset($settings['vid']) && empty($settings['parent'])) {
-            if ($settings['vid'] == $terms[$item['tid']]->vid) {
+          if (isset($settings['vocabulary']) && empty($settings['parent'])) {
+            if ($settings['vocabulary'] == $terms[$item['tid']]->vocabulary_machine_name) {
               $validate = TRUE;
               break;
             }
@@ -1259,10 +1266,11 @@ function taxonomy_field_formatter_view($entity_type, $entity, $field, $instance,
 function taxonomy_allowed_values($field) {
   $options = array();
   foreach ($field['settings']['allowed_values'] as $tree) {
-    $terms = taxonomy_get_tree($tree['vid'], $tree['parent']);
-    if ($terms) {
-      foreach ($terms as $term) {
-        $options[$term->tid] = str_repeat('-', $term->depth) . $term->name;
+    if ($vocabulary = taxonomy_vocabulary_machine_name_load($tree['vocabulary'])) {
+      if ($terms = taxonomy_get_tree($vocabulary->vid, $tree['parent'])) {
+        foreach ($terms as $term) {
+          $options[$term->tid] = str_repeat('-', $term->depth) . $term->name;
+        }
       }
     }
   }
@@ -1361,9 +1369,11 @@ function taxonomy_autocomplete_validate($element, &$form_state) {
   if ($tags = $element['#value']) {
     // Collect candidate vocabularies.
     $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
-    $vids = array();
+    $vocabularies = array();
     foreach ($field['settings']['allowed_values'] as $tree) {
-      $vids[] = $tree['vid'];
+      if ($vocabulary = taxonomy_vocabulary_machine_name_load($tree['vocabulary'])) {
+        $vocabularies[$vocabulary->vid] = $vocabulary;
+      }
     }
 
     // Translate term names into actual terms.
@@ -1371,14 +1381,14 @@ function taxonomy_autocomplete_validate($element, &$form_state) {
     foreach ($typed_terms as $typed_term) {
       // See if the term exists in the chosen vocabulary and return the tid;
       // otherwise, create a new 'autocreate' term for insert/update.
-      if ($possibilities = taxonomy_term_load_multiple(array(), array('name' => trim($typed_term), 'vid' => $vids))) {
+      if ($possibilities = taxonomy_term_load_multiple(array(), array('name' => trim($typed_term), 'vid' => array_keys($vocabularies)))) {
         $term = array_pop($possibilities);
       }
       else {
-        $vocabulary = taxonomy_vocabulary_load($vids[0]);
+        $vocabulary = reset($vocabularies);
         $term = array(
           'tid' => 'autocreate',
-          'vid' => $vids[0],
+          'vid' => $vocabulary->vid,
           'name' => $typed_term,
           'vocabulary_machine_name' => $vocabulary->machine_name,
         );
@@ -1404,17 +1414,17 @@ function taxonomy_field_settings_form($field, $instance, $has_data) {
   $vocabularies = taxonomy_get_vocabularies();
   $options = array();
   foreach ($vocabularies as $vocabulary) {
-    $options[$vocabulary->vid] = $vocabulary->name;
+    $options[$vocabulary->machine_name] = $vocabulary->name;
   }
   $form['allowed_values'] = array(
     '#tree' => TRUE,
   );
 
   foreach ($field['settings']['allowed_values'] as $delta => $tree) {
-    $form['allowed_values'][$delta]['vid'] = array(
+    $form['allowed_values'][$delta]['vocabulary'] = array(
       '#type' => 'select',
       '#title' => t('Vocabulary'),
-      '#default_value' => $tree['vid'],
+      '#default_value' => $tree['vocabulary'],
       '#options' => $options,
       '#required' => TRUE,
       '#description' => t('The vocabulary which supplies the options for this field.'),

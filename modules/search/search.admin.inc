@@ -1,5 +1,5 @@
 <?php
-// $Id: search.admin.inc,v 1.16 2010/08/05 07:11:15 webchick Exp $
+// $Id: search.admin.inc,v 1.18 2010/09/28 02:30:31 dries Exp $
 
 /**
  * @file
@@ -60,7 +60,7 @@ function search_admin_settings($form) {
   // Collect some stats
   $remaining = 0;
   $total = 0;
-  foreach(variable_get('search_active_modules', array('node', 'user')) as $module) {
+  foreach (variable_get('search_active_modules', array('node', 'user')) as $module) {
     if ($status = module_invoke($module, 'search_status')) {
       $remaining += $status['remaining'];
       $total += $status['total'];
@@ -124,7 +124,7 @@ function search_admin_settings($form) {
   $form['active']['search_default_module'] = array(
     '#title' => t('Default search module'),
     '#type' => 'radios',
-    '#default_value' => 'node',
+    '#default_value' => variable_get('search_default_module', 'node'),
     '#options' => _search_get_module_names(),
     '#description' => t('Choose which search module is the default.')
   );
@@ -132,7 +132,7 @@ function search_admin_settings($form) {
   $form['#submit'][] = 'search_admin_settings_submit';
 
   // Per module settings
-  foreach(variable_get('search_active_modules', array('node', 'user')) as $module) {
+  foreach (variable_get('search_active_modules', array('node', 'user')) as $module) {
     $added_form = module_invoke($module, 'search_admin');
     if (is_array($added_form)) {
       $form = array_merge($form, $added_form);

@@ -1,5 +1,5 @@
 <?php
-// $Id: color.module,v 1.90 2010/08/17 22:05:22 dries Exp $
+// $Id: color.module,v 1.92 2010/10/05 19:59:10 dries Exp $
 
 /**
  * Implements hook_help().
@@ -63,7 +63,7 @@ function _color_theme_select_form_alter(&$form, &$form_state) {
   foreach (element_children($form) as $theme) {
     if ($screenshot = variable_get('color_' . $theme . '_screenshot')) {
       if (isset($form[$theme]['screenshot'])) {
-        $form[$theme]['screenshot']['#markup'] = theme('image', array('path' => $screenshot, 'alt' => '', 'title' => '', 'attributes' => array('class' => array('screenshot')), 'getsize' => FALSE));
+        $form[$theme]['screenshot']['#markup'] = theme('image', array('path' => $screenshot, 'title' => '', 'attributes' => array('class' => array('screenshot'))));
       }
     }
   }
@@ -247,7 +247,7 @@ function theme_color_scheme_form($variables) {
   
   $preview_js_path = isset($info['preview_js']) ? $path . $info['preview_js'] : drupal_get_path('module', 'color') . '/' . 'preview.js';
   // Add the JS at a weight below color.js.
-  drupal_add_js($preview_js_path, array('weight' => JS_DEFAULT - 1));
+  drupal_add_js($preview_js_path, array('weight' => -1));
     
   $output  = '';
   $output .= '<div class="color-form clearfix">';

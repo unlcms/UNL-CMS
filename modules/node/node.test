@@ -1,5 +1,5 @@
 <?php
-// $Id: node.test,v 1.94 2010/08/30 00:22:03 webchick Exp $
+// $Id: node.test,v 1.97 2010/10/07 00:28:20 webchick Exp $
 
 /**
  * Test the node_load_multiple() function.
@@ -770,7 +770,7 @@ class NodeRSSContentTestCase extends DrupalWebTestCase {
 
 /**
  * Test case to verify basic node_access functionality.
- * @todo Cover hook_access in a separate test class.
+ * @todo Cover hook_node_access in a separate test class.
  * hook_node_access_records is covered in another test class.
  */
 class NodeAccessUnitTest extends DrupalWebTestCase {
@@ -821,6 +821,9 @@ class NodeAccessUnitTest extends DrupalWebTestCase {
     $node3 = $this->drupalCreateNode(array('status' => 0, 'uid' => $web_user3->uid));
     $this->assertNodeAccess(array('view' => FALSE), $node3, $web_user3);
 
+    // User cannot create content without permission.
+    $this->assertNodeAccess(array('create' => FALSE), 'page', $web_user3);
+
     // User can 'view own unpublished content', but another user cannot.
     $web_user4 = $this->drupalCreateUser(array('access content', 'view own unpublished content'));
     $web_user5 = $this->drupalCreateUser(array('access content', 'view own unpublished content'));
@@ -830,7 +833,6 @@ class NodeAccessUnitTest extends DrupalWebTestCase {
 
     // Tests the default access provided for a published node.
     $node5 = $this->drupalCreateNode();
-    $this->assertNodeAccess(array('create' => FALSE), 'page', $web_user3);
     $this->assertNodeAccess(array('view' => TRUE, 'update' => FALSE, 'delete' => FALSE), $node5, $web_user3);
   }
 }
@@ -909,6 +911,12 @@ class NodeAccessRecordsUnitTest extends DrupalWebTestCase {
       drupal_alter('node_grants', $altered_grants, $web_user, $op);
       $this->assertNotEqual($grants, $altered_grants, t('Altered the %op grant for a user.', array('%op' => $op)));
     }
+
+    // Check that core does not grant access to an unpublished node when an
+    // empty $grants array is returned.
+    $node6 = $this->drupalCreateNode(array('status' => 0, 'disable_node_access' => TRUE));
+    $records = db_query('SELECT realm, gid FROM {node_access} WHERE nid = :nid', array(':nid' => $node6->nid))->fetchAll();
+    $this->assertEqual(count($records), 0, t('Returned no records for unpublished node.'));
   }
 }
 
@@ -1141,6 +1149,82 @@ class NodeTypeTestCase extends DrupalWebTestCase {
 }
 
 /**
+ * Test node type customizations persistence.
+ */
+class NodeTypePersistenceTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Node type persist',
+      'description' => 'Ensures that node type customization survives module enabling and disabling.',
+      'group' => 'Node',
+    );
+  }
+
+  /**
+   * Test node type customizations persist through disable and uninstall.
+   */
+  function testNodeTypeCustomizationPersistence() {
+    $web_user = $this->drupalCreateUser(array('bypass node access', 'administer content types', 'administer modules'));
+    $this->drupalLogin($web_user);
+    $poll_key = 'modules[Core][poll][enable]';
+    $poll_enable = array($poll_key => "1");
+    $poll_disable = array($poll_key => FALSE);
+
+    // Enable poll and verify that the node type is in the DB and is not
+    // disabled.
+    $this->drupalPost('admin/modules', $poll_enable, t('Save configuration'));
+    $disabled = db_query('SELECT disabled FROM {node_type} WHERE type = :type', array(':type' => 'poll'))->fetchField();
+    $this->assertNotIdentical($disabled, FALSE, t('Poll node type found in the database'));
+    $this->assertEqual($disabled, 0, t('Poll node type is not disabled'));
+
+    // Check that poll node type (uncustomized) shows up.
+    $this->drupalGet('node/add');
+    $this->assertText('poll', t('poll type is found on node/add'));
+
+    // Customize poll description.
+    $description = $this->randomName();
+    $edit = array('description' => $description);
+    $this->drupalPost('admin/structure/types/manage/poll', $edit, t('Save content type'));
+
+    // Check that poll node type customization shows up.
+    $this->drupalGet('node/add');
+    $this->assertText($description, t('Customized description found'));
+
+    // Disable poll and check that the node type gets disabled.
+    $this->drupalPost('admin/modules', $poll_disable, t('Save configuration'));
+    $disabled = db_query('SELECT disabled FROM {node_type} WHERE type = :type', array(':type' => 'poll'))->fetchField();
+    $this->assertEqual($disabled, 1, t('Poll node type is disabled'));
+    $this->drupalGet('node/add');
+    $this->assertNoText('poll', t('poll type is not found on node/add'));
+
+    // Reenable poll and check that the customization survived the module
+    // disable.
+    $this->drupalPost('admin/modules', $poll_enable, t('Save configuration'));
+    $disabled = db_query('SELECT disabled FROM {node_type} WHERE type = :type', array(':type' => 'poll'))->fetchField();
+    $this->assertNotIdentical($disabled, FALSE, t('Poll node type found in the database'));
+    $this->assertEqual($disabled, 0, t('Poll node type is not disabled'));
+    $this->drupalGet('node/add');
+    $this->assertText($description, t('Customized description found'));
+
+    // Disable and uninstall poll.
+    $this->drupalPost('admin/modules', $poll_disable, t('Save configuration'));
+    $edit = array('uninstall[poll]' => 'poll');
+    $this->drupalPost('admin/modules/uninstall', $edit, t('Uninstall'));
+    $this->drupalPost(NULL, array(), t('Uninstall'));
+    $disabled = db_query('SELECT disabled FROM {node_type} WHERE type = :type', array(':type' => 'poll'))->fetchField();
+    $this->assertTrue($disabled, t('Poll node type is in the database and is disabled'));
+    $this->drupalGet('node/add');
+    $this->assertNoText('poll', t('poll type is no longer found on node/add'));
+
+    // Reenable poll and check that the customization survived the module
+    // uninstall.
+    $this->drupalPost('admin/modules', $poll_enable, t('Save configuration'));
+    $this->drupalGet('node/add');
+    $this->assertText($description, t('Customized description is found even after uninstall and reenable.'));
+  }
+}
+
+/**
  * Rebuild the node_access table.
  */
 class NodeAccessRebuildTestCase extends DrupalWebTestCase {
@@ -1224,7 +1308,9 @@ class NodeAdminTestCase extends DrupalWebTestCase {
       'status' => 'status-1',
     );
     $this->drupalPost(NULL, $edit, t('Filter'));
-    $this->assertRaw(t('<strong>%type</strong> is <strong>%value</strong>', array('%type' => t('status'), '%value' => t('published'))), t('Content list is filtered by status.'));
+
+    $this->assertRaw(t('where %property is %value', array('%property' => t('status'), '%value' => 'published')), t('Content list is filtered by status.'));
+
     $this->assertLinkByHref('node/' . $nodes['published_page']->nid . '/edit');
     $this->assertLinkByHref('node/' . $nodes['published_article']->nid . '/edit');
     $this->assertNoLinkByHref('node/' . $nodes['unpublished_page_1']->nid . '/edit');
@@ -1234,8 +1320,10 @@ class NodeAdminTestCase extends DrupalWebTestCase {
       'type' => 'page',
     );
     $this->drupalPost(NULL, $edit, t('Refine'));
-    $this->assertRaw(t('<strong>%type</strong> is <strong>%value</strong>', array('%type' => t('status'), '%value' => t('published'))), t('Content list is filtered by status.'));
-    $this->assertRaw(t('<strong>%type</strong> is <strong>%value</strong>', array('%type' => t('type'), '%value' => 'Basic page')), t('Content list is filtered by content type.'));
+
+    $this->assertRaw(t('where %property is %value', array('%property' => t('status'), '%value' => 'published')), t('Content list is filtered by status.'));
+    $this->assertRaw(t('and where %property is %value', array('%property' => t('type'), '%value' => 'Basic page')), t('Content list is filtered by content type.'));
+
     $this->assertLinkByHref('node/' . $nodes['published_page']->nid . '/edit');
     $this->assertNoLinkByHref('node/' . $nodes['published_article']->nid . '/edit');
 

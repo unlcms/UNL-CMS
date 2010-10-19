@@ -18,11 +18,18 @@ while ($row = $query->fetchAssoc()) {
    ->fields(array('installed' => 1))
    ->condition('site_id', $row['site_id'])
    ->execute();
-  unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix']);
-  db_update('unl_sites')
-    ->fields(array('installed' => 2))
-    ->condition('site_id', $row['site_id'])
-    ->execute();
+  if (unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix'], $row['site_id'])) {
+    db_update('unl_sites')
+      ->fields(array('installed' => 2))
+      ->condition('site_id', $row['site_id'])
+      ->execute();
+  }
+  else {
+    db_update('unl_sites')
+      ->fields(array('installed' => 5))
+      ->condition('site_id', $row['site_id'])
+      ->execute();
+  }
 }
 
 $query = db_query('SELECT * FROM {unl_sites} WHERE installed=3');
@@ -31,7 +38,7 @@ while ($row = $query->fetchAssoc()) {
     ->fields(array('installed' => 4))
     ->condition('site_id', $row['site_id'])
     ->execute();
-  if (unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix'])) {
+  if (unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix'], $row['site_id'])) {
     db_delete('unl_sites')
       ->condition('site_id', $row['site_id'])
       ->execute();
@@ -46,7 +53,7 @@ while ($row = $query->fetchAssoc()) {
 }
 
 
-function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
+function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   if (substr($site_path, 0, 1) == '/') {
     $site_path = substr($site_path, 1);
   }
@@ -54,10 +61,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
     $site_path = substr($site_path, 0, -1);
   }
   
-  $path_parts = parse_url($uri);
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.')); 
-  
+  $sites_subdir = _unl_get_sites_subdir($uri);
   
   $database = $GLOBALS['databases']['default']['default'];
   $db_url = $database['driver']
@@ -76,31 +80,29 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix) {
   $db_url = escapeshellarg($db_url);
   $db_prefix = escapeshellarg($db_prefix);
   
-  $subdir = explode('/', $site_path);
-  $symlink_name = array_pop($subdir);
-  $subdir_levels = count($subdir);
-  $subdir = implode('/', $subdir);
-  
-  $symlink_target = array();
-  for ($i = 0; $i < $subdir_levels; $i++) {
-      $symlink_target[] = '..';
-  }
-  $symlink_target = implode('/', $symlink_target);
-  
-  if (!$symlink_target) {
-    $symlink_target = '.';
-  }
-  
   $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url";
-  
-  if ($subdir) {
-    mkdir($subdir, 0755, TRUE);
-  }
-  symlink($symlink_target, DRUPAL_ROOT . '/' . $subdir . '/' . $symlink_name);
   shell_exec($command);
+  
+  $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
+  $stub_pos = strpos($htaccess, $stub_token);
+  if ($stub_pos === FALSE) {
+    return FALSE;
+  }
+  $new_htaccess = substr($htaccess, 0, $stub_pos)
+                . "  # %UNL_START_SITE_ID_$site_id%\n";
+  foreach (array('misc', 'modules', 'sites', 'themes') as $drupal_dir) {
+    $new_htaccess .=  "  RewriteRule $site_path/$drupal_dir/(.*) $drupal_dir/$1\n";
+  }
+  $new_htaccess .= "  # %UNL_END_SITE_ID_$site_id%\n\n" 
+                 . $stub_token
+                 . substr($htaccess, $stub_pos + strlen($stub_token));
+  
+  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  return TRUE;
 }
 
-function unl_remove_site($site_path, $uri, $db_prefix) {
+function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   $schema = drupal_get_schema();
   $tables = array_keys($schema);
   sort($tables);
@@ -109,10 +111,7 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   $db_prefix .= '_' . $database['prefix'];
   
   
-  $path_parts = parse_url($uri);
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
-
+  $sites_subdir = _unl_get_sites_subdir($uri);
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
   
@@ -124,7 +123,7 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   if (strlen($sites_subdir) <= strlen(DRUPAL_ROOT . '/sites/')) {
     return FALSE;
   }
- 
+
   foreach ($tables as $table) {
     $table = $db_prefix . $table;
     try {
@@ -137,16 +136,35 @@ function unl_remove_site($site_path, $uri, $db_prefix) {
   shell_exec('chmod -R u+w ' . escapeshellarg($sites_subdir));
   shell_exec('rm -rf ' . escapeshellarg($sites_subdir));
   
+  // Remove the rewrite rules from .htaccess for this site.
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
+  $site_start_token = "\n  # %UNL_START_SITE_ID_$site_id%";
+  $site_end_token = "  # %UNL_END_SITE_ID_$site_id%\n";
   
-  $subdir = explode('/', $site_path);
-  $symlink_name = array_pop($subdir);
-  $subdir_levels = count($subdir);
-  $subdir = implode('/', $subdir);
-  unlink(DRUPAL_ROOT . '/' . $subdir . '/' . $symlink_name);
+  $start_pos = strpos($htaccess, $site_start_token);
+  $end_pos = strpos($htaccess, $site_end_token);
+  
+  if ($start_pos === FALSE || $end_pos === FALSE) {
+    return FALSE;
+  }
+  $new_htaccess = substr($htaccess, 0, $start_pos)
+                . substr($htaccess, $end_pos + strlen($site_end_token))
+                ;
+  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
   
   return TRUE;
 }
 
+function _unl_get_sites_subdir($uri) {
+  $path_parts = parse_url($uri);
+  if (substr($path_parts['host'], -7) == 'unl.edu') {
+    $path_parts['host'] = 'unl.edu';
+  }
+  $sites_subdir = $path_parts['host'] . $path_parts['path'];
+  $sites_subdir = strtr($sites_subdir, array('/' => '.')); 
+  
+  return $sites_subdir;
+}
 
 
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: common.test,v 1.125 2010/09/09 20:22:00 dries Exp $
+// $Id: common.test,v 1.129 2010/10/05 19:59:10 dries Exp $
 
 /**
  * @file
@@ -655,7 +655,7 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
   function testRenderInlinePreprocess() {
     $css = 'body { padding: 0px; }';
     $css_preprocessed = '<style type="text/css" media="all">' . drupal_load_stylesheet_content($css, TRUE) . '</style>';
-    drupal_add_css($css, array('type' => 'inline', 'preprocess' => TRUE));
+    drupal_add_css($css, array('type' => 'inline'));
     $styles = drupal_get_css();
     $this->assertEqual(trim($styles), $css_preprocessed, t('Rendering preprocessed inline CSS adds it to the page.'));
   }
@@ -665,7 +665,7 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
    */
   function testRenderInlineNoPreprocess() {
     $css = 'body { padding: 0px; }';
-    drupal_add_css($css, array('type' => 'inline'));
+    drupal_add_css($css, array('type' => 'inline', 'preprocess' => FALSE));
     $styles = drupal_get_css();
     $this->assertTrue(strpos($styles, $css) > 0, t('Rendering non-preprocessed inline CSS adds it to the page.'));
   }
@@ -675,7 +675,9 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
    */
   function testRenderInlineFullPage() {
     $css = 'body { font-size: 254px; }';
-    $expected = $css;
+    // Inline CSS is minified unless 'preprocess' => FALSE is passed as a
+    // drupal_add_css() option.
+    $expected = 'body{font-size:254px;}';
 
     // Create a node, using the PHP filter that tests drupal_add_css().
     $php_format_id = db_query_range('SELECT format FROM {filter_format} WHERE name = :name', 0, 1, array(':name' => 'PHP code'))->fetchField();
@@ -706,14 +708,14 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
     drupal_add_css(drupal_get_path('module', 'simpletest') . '/simpletest.css');
     // A few system CSS files, ordered in a strange way.
     $system_path = drupal_get_path('module', 'system');
-    drupal_add_css($system_path . '/system-behavior.css', array('weight' => CSS_SYSTEM));
-    drupal_add_css($system_path . '/system.css', array('weight' => CSS_SYSTEM - 10));
-    drupal_add_css($system_path . '/system-menus.css', array('weight' => CSS_SYSTEM));
+    drupal_add_css($system_path . '/system.menus.css', array('group' => CSS_SYSTEM));
+    drupal_add_css($system_path . '/system.base.css', array('group' => CSS_SYSTEM, 'weight' => -10));
+    drupal_add_css($system_path . '/system.theme.css', array('group' => CSS_SYSTEM));
 
     $expected = array(
-      $system_path . '/system.css',
-      $system_path . '/system-behavior.css',
-      $system_path . '/system-menus.css',
+      $system_path . '/system.base.css',
+      $system_path . '/system.menus.css',
+      $system_path . '/system.theme.css',
       drupal_get_path('module', 'simpletest') . '/simpletest.css',
     );
 
@@ -735,35 +737,39 @@ class CascadingStylesheetsTestCase extends DrupalWebTestCase {
    * Test CSS override.
    */
   function testRenderOverride() {
-    drupal_add_css(drupal_get_path('module', 'system') . '/system.css');
-    drupal_add_css(drupal_get_path('module', 'simpletest') . '/tests/system.css');
+    $system = drupal_get_path('module', 'system');
+    $simpletest = drupal_get_path('module', 'simpletest');
+
+    drupal_add_css($system . '/system.base.css');
+    drupal_add_css($simpletest . '/tests/system.base.css');
 
     // The dummy stylesheet should be the only one included.
     $styles = drupal_get_css();
-    $this->assert(strpos($styles, drupal_get_path('module', 'simpletest') . '/tests/system.css') !== FALSE, t('The overriding CSS file is output.'));
-    $this->assert(strpos($styles, drupal_get_path('module', 'system') . '/system.css') === FALSE, t('The overriden CSS file is not output.'));
+    $this->assert(strpos($styles, $simpletest . '/tests/system.base.css') !== FALSE, t('The overriding CSS file is output.'));
+    $this->assert(strpos($styles, $system . '/system.base.css') === FALSE, t('The overridden CSS file is not output.'));
 
-    drupal_add_css(drupal_get_path('module', 'simpletest') . '/tests/system.css');
-    drupal_add_css(drupal_get_path('module', 'system') . '/system.css');
+    drupal_add_css($simpletest . '/tests/system.base.css');
+    drupal_add_css($system . '/system.base.css');
 
     // The standard stylesheet should be the only one included.
     $styles = drupal_get_css();
-    $this->assert(strpos($styles, drupal_get_path('module', 'system') . '/system.css') !== FALSE, t('The overriding CSS file is output.'));
-    $this->assert(strpos($styles, drupal_get_path('module', 'simpletest') . '/tests/system.css') === FALSE, t('The overriden CSS file is not output.'));
+    $this->assert(strpos($styles, $system . '/system.base.css') !== FALSE, t('The overriding CSS file is output.'));
+    $this->assert(strpos($styles, $simpletest . '/tests/system.base.css') === FALSE, t('The overridden CSS file is not output.'));
   }
 
   /**
    * Tests Locale module's CSS Alter to include RTL overrides.
    */
   function testAlter() {
-    // Switch the language to a right to left language and add system.css.
+    // Switch the language to a right to left language and add system.base.css.
     global $language;
     $language->direction = LANGUAGE_RTL;
-    drupal_add_css(drupal_get_path('module', 'system') . '/system.css');
+    $path = drupal_get_path('module', 'system');
+    drupal_add_css($path . '/system.base.css');
 
-    // Check to see if system-rtl.css was also added.
+    // Check to see if system.base-rtl.css was also added.
     $styles = drupal_get_css();
-    $this->assert(strpos($styles, drupal_get_path('module', 'system') . '/system-rtl.css') !== FALSE, t('CSS is alterable as right to left overrides are added.'));
+    $this->assert(strpos($styles, $path . '/system.base-rtl.css') !== FALSE, t('CSS is alterable as right to left overrides are added.'));
 
     // Change the language back to left to right.
     $language->direction = LANGUAGE_LTR;
@@ -1238,11 +1244,19 @@ class JavaScriptTestCase extends DrupalWebTestCase {
   }
 
   /**
+   * Test adding a JavaScript file with a different group.
+   */
+  function testDifferentGroup() {
+    $javascript = drupal_add_js('misc/collapse.js', array('group' => JS_THEME));
+    $this->assertEqual($javascript['misc/collapse.js']['group'], JS_THEME, t('Adding a JavaScript file with a different group caches the given group.'));
+  }
+
+  /**
    * Test adding a JavaScript file with a different weight.
    */
   function testDifferentWeight() {
-    $javascript = drupal_add_js('misc/collapse.js', array('weight' => JS_THEME));
-    $this->assertEqual($javascript['misc/collapse.js']['weight'], JS_THEME, t('Adding a JavaScript file with a different weight caches the given weight.'));
+    $javascript = drupal_add_js('misc/collapse.js', array('weight' => 2));
+    $this->assertEqual($javascript['misc/collapse.js']['weight'], 2, t('Adding a JavaScript file with a different weight caches the given weight.'));
   }
 
   /**
@@ -1291,7 +1305,10 @@ class JavaScriptTestCase extends DrupalWebTestCase {
    * Test rendering the JavaScript with a file's weight above jQuery's.
    */
   function testRenderDifferentWeight() {
-    drupal_add_js('misc/collapse.js', array('weight' => JS_LIBRARY - 21));
+    // JavaScript files are sorted first by group, then by the 'every_page'
+    // flag, then by weight (see drupal_sort_css_js()), so to test the effect of
+    // weight, we need the other two options to be the same.
+    drupal_add_js('misc/collapse.js', array('group' => JS_LIBRARY, 'every_page' => TRUE, 'weight' => -21));
     $javascript = drupal_get_js();
     $this->assertTrue(strpos($javascript, 'misc/collapse.js') < strpos($javascript, 'misc/jquery.js'), t('Rendering a JavaScript file above jQuery.'));
   }
@@ -1304,7 +1321,7 @@ class JavaScriptTestCase extends DrupalWebTestCase {
   function testAlter() {
     // Add both tableselect.js and simpletest.js, with a larger weight on SimpleTest.
     drupal_add_js('misc/tableselect.js');
-    drupal_add_js(drupal_get_path('module', 'simpletest') . '/simpletest.js', array('weight' => JS_THEME));
+    drupal_add_js(drupal_get_path('module', 'simpletest') . '/simpletest.js', array('weight' => 9999));
 
     // Render the JavaScript, testing if simpletest.js was altered to be before
     // tableselect.js. See simpletest_js_alter() to see where this alteration
@@ -1389,11 +1406,11 @@ class JavaScriptTestCase extends DrupalWebTestCase {
 /**
  * Tests for drupal_render().
  */
-class DrupalRenderUnitTestCase extends DrupalWebTestCase {
+class DrupalRenderTestCase extends DrupalWebTestCase {
   public static function getInfo() {
     return array(
-      'name' => 'Drupal render',
-      'description' => 'Performs unit tests on drupal_render().',
+      'name' => 'drupal_render()',
+      'description' => 'Performs functional tests on drupal_render().',
       'group' => 'System',
     );
   }
@@ -1469,6 +1486,132 @@ class DrupalRenderUnitTestCase extends DrupalWebTestCase {
     );
     // Test that passing arguments to the theme function works.
     $this->assertEqual(drupal_render($element), $element['#foo'] . $element['#bar'], 'Passing arguments to theme functions works');
+  }
+
+  /**
+   * Test rendering form elements without passing through form_builder().
+   */
+  function testDrupalRenderFormElements() {
+    // Define a series of form elements.
+    $element = array(
+      '#type' => 'button',
+      '#value' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'submit'));
+
+    $element = array(
+      '#type' => 'textfield',
+      '#title' => $this->randomName(),
+      '#value' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'text'));
+
+    $element = array(
+      '#type' => 'password',
+      '#title' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'password'));
+
+    $element = array(
+      '#type' => 'textarea',
+      '#title' => $this->randomName(),
+      '#value' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//textarea');
+
+    $element = array(
+      '#type' => 'radio',
+      '#title' => $this->randomName(),
+      '#value' => FALSE,
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'radio'));
+
+    $element = array(
+      '#type' => 'checkbox',
+      '#title' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'checkbox'));
+
+    $element = array(
+      '#type' => 'select',
+      '#title' => $this->randomName(),
+      '#options' => array(
+        0 => $this->randomName(),
+        1 => $this->randomName(),
+      ),
+    );
+    $this->assertRenderedElement($element, '//select');
+
+    $element = array(
+      '#type' => 'file',
+      '#title' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'file'));
+
+    $element = array(
+      '#type' => 'item',
+      '#title' => $this->randomName(),
+      '#markup' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//div[contains(@class, :class) and contains(., :markup)]/label[contains(., :label)]', array(
+      ':class' => 'form-type-item',
+      ':markup' => $element['#markup'],
+      ':label' => $element['#title'],
+    ));
+
+    $element = array(
+      '#type' => 'hidden',
+      '#title' => $this->randomName(),
+      '#value' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//input[@type=:type]', array(':type' => 'hidden'));
+
+    $element = array(
+      '#type' => 'link',
+      '#title' => $this->randomName(),
+      '#href' => $this->randomName(),
+      '#options' => array(
+        'absolute' => TRUE,
+      ),
+    );
+    $this->assertRenderedElement($element, '//a[@href=:href and contains(., :title)]', array(
+      ':href' => url($element['#href'], array('absolute' => TRUE)),
+      ':title' => $element['#title'],
+    ));
+
+    $element = array(
+      '#type' => 'fieldset',
+      '#title' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//fieldset/legend[contains(., :title)]', array(
+      ':title' => $element['#title'],
+    ));
+
+    $element['item'] = array(
+      '#type' => 'item',
+      '#title' => $this->randomName(),
+      '#markup' => $this->randomName(),
+    );
+    $this->assertRenderedElement($element, '//fieldset/div/div[contains(@class, :class) and contains(., :markup)]', array(
+      ':class' => 'form-type-item',
+      ':markup' => $element['item']['#markup'],
+    ));
+  }
+
+  protected function assertRenderedElement(array $element, $xpath, array $xpath_args = array()) {
+    $original_element = $element;
+    $this->drupalSetContent(drupal_render($element));
+    $this->verbose('<pre>' .  check_plain(var_export($original_element, TRUE)) . '</pre>'
+      . '<pre>' .  check_plain(var_export($element, TRUE)) . '</pre>'
+      . '<hr />' . $this->drupalGetContent()
+    );
+
+    // @see DrupalWebTestCase::xpath()
+    $xpath = $this->buildXPathQuery($xpath, $xpath_args);
+    $element += array('#value' => NULL);
+    $this->assertFieldByXPath($xpath, $element['#value'], t('#type @type was properly rendered.', array(
+      '@type' => var_export($element['#type'], TRUE),
+    )));
   }
 }
 
@@ -1759,14 +1902,34 @@ class DrupalErrorCollectionUnitTest extends DrupalWebTestCase {
     }
   }
 
+  /**
+   * Error handler that collects errors in an array.
+   *
+   * This test class is trying to verify that simpletest correctly sees errors
+   * and warnings. However, it can't generate errors and warnings that
+   * propagate up to the testing framework itself, or these tests would always
+   * fail. So, this special copy of error() doesn't propagate the errors up
+   * the class hierarchy. It just stuffs them into a protected collectedErrors
+   * array for various assertions to inspect.
+   */
   protected function error($message = '', $group = 'Other', array $caller = NULL) {
-    // This function overiddes DrupalWebTestCase::error(). We collect an error...
-    $this->collectedErrors[] = array(
-      'message' => $message,
-      'group' => $group,
-      'caller' => $caller
-    );
-    // ... and ignore it.
+    // Due to a WTF elsewhere, simpletest treats debug() and verbose()
+    // messages as if they were an 'error'. But, we don't want to collect
+    // those here. This function just wants to collect the real errors (PHP
+    // notices, PHP fatal errors, etc.), and let all the 'errors' from the
+    // 'User notice' group bubble up to the parent classes to be handled (and
+    // eventually displayed) as normal.
+    if ($group == 'User notice') {
+      parent::error($message, $group, $caller);
+    }
+    // Everything else should be collected but not propagated.
+    else {
+      $this->collectedErrors[] = array(
+        'message' => $message,
+        'group' => $group,
+        'caller' => $caller
+      );
+    }
   }
 
   /**

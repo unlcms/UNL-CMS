@@ -180,8 +180,7 @@ function unl_site_remove($site_id) {
   }
   $uri = $uri[0];
 
-  $path_parts = parse_url($uri);
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
+  $sites_subdir = _unl_get_sites_subdir($uri);
   $sites_subdir = strtr($sites_subdir, array('/' => '.'));
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
@@ -206,6 +205,16 @@ function unl_site_remove($site_id) {
   drupal_set_message('The site has been scheduled for removal.');
 }
 
+function _unl_get_sites_subdir($uri) {
+  $path_parts = parse_url($uri);
+  if (substr($path_parts['host'], -7) == 'unl.edu') {
+    $path_parts['host'] = 'unl.edu';
+  }
+  $sites_subdir = $path_parts['host'] . $path_parts['path'];
+  $sites_subdir = strtr($sites_subdir, array('/' => '.')); 
+  
+  return $sites_subdir;
+}
 
 
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: database_test.test,v 1.101 2010/09/09 23:18:30 webchick Exp $
+// $Id: database_test.test,v 1.103 2010/09/24 02:05:55 dries Exp $
 
 /**
  * Dummy class for fetching into a class.
@@ -1093,18 +1093,15 @@ class DatabaseMergeTestCase extends DatabaseTestCase {
   }
 
   /**
-   * Confirm that we can merge-update a record successfully, with exclusion.
+   * Confirm that we can merge-update a record successfully, with different insert and update.
    */
   function testMergeUpdateExcept() {
     $num_records_before = db_query('SELECT COUNT(*) FROM {test_people}')->fetchField();
 
     db_merge('test_people')
       ->key(array('job' => 'Speaker'))
-      ->fields(array(
-        'age' => 31,
-        'name' => 'Tiffany',
-      ))
-      ->updateExcept('age')
+      ->insertFields(array('age' => 31))
+      ->updateFields(array('name' => 'Tiffany'))
       ->execute();
 
     $num_records_after = db_query('SELECT COUNT(*) FROM {test_people}')->fetchField();
@@ -1124,11 +1121,13 @@ class DatabaseMergeTestCase extends DatabaseTestCase {
 
     db_merge('test_people')
       ->key(array('job' => 'Speaker'))
-      ->fields(array(
+      ->insertFields(array(
         'age' => 31,
         'name' => 'Tiffany',
       ))
-      ->update(array('name' => 'Joe'))
+      ->updateFields(array(
+        'name' => 'Joe',
+      ))
       ->execute();
 
     $num_records_after = db_query('SELECT COUNT(*) FROM {test_people}')->fetchField();
@@ -1155,10 +1154,8 @@ class DatabaseMergeTestCase extends DatabaseTestCase {
     // which is what is supposed to happen.
     db_merge('test_people')
       ->key(array('job' => 'Speaker'))
-      ->fields(array(
-        'age' => 31,
-        'name' => 'Tiffany',
-      ))
+      ->fields(array('name' => 'Tiffany'))
+      ->insertFields(array('age' => 31))
       ->expression('age', 'age + :age', array(':age' => 4))
       ->execute();
 
@@ -1210,8 +1207,7 @@ class DatabaseMergeTestCase extends DatabaseTestCase {
 
     db_merge('test_people')
       ->key(array('job' => 'Speaker'))
-      ->fields(array('age' => 31))
-      ->updateExcept(array('age'))
+      ->insertFields(array('age' => 31))
       ->execute();
 
     $num_records_after = db_query('SELECT COUNT(*) FROM {test_people}')->fetchField();
@@ -2091,7 +2087,6 @@ class DatabaseSelectComplexTestCase2 extends DatabaseTestCase {
     $str = (string) $query;
 
     // Verify that the string only has one copy of condition placeholder 0.
-    debug($str);
     $pos = strpos($str, 'db_condition_placeholder_0', 0);
     $pos2 = strpos($str, 'db_condition_placeholder_0', $pos + 1);
     $this->assertFalse($pos2, "Condition placeholder is not repeated");
@@ -2216,13 +2211,13 @@ class DatabaseSelectPagerDefaultTestCase extends DatabaseTestCase {
       ->fetchCol();
     $this->assertEqual($ages, array('George', 'Ringo'), t('Pager query with having expression returned the correct ages.'));
   }
-  
+
   /**
   * Confirm that every pager gets a valid non-overlaping element ID.
   */
   function testElementNumbers() {
     $_GET['page'] = '3, 2, 1, 0';
-    
+
     $name = db_select('test', 't')->extend('PagerDefault')
       ->element(2)
       ->fields('t', array('name'))
@@ -2231,7 +2226,7 @@ class DatabaseSelectPagerDefaultTestCase extends DatabaseTestCase {
       ->execute()
       ->fetchField();
     $this->assertEqual($name, 'Paul', t('Pager query #1 with a specified element ID returned the correct results.'));
-    
+
     // Setting an element smaller than the previous one
     // should not overwrite the pager $maxElement with a smaller value.
     $name = db_select('test', 't')->extend('PagerDefault')
@@ -2242,7 +2237,7 @@ class DatabaseSelectPagerDefaultTestCase extends DatabaseTestCase {
       ->execute()
       ->fetchField();
     $this->assertEqual($name, 'George', t('Pager query #2 with a specified element ID returned the correct results.'));
-  
+
     $name = db_select('test', 't')->extend('PagerDefault')
       ->fields('t', array('name'))
       ->orderBy('age')
@@ -2250,7 +2245,7 @@ class DatabaseSelectPagerDefaultTestCase extends DatabaseTestCase {
       ->execute()
       ->fetchField();
     $this->assertEqual($name, 'John', t('Pager query #3 with a generated element ID returned the correct results.'));
-    
+
     unset($_GET['page']);
   }
 }

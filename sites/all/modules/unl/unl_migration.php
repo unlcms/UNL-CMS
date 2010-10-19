@@ -41,21 +41,18 @@ function unl_migration($form, &$form_state)
 
 function unl_migration_submit($form, &$form_state)
 {
-    Unl_Migration_Tool::migrate($form_state['values']['site_url'],
-                                $form_state['values']['frontier_path'],
-                                $form_state['values']['frontier_user'],
-                                $form_state['values']['frontier_pass']);
+    $migration = new Unl_Migration_Tool(
+      $form_state['values']['site_url'],
+      $form_state['values']['frontier_path'],
+      $form_state['values']['frontier_user'],
+      $form_state['values']['frontier_pass']
+    );
+    while (!$migration->migrate());
 }
 
 
 class Unl_Migration_Tool
 {
-    static public function migrate($baseUrl, $frontierPath, $frontierUser, $frontierPass)
-    {
-        $instance = new self($baseUrl, $frontierPath, $frontierUser, $frontierPass);
-        return $instance->_migrate();
-    }
-
     /**
      * base url to the site to migrate, eg: http://www.unl.edu/band/
      *
@@ -78,6 +75,7 @@ class Unl_Migration_Tool
     private $_siteMap            = array();
     private $_processedPages     = array();
     private $_content            = array();
+    private $_createdContent     = array();
     private $_lastModifications  = array();
     private $_hrefTransform      = array();
     private $_hrefTransformFiles = array();
@@ -87,7 +85,17 @@ class Unl_Migration_Tool
     private $_log                = array();
     private $_blocks             = array();
     
-    private function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
+    /**
+     * Keep track of the state of the migration progress so that we can resume later
+     * @var int
+     */
+    private $_state           = self::STATE_NONE;
+    const STATE_NONE             = 1;
+    const STATE_PROCESSING_PAGES = 2;
+    const STATE_CREATING_NODES   = 3;
+    const STATE_DONE             = 4;
+    
+    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
     {
         header('Content-type: text/plain');
 
@@ -108,52 +116,76 @@ class Unl_Migration_Tool
         $this->_frontierScan('/');
     }
     
-    private function _migrate()
+    public function migrate($time_limit = 1)
     {
+        $start_time = time();
         ini_set('memory_limit', -1);
+                
+        if ($this->_state == self::STATE_NONE) {
+            // Parse the menu
+            $this->_processMenu();
+            $this->_process_blocks();
+            $this->_state = self::STATE_PROCESSING_PAGES;
+        }
         
-        // Parse the menu
-        $this->_processMenu();
-        $this->_process_blocks();
+        if ($this->_state == self::STATE_PROCESSING_PAGES) {
+            // Process all of the pages on the site (Takes a while)
+            do {
+                set_time_limit(30);
+                
+                $pagesToProcess = $this->_getPagesToProcess();
+                foreach ($pagesToProcess as $pageToProcess) {
+                    if (time() - $start_time > $time_limit) {
+                        return FALSE;
+                    }
+                    $this->_processPage($pageToProcess);
+                }
+            } while (count($pagesToProcess) > 0);
+         
         
-        // Process all of the pages on the site
-        do {
-            set_time_limit(30);
-            
-            $pagesToProcess = $this->_getPagesToProcess();
-            foreach ($pagesToProcess as $pageToProcess) {
-                $this->_processPage($pageToProcess);
-            }
-            //if ($i++ == 2) break;
-        } while (count($pagesToProcess) > 0);
-        
-        // Fix any links to files that got moved to sites/<site>/files
-        foreach ($this->_hrefTransform as $path => &$transforms) {
-            if (array_key_exists('', $transforms)) {
-                unset($transforms['']);
-            }
-            foreach ($transforms as $oldPath => &$newPath) {
-                if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
-                    $newPath = $this->_hrefTransformFiles[$newPath];
+            // Fix any links to files that got moved to sites/<site>/files
+            foreach ($this->_hrefTransform as $path => &$transforms) {
+                if (array_key_exists('', $transforms)) {
+                    unset($transforms['']);
+                }
+                foreach ($transforms as $oldPath => &$newPath) {
+                    if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
+                        $newPath = $this->_hrefTransformFiles[$newPath];
+                    }
                 }
             }
+           
+            $this->_state = self::STATE_CREATING_NODES;
         }
         
-        // Update links and then create new page nodes.
-        foreach ($this->_content as $path => $content) {
-            set_time_limit(30);
-            
-            $hrefTransform = $this->_hrefTransform[$path];
-            
-            if (is_array($hrefTransform)) {
-                $content = strtr($content, $hrefTransform);
+        if ($this->_state == self::STATE_CREATING_NODES) {
+            // Update links and then create new page nodes. (Takes a while)
+            foreach ($this->_content as $path => $content) {
+                if (in_array($path, $this->_createdContent)) {
+                    continue;
+                }
+                if (time() - $start_time > $time_limit) {
+                    return FALSE;
+                }
+                set_time_limit(30);
+                
+                $hrefTransform = $this->_hrefTransform[$path];
+                
+                if (is_array($hrefTransform)) {
+                    $content = strtr($content, $hrefTransform);
+                }
+                $pageTitle = $this->_pageTitles[$path];
+                $this->_createPage($pageTitle, $content, $path, '' == $path);
+                $this->_createdContent[] = $path;
             }
-            $pageTitle = $this->_pageTitles[$path];
-            $this->_createPage($pageTitle, $content, $path, '' == $path);
+            
+            $this->_createMenu();
+            $this->_create_blocks();
+            
+            $this->_state = self::STATE_DONE;
         }
         
-        $this->_createMenu();
-        $this->_create_blocks();
+        return TRUE;
     }
     
     private function _addSitePath($path)

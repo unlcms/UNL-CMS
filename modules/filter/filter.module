@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.module,v 1.343 2010/09/11 03:30:03 dries Exp $
+// $Id: filter.module,v 1.351 2010/10/04 18:00:45 dries Exp $
 
 /**
  * @file
@@ -114,7 +114,6 @@ function filter_menu() {
     'file' => 'filter.admin.inc',
   );
   $items['admin/config/content/formats/%filter_format'] = array(
-    'type' => MENU_CALLBACK,
     'title callback' => 'filter_admin_format_title',
     'title arguments' => array(4),
     'page callback' => 'filter_admin_format_page',
@@ -122,13 +121,12 @@ function filter_menu() {
     'access arguments' => array('administer filters'),
     'file' => 'filter.admin.inc',
   );
-  $items['admin/config/content/formats/%filter_format/delete'] = array(
-    'title' => 'Delete text format',
+  $items['admin/config/content/formats/%filter_format/disable'] = array(
+    'title' => 'Disable text format',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('filter_admin_delete', 4),
-    'access callback' => '_filter_delete_format_access',
+    'page arguments' => array('filter_admin_disable', 4),
+    'access callback' => '_filter_disable_format_access',
     'access arguments' => array(4),
-    'type' => MENU_CALLBACK,
     'file' => 'filter.admin.inc',
   );
   return $items;
@@ -140,11 +138,11 @@ function filter_menu() {
  * @param $format
  *   A text format object.
  * @return
- *   TRUE if the text format can be deleted by the current user, FALSE
+ *   TRUE if the text format can be disabled by the current user, FALSE
  *   otherwise.
  */
-function _filter_delete_format_access($format) {
-  // The fallback format can never be deleted.
+function _filter_disable_format_access($format) {
+  // The fallback format can never be disabled.
   return user_access('administer filters') && ($format->format != filter_fallback_format());
 }
 
@@ -187,6 +185,7 @@ function filter_format_load($format_id) {
 function filter_format_save(&$format) {
   $format->name = trim($format->name);
   $format->cache = _filter_format_is_cacheable($format);
+  $format->status = 1;
   // Programmatic saves may not contain any filters.
   if (!isset($format->filters)) {
     $format->filters = array();
@@ -256,31 +255,26 @@ function filter_format_save(&$format) {
 }
 
 /**
- * Delete a text format.
+ * Disable a text format.
+ *
+ * There is no core facility to re-enable a disabled format. It is not deleted
+ * to keep information for contrib and to make sure the format auto increment
+ * id is never reused. As there might be content using the disabled format,
+ * this would lead to data corruption.
  *
  * @param $format
- *   The text format object to be deleted.
- * @param $fallback_id
- *   (optional) The ID of the text format to use to reassign content that is
- *   currently using $format. If omitted, the currently stored
- *   filter_fallback_format() is used.
+ *   The text format object to be disabled.
  */
-function filter_format_delete($format, $fallback_id = NULL) {
-  db_delete('filter_format')
-    ->condition('format', $format->format)
-    ->execute();
-  db_delete('filter')
+function filter_format_disable($format) {
+  db_update('filter_format')
+    ->fields(array('status' => 0))
     ->condition('format', $format->format)
     ->execute();
 
   // Allow modules to react on text format deletion.
-  if (empty($fallback_id)) {
-    $fallback_id = filter_fallback_format();
-  }
-  $fallback = filter_format_load($fallback_id);
-  module_invoke_all('filter_format_delete', $format, $fallback);
+  module_invoke_all('filter_format_disable', $format);
 
-  // Clear the filter cache whenever a text format is deleted.
+  // Clear the filter cache whenever a text format is disabled.
   filter_formats_reset();
   cache_clear_all($format->format . ':', 'cache_filter', TRUE);
 }
@@ -381,6 +375,7 @@ function filter_formats($account = NULL) {
     $formats['all'] = db_select('filter_format', 'ff')
       ->addTag('translatable')
       ->fields('ff')
+      ->condition('status', 1)
       ->orderBy('weight')
       ->execute()
       ->fetchAllAssoc('format');
@@ -488,7 +483,7 @@ function filter_default_format($account = NULL) {
  *
  * The fallback text format is a regular text format in every respect, except
  * it does not participate in the filter permission system and cannot be
- * deleted. It needs to exist because any user who has permission to create
+ * disabled. It needs to exist because any user who has permission to create
  * formatted content must always have at least one text format they can use.
  *
  * Because the fallback format is available to all users, it should always be
@@ -503,15 +498,19 @@ function filter_default_format($account = NULL) {
  * the fallback format's weight determines its placement with respect to the
  * user's other formats.
  *
- * @see hook_filter_format_delete()
+ * Any modules implementing a format deletion functionality must not delete
+ * this format.
+ *
+ * @see hook_filter_format_disable()
  * @see filter_default_format()
  */
 function filter_fallback_format() {
   // This variable is automatically set in the database for all installations
-  // of Drupal. In the event that it gets deleted somehow, there is no safe
-  // default to return, since we do not want to risk making an existing (and
-  // potentially unsafe) text format on the site automatically available to all
-  // users. Returning NULL at least guarantees that this cannot happen.
+  // of Drupal. In the event that it gets disabled or deleted somehow, there
+  // is no safe default to return, since we do not want to risk making an 
+  // existing (and potentially unsafe) text format on the site automatically
+  // available to all users. Returning NULL at least guarantees that this
+  // cannot happen.
   return variable_get('filter_fallback_format');
 }
 
@@ -679,7 +678,7 @@ function filter_list_format($format_id) {
  * @ingroup sanitization
  */
 function check_markup($text, $format_id = NULL, $langcode = '', $cache = FALSE) {
-  if (empty($format_id)) {
+  if (!isset($format_id)) {
     $format_id = filter_fallback_format();
   }
   // If the requested text format does not exist, the text cannot be filtered.
@@ -752,8 +751,8 @@ function check_markup($text, $format_id = NULL, $langcode = '', $cache = FALSE) 
  *   The form element to process. Properties used:
  *   - #base_type: The form element #type to use for the 'value' element.
  *     'textarea' by default.
- *   - #format: (optional) The text format id to preselect. If 0, NULL, or not
- *     set, the default format for the current user will be used.
+ *   - #format: (optional) The text format id to preselect. If NULL or not set,
+ *     the default format for the current user will be used.
  *
  * @return
  *   The expanded element.
@@ -821,9 +820,10 @@ function filter_process_format($element) {
   }
 
   // Use the default format for this user if none was selected.
-  if (empty($element['#format'])) {
+  if (!isset($element['#format'])) {
     $element['#format'] = filter_default_format($user);
   }
+
   $element['format']['format'] = array(
     '#type' => 'select',
     '#title' => t('Text format'),
@@ -842,20 +842,31 @@ function filter_process_format($element) {
     '#weight' => 0,
   );
 
-  // Lastly, disallow editing of this field if the user is not allowed to use
-  // the stored and preselected text format. But only, if that format actually
-  // exists.
   $all_formats = filter_formats();
-  if (!isset($formats[$element['#format']]) && isset($all_formats[$element['#format']])) {
+  $format_exists = isset($all_formats[$element['#format']]);
+  $user_has_access = isset($formats[$element['#format']]);
+  $user_is_admin = user_access('administer filters');
+
+  // If the stored format does not exist, administrators have to assign a new
+  // format.
+  if (!$format_exists && $user_is_admin) {
+    $element['format']['format']['#required'] = TRUE;
+    $element['format']['format']['#default_value'] = NULL;
+    // Force access to the format selector (it may have been denied above if
+    // the user only has access to a single format).
+    $element['format']['format']['#access'] = TRUE;
+  }
+  // Disable this widget, if the user is not allowed to use the stored format,
+  // or if the stored format does not exist. The 'administer filters' permission
+  // only grants access to the filter administration, not to all formats.
+  elseif (!$user_has_access || !$format_exists) {
     // Overload default values into #value to make them unalterable.
     $element['value']['#value'] = $element['value']['#default_value'];
     $element['format']['format']['#value'] = $element['format']['format']['#default_value'];
 
     // Prepend #pre_render callback to replace field value with user notice
     // prior to rendering.
-    if (!isset($element['value']['#pre_render'])) {
-      $element['value']['#pre_render'] = array();
-    }
+    $element['value'] += array('#pre_render' => array());
     array_unshift($element['value']['#pre_render'], 'filter_form_access_denied');
 
     // Cosmetic adjustments.
@@ -1014,11 +1025,11 @@ function filter_dom_serialize($dom_document) {
   $body_node = $dom_document->getElementsByTagName('body')->item(0);
   $body_content = '';
 
-  foreach($body_node->getElementsByTagName('script') as $node) {
+  foreach ($body_node->getElementsByTagName('script') as $node) {
     filter_dom_serialize_escape_cdata_element($dom_document, $node);
   }
 
-  foreach($body_node->getElementsByTagName('style') as $node) {
+  foreach ($body_node->getElementsByTagName('style') as $node) {
     filter_dom_serialize_escape_cdata_element($dom_document, $node, '/*', '*/');
   }
 
@@ -1174,7 +1185,7 @@ function _filter_html($text, $filter) {
   if ($filter->settings['filter_html_nofollow']) {
     $html_dom = filter_dom_load($text);
     $links = $html_dom->getElementsByTagName('a');
-    foreach($links as $link) {
+    foreach ($links as $link) {
       $link->setAttribute('rel', 'nofollow');
     }
     $text = filter_dom_serialize($html_dom);

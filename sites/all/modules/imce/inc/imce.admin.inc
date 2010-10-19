@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.admin.inc,v 1.5 2010/06/02 08:31:10 ufku Exp $
+// $Id: imce.admin.inc,v 1.7 2010/10/09 05:49:37 ufku Exp $
 
 /**
  * @file
@@ -59,18 +59,12 @@ function imce_admin_form($form, &$form_state) {
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
   );
-  $form['common']['disable_private'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Disable serving of private files'),
-    '#default_value' => variable_get('imce_settings_disable_private', 1),
-    '#description' => t('IMCE serves all files under private files directory without applying any access restrictions. This allows anonymous access to any file(/system/files/filename) unless there is a module restricting access to the files. Here you can switch this behavior.'),
-  );
   $form['common']['textarea'] = array(
     '#type' => 'textfield',
     '#title' => t('Enable inline image/file insertion into plain textareas'),
     '#default_value' => variable_get('imce_settings_textarea', ''),
     '#maxlength' => NULL,
-    '#description' => t('If you don\'t use any WYSIWYG editor, this feature will allow you to add your images or files as <strong>html code into any plain textarea</strong>. Enter <strong>comma separated textarea IDs</strong> under which you want to enable a link to IMCE. The * character is a wildcard. Hint: ID of Body fields in most node types starts with edit-body.'),
+    '#description' => t('If you don\'t use any WYSIWYG editor, this feature will allow you to add your images or files as <strong>html code into any plain textarea</strong>. Enter <strong>comma separated textarea IDs</strong> under which you want to enable a link to IMCE. The * character is a wildcard. Hint: ID of Body fields in most node types starts with edit-body*.'),
   );
   $form['common']['absurls'] = array(
     '#type' => 'checkbox',
@@ -96,6 +90,12 @@ function imce_admin_form($form, &$form_state) {
       'scale' => t('Scale the image with respect to the thumbnail dimensions.'),
       'scale_and_crop' => t('First scale then crop the image to fit the thumbnail dimensions.')
     ),
+  );
+  $form['common']['disable_private'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable serving of private files'),
+    '#default_value' => variable_get('imce_settings_disable_private', 1),
+    '#description' => t('IMCE serves all files under private files directory without applying any access restrictions. This allows anonymous access to any file(/system/files/filename) unless there is a module restricting access to the files. Here you can disable this feature.'),
   );
 
   $form['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
@@ -480,6 +480,7 @@ function imce_role_form($role, $weight = TRUE, $core = TRUE) {
       '#type' => 'select',
       '#options' => imce_profile_options(),
       '#default_value' => $role[$scheme . '_pid'],
+      '#empty_value' => 0,
     );
   }
   return $form;
@@ -517,7 +518,7 @@ function imce_profile_delete_submit($form, &$form_state) {
  * Profile options.
  */
 function imce_profile_options() {
-  $options = array(t('none'));
+  $options = array();
   foreach (variable_get('imce_profiles', array()) as $pid => $profile) {
     $options[$pid] = $profile['name'];
   }
@@ -668,4 +669,4 @@ function imce_rolesort($r1, $r2) {
 }
 
 //Include core profile functions.
-module_load_include('inc', 'imce', 'inc/imce.core.profiles');
+include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'imce') . '/inc/imce.core.profiles.inc';

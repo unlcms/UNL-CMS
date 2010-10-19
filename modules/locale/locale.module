@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.module,v 1.298 2010/09/09 23:01:48 dries Exp $
+// $Id: locale.module,v 1.302 2010/10/05 19:59:10 dries Exp $
 
 /**
  * @file
@@ -11,32 +11,6 @@
  *   assigned. The setup of languages and translations is completely web based.
  *   Gettext portable object files are supported.
  */
-
-/**
- * The language is determined using a URL language indicator:
- * path prefix or domain according to the configuration.
- */
-define('LOCALE_LANGUAGE_NEGOTIATION_URL', 'locale-url');
-
-/**
- * The language is set based on the browser language settings.
- */
-define('LOCALE_LANGUAGE_NEGOTIATION_BROWSER', 'locale-browser');
-
-/**
- * The language is determined using the current interface language.
- */
-define('LOCALE_LANGUAGE_NEGOTIATION_INTERFACE', 'locale-interface');
-
-/**
- * The language is set based on the user language settings.
- */
-define('LOCALE_LANGUAGE_NEGOTIATION_USER', 'locale-user');
-
-/**
- * The language is set based on the request/session parameters.
- */
-define('LOCALE_LANGUAGE_NEGOTIATION_SESSION', 'locale-session');
 
 // ---------------------------------------------------------------------------------
 // Hook implementations
@@ -136,6 +110,7 @@ function locale_menu() {
     'page arguments' => array('locale_language_providers_url_form'),
     'access arguments' => array('administer languages'),
     'file' => 'locale.admin.inc',
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
   );
   $items['admin/config/regional/language/configure/session'] = array(
     'title' => 'Session language detection configuration',
@@ -143,6 +118,7 @@ function locale_menu() {
     'page arguments' => array('locale_language_providers_session_form'),
     'access arguments' => array('administer languages'),
     'file' => 'locale.admin.inc',
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
   );
   $items['admin/config/regional/language/edit/%'] = array(
     'title' => 'Edit language',
@@ -150,7 +126,6 @@ function locale_menu() {
     'page arguments' => array('locale_languages_edit_form', 5),
     'access arguments' => array('administer languages'),
     'file' => 'locale.admin.inc',
-    'type' => MENU_CALLBACK,
   );
   $items['admin/config/regional/language/delete/%'] = array(
     'title' => 'Confirm',
@@ -158,7 +133,6 @@ function locale_menu() {
     'page arguments' => array('locale_languages_delete_form', 5),
     'access arguments' => array('administer languages'),
     'file' => 'locale.admin.inc',
-    'type' => MENU_CALLBACK,
   );
 
   // Translation functionality
@@ -205,7 +179,6 @@ function locale_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('locale_translate_edit_form', 5),
     'access arguments' => array('translate interface'),
-    'type' => MENU_CALLBACK,
     'file' => 'locale.admin.inc',
   );
   $items['admin/config/regional/translate/delete/%'] = array(
@@ -213,7 +186,6 @@ function locale_menu() {
     'page callback' => 'locale_translate_delete_page',
     'page arguments' => array(5),
     'access arguments' => array('translate interface'),
-    'type' => MENU_CALLBACK,
     'file' => 'locale.admin.inc',
   );
 
@@ -233,7 +205,6 @@ function locale_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('locale_date_format_form', 5),
     'access arguments' => array('administer site configuration'),
-    'type' => MENU_CALLBACK,
     'file' => 'locale.admin.inc',
   );
   $items['admin/config/regional/date-time/locale/%/reset'] = array(
@@ -242,7 +213,6 @@ function locale_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('locale_date_format_reset_form', 5),
     'access arguments' => array('administer site configuration'),
-    'type' => MENU_CALLBACK,
     'file' => 'locale.admin.inc',
   );
 
@@ -537,6 +507,7 @@ function locale_entity_info_alter(&$entity_info) {
  *   specified.
  */
 function locale_language_types_info() {
+  require_once DRUPAL_ROOT . '/includes/locale.inc';
   return array(
     LANGUAGE_TYPE_INTERFACE => array(
       'name' => t('User interface text'),
@@ -909,7 +880,7 @@ function locale_library_alter(&$libraries, $module) {
   global $language;
   if ($module == 'system' && isset($libraries['system']['ui.datepicker'])) {
     $datepicker = drupal_get_path('module', 'locale') . '/locale.datepicker.js';
-    $libraries['system']['ui.datepicker']['js'][$datepicker] = array('weight' => JS_THEME);
+    $libraries['system']['ui.datepicker']['js'][$datepicker] = array('group' => JS_THEME);
     $libraries['system']['ui.datepicker']['js'][] = array(
       'data' => array(
         'jqueryuidatepicker' => array(

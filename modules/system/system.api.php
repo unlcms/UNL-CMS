@@ -1,5 +1,5 @@
 <?php
-// $Id: system.api.php,v 1.193 2010/09/11 14:35:13 dries Exp $
+// $Id: system.api.php,v 1.197 2010/10/02 01:22:41 dries Exp $
 
 /**
  * @file
@@ -1200,6 +1200,53 @@ function hook_menu_local_tasks_alter(&$data, $router_item, $root_path) {
 }
 
 /**
+ * Alter links in the active trail before it is rendered as the breadcrumb.
+ *
+ * This hook is invoked by menu_get_active_breadcrumb() and allows alteration
+ * of the breadcrumb links for the current page, which may be preferred instead
+ * of setting a custom breadcrumb via drupal_set_breadcrumb().
+ *
+ * Implementations should take into account that menu_get_active_breadcrumb()
+ * subsequently performs the following adjustments to the active trail *after*
+ * this hook has been invoked:
+ * - The last link in $active_trail is removed, if its 'href' is identical to
+ *   the 'href' of $item. This happens, because the breadcrumb normally does
+ *   not contain a link to the current page.
+ * - The (second to) last link in $active_trail is removed, if the current $item
+ *   is a MENU_DEFAULT_LOCAL_TASK. This happens in order to do not show a link
+ *   to the current page, when being on the path for the default local task;
+ *   e.g. when being on the path node/%/view, the breadcrumb should not contain
+ *   a link to node/%.
+ *
+ * Each link in the active trail must contain:
+ * - title: The localized title of the link.
+ * - href: The system path to link to.
+ * - localized_options: An array of options to pass to url().
+ *
+ * @param $active_trail
+ *   An array containing breadcrumb links for the current page.
+ * @param $item
+ *   The menu router item of the current page.
+ *
+ * @see drupal_set_breadcrumb()
+ * @see menu_get_active_breadcrumb()
+ * @see menu_get_active_trail()
+ * @see menu_set_active_trail()
+ */
+function hook_menu_breadcrumb_alter(&$active_trail, $item) {
+  // Always display a link to the current page by duplicating the last link in
+  // the active trail. This means that menu_get_active_breadcrumb() will remove
+  // the last link (for the current page), but since it is added once more here,
+  // it will appear.
+  if (!drupal_is_front_page()) {
+    $end = end($active_trail);
+    if ($item['href'] == $end['href']) {
+      $active_trail[] = $end;
+    }
+  }
+}
+
+/**
  * Alter contextual links before they are rendered.
  *
  * This hook is invoked by menu_contextual_links(). The system-determined
@@ -1907,37 +1954,33 @@ function hook_xmlrpc() {
 }
 
 /**
- * Alter the definition of XML-RPC methods before they are called.
+ * Alters the definition of XML-RPC methods before they are called.
  *
- * This hook lets at module modify the callback definition for already
- * declared XML-RPC methods, when they are being invoked by a client.
+ * This hook allows modules to modify the callback definition of declared
+ * XML-RPC methods, right before they are invoked by a client. Methods may be
+ * added, or existing methods may be altered.
  *
- * This hook is invoked by xmlrpc.php. The method definitions are
- * passed in by reference. Each element of the $methods array is one
- * callback definition returned by a module from hook_xmlrpc. Additional
- * methods may be added, or existing items altered.
- *
- * Modules implementing this hook must take care of the fact that
- * hook_xmlrpc allows two distinct and incompatible formats for callback
- * definition, so module must be prepared to handle either format for
- * each callback being altered.
+ * Note that hook_xmlrpc() supports two distinct and incompatible formats to
+ * define a callback, so care must be taken when altering other methods.
  *
  * @param $methods
- *   Associative array of method callback definitions returned from
- *   hook_xmlrpc.
+ *   An asssociative array of method callback definitions, as returned from
+ *   hook_xmlrpc() implementations.
  *
  * @see hook_xmlrpc()
+ * @see xmlrpc_server()
  */
 function hook_xmlrpc_alter(&$methods) {
-
-  // Direct update for methods defined the simple way
+  // Directly change a simple method.
   $methods['drupal.login'] = 'mymodule_login';
 
-  // Lookup update for methods defined the complex way
+  // Alter complex definitions.
   foreach ($methods as $key => &$method) {
+    // Skip simple method definitions.
     if (!is_int($key)) {
       continue;
     }
+    // Perform the wanted manipulation.
     if ($method[0] == 'drupal.site.ping') {
       $method[1] = 'mymodule_directory_ping';
     }
@@ -2586,9 +2629,11 @@ function hook_requirements($phase) {
  * details on schema definition structures.
  *
  * @return
- * A schema definition structure array. For each element of the
- * array, the key is a table name and the value is a table structure
- * definition.
+ *   A schema definition structure array. For each element of the
+ *   array, the key is a table name and the value is a table structure
+ *   definition.
+ *
+ * @ingroup schemaapi
  */
 function hook_schema() {
   $schema['node'] = array(
@@ -3247,7 +3292,7 @@ function hook_drupal_goto_alter(&$path, &$options, &$http_response_code) {
  *   array will be the most likely target for changes.
  */
 function hook_html_head_alter(&$head_elements) {
-  foreach($head_elements as $key => $element) {
+  foreach ($head_elements as $key => $element) {
     if (isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'canonical') {
       // I want a custom canonical url.
       $head_elements[$key]['#attributes']['href'] = mymodule_canonical_url();
@@ -3615,7 +3660,7 @@ function hook_page_delivery_callback_alter(&$callback) {
  */
 function hook_system_themes_page_alter(&$theme_groups) {
   foreach ($theme_groups as $state => &$group) {
-    foreach($theme_groups[$state] as &$theme) {
+    foreach ($theme_groups[$state] as &$theme) {
       // Add a foo link to each list of theme operations.
       $theme->operations[] = l(t('Foo'), 'admin/appearance/foo', array('query' => array('theme' => $theme->name)));
     }

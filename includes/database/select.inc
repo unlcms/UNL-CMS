@@ -1,5 +1,5 @@
 <?php
-// $Id: select.inc,v 1.48 2010/09/03 19:06:55 dries Exp $
+// $Id: select.inc,v 1.52 2010/10/05 01:42:24 dries Exp $
 
 /**
  * @ingroup database
@@ -366,6 +366,13 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    * If called multiple times, the query will order by each specified field in the
    * order this method is called.
    *
+   * If the query uses DISTINCT or GROUP BY conditions, fields or expressions
+   * that are used for the order must be selected to be compatible with some
+   * databases like PostgreSQL. The PostgreSQL driver can handle simple cases
+   * automatically but it is suggested to explicitly specify them. Additionally,
+   * when ordering on an alias, the alias must be added before orderBy() is
+   * called.
+   *
    * @param $field
    *   The field on which to order.
    * @param $direction
@@ -503,6 +510,22 @@ interface SelectQueryInterface extends QueryConditionInterface, QueryAlterableIn
    * duplicate the connection itself.
    */
   public function __clone();
+
+  /**
+   * Add FOR UPDATE to the query.
+   *
+   * FOR UPDATE prevents the rows retrieved by the SELECT statement from being
+   * modified or deleted by other transactions until the current transaction
+   * ends. Other transactions that attempt UPDATE, DELETE, or SELECT FOR UPDATE
+   * of these rows will be blocked until the current transaction ends.
+   *
+   * @param $set
+   *   IF TRUE, FOR UPDATE will be added to the query, if FALSE then it won't.
+   *
+   * @return QueryConditionInterface
+   *   The called object.
+   */
+  public function forUpdate($set = TRUE);
 }
 
 /**
@@ -659,7 +682,7 @@ class SelectQueryExtender implements SelectQueryInterface {
 
   public function preExecute(SelectQueryInterface $query = NULL) {
     // If no query object is passed in, use $this.
-    if (is_null($query)) {
+    if (!isset($query)) {
       $query = $this;
     }
 
@@ -737,6 +760,11 @@ class SelectQueryExtender implements SelectQueryInterface {
 
   public function groupBy($field) {
     $this->query->groupBy($field);
+    return $this;
+  }
+
+  public function forUpdate($set = TRUE) {
+    $this->query->forUpdate($set);
     return $this;
   }
 
@@ -919,6 +947,11 @@ class SelectQuery extends Query implements SelectQueryInterface {
    */
   protected $prepared = FALSE;
 
+  /**
+   * The FOR UPDATE status
+   */
+  protected $forUpdate = FALSE;
+
   public function __construct($table, $alias = NULL, DatabaseConnection $connection, $options = array()) {
     $options['return'] = Database::RETURN_STATEMENT;
     parent::__construct($connection, $options);
@@ -1033,6 +1066,12 @@ class SelectQuery extends Query implements SelectQueryInterface {
     return $this;
   }
 
+  public function forUpdate($set = TRUE) {
+    if (isset($set)) {
+      $this->forUpdate = $set;
+    }
+    return $this;
+  }
 
   /* Alter accessors to expose the query data to alter hooks. */
 
@@ -1108,7 +1147,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
    */
   public function preExecute(SelectQueryInterface $query = NULL) {
     // If no query object is passed in, use $this.
-    if (is_null($query)) {
+    if (!isset($query)) {
       $query = $this;
     }
 
@@ -1360,7 +1399,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
       $count->distinct = FALSE;
     }
 
-    $query = db_select($count);
+    $query = $this->connection->select($count);
     $query->addExpression('COUNT(*)');
 
     return $query;
@@ -1387,10 +1426,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
     foreach ($this->fields as $alias => $field) {
       // Always use the AS keyword for field aliases, as some
       // databases require it (e.g., PostgreSQL).
-      $fields[] = (isset($field['table']) ? $this->connection->escapeTable($field['table']) . '.' : '') . $this->connection->escapeField($field['field']) . ' AS ' . $this->connection->escapeField($field['alias']);
+      $fields[] = (isset($field['table']) ? $this->connection->escapeTable($field['table']) . '.' : '') . $this->connection->escapeField($field['field']) . ' AS ' . $this->connection->escapeAlias($field['alias']);
     }
     foreach ($this->expressions as $alias => $expression) {
-      $fields[] = $expression['expression'] . ' AS ' . $expression['alias'];
+      $fields[] = $expression['expression'] . ' AS ' . $this->connection->escapeAlias($expression['alias']);
     }
     $query .= implode(', ', $fields);
 
@@ -1474,6 +1513,10 @@ class SelectQuery extends Query implements SelectQueryInterface {
       foreach ($this->union as $union) {
         $query .= ' ' . $union['type'] . ' ' . (string) $union['query'];
       }
+    }
+
+    if ($this->forUpdate) {
+      $query .= ' FOR UPDATE';
     }
 
     return $query;

@@ -1,5 +1,5 @@
 <?php
-// $Id: forum.test,v 1.62 2010/08/30 00:22:03 webchick Exp $
+// $Id: forum.test,v 1.65 2010/09/28 02:30:31 dries Exp $
 
 class ForumTestCase extends DrupalWebTestCase {
   protected $admin_user;
@@ -25,9 +25,25 @@ class ForumTestCase extends DrupalWebTestCase {
   function setUp() {
     parent::setUp('taxonomy', 'comment', 'forum');
     // Create users.
-    $this->admin_user = $this->drupalCreateUser(array('administer blocks', 'administer forums', 'administer menu', 'administer taxonomy', 'create forum content')); // 'access administration pages'));
-    $this->edit_any_topics_user = $this->drupalCreateUser(array('create forum content', 'edit any forum content', 'delete any forum content', 'access administration pages'));
-    $this->edit_own_topics_user = $this->drupalCreateUser(array('create forum content', 'edit own forum content', 'delete own forum content'));
+    $this->admin_user = $this->drupalCreateUser(array(
+      'access administration pages',
+      'administer blocks',
+      'administer forums',
+      'administer menu',
+      'administer taxonomy',
+      'create forum content',
+    ));
+    $this->edit_any_topics_user = $this->drupalCreateUser(array(
+      'access administration pages',
+      'create forum content',
+      'edit any forum content',
+      'delete any forum content',
+    ));
+    $this->edit_own_topics_user = $this->drupalCreateUser(array(
+      'create forum content',
+      'edit own forum content',
+      'delete own forum content',
+    ));
     $this->web_user = $this->drupalCreateUser(array());
   }
 
@@ -48,6 +64,10 @@ class ForumTestCase extends DrupalWebTestCase {
     // Login an unprivileged user to view the forum topics and generate an
     // active forum topics list.
     $this->drupalLogin($this->web_user);
+    // Verify that this user is shown a message that they may not post content.
+    $this->drupalGet('forum/' . $this->forum['tid']);
+    $this->assertText(t('You are not allowed to post new content in the forum'), "Authenticated user without permission to post forum content is shown message in local tasks to that effect.");
+
     $this->viewForumTopics($this->nids);
 
     // Log in, and do basic tests for a user with permission to edit any forum
@@ -63,6 +83,12 @@ class ForumTestCase extends DrupalWebTestCase {
     $own_topics_user_node = $this->createForumTopic($this->forum, FALSE);
     // Verify that this user cannot edit forum content authored by another user.
     $this->verifyForums($this->edit_any_topics_user, $any_topics_user_node, FALSE, 403);
+
+    // Verify that this user is shown a local task to add new forum content.
+    $this->drupalGet('forum');
+    $this->assertLink(t('Add new Forum topic'));
+    $this->drupalGet('forum/' . $this->forum['tid']);
+    $this->assertLink(t('Add new Forum topic'));
 
     // Login a user with permission to edit any forum content.
     $this->drupalLogin($this->edit_any_topics_user);
@@ -119,7 +145,7 @@ class ForumTestCase extends DrupalWebTestCase {
     // Must remove forum topics to test creating orphan topics.
     $vid = variable_get('forum_nav_vocabulary');
     $tree = taxonomy_get_tree($vid);
-    foreach($tree as $term) {
+    foreach ($tree as $term) {
       taxonomy_term_delete($term->tid);
     }
 
