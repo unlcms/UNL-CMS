@@ -1,5 +1,5 @@
 <?php
-// $Id: template.php,v 1.5 2010/09/01 02:13:58 dries Exp $
+// $Id: template.php,v 1.7 2010/10/05 19:59:10 dries Exp $
 
 /**
  * Add body classes if certain regions have content.
@@ -23,8 +23,8 @@ function bartik_preprocess_html(&$variables) {
   }
 
   // Add conditional stylesheets for IE
-  drupal_add_css(path_to_theme() . '/css/ie.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'lte IE 7', '!IE' => FALSE)));
-  drupal_add_css(path_to_theme() . '/css/ie6.css', array('weight' => CSS_THEME, 'browsers' => array('IE' => 'IE 6', '!IE' => FALSE)));
+  drupal_add_css(path_to_theme() . '/css/ie.css', array('group' => CSS_THEME, 'browsers' => array('IE' => 'lte IE 7', '!IE' => FALSE), 'preprocess' => FALSE));
+  drupal_add_css(path_to_theme() . '/css/ie6.css', array('group' => CSS_THEME, 'browsers' => array('IE' => 'IE 6', '!IE' => FALSE), 'preprocess' => FALSE));
 }
 
 /**
@@ -103,9 +103,8 @@ function bartik_process_maintenance_page(&$variables) {
  * Override or insert variables into the block template.
  */
 function bartik_preprocess_block(&$variables) {
-  // In the header region, visually hide the title of any menu block or of the
-  // user login block, but leave it accessible.
-  if ($variables['block']->region == 'header' && ($variables['block']->module == 'user' && $variables['block']->delta == 'login' || in_array('block-menu', $variables['classes_array']))) {
+  // In the header region visually hide block titles.
+  if ($variables['block']->region == 'header') {
     $variables['title_attributes_array']['class'][] = 'element-invisible';
   }
 }

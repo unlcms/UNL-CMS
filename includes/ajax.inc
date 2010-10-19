@@ -1,5 +1,5 @@
 <?php
-// $Id: ajax.inc,v 1.32 2010/09/13 01:09:25 dries Exp $
+// $Id: ajax.inc,v 1.36 2010/10/06 23:03:39 webchick Exp $
 
 /**
  * @file
@@ -26,14 +26,34 @@
  * also return a richer set of @link ajax_commands AJAX framework commands @endlink.
  *
  * Standard form handling is as follows:
- *   - A form element has a #ajax member.
+ *   - A form element has a #ajax property that includes #ajax['callback'] and
+ *     omits #ajax['path']. See below about using #ajax['path'] to implement
+ *     advanced use-cases that require something other than standard form
+ *     handling.
  *   - On the specified element, AJAX processing is triggered by a change to
  *     that element.
- *   - The form is submitted and rebuilt.
- *   - The function named by #ajax['callback'] is called, which returns content
- *     or an array of AJAX framework commands.
- *   - The content returned by the callback replaces the div on the page
- *     referenced by #ajax['wrapper'].
+ *   - The browser submits an HTTP POST request to the 'system/ajax' Drupal
+ *     path.
+ *   - The menu page callback for 'system/ajax', ajax_form_callback(), calls
+ *     drupal_process_form() to process the form submission and rebuild the
+ *     form if necessary. The form is processed in much the same way as if it
+ *     were submitted without AJAX, with the same #process functions and
+ *     validation and submission handlers called in either case, making it easy
+ *     to create AJAX-enabled forms that degrade gracefully when JavaScript is
+ *     disabled.
+ *   - After form processing is complete, ajax_form_callback() calls the
+ *     function named by #ajax['callback'], which returns the form element that
+ *     has been updated and needs to be returned to the browser, or
+ *     alternatively, an array of custom AJAX commands.
+ *   - The page delivery callback for 'system/ajax', ajax_deliver(), renders the
+ *     element returned by #ajax['callback'], and returns the JSON string
+ *     created by ajax_render() to the browser.
+ *   - The browser unserializes the returned JSON string into an array of
+ *     command objects and executes each command, resulting in the old page
+ *     content within and including the HTML element specified by
+ *     #ajax['wrapper'] being replaced by the new content returned by
+ *     #ajax['callback'], using a JavaScript animation effect specified by
+ *     #ajax['effect'].
  *
  * A simple example of basic AJAX use from the
  * @link http://drupal.org/project/examples Examples module @endlink follows:
@@ -193,11 +213,76 @@
  *   functions.
  */
 function ajax_render($commands = array()) {
-  // Automatically extract any 'settings' added via drupal_add_js() and make
-  // them the first command.
-  $scripts = drupal_add_js(NULL, NULL);
+  // AJAX responses aren't rendered with html.tpl.php, so we have to call
+  // drupal_get_css() and drupal_get_js() here, in order to have new files added
+  // during this request to be loaded by the page. We only want to send back
+  // files that the page hasn't already loaded, so we implement simple diffing
+  // logic using array_diff_key().
+  foreach (array('css', 'js') as $type) {
+    // It is highly suspicious if $_POST['ajax_page_state'][$type] is empty,
+    // since the base page ought to have at least one JS file and one CSS file
+    // loaded. It probably indicates an error, and rather than making the page
+    // reload all of the files, instead we return no new files.
+    if (empty($_POST['ajax_page_state'][$type])) {
+      $items[$type] = array();
+    }
+    else {
+      $function = 'drupal_add_' . $type;
+      $items[$type] = $function();
+      drupal_alter($type, $items[$type]);
+      // @todo Inline CSS and JS items are indexed numerically. These can't be
+      //   reliably diffed with array_diff_key(), since the number can change
+      //   due to factors unrelated to the inline content, so for now, we strip
+      //   the inline items from AJAX responses, and can add support for them
+      //   when drupal_add_css() and drupal_add_js() are changed to using md5()
+      //   or some other hash of the inline content.
+      foreach ($items[$type] as $key => $item) {
+        if (is_numeric($key)) {
+          unset($items[$type][$key]);
+        }
+      }
+      // Ensure that the page doesn't reload what it already has.
+      $items[$type] = array_diff_key($items[$type], $_POST['ajax_page_state'][$type]);
+    }
+  }
+
+  // Settings are handled separately, later in this function, so that changes to
+  // the ajaxPageState setting that occur during drupal_get_css() and
+  // drupal_get_js() get included, and because the jQuery.extend() code produced
+  // by drupal_get_js() for adding settings isn't appropriate during an AJAX
+  // response, because it does not pass TRUE for the "deep" parameter, and
+  // therefore, can clobber existing settings on the page.
+  if (isset($items['js']['settings'])) {
+    unset($items['js']['settings']);
+  }
+
+  // Render the HTML to load these files, and add AJAX commands to insert this
+  // HTML in the page. We pass TRUE as the $skip_alter argument to prevent the
+  // data from being altered again, as we already altered it above.
+  $styles = drupal_get_css($items['css'], TRUE);
+  $scripts_footer = drupal_get_js('footer', $items['js'], TRUE);
+  $scripts_header = drupal_get_js('header', $items['js'], TRUE);
+
+  $extra_commands = array();
+  if (!empty($styles)) {
+    $extra_commands[] = ajax_command_prepend('head', $styles);
+  }
+  if (!empty($scripts_header)) {
+    $extra_commands[] = ajax_command_prepend('head', $scripts_header);
+  }
+  if (!empty($scripts_footer)) {
+    $extra_commands[] = ajax_command_append('body', $scripts_footer);
+  }
+  if (!empty($extra_commands)) {
+    $commands = array_merge($extra_commands, $commands);
+  }
+
+  $scripts = drupal_add_js();
   if (!empty($scripts['settings'])) {
-    array_unshift($commands, ajax_command_settings(call_user_func_array('array_merge_recursive', $scripts['settings']['data'])));
+    $settings = $scripts['settings'];
+    // Automatically extract any settings added via drupal_add_js() and make
+    // them the first command.
+    array_unshift($commands, ajax_command_settings(call_user_func_array('array_merge_recursive', $settings['data']), TRUE));
   }
 
   // Allow modules to alter any AJAX response.
@@ -283,6 +368,39 @@ function ajax_form_callback() {
   }
   if (!empty($callback) && function_exists($callback)) {
     return $callback($form, $form_state);
+  }
+}
+
+/**
+ * Theme callback for AJAX requests.
+ *
+ * Many different pages can invoke an AJAX request to system/ajax or another
+ * generic AJAX path. It is almost always desired for an AJAX response to be
+ * rendered using the same theme as the base page, because most themes are built
+ * with the assumption that they control the entire page, so if the CSS for two
+ * themes are both loaded for a given page, they may conflict with each other.
+ * For example, Bartik is Drupal's default theme, and Seven is Drupal's default
+ * administration theme. Depending on whether the "Use the administration theme
+ * when editing or creating content" checkbox is checked, the node edit form may
+ * be displayed in either theme, but the AJAX response to the Field module's
+ * "Add another item" button should be rendered using the same theme as the rest
+ * of the page. Therefore, system_menu() sets the 'theme callback' for
+ * 'system/ajax' to this function, and it is recommended that modules
+ * implementing other generic AJAX paths do the same.
+ */
+function ajax_base_page_theme() {
+  if (!empty($_POST['ajax_page_state']['theme']) && !empty($_POST['ajax_page_state']['theme_token'])) {
+    $theme = $_POST['ajax_page_state']['theme'];
+    $token = $_POST['ajax_page_state']['theme_token'];
+
+    // Prevent a request forgery from giving a person access to a theme they
+    // shouldn't be otherwise allowed to see. However, since everyone is allowed
+    // to see the default theme, token validation isn't required for that, and
+    // bypassing it allows most use-cases to work even when accessed from the
+    // page cache.
+    if ($theme === variable_get('theme_default', 'bartik') || drupal_valid_token($token, $theme)) {
+      return $theme;
+    }
   }
 }
 
@@ -457,7 +575,7 @@ function ajax_process_form($element, &$form_state) {
   // Attach JavaScript settings to the element.
   if (isset($element['#ajax']['event'])) {
     $element['#attached']['library'][] = array('system', 'form');
-    $element['#attached']['js']['misc/ajax.js'] = array('weight' => JS_LIBRARY + 2);
+    $element['#attached']['js']['misc/ajax.js'] = array('group' => JS_LIBRARY, 'weight' => 2);
 
     $settings = $element['#ajax'];
 

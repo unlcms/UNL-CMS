@@ -1,5 +1,5 @@
 <?php
-// $Id: text.test,v 1.27 2010/08/17 18:25:31 dries Exp $
+// $Id: text.test,v 1.29 2010/09/24 00:37:42 dries Exp $
 
 class TextFieldTestCase extends DrupalWebTestCase {
   protected $instance;
@@ -115,7 +115,7 @@ class TextFieldTestCase extends DrupalWebTestCase {
       "{$this->field_name}[$langcode][0][value]" => $value,
     );
     $this->drupalPost(NULL, $edit, t('Save'));
-    preg_match('|test-entity/(\d+)/edit|', $this->url, $match);
+    preg_match('|test-entity/manage/(\d+)/edit|', $this->url, $match);
     $id = $match[1];
     $this->assertRaw(t('test_entity @id has been created.', array('@id' => $id)), t('Entity was created'));
 
@@ -163,11 +163,11 @@ class TextFieldTestCase extends DrupalWebTestCase {
     field_create_instance($this->instance);
     $langcode = LANGUAGE_NONE;
 
-    // Delete all text formats besides the plain text fallback format.
+    // Disable all text formats besides the plain text fallback format.
     $this->drupalLogin($this->admin_user);
     foreach (filter_formats() as $format) {
       if ($format->format != filter_fallback_format()) {
-        $this->drupalPost('admin/config/content/formats/' . $format->format . '/delete', array(), t('Delete'));
+        $this->drupalPost('admin/config/content/formats/' . $format->format . '/disable', array(), t('Disable'));
       }
     }
     $this->drupalLogin($this->web_user);
@@ -184,7 +184,7 @@ class TextFieldTestCase extends DrupalWebTestCase {
       "{$this->field_name}[$langcode][0][value]" => $value,
     );
     $this->drupalPost(NULL, $edit, t('Save'));
-    preg_match('|test-entity/(\d+)/edit|', $this->url, $match);
+    preg_match('|test-entity/manage/(\d+)/edit|', $this->url, $match);
     $id = $match[1];
     $this->assertRaw(t('test_entity @id has been created.', array('@id' => $id)), t('Entity was created'));
 
@@ -210,7 +210,7 @@ class TextFieldTestCase extends DrupalWebTestCase {
 
     // Display edition form.
     // We should now have a 'text format' selector.
-    $this->drupalGet('test-entity/' . $id . '/edit');
+    $this->drupalGet('test-entity/manage/' . $id . '/edit');
     $this->assertFieldByName("{$this->field_name}[$langcode][0][value]", '', t('Widget is displayed'));
     $this->assertFieldByName("{$this->field_name}[$langcode][0][format]", '', t('Format selector is displayed'));
 

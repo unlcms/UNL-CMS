@@ -1,5 +1,5 @@
 <?php
-// $Id: module.inc,v 1.198 2010/09/03 19:49:55 dries Exp $
+// $Id: module.inc,v 1.202 2010/10/03 02:04:55 dries Exp $
 
 /**
  * @file
@@ -65,9 +65,11 @@ function module_list($refresh = FALSE, $bootstrap = FALSE, $sort = FALSE, $fixed
       }
     }
     else {
-      // As this is the $refresh case, make sure that system_list() returns
-      // fresh data.
-      drupal_static_reset('system_list');
+      if ($refresh) {
+        // For the $refresh case, make sure that system_list() returns fresh
+        // data.
+        drupal_static_reset('system_list');
+      }
       if ($bootstrap) {
         $list = system_list('bootstrap');
       }
@@ -405,8 +407,19 @@ function module_enable($module_list, $enable_dependencies = TRUE) {
       // Now install the module if necessary.
       if (drupal_get_installed_schema_version($module, TRUE) == SCHEMA_UNINSTALLED) {
         drupal_install_schema($module);
+
+        // Set the schema version to the number of the last update provided
+        // by the module.
         $versions = drupal_get_schema_versions($module);
-        drupal_set_installed_schema_version($module, $versions ? max($versions) : SCHEMA_INSTALLED);
+        $version = $versions ? max($versions) : SCHEMA_INSTALLED;
+
+        // If the module has no current updates, but has some that were
+        // previously removed, set the version to the value of
+        // hook_update_last_removed().
+        if ($last_removed = module_invoke($module, 'update_last_removed')) {
+          $version = max($version, $last_removed);
+        }
+        drupal_set_installed_schema_version($module, $version);
         // Allow the module to perform install tasks.
         module_invoke($module, 'install');
         // Record the fact that it was installed.
@@ -819,7 +832,7 @@ function drupal_required_modules() {
  * @endcode
  *
  * @param $type
- *   A string describing the data type of the alterable $data. 'form', 'links',
+ *   A string describing the type of the alterable $data. 'form', 'links',
  *   'node_content', and so on are several examples. Alternatively can be an
  *   array, in which case hook_TYPE_alter() is invoked for each value in the
  *   array, ordered first by module, and then for each module, in the order of
@@ -827,13 +840,16 @@ function drupal_required_modules() {
  *   execute both hook_form_alter() and hook_form_FORM_ID_alter()
  *   implementations, it passes array('form', 'form_' . $form_id) for $type.
  * @param &$data
- *   The primary data to be altered.
+ *   The variable that will be passed to hook_TYPE_alter() implementations to be
+ *   altered. The type of this variable depends on the value of the $type
+ *   argument. For example, when altering a 'form', $data will be a structured
+ *   array. When altering a 'profile', $data will be an object.
  * @param &$context1
  *   (optional) An additional variable that is passed by reference.
  * @param &$context2
  *   (optional) An additional variable that is passed by reference. If more
  *   context needs to be provided to implementations, then this should be an
- *   keyed array as described above.
+ *   associative array as described above.
  */
 function drupal_alter($type, &$data, &$context1 = NULL, &$context2 = NULL) {
   // Use the advanced drupal_static() pattern, since this is called very often.

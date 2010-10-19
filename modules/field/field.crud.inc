@@ -1,5 +1,5 @@
 <?php
-// $Id: field.crud.inc,v 1.69 2010/09/11 00:03:42 webchick Exp $
+// $Id: field.crud.inc,v 1.71 2010/09/29 01:37:02 dries Exp $
 
 /**
  * @file
@@ -79,6 +79,11 @@
  *     'columns' setting are allowed. Note that field types can specify
  *     default indexes, which can be modified or added to when
  *     creating a field.
+ * - foreign keys: (optional) An associative array of relations, using the same
+ *   structure as the 'foreign keys' definition of hook_schema(). Note, however,
+ *   that the field data is not necessarily stored in SQL. Also, the possible
+ *   usage is limited, as you cannot specify another field as related, only
+ *   existing SQL tables, such as filter formats.
  * - settings (array)
  *     A sub-array of key/value pairs of field-type-specific settings. Each
  *     field type module defines and documents its own field settings.
@@ -319,9 +324,11 @@ function field_create_field($field) {
   // Collect storage information.
   module_load_install($field['module']);
   $schema = (array) module_invoke($field['module'], 'field_schema', $field);
-  $schema += array('columns' => array(), 'indexes' => array());
+  $schema += array('columns' => array(), 'indexes' => array(), 'foreign keys' => array());
   // 'columns' are hardcoded in the field type.
   $field['columns'] = $schema['columns'];
+  // 'foreign keys' are hardcoded in the field type.
+  $field['foreign keys'] = $schema['foreign keys'];
   // 'indexes' can be both hardcoded in the field type, and specified in the
   // incoming $field definition.
   $field += array(
@@ -762,7 +769,7 @@ function _field_write_instance($instance, $update = FALSE) {
   // If no weight specified, make sure the field sinks at the bottom.
   if (!isset($instance['widget']['weight'])) {
     $max_weight = field_info_max_weight($instance['entity_type'], $instance['bundle'], 'form');
-    $instance['widget']['weight'] = !is_null($max_weight) ? $max_weight + 1 : 0;
+    $instance['widget']['weight'] = isset($max_weight) ? $max_weight + 1 : 0;
   }
   // Check widget module.
   $widget_type = field_info_widget_types($instance['widget']['type']);
@@ -788,7 +795,7 @@ function _field_write_instance($instance, $update = FALSE) {
     // If no weight specified, make sure the field sinks at the bottom.
     if (!isset($display['weight'])) {
       $max_weight = field_info_max_weight($instance['entity_type'], $instance['bundle'], $view_mode);
-      $display['weight'] = !is_null($max_weight) ? $max_weight + 1 : 0;
+      $display['weight'] = isset($max_weight) ? $max_weight + 1 : 0;
     }
     $instance['display'][$view_mode] = $display;
   }

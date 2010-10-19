@@ -1,5 +1,5 @@
 <?php
-// $Id: update.php,v 1.323 2010/05/18 18:11:12 dries Exp $
+// $Id: update.php,v 1.325 2010/10/03 23:33:15 webchick Exp $
 
 /**
  * Root directory of Drupal installation.
@@ -330,12 +330,14 @@ ini_set('display_errors', FALSE);
 
 // We prepare a minimal bootstrap for the update requirements check to avoid
 // reaching the PHP memory limit.
+require_once DRUPAL_ROOT . '/includes/unl_bootstrap.inc';
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
 require_once DRUPAL_ROOT . '/includes/update.inc';
 require_once DRUPAL_ROOT . '/includes/common.inc';
 require_once DRUPAL_ROOT . '/includes/file.inc';
 require_once DRUPAL_ROOT . '/includes/entity.inc';
 require_once DRUPAL_ROOT . '/includes/unicode.inc';
+unl_bootstrap();
 update_prepare_d7_bootstrap();
 
 // Determine if the current user has access to run update.php.

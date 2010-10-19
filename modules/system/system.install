@@ -1,5 +1,5 @@
 <?php
-// $Id: system.install,v 1.506 2010/09/13 05:50:09 webchick Exp $
+// $Id: system.install,v 1.515 2010/10/06 13:38:40 dries Exp $
 
 /**
  * @file
@@ -128,10 +128,7 @@ function system_requirements($phase) {
       '@system_requirements' => 'http://drupal.org/requirements',
     ));
 
-    $description .= theme('item_list',  array(
-      'type' => 'ul',
-      'items' => $missing_extensions,
-    ));
+    $description .= theme('item_list', array('items' => $missing_extensions));
 
     $requirements['php_extensions']['value'] = $t('Disabled');
     $requirements['php_extensions']['severity'] = REQUIREMENT_ERROR;
@@ -1566,7 +1563,7 @@ function system_schema() {
         'default' => 0,
       ),
       'info' => array(
-        'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, dependents, and php.",
+        'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, and php.",
         'type' => 'blob',
         'not null' => FALSE,
       ),
@@ -1813,7 +1810,7 @@ function system_update_7004(&$sandbox) {
       '0' => 'active',
       '1' => 'new',
     ),
-    'locale' => array('0' => 'language-switcher'),
+    'locale' => array('0' => LANGUAGE_TYPE_INTERFACE),
     'node' => array('0' => 'syndicate'),
     'poll' => array('0' => 'recent'),
     'profile' => array('0' => 'author-information'),
@@ -1864,14 +1861,6 @@ function system_update_7005() {
 }
 
 /**
- * Registry tables and drop the file key of the menu router, since it is no
- * longer needed.
- */
-function system_update_7006() {
-  // Update moved to update_fix_d7_requirements().
-}
-
-/**
  * Convert to new method of storing permissions.
  *
  * This update is in system.install rather than user.install so that
@@ -1898,14 +1887,6 @@ function system_update_7007() {
 }
 
 /**
- * Use the poll_choice primary key to record votes in poll_votes rather than
- * the choice order. Rename chorder to weight.
- */
-function system_update_7008() {
-  // Moved to poll_update_7001().
-}
-
-/**
  * Rename the variable for primary links.
  */
 function system_update_7009() {
@@ -1914,13 +1895,6 @@ function system_update_7009() {
     variable_set('menu_main_links_source', $current_primary);
     variable_del('menu_primary_links_source');
   }
-}
-
-/**
- * Moved to system_update_6048().
- */
-function system_update_7010() {
-  return '';
 }
 
 /**
@@ -1943,8 +1917,6 @@ function system_update_7011() {
   }
   $insert->execute();
 }
-
-// system_update_7012() moved to block_update_7002().
 
 /**
  * Convert default time zone offset to default time zone name.
@@ -1999,12 +1971,6 @@ function system_update_7013() {
 }
 
 /**
- * Drop the bootstrap column from the {system} table. This was reverted.
- */
-function system_update_7014() {
-}
-
-/**
  * Change the user logout path.
  */
 function system_update_7015() {
@@ -2055,13 +2021,15 @@ function system_update_7016() {
  * Change the theme setting 'toggle_node_info' into a per content type variable.
  */
 function system_update_7017() {
-  $types = node_type_get_types();
-  if (count($types)) {
-    foreach ($types as $type) {
-      $node_info = theme_get_setting('toggle_node_info_' . $type->type);
-      if ($node_info !== NULL) {
-        variable_set('node_submitted_' . $type->type, $node_info);
-      }
+  // Get the global theme settings.
+  $settings = variable_get('theme_settings', array());
+  // Get the settings of the default theme.
+  $settings = array_merge($settings, variable_get('theme_' . variable_get('theme_default', 'garland') . '_settings', array()));
+
+  $types = _update_7000_node_get_types();
+  foreach ($types as $type) {
+    if (isset($settings['toggle_node_info_' . $type->type])) {
+      variable_set('node_submitted_' . $type->type, $settings['toggle_node_info_' . $type->type]);
     }
   }
 
@@ -2126,8 +2094,6 @@ function system_update_7027() {
   module_enable($module_list, FALSE);
 }
 
-// system_update_7028() moved to taxonomy_update_7001().
-
 /**
  * Add new 'view own unpublished content' permission for authenticated users.
  * Preserves legacy behavior from Drupal 6.x.
@@ -2139,14 +2105,6 @@ function system_update_7029() {
       'permission' => 'view own unpublished content',
     ))
     ->execute();
-}
-
-/**
- * Removed in favour of Drupal 6 backport.
- *
- * @see system_update_6052()
- */
-function system_update_7031() {
 }
 
 /**
@@ -2261,13 +2219,6 @@ function system_update_7034() {
 }
 
 /**
- * Migrate upload module files to the new {file_managed} table.
- */
-function system_update_7035() {
-  // Update merged into system_update_7059().
-}
-
-/**
  * Split the 'access site in maintenance mode' permission from 'administer site configuration'.
  */
 function system_update_7036() {
@@ -2292,36 +2243,6 @@ function system_update_7036() {
 }
 
 /**
- * Rename action description to label.
- */
-function system_update_7037() {
-  db_change_field('actions', 'description', 'label', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => '0'));
-}
-
-/**
- * Adds fields to the {menu_router} table to allow custom themes to be set per
- * page.
- */
-function system_update_7039() {
-  // Moved to update_fix_d7_requirements().
-}
-
-/**
- * Create new date format tables.
- */
-function system_update_7040() {
-  // Moved to update_fix_d7_requirements().
-}
-
-/**
- * Adds 'delivery_callback' field to the {menu_router} table to allow a custom
- * function to be used for final page rendering and sending to browser.
- */
-function system_update_7041() {
-  // Moved to update_fix_d7_requirements().
-}
-
-/**
  * Upgrade the {url_alias} table and create a cache bin for path aliases.
  */
 function system_update_7042() {
@@ -2341,13 +2262,6 @@ function system_update_7042() {
   // provided any meaningful unique constraint ('pid' is a primary key).
   db_add_index('url_alias', 'source_language_pid', array('source', 'language', 'pid'));
   db_add_index('url_alias', 'alias_language_pid', array('alias', 'language', 'pid'));
-}
-
-/**
- * Add a 'context' field to {menu_router} to control contextual placement of local tasks.
- */
-function system_update_7043() {
-  // Moved to update_fix_d7_requirements().
 }
 
 /**
@@ -2588,7 +2502,7 @@ function system_update_7055() {
   db_change_field('sessions', 'session', 'session', $spec);
 
   $spec = array(
-    'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, dependents, and php.",
+    'description' => "A serialized array containing information from the module's .info file; keys can include name, description, package, version, core, dependencies, and php.",
     'type' => 'blob',
     'not null' => FALSE,
   );
@@ -2669,132 +2583,179 @@ function system_update_7059() {
 }
 
 /**
- * Migrate upload.module to file.module.
+ * Create fields in preparation for migrating upload.module to file.module.
  */
-function system_update_7060(&$sandbox) {
+function system_update_7060() {
+  if (!db_table_exists('upload')) {
+    return;
+  }
+
+  if (!db_query_range('SELECT 1 FROM {upload}', 0, 1)->fetchField()) {
+    // There is nothing to migrate. Delete variables and the empty table. There
+    // is no need to create fields that are not going to be used.
+    foreach (_update_7000_node_get_types() as $node_type) {
+      variable_del('upload_' . $node_type->type);
+    }
+    db_drop_table('upload');
+    return;
+  }
+
+  // Check which node types have upload.module attachments enabled.
+  $context['types'] = array();
+  foreach (_update_7000_node_get_types() as $node_type) {
+    if (variable_get('upload_' . $node_type->type, 0)) {
+      $context['types'][$node_type->type] = $node_type->type;
+    }
+  }
+
+  // The {upload} table will be deleted when this update is complete so we
+  // want to be careful to migrate all the data, even for node types that
+  // may have had attachments disabled after files were uploaded. Look for
+  // any other node types referenced by the upload records and add those to
+  // the list. The admin can always remove the field later.
+  $results = db_query('SELECT DISTINCT type FROM {node} n INNER JOIN {node_revision} nr ON n.nid = nr.nid INNER JOIN {upload} u ON nr.vid = u.vid');
+  foreach ($results as $row) {
+    if (!isset($context['types'][$row->type])) {
+      drupal_set_message(t('The content type %rowtype had uploads disabled but contained uploaded file data. Uploads have been re-enabled to migrate the existing data. You may delete the "File attachments" field in the %rowtype type if this data is not necessary.', array('%rowtype' => $row->type)));
+      $context['types'][$row->type] = $row->type;
+    }
+  }
+
+  // Create a single "upload" field on all the content types that have uploads
+  // enabled, then add an instance to each enabled type.
+  if (count($context['types']) > 0) {
+    module_enable(array('file'));
+    $field = array(
+      'field_name' => 'upload',
+      'type' => 'file',
+      'module' => 'file',
+      'locked' => FALSE,
+      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+      'translatable' => FALSE,
+      'settings' => array(
+        'display_field' => 1,
+        'display_default' => variable_get('upload_list_default', 1),
+        'uri_scheme' => file_default_scheme(),
+        'default_file' => 0,
+      ),
+    );
+
+    $upload_size = variable_get('upload_uploadsize_default', 1);
+    $instance = array(
+      'field_name' => 'upload',
+      'entity_type' => 'node',
+      'bundle' => NULL,
+      'label' => 'File attachments',
+      'required' => 0,
+      'description' => '',
+      'widget' => array(
+        'weight' => '1',
+        'settings' => array(
+          'progress_indicator' => 'throbber',
+        ),
+        'type' => 'file_generic',
+      ),
+      'settings' => array(
+        'max_filesize' => $upload_size ? ($upload_size . ' MB') : '',
+        'file_extensions' => variable_get('upload_extensions_default', 'jpg jpeg gif png txt doc xls pdf ppt pps odt ods odp'),
+        'file_directory' => '',
+        'description_field' => 1,
+      ),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'type' => 'file_table',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => 'file',
+        ),
+        'full' => array(
+          'label' => 'hidden',
+          'type' => 'file_table',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => 'file',
+        ),
+        'teaser' => array(
+          'label' => 'hidden',
+          'type' => 'hidden',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => NULL,
+        ),
+        'rss' => array(
+          'label' => 'hidden',
+          'type' => 'file_table',
+          'settings' => array(),
+          'weight' => 0,
+          'module' => 'file',
+        ),
+      ),
+    );
+
+    // Create the field.
+    _update_7000_field_create_field($field);
+
+    // Create the instances.
+    foreach ($context['types'] as $bundle) {
+      $instance['bundle'] = $bundle;
+      _update_7000_field_create_instance($field, $instance);
+      // Now that the instance is created, we can safely delete any legacy
+      // node type information.
+      variable_del('upload_' . $bundle);
+    }
+  }
+  else {
+    // No uploads or content types with uploads enabled.
+    db_drop_table('upload');
+  }
+}
+
+/**
+ * Migrate upload.module data to the newly created file field.
+ */
+function system_update_7061(&$sandbox) {
   if (!db_table_exists('upload')) {
     return;
   }
 
   if (!isset($sandbox['progress'])) {
+    // Retrieve a list of node revisions that have uploaded files attached.
+    // DISTINCT queries are expensive, especially when paged, so we store the
+    // data in its own table for the duration of the update.
+    $table = array(
+      'description' => t('Stores temporary data for system_update_7061.'),
+      'fields' => array('vid' => array('type' => 'int')),
+      'primary key' => array('vid'),
+    );
+    db_create_table('system_update_7061', $table);
+    $query = db_select('upload', 'u');
+    $query->distinct();
+    $query->addField('u','vid');
+    db_insert('system_update_7061')
+      ->from($query)
+      ->execute();
+
     // Initialize batch update information.
     $sandbox['progress'] = 0;
     $sandbox['last_vid_processed'] = -1;
-    $sandbox['max'] = db_query("SELECT COUNT(DISTINCT u.vid) FROM {upload} u")->fetchField();
-
-    // Check which node types have upload.module attachments enabled.
-    $context['types'] = array();
-    foreach (node_type_get_types() as $node_type => $node_info) {
-      if (variable_get('upload_' . $node_type, 1)) {
-        $context['types'][$node_type] = $node_type;
-      }
-      variable_del('upload_' . $node_type);
-    }
-
-    // The {upload} table will be deleted when this update is complete so we
-    // want to be careful to migrate all the data, even for node types that
-    // may have had attachments disabled after files were uploaded. Look for
-    // any other node types referenced by the upload records and add those to
-    // the list. The admin can always remove the field later.
-    $results = db_query('SELECT DISTINCT type FROM {node} n INNER JOIN {upload} u ON n.vid = u.vid');
-    foreach ($results as $row) {
-      if (!isset($context['types'][$row->type])) {
-        drupal_set_message(t('The content type %rowtype had uploads disabled but contained uploaded file data. Uploads have been re-enabled to migrate the existing data. You may delete the "File attachments" field in the %rowtype type if this data is not necessary.', array('%rowtype' => $row->type)));
-        $context['types'][$row->type] = $row->type;
-      }
-    }
-
-    // Create a single "field_upload" field on all the content types that have
-    // uploads enabled, then add an instance to each enabled type.
-    if (count($context['types']) > 0) {
-      module_enable(array('file'));
-      module_load_include('inc', 'field', 'field.crud');
-
-      $field = array(
-        'field_name' => 'file',
-        'type' => 'file',
-        'locked' => FALSE,
-        'cardinality' => FIELD_CARDINALITY_UNLIMITED,
-        'translatable' => FALSE,
-        'settings' => array(
-          'display_field' => 1,
-          'display_default' => variable_get('upload_list_default', 1),
-          'uri_scheme' => file_default_scheme(),
-          'default_file' => 0,
-        ),
-      );
-
-      $upload_size = variable_get('upload_uploadsize_default', 1);
-      $instance = array(
-        'field_name' => 'file',
-        'entity_type' => 'node',
-        'bundle' => NULL,
-        'label' => 'File attachments',
-        'widget_type' => 'file_generic',
-        'required' => 0,
-        'description' => '',
-        'widget' => array(
-          'weight' => '1',
-          'settings' => array(
-            'progress_indicator' => 'throbber',
-          ),
-          'type' => 'file_generic',
-        ),
-        'settings' => array(
-          'max_filesize' => $upload_size ? ($upload_size . ' MB') : '',
-          'file_extensions' => variable_get('upload_extensions_default', 'jpg jpeg gif png txt doc xls pdf ppt pps odt ods odp'),
-          'file_directory' => '',
-          'description_field' => 1,
-        ),
-        'display' => array(
-          'full' => array(
-            'label' => 'hidden',
-            'type' => 'file_table',
-            'settings' => array(),
-            'weight' => 0,
-            'module' => 'file',
-          ),
-          'teaser' => array(
-            'label' => 'hidden',
-            'type' => 'hidden',
-            'settings' => array(),
-            'weight' => 0,
-            'module' => NULL,
-          ),
-          'rss' => array(
-            'label' => 'hidden',
-            'type' => 'file_table',
-            'settings' => array(),
-            'weight' => 0,
-            'module' => 'file',
-          ),
-        ),
-      );
-
-      // Create the field. Save the field id for the data insertion later on.
-      $field = field_create_field($field);
-      $sandbox['field_id'] = $field['id'];
-
-      // Create the instances.
-      foreach ($context['types'] as $bundle) {
-        $instance['bundle'] = $bundle;
-        field_create_instance($instance);
-      }
-    }
-    else {
-      // No uploads or content types with uploads enabled.
-      db_drop_table('upload');
-      // We're done: return without specifying a #progress.
-      return;
-    }
+    $sandbox['max'] = db_query("SELECT COUNT(*) FROM {system_update_7061}")->fetchField();
   }
 
-  // Migrate a batch of files from the upload table to the appropriate field.
-  $limit = 500;
-  $result = db_query_range('SELECT DISTINCT u.fid, u.vid, u.list, u.description, n.nid, n.type FROM {upload} u INNER JOIN {node_revision} nr ON u.vid = nr.vid INNER JOIN {node} n ON n.nid = nr.nid WHERE u.vid > :lastvid ORDER BY u.vid, u.weight', 0, $limit, array(':lastvid' => $sandbox['last_vid_processed']));
+  $node_revisions = array();
+
+  // Determine vids for this batch.
+  // Process all files attached to a given revision during the same batch.
+  $limit = 100;
+  $vids = db_query_range('SELECT vid FROM {system_update_7061} WHERE vid > :lastvid ORDER BY vid', 0, $limit, array(':lastvid' => $sandbox['last_vid_processed']))
+    ->fetchCol();
+
+  // Retrieve information on all the files attached to these revisions.
+  $result = db_query('SELECT u.fid, u.vid, u.list, u.description, n.nid, n.type, u.weight FROM {upload} u INNER JOIN {node_revision} nr ON u.vid = nr.vid INNER JOIN {node} n ON n.nid = nr.nid WHERE u.vid IN (:vids) ORDER BY u.vid, u.weight, u.fid', array(':vids' => $vids));
   foreach ($result as $record) {
-    // Note that we still reference the old files table here, since upload will
-    // not know about the new FID in the new file_managed table.
+    // For each uploaded file, retrieve the corresponding data from the old
+    // files table (since upload doesn't know about the new entry in the
+    // file_managed table).
     $file = db_select('files', 'f')
       ->fields('f', array('fid', 'uid', 'filename', 'filepath', 'filemime', 'filesize', 'status', 'timestamp'))
       ->condition('f.fid', $record->fid)
@@ -2804,35 +2765,30 @@ function system_update_7060(&$sandbox) {
       continue;
     }
 
+    // Add in the file information from the upload table.
     $file['description'] = $record->description;
     $file['display'] = $record->list;
 
+    // Create one record for each revision that contains all the uploaded files.
     $node_revisions[$record->vid]['nid'] = $record->nid;
     $node_revisions[$record->vid]['vid'] = $record->vid;
     $node_revisions[$record->vid]['type'] = $record->type;
     $node_revisions[$record->vid]['file'][LANGUAGE_NONE][] = $file;
   }
 
-  // To make sure we process an entire node all at once, toss the last node
-  // revision (which might be partial) unless it's the last one.
-  if ((count($node_revisions) > 1) && ($result->rowCount() == $limit)) {
-    array_pop($node_revisions);
-  }
-  else {
-    $finished = TRUE;
-  }
-
+  // Now that we know which files belong to which revisions, update the files'
+  // database entries, and save a reference to each file in the upload field on
+  // their node revisions.
   $basename = variable_get('file_directory_path', conf_path() . '/files');
   $scheme = file_default_scheme() . '://';
   foreach ($node_revisions as $vid => $revision) {
-    // We will convert filepaths to uri using the default scheme
-    // and stripping off the existing file directory path.
-    $fids = array();
     foreach ($revision['file'][LANGUAGE_NONE] as $delta => $file) {
-      // Insert into the file_managed table.
+      // We will convert filepaths to uri using the default scheme
+      // and stripping off the existing file directory path.
       $file['uri'] = $scheme . str_replace($basename, '', $file['filepath']);
       $file['uri'] = file_stream_wrapper_uri_normalize($file['uri']);
       unset($file['filepath']);
+      // Insert into the file_managed table.
       // Each fid should only be stored once in file_managed.
       db_merge('file_managed')
         ->key(array(
@@ -2849,26 +2805,34 @@ function system_update_7060(&$sandbox) {
         ))
         ->execute();
 
-      // Update the node field with the file URI.
-      $revision['file'][LANGUAGE_NONE][$delta] = $file;
-
       // Add the usage entry for the file.
       $file = (object) $file;
       file_usage_add($file, 'file', 'node', $revision['nid']);
+
+      // Update the node revision's upload file field with the file data.
+      $revision['file'][LANGUAGE_NONE][$delta] = array('fid' => $file->fid, 'display' => $file->display, 'description' => $file->description);
     }
 
-    // Insert the revision's files into the field_upload table.
+    // Write the revision's upload field data into the field_upload tables.
     $node = (object) $revision;
-    field_sql_storage_field_storage_write('node', $node, FIELD_STORAGE_INSERT, array($sandbox['field_id']));
+    _update_7000_field_sql_storage_write('node', $node->type, $node->nid, $node->vid, 'upload', $node->file);
 
     // Update our progress information for the batch update.
     $sandbox['progress']++;
     $sandbox['last_vid_processed'] = $vid;
   }
 
+  // If less than limit node revisions were processed, the update process is
+  // finished.
+  if (count($node_revisions) < $limit) {
+    $finished = TRUE;
+  }
+
+
   // If there's no max value then there's nothing to update and we're finished.
   if (empty($sandbox['max']) || isset($finished)) {
     db_drop_table('upload');
+    db_drop_table('system_update_7061');
     return t('Upload module has been migrated to File module.');
   }
   else {
@@ -2880,7 +2844,7 @@ function system_update_7060(&$sandbox) {
 /**
  * Replace 'system_list' index with 'bootstrap' index on {system}.
  */
-function system_update_7061() {
+function system_update_7062() {
   db_drop_index('system', 'bootstrap');
   db_drop_index('system', 'system_list');
   db_add_index('system', 'system_list', array('status', 'bootstrap', 'type', 'weight', 'name'));

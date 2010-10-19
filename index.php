@@ -17,6 +17,8 @@
  */
 define('DRUPAL_ROOT', getcwd());
 
+require_once DRUPAL_ROOT . '/includes/unl_bootstrap.inc';
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
+unl_bootstrap();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 menu_execute_active_handler();

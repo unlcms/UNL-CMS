@@ -1,4 +1,4 @@
-; $Id: simpletest.info,v 1.22 2010/09/13 05:50:09 webchick Exp $
+; $Id: simpletest.info,v 1.24 2010/10/05 20:04:19 webchick Exp $
 name = Testing
 description = Provides a framework for unit and functional testing.
 package = Core
@@ -42,9 +42,11 @@ files[] = tests/upgrade/upgrade.test
 files[] = tests/upgrade/upgrade.comment.test
 files[] = tests/upgrade/upgrade.node.test
 files[] = tests/upgrade/upgrade.taxonomy.test
+files[] = tests/upgrade/upgrade.upload.test
+files[] = tests/upgrade/upgrade.locale.test
 
-; Information added by drupal.org packaging script on 2010-09-16
-version = "7.0-alpha7"
+; Information added by drupal.org packaging script on 2010-10-07
+version = "7.0-beta1"
 project = "drupal"
-datestamp = "1284599761"
+datestamp = "1286422862"
 

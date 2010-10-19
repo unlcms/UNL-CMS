@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.pages.inc,v 1.53 2010/08/22 13:53:37 dries Exp $
+// $Id: taxonomy.pages.inc,v 1.55 2010/10/06 13:38:40 dries Exp $
 
 /**
  * @file
@@ -19,6 +19,8 @@ function taxonomy_term_page($term) {
   $current = (object) array(
     'tid' => $term->tid,
   );
+  // @todo This overrides any other possible breadcrumb and is a pure hard-coded
+  //   presumption. Make this behavior configurable per vocabulary or term.
   $breadcrumb = array();
   while ($parents = taxonomy_get_parents($current->tid)) {
     $current = array_shift($parents);
@@ -43,7 +45,7 @@ function taxonomy_term_page($term) {
     $nodes = node_load_multiple($nids);
     $build += node_view_multiple($nodes);
     $build['pager'] = array(
-      '#markup' => theme('pager', array('tags' => NULL)),
+      '#markup' => theme('pager'),
       '#weight' => 5,
      );
   }
