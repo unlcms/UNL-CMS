@@ -140,7 +140,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     $form['#submit'][] = 'unl_system_settings_form_submit';
   }
   
-  if ($form_id == 'user_admin_permissions' && !user_access('unl grant all permissions')) {
+  if ($form_id == 'user_admin_permissions' && !user_access('unl grant all permissions') && !in_array(variable_get('user_admin_role', -1), array_keys($GLOBALS['user']->roles))) {
     // Remove permissions this user doesn't have from the headings list.
     foreach ($form['permission'] as $permission => $sub_form) {
       if (is_int($permission)) {
