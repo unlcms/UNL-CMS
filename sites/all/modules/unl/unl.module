@@ -70,7 +70,12 @@ function unl_permission() {
     'unl site creation' => array(
       'title'       => t('Site Creation'),
       'description' => t('Create new drupal sites using the UNL profile'),
-    )
+    ),
+    
+    'unl grant all permissions' => array(
+      'title'       => t('Grant All Permissions'),
+      'description' => t('If this is not checked, a user can only grant permissions that they themselves have. Requires the "Administer permissions" permission.'),
+    ),
   );
 }
 
@@ -133,6 +138,39 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#default_value' => variable_get('https', FALSE),
     );
     $form['#submit'][] = 'unl_system_settings_form_submit';
+  }
+  
+  if ($form_id == 'user_admin_permissions' && !user_access('unl grant all permissions')) {
+    // Remove permissions this user doesn't have from the headings list.
+    foreach ($form['permission'] as $permission => $sub_form) {
+      if (is_int($permission)) {
+        continue;
+      }
+      if (!user_access($permission)) {
+        unset($form['permission'][$permission]);
+      }
+    }
+    
+    // Remove any empty permission section headings.
+    $permission_sections = array_keys($form['permission']);
+    foreach ($permission_sections as $index => $permission_section) {
+      if (!is_int($permission_section)) {
+        continue;
+      }
+      if (!isset($permission_sections[$index + 1]) || is_int($permission_sections[$index + 1])) {
+        unset($form['permission'][$permission_section]);
+      }
+    }
+    
+    
+    // Remove the permissions this user doesn't have from the checkboxes list.
+    foreach ($form['checkboxes'] as $role_id => $sub_form) {
+      foreach ($sub_form['#options'] as $permission => $value) {
+        if (!user_access($permission)) {
+          unset($form['checkboxes'][$role_id]['#options'][$permission]);
+        }
+      }
+    }
   }
 }
 
