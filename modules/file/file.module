@@ -1,5 +1,5 @@
 <?php
-// $Id: file.module,v 1.42 2010/10/04 17:46:01 dries Exp $
+// $Id: file.module,v 1.45 2010/10/20 15:22:53 dries Exp $
 
 /**
  * @file
@@ -216,24 +216,8 @@ function file_file_download($uri, $field_type = 'file') {
   }
 
   // Access is granted.
-  $name = mime_header_encode($file->filename);
-  $type = mime_header_encode($file->filemime);
-  // Serve images, text, and flash content for display rather than download.
-  $inline_types = variable_get('file_inline_types', array('^text/', '^image/', 'flash$'));
-  $disposition = 'attachment';
-  foreach ($inline_types as $inline_type) {
-    // Exclamation marks are used as delimiters to avoid escaping slashes.
-    if (preg_match('!' . $inline_type . '!', $file->filemime)) {
-      $disposition = 'inline';
-    }
-  }
-
-  return array(
-    'Content-Type' => $type . '; name="' . $name . '"',
-    'Content-Length' => $file->filesize,
-    'Content-Disposition' => $disposition . '; filename="' . $name . '"',
-    'Cache-Control' => 'private',
-  );
+  $headers = file_get_content_headers($file);
+  return $headers;
 }
 
 /**
@@ -392,6 +376,7 @@ function file_managed_file_process($element, &$form_state, $form) {
     '#value' => t('Upload'),
     '#validate' => array(),
     '#submit' => array('file_managed_file_submit'),
+    '#limit_validation_errors' => array($element['#parents']),
     '#ajax' => $ajax_settings,
     '#weight' => -5,
   );
@@ -405,15 +390,10 @@ function file_managed_file_process($element, &$form_state, $form) {
     '#value' => t('Remove'),
     '#validate' => array(),
     '#submit' => array('file_managed_file_submit'),
+    '#limit_validation_errors' => array($element['#parents']),
     '#ajax' => $ajax_settings,
     '#weight' => -5,
   );
-
-  // Limit validation errors to the file field only. The entire field is needed later
-  // by file_field_widget_form(), so the last element is sliced off the #parents array
-  // to avoid removing too much from $form_state['values'].
-  $element['upload_button']['#limit_validation_errors'] = array(array_slice($element['#parents'], 0, -1));
-  $element['remove_button']['#limit_validation_errors'] = array(array_slice($element['#parents'], 0, -1));
 
   $element['fid'] = array(
     '#type' => 'hidden',
@@ -447,6 +427,8 @@ function file_managed_file_process($element, &$form_state, $form) {
   $element['upload'] = array(
     '#name' => 'files[' . implode('_', $element['#parents']) . ']',
     '#type' => 'file',
+    '#title' => t('Choose a file'),
+    '#title_display' => 'invisible',
     '#size' => 22,
     '#theme_wrappers' => array(),
     '#weight' => -10,

@@ -1,5 +1,5 @@
 <?php
-// $Id: install.core.inc,v 1.38 2010/10/07 03:26:41 webchick Exp $
+// $Id: install.core.inc,v 1.40 2010/10/15 03:31:28 webchick Exp $
 
 /**
  * @file
@@ -819,7 +819,12 @@ function install_verify_settings() {
  * Verify PDO library.
  */
 function install_verify_pdo() {
-  return extension_loaded('pdo');
+  // PDO was moved to PHP core in 5.2.0, but the old extension (targeting 5.0
+  // and 5.1) is still available from PECL, and can still be built without
+  // errors. To verify that the correct version is in use, we check the
+  // PDO::ATTR_DEFAULT_FETCH_MODE constant, which is not available in the
+  // PECL extension.
+  return extension_loaded('pdo') && defined('PDO::ATTR_DEFAULT_FETCH_MODE');
 }
 
 /**
@@ -1456,7 +1461,7 @@ function install_configure_form($form, &$form_state, &$install_state) {
   $settings_dir = './' . conf_path();
   $settings_file = $settings_dir . '/settings.php';
   if (!drupal_verify_install_file($settings_file, FILE_EXIST|FILE_READABLE|FILE_NOT_WRITABLE) || !drupal_verify_install_file($settings_dir, FILE_NOT_WRITABLE, 'dir')) {
-    drupal_set_message(st('All necessary changes to %dir and %file have been made, so you should remove write permissions to them now in order to avoid security risks. If you are unsure how to do so, consult the <a href="@handbook_url">online handbook</a>.', array('%dir' => $settings_dir, '%file' => $settings_file, '@handbook_url' => 'http://drupal.org/server-permissions')), 'error');
+    drupal_set_message(st('All necessary changes to %dir and %file have been made, so you should remove write permissions to them now in order to avoid security risks. If you are unsure how to do so, consult the <a href="@handbook_url">online handbook</a>.', array('%dir' => $settings_dir, '%file' => $settings_file, '@handbook_url' => 'http://drupal.org/server-permissions')), 'warning');
   }
   else {
     drupal_set_message(st('All necessary changes to %dir and %file have been made. They have been set to read-only for security.', array('%dir' => $settings_dir, '%file' => $settings_file)));

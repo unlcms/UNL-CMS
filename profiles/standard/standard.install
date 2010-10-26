@@ -1,5 +1,5 @@
 <?php
-// $Id: standard.install,v 1.26 2010/10/05 06:17:29 webchick Exp $
+// $Id: standard.install,v 1.28 2010/10/21 04:22:34 webchick Exp $
 
 /**
  * Implements hook_install().
@@ -9,6 +9,7 @@
 function standard_install() {
   // Add text formats.
   $filtered_html_format = array(
+    'format' => 'filtered_html',
     'name' => 'Filtered HTML',
     'weight' => 0,
     'filters' => array(
@@ -38,6 +39,7 @@ function standard_install() {
   filter_format_save($filtered_html_format);
 
   $full_html_format = array(
+    'format' => 'full_html',
     'name' => 'Full HTML',
     'weight' => 1,
     'filters' => array(
@@ -111,16 +113,6 @@ function standard_install() {
       'theme' => $default_theme,
       'status' => 1,
       'weight' => 0,
-      'region' => 'sidebar_first',
-      'pages' => '',
-      'cache' => -1,
-    ),
-    array(
-      'module' => 'system',
-      'delta' => 'management',
-      'theme' => $default_theme,
-      'status' => 1,
-      'weight' => 1,
       'region' => 'sidebar_first',
       'pages' => '',
       'cache' => -1,

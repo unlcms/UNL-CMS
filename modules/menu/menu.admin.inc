@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.admin.inc,v 1.87 2010/10/04 18:00:46 dries Exp $
+// $Id: menu.admin.inc,v 1.90 2010/10/20 07:40:59 webchick Exp $
 
 /**
  * @file
@@ -103,6 +103,8 @@ function _menu_overview_tree_form($tree) {
       $form[$mlid]['title']['#markup'] = l($item['title'], $item['href'], $item['localized_options']) . ($item['hidden'] ? ' (' . t('disabled') . ')' : '');
       $form[$mlid]['hidden'] = array(
         '#type' => 'checkbox',
+        '#title' => t('Enable @title menu link', array('@title' => $item['title'])),
+        '#title_display' => 'invisible',
         '#default_value' => !$item['hidden'],
       );
       $form[$mlid]['weight'] = array(
@@ -110,7 +112,7 @@ function _menu_overview_tree_form($tree) {
         '#delta' => 50,
         '#default_value' => $item['weight'],
         '#title_display' => 'invisible',
-        '#title' => t('Weight for @row', array('@row' => $item['title'])),
+        '#title' => t('Weight for @title', array('@title' => $item['title'])),
       );
       $form[$mlid]['mlid'] = array(
         '#type' => 'hidden',
@@ -419,57 +421,45 @@ function menu_edit_item_submit($form, &$form_state) {
  */
 function menu_edit_menu($form, &$form_state, $type, $menu = array()) {
   $system_menus = menu_list_system_menus();
-  $menu += array('menu_name' => '', 'old_name' => '', 'title' => '', 'description' => '');
-  if (!empty($menu['menu_name'])) {
-    $menu['old_name'] = $menu['menu_name'];
-  }
-  $form['old_name'] = array('#type' => 'value', '#value' => $menu['old_name']);
+  $menu += array(
+    'menu_name' => '',
+    'old_name' => !empty($menu['menu_name']) ? $menu['menu_name'] : '',
+    'title' => '',
+    'description' => '',
+  );
+  // Allow menu_edit_menu_submit() and other form submit handlers to determine
+  // whether the menu already exists.
+  $form['#insert'] = empty($menu['old_name']);
+  $form['old_name'] = array(
+    '#type' => 'value',
+    '#value' => $menu['old_name'],
+  );
 
-  // The title of a system menu cannot be altered.
-  if (isset($system_menus[$menu['menu_name']])) {
-    $form['title'] = array('#type' => 'value', '#value' => $menu['title']);
-  }
-  else {
-    $form['title'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Title'),
-      '#default_value' => $menu['title'],
-      '#required' => TRUE,
-      '#field_suffix' => ' <small id="edit-title-suffix">&nbsp;</small>',
-    );
-  }
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#default_value' => $menu['title'],
+    '#required' => TRUE,
+    // The title of a system menu cannot be altered.
+    '#access' => !isset($system_menus[$menu['menu_name']]),
+  );
 
-  // The internal menu name can only be defined during initial menu creation.
-  if (!empty($menu['old_name'])) {
-    $form['#insert'] = FALSE;
-    $form['menu_name'] = array('#type' => 'value', '#value' => $menu['menu_name']);
-  }
-  else {
-    $form['#insert'] = TRUE;
-    $js_settings = array(
-      'type' => 'setting',
-      'data' => array(
-        'machineReadableValue' => array(
-          'title' => array(
-            'text' => t('URL path'),
-            'target' => 'menu-name',
-            'searchPattern' => '[^a-z0-9]+',
-            'replaceToken' => '-',
-          ),
-        ),
-      ),
-    );
-    $form['menu_name'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Menu name'),
-      '#maxsize' => MENU_MAX_MENU_NAME_LENGTH_UI,
-      '#description' => t('This text will be used to construct the URL for the menu. The name must contain only lowercase letters, numbers and hyphens, and must be unique.'),
-      '#required' => TRUE,
-      '#attached' => array(
-        'js' => array(drupal_get_path('module', 'system') . '/system.js', $js_settings),
-      ),
-    );
-  }
+  $form['menu_name'] = array(
+    '#type' => 'machine_name',
+    '#title' => t('Menu name'),
+    '#default_value' => $menu['menu_name'],
+    '#maxlength' => MENU_MAX_MENU_NAME_LENGTH_UI,
+    '#description' => t('A unique name to construct the URL for the menu. It must only contain lowercase letters, numbers and hyphens.'),
+    '#machine_name' => array(
+      'exists' => 'menu_edit_menu_name_exists',
+      'source' => array('title'),
+      'label' => t('URL path'),
+      'replace_pattern' => '[^a-z0-9-]+',
+      'replace' => '-',
+    ),
+    // A menu's machine name cannot be changed.
+    '#disabled' => !empty($menu['old_name']) || isset($system_menus[$menu['menu_name']]),
+  );
 
   $form['description'] = array(
     '#type' => 'textarea',
@@ -560,26 +550,18 @@ function menu_delete_menu_confirm_submit($form, &$form_state) {
 }
 
 /**
- * Validates the human and machine-readable names when adding or editing a menu.
+ * Returns whether a menu name already exists.
+ *
+ * @see menu_edit_menu()
+ * @see form_validate_machine_name()
  */
-function menu_edit_menu_validate($form, &$form_state) {
-  $item = $form_state['values'];
-  if (preg_match('/[^a-z0-9-]/', $item['menu_name'])) {
-    form_set_error('menu_name', t('The menu name may only consist of lowercase letters, numbers, and hyphens.'));
-  }
-  if ($form['#insert']) {
-    if (strlen($item['menu_name']) > MENU_MAX_MENU_NAME_LENGTH_UI) {
-      form_set_error('menu_name', format_plural(MENU_MAX_MENU_NAME_LENGTH_UI, "The menu name can't be longer than 1 character.", "The menu name can't be longer than @count characters."));
-    }
+function menu_edit_menu_name_exists($value) {
+  // 'menu-' is added to the menu name to avoid name-space conflicts.
+  $value = 'menu-' . $value;
+  $custom_exists = db_query_range('SELECT 1 FROM {menu_custom} WHERE menu_name = :menu', 0, 1, array(':menu' => $value))->fetchField();
+  $link_exists = db_query_range("SELECT 1 FROM {menu_links} WHERE menu_name = :menu", 0, 1, array(':menu' => $value))->fetchField();
 
-    // We will add 'menu-' to the menu name to help avoid name-space conflicts.
-    $item['menu_name'] = 'menu-' . $item['menu_name'];
-    $custom_exists = db_query_range('SELECT 1 FROM {menu_custom} WHERE menu_name = :menu', 0, 1, array(':menu' => $item['menu_name']))->fetchField();
-    $link_exists = db_query_range("SELECT 1 FROM {menu_links} WHERE menu_name = :menu", 0, 1, array(':menu' => $item['menu_name']))->fetchField();
-    if ($custom_exists || $link_exists) {
-      form_set_error('menu_name', t('The menu already exists.'));
-    }
-  }
+  return $custom_exists || $link_exists;
 }
 
 /**
@@ -697,7 +679,7 @@ function menu_configure() {
     '#empty_option' => t('No Secondary links'),
     '#options' => $menu_options,
     '#tree' => FALSE,
-    '#description' => t("Select the source for the Secondary links. An advanced option allows you to use the same source for both Main links (currently %main) and Secondary links: if your source menu has two levels of hierarchy, the top level menu links will appear in the Main links, and the children of the active link will appear in the Secondary links." , array('%main' => $main_options[$main])),
+    '#description' => t('Select the source for the Secondary links. An advanced option allows you to use the same source for both Main links (currently %main) and Secondary links: if your source menu has two levels of hierarchy, the top level menu links will appear in the Main links, and the children of the active link will appear in the Secondary links.', array('%main' => $menu_options[$main])),
   );
 
   return system_settings_form($form);

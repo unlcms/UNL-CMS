@@ -1,5 +1,5 @@
 <?php
-// $Id: image.admin.inc,v 1.25 2010/10/04 18:00:45 dries Exp $
+// $Id: image.admin.inc,v 1.27 2010/10/21 20:50:43 webchick Exp $
 
 /**
  * @file
@@ -93,6 +93,8 @@ function image_style_form($form, &$form_state, $style) {
     );
     $form['effects'][$key]['weight'] = array(
       '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $effect['label'])),
+      '#title_display' => 'invisible',
       '#default_value' => $effect['weight'],
       '#access' => $editable,
     );
@@ -127,11 +129,15 @@ function image_style_form($form, &$form_state, $style) {
   );
   $form['effects']['new']['new'] = array(
     '#type' => 'select',
+    '#title' => t('Effect'),
+    '#title_display' => 'invisible',
     '#options' => $new_effect_options,
     '#empty_option' => t('Select a new effect'),
   );
   $form['effects']['new']['weight'] = array(
     '#type' => 'weight',
+    '#title' => t('Weight for new effect'),
+    '#title_display' => 'invisible',
     '#default_value' => count($form['effects']) - 1,
   );
   $form['effects']['new']['add'] = array(
@@ -786,24 +792,25 @@ function theme_image_style_preview($variables) {
   $preview_attributes['style'] = 'width: ' . $preview_width . 'px; height: ' . $preview_height . 'px;';
 
   // In the previews, timestamps are added to prevent caching of images.
-  $output = '';
-  $output .= '<div class="image-style-preview preview clearfix">';
+  $output = '<div class="image-style-preview preview clearfix">';
 
   // Build the preview of the original image.
+  $original_url = file_create_url($original_path);
   $output .= '<div class="preview-image-wrapper">';
-  $output .= t('original') . ' (' . l(t('view actual size'), $original_path) . ')';
+  $output .= t('original') . ' (' . l(t('view actual size'), $original_url) . ')';
   $output .= '<div class="preview-image original-image" style="' . $original_attributes['style'] . '">';
-  $output .= '<a href="' . url($original_path) . '?' . time() . '">' . theme('image', array('path' => $original_path . '?' . time(), 'alt' => t('Sample original image'), 'title' => '', 'attributes' => $original_attributes)) . '</a>';
+  $output .= '<a href="' . $original_url . '">' . theme('image', array('path' => $original_path, 'alt' => t('Sample original image'), 'title' => '', 'attributes' => $original_attributes)) . '</a>';
   $output .= '<div class="height" style="height: ' . $original_height . 'px"><span>' . $original_image['height'] . 'px</span></div>';
   $output .= '<div class="width" style="width: ' . $original_width . 'px"><span>' . $original_image['width'] . 'px</span></div>';
   $output .= '</div>'; // End preview-image.
   $output .= '</div>'; // End preview-image-wrapper.
 
   // Build the preview of the image style.
+  $preview_url = file_create_url($preview_file) . '?cache_bypass=' . REQUEST_TIME;
   $output .= '<div class="preview-image-wrapper">';
   $output .= check_plain($style['name']) . ' (' . l(t('view actual size'), file_create_url($preview_file) . '?' . time()) . ')';
   $output .= '<div class="preview-image modified-image" style="' . $preview_attributes['style'] . '">';
-  $output .= '<a href="' . file_create_url($preview_file) . '?' . time() . '">' . theme('image', array('path' => file_create_url($preview_file) . '?' . time(), 'alt' => t('Sample modified image'), 'title' => '', 'attributes' => $preview_attributes)) . '</a>';
+  $output .= '<a href="' . file_create_url($preview_file) . '?' . time() . '">' . theme('image', array('path' => $preview_url, 'alt' => t('Sample modified image'), 'title' => '', 'attributes' => $preview_attributes)) . '</a>';
   $output .= '<div class="height" style="height: ' . $preview_height . 'px"><span>' . $preview_image['height'] . 'px</span></div>';
   $output .= '<div class="width" style="width: ' . $preview_width . 'px"><span>' . $preview_image['width'] . 'px</span></div>';
   $output .= '</div>'; // End preview-image.

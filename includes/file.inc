@@ -1,5 +1,5 @@
 <?php
-// $Id: file.inc,v 1.235 2010/10/05 06:23:18 webchick Exp $
+// $Id: file.inc,v 1.239 2010/10/21 12:09:41 dries Exp $
 
 /**
  * @file
@@ -90,12 +90,37 @@ define('FILE_STATUS_PERMANENT', 1);
  *
  * A stream is referenced as "scheme://target".
  *
+ * The optional $filter parameter can be used to retrieve only the stream
+ * wrappers that are appropriate for particular usage. For example, this returns
+ * only stream wrappers that use local file storage:
+ * @code
+ *   $local_stream_wrappers = file_get_stream_wrappers(STEAM_WRAPPERS_LOCAL);
+ * @endcode
+ *
+ * The $filter parameter can only filter to types containing a particular flag.
+ * In some cases, you may want to filter to types that do not contain a
+ * particular flag. For example, you may want to retrieve all stream wrappers
+ * that are not writable, or all stream wrappers that are not local. PHP's
+ * array_diff_key() function can be used to help with this. For example, this
+ * returns only stream wrappers that do not use local file storage:
+ * @code
+ *   $remote_stream_wrappers = array_diff_key(file_get_stream_wrappers(STREAM_WRAPPERS_ALL), file_get_stream_wrappers(STEAM_WRAPPERS_LOCAL));
+ * @endcode
+ *
  * @param $filter
- *  Optionally filter out all types except these.  Defaults to
- *  STREAM_WRAPPERS_ALL, which returns all registered stream wrappers.
+ *   (Optional) Filters out all types except those with an on bit for each on
+ *   bit in $filter. For example, if $filter is STREAM_WRAPPERS_WRITE_VISIBLE,
+ *   which is equal to (STREAM_WRAPPERS_READ | STREAM_WRAPPERS_WRITE |
+ *   STREAM_WRAPPERS_VISIBLE), then only stream wrappers with all three of these
+ *   bits set are returned. Defaults to STREAM_WRAPPERS_ALL, which returns all
+ *   registered stream wrappers.
  *
  * @return
- *   Returns the entire Drupal stream wrapper registry.
+ *   An array keyed by scheme, with values containing an array of information
+ *   about the stream wrapper, as returned by hook_stream_wrappers(). If $filter
+ *   is omitted or set to STREAM_WRAPPERS_ALL, the entire Drupal stream wrapper
+ *   registry is returned. Otherwise only the stream wrappers whose 'type'
+ *   bitmask has an on bit for each bit specified in $filter are returned.
  *
  * @see hook_stream_wrappers()
  * @see hook_stream_wrappers_alter()
@@ -122,7 +147,12 @@ function file_get_stream_wrappers($filter = STREAM_WRAPPERS_ALL) {
         else {
           $wrappers[$scheme]['override'] = FALSE;
         }
-        stream_wrapper_register($scheme, $info['class']);
+        if (($info['type'] & STREAM_WRAPPERS_LOCAL) == STREAM_WRAPPERS_LOCAL) {
+          stream_wrapper_register($scheme, $info['class']);
+        }
+        else {
+          stream_wrapper_register($scheme, $info['class'], STREAM_IS_URL);
+        }
       }
       // Pre-populate the static cache with the filters most typically used.
       $wrappers_storage[STREAM_WRAPPERS_ALL][$scheme] = $wrappers[$scheme];
@@ -136,7 +166,7 @@ function file_get_stream_wrappers($filter = STREAM_WRAPPERS_ALL) {
     $wrappers_storage[$filter] = array();
     foreach ($wrappers_storage[STREAM_WRAPPERS_ALL] as $scheme => $info) {
       // Bit-wise filter.
-      if ($info['type'] & $filter == $filter) {
+      if (($info['type'] & $filter) == $filter) {
         $wrappers_storage[$filter][$scheme] = $info;
       }
     }
@@ -1185,6 +1215,7 @@ function file_delete(stdClass $file, $force = FALSE) {
 
   // Let other modules clean up any references to the deleted file.
   module_invoke_all('file_delete', $file);
+  module_invoke_all('entity_delete', $file, 'file');
 
   // Make sure the file is deleted before removing its row from the
   // database, so UIs can still find the file in the database.
@@ -2320,6 +2351,35 @@ function file_directory_temp() {
   }
 
   return $temporary_directory;
+}
+
+/**
+ * Examines a file object and returns appropriate content headers for download.
+ *
+ * @param $file
+ *   A file object.
+ * @return
+ *   An associative array of headers, as expected by file_transfer().
+ */
+function file_get_content_headers($file) {
+  $name = mime_header_encode($file->filename);
+  $type = mime_header_encode($file->filemime);
+  // Serve images, text, and flash content for display rather than download.
+  $inline_types = variable_get('file_inline_types', array('^text/', '^image/', 'flash$'));
+  $disposition = 'attachment';
+  foreach ($inline_types as $inline_type) {
+    // Exclamation marks are used as delimiters to avoid escaping slashes.
+    if (preg_match('!' . $inline_type . '!', $file->filemime)) {
+      $disposition = 'inline';
+    }
+  }
+
+  return array(
+    'Content-Type' => $type . '; name="' . $name . '"',
+    'Content-Length' => $file->filesize,
+    'Content-Disposition' => $disposition . '; filename="' . $name . '"',
+    'Cache-Control' => 'private',
+  );
 }
 
 /**

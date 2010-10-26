@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.618 2010/10/05 19:59:10 dries Exp $
+// $Id: theme.inc,v 1.620 2010/10/21 19:31:39 dries Exp $
 
 /**
  * @file
@@ -10,7 +10,7 @@
  */
 
 /**
- * @name Content markers
+ * @defgroup content_flags Content markers
  * @{
  * Markers used by theme_mark() and node_mark() to designate content.
  * @see theme_mark(), node_mark()
@@ -108,7 +108,7 @@ function drupal_theme_initialize() {
   // @see ajax_base_page_theme()
   $setting['ajaxPageState'] = array(
     'theme' => $theme_key,
-    'themeToken' => drupal_get_token($theme_key),
+    'theme_token' => drupal_get_token($theme_key),
   );
   drupal_add_js($setting, 'setting');
 }
