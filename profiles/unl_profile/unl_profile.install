@@ -226,13 +226,8 @@ EOF;
           'default'       => $new_prefix,
 
           // shared tables across all sites
-          'authmap'       => $shared_prefix,
           'filter'        => $shared_prefix,
           'filter_format' => $shared_prefix,
-          'role'          => $shared_prefix,
-          'sessions'      => $shared_prefix,
-          'users'         => $shared_prefix,
-          'users_roles'   => $shared_prefix,
           'wysiwyg'       => $shared_prefix,
         );
         
@@ -243,6 +238,9 @@ EOF;
         
         foreach ($settings['databases']['value'] as &$database) {
           $database['default']['prefix'] = $new_prefixes;
+          if (!isset($database['slave'])) {
+            continue;
+          }
           foreach ($database['slave'] as &$slave_database) {
             $slave_database['prefix'] = $new_prefixes;
           }
@@ -263,15 +261,11 @@ EOF;
         module_enable(array('unl_cas'));
         
         // Copy permissions from the parent site to the new site.
-        db_query("TRUNCATE ${new_prefix}role_permission")->execute();
+        db_query("TRUNCATE {$new_prefix}role_permission")->execute();
         // I'm using REPLACE because I keep getting duplicate entry errors, despite inserting into what should be an empty table.
-        db_query("REPLACE INTO ${new_prefix}role_permission (rid, permission, module) SELECT rid, permission, module FROM ${shared_prefix}role_permission")->execute();
+        db_query("REPLACE INTO {$new_prefix}role_permission (rid, permission, module) SELECT rid, permission, module FROM {$shared_prefix}role_permission")->execute();
     }
     
-    
-    //$permissions = array_keys(module_invoke_all('permission'));
-    //print_r($permissions);
-    //user_role_grant_permissions(3, array($permissions));
     
     $files_dir = $settings_dir . '/files';
     chmod($files_dir, 0777);
