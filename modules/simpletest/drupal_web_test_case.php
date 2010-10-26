@@ -1,5 +1,5 @@
 <?php
-// $Id: drupal_web_test_case.php,v 1.240 2010/10/05 06:17:29 webchick Exp $
+// $Id: drupal_web_test_case.php,v 1.243 2010/10/23 02:26:11 webchick Exp $
 
 /**
  * Global variable that holds information about the tests being run.
@@ -1801,7 +1801,7 @@ class DrupalWebTestCase extends DrupalTestCase {
    *
    * @see ajax.js
    */
-  protected function drupalPostAJAX($path, $edit, $triggering_element, $ajax_path = 'system/ajax', array $options = array(), array $headers = array(), $form_html_id = NULL, $ajax_settings = NULL) {
+  protected function drupalPostAJAX($path, $edit, $triggering_element, $ajax_path = NULL, array $options = array(), array $headers = array(), $form_html_id = NULL, $ajax_settings = NULL) {
     // Get the content of the initial page prior to calling drupalPost(), since
     // drupalPost() replaces $this->content.
     if (isset($path)) {
@@ -1836,6 +1836,12 @@ class DrupalWebTestCase extends DrupalTestCase {
     foreach ($this->xpath('//*[@id]') as $element) {
       $id = (string) $element['id'];
       $extra_post .= '&' . urlencode('ajax_html_ids[]') . '=' . urlencode($id);
+    }
+
+    // Unless a particular path is specified, use the one specified by the
+    // AJAX settings, or else 'system/ajax'.
+    if (!isset($ajax_path)) {
+      $ajax_path = isset($ajax_settings['url']) ? $ajax_settings['url'] : 'system/ajax';
     }
 
     // Submit the POST request.
@@ -2798,7 +2804,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field exists in the current page by the given XPath.
+   * Asserts that a field exists in the current page by the given XPath.
    *
    * @param $xpath
    *   XPath used to find the field.
@@ -2870,7 +2876,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field does not exist in the current page by the given XPath.
+   * Asserts that a field does not exist in the current page by the given XPath.
    *
    * @param $xpath
    *   XPath used to find the field.
@@ -2902,7 +2908,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field exists in the current page with the given name and value.
+   * Asserts that a field exists in the current page with the given name and value.
    *
    * @param $name
    *   Name of field to assert.
@@ -2920,7 +2926,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field does not exist with the given name and value.
+   * Asserts that a field does not exist with the given name and value.
    *
    * @param $name
    *   Name of field to assert.
@@ -2938,7 +2944,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field exists in the current page with the given id and value.
+   * Asserts that a field exists in the current page with the given id and value.
    *
    * @param $id
    *   Id of field to assert.
@@ -2956,7 +2962,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field does not exist with the given id and value.
+   * Asserts that a field does not exist with the given id and value.
    *
    * @param $id
    *   Id of field to assert.
@@ -2974,7 +2980,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a checkbox field in the current page is checked.
+   * Asserts that a checkbox field in the current page is checked.
    *
    * @param $id
    *   Id of field to assert.
@@ -2989,7 +2995,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a checkbox field in the current page is not checked.
+   * Asserts that a checkbox field in the current page is not checked.
    *
    * @param $id
    *   Id of field to assert.
@@ -3004,7 +3010,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a select option in the current page is not checked.
+   * Asserts that a select option in the current page is checked.
    *
    * @param $id
    *   Id of select field to assert.
@@ -3014,6 +3020,8 @@ class DrupalWebTestCase extends DrupalTestCase {
    *   Message to display.
    * @return
    *   TRUE on pass, FALSE on fail.
+   *
+   * @todo $id is unusable. Replace with $name.
    */
   protected function assertOptionSelected($id, $option, $message = '') {
     $elements = $this->xpath('//select[@id=:id]//option[@value=:option]', array(':id' => $id, ':option' => $option));
@@ -3021,7 +3029,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a select option in the current page is not checked.
+   * Asserts that a select option in the current page is not checked.
    *
    * @param $id
    *   Id of select field to assert.
@@ -3038,7 +3046,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field exists with the given name or id.
+   * Asserts that a field exists with the given name or id.
    *
    * @param $field
    *   Name or id of field to assert.
@@ -3054,7 +3062,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that a field does not exist with the given name or id.
+   * Asserts that a field does not exist with the given name or id.
    *
    * @param $field
    *   Name or id of field to assert.
@@ -3070,7 +3078,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert that each HTML ID is used for just a single element.
+   * Asserts that each HTML ID is used for just a single element.
    *
    * @param $message
    *   Message to display.
@@ -3115,7 +3123,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert the page responds with the specified response code.
+   * Asserts the page responds with the specified response code.
    *
    * @param $code
    *   Response code. For example 200 is a successful page request. For a list
@@ -3132,7 +3140,7 @@ class DrupalWebTestCase extends DrupalTestCase {
   }
 
   /**
-   * Assert the page did not return the specified response code.
+   * Asserts the page did not return the specified response code.
    *
    * @param $code
    *   Response code. For example 200 is a successful page request. For a list

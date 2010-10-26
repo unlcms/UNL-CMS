@@ -1,5 +1,5 @@
 <?php
-// $Id: system.install,v 1.515 2010/10/06 13:38:40 dries Exp $
+// $Id: system.install,v 1.520 2010/10/20 00:47:44 dries Exp $
 
 /**
  * @file
@@ -77,6 +77,15 @@ function system_requirements($phase) {
     // If PHP is old, it's not safe to continue with the requirements check.
     return $requirements;
   }
+  // Check that htmlspecialchars() is secure if the site is running any PHP
+  // version older than 5.2.5. We don't simply require 5.2.5, because Ubuntu
+  // 8.04 ships with PHP 5.2.4, but includes the necessary security patch.
+  elseif (version_compare($phpversion, '5.2.5') < 0 && strlen(@htmlspecialchars(chr(0xC0) . chr(0xAF), ENT_QUOTES, 'UTF-8'))) {
+    $requirements['php']['description'] = $t('Your PHP installation is too old. Drupal requires at least PHP 5.2.5, or PHP @version with the htmlspecialchars security patch backported.', array('@version' => DRUPAL_MINIMUM_PHP));
+    $requirements['php']['severity'] = REQUIREMENT_ERROR;
+    // If PHP is old, it's not safe to continue with the requirements check.
+    return $requirements;
+  }
 
   // Test PHP register_globals setting.
   $requirements['php_register_globals'] = array(
@@ -144,19 +153,36 @@ function system_requirements($phase) {
       'title' => $t('Database support'),
     );
 
-    // Test for at least one suitable PDO extension, if PDO is available.
+    // Make sure PDO is available.
     $database_ok = extension_loaded('pdo');
-    if ($database_ok) {
+    if (!$database_ok) {
+      $pdo_message = $t('Your web server does not appear to support PDO (PHP Data Objects). Ask your hosting provider if they support the native PDO extension. See the <a href="@link">system requirements</a> page for more information.', array(
+        '@link' => 'http://drupal.org/requirements/pdo',
+      ));
+    }
+    else {
+      // Make sure at least one supported database driver exists.
       $drivers = drupal_detect_database_types();
-      $database_ok = !empty($drivers);
+      if (empty($drivers)) {
+        $database_ok = FALSE;
+        $pdo_message = $t('Your web server does not appear to support any common PDO database extensions. Check with your hosting provider to see if they support PDO (PHP Data Objects) and offer any databases that <a href="@drupal-databases">Drupal supports</a>.', array(
+          '@drupal-databases' => 'http://drupal.org/node/270#database',
+        ));
+      }
+      // Make sure the native PDO extension is available, not the older PEAR
+      // version. (See install_verify_pdo() for details.)
+      if (!defined('PDO::ATTR_DEFAULT_FETCH_MODE')) {
+        $database_ok = FALSE;
+        $pdo_message = $t('Your web server seems to have the wrong version of PDO installed. Drupal 7 requires the PDO extension from PHP core. This system has the older PECL version. See the <a href="@link">system requirements</a> page for more information.', array(
+          '@link' => 'http://drupal.org/requirements/pdo#pecl',
+        ));
+      }
     }
 
     if (!$database_ok) {
       $requirements['database_extensions']['value'] = $t('Disabled');
       $requirements['database_extensions']['severity'] = REQUIREMENT_ERROR;
-      $requirements['database_extensions']['description'] = $t('Your web server does not appear to support any common PDO database extensions. Check with your hosting provider to see if they support PDO (PHP Data Objects) and offer any databases that <a href="@drupal-databases">Drupal supports</a>.', array(
-        '@drupal-databases' => 'http://drupal.org/node/270#database',
-      ));
+      $requirements['database_extensions']['description'] = $pdo_message;
     }
     else {
       $requirements['database_extensions']['value'] = $t('Enabled');
@@ -1066,13 +1092,6 @@ function system_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'block_callback' => array(
-        'description' => 'Name of a function used to render the block on the system administration page for this item.',
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
       'description' => array(
         'description' => 'A description of this item.',
         'type' => 'text',
@@ -1978,10 +1997,22 @@ function system_update_7015() {
     ->fields(array('link_path' => 'user/logout'))
     ->condition('link_path', 'logout')
     ->execute();
-
- db_update('menu_links')
+  db_update('menu_links')
     ->fields(array('router_path' => 'user/logout'))
     ->condition('router_path', 'logout')
+    ->execute();
+
+  db_update('menu_links')
+    ->fields(array(
+      'menu_name' => 'user-menu',
+      'plid' => 0,
+    ))
+    ->condition(db_or()
+      ->condition('link_path', 'user/logout')
+      ->condition('router_path', 'user/logout')
+    )
+    ->condition('module', 'system')
+    ->condition('customized', 0)
     ->execute();
 }
 
@@ -2848,6 +2879,26 @@ function system_update_7062() {
   db_drop_index('system', 'bootstrap');
   db_drop_index('system', 'system_list');
   db_add_index('system', 'system_list', array('status', 'bootstrap', 'type', 'weight', 'name'));
+}
+
+/**
+ * Delete {menu_links} records for 'type' => MENU_CALLBACK which would not appear in a fresh install.
+ */
+function system_update_7063() {
+  // For router items where 'type' => MENU_CALLBACK, {menu_router}.type is
+  // stored as 4 in Drupal 6, and 0 in Drupal 7. Fortunately Drupal 7 doesn't
+  // store any types as 4, so delete both.
+  $result = db_query('SELECT ml.mlid FROM {menu_links} ml INNER JOIN {menu_router} mr ON ml.router_path = mr.path WHERE ml.module = :system AND ml.customized = 0 AND mr.type IN(:callbacks)', array(':callbacks' => array(0, 4), ':system' => 'system'));
+  foreach ($result as $record) {
+    db_delete('menu_links')->condition('mlid', $record->mlid)->execute();
+  }
+}
+
+/**
+ * Remove block_callback field from {menu_router}.
+ */
+function system_update_7064() {
+  db_drop_field('menu_router', 'block_callback');
 }
 
 /**

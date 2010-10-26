@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.module,v 1.351 2010/10/04 18:00:45 dries Exp $
+// $Id: filter.module,v 1.355 2010/10/22 16:36:14 webchick Exp $
 
 /**
  * @file
@@ -153,7 +153,11 @@ function _filter_disable_format_access($format) {
  *   The format ID.
  *
  * @return
- *   A fully-populated text format object.
+ *   A fully-populated text format object, if the requested format exists and
+ *   is enabled. If the format does not exist, or exists in the database but
+ *   has been marked as disabled, FALSE is returned.
+ *
+ * @see filter_format_exists()
  */
 function filter_format_load($format_id) {
   $formats = filter_formats();
@@ -165,9 +169,10 @@ function filter_format_load($format_id) {
  *
  * @param $format
  *   A format object using the properties:
+ *   - 'format': A machine-readable name representing the ID of the text format
+ *     to save. If this corresponds to an existing text format, that format
+ *     will be updated; otherwise, a new format will be created.
  *   - 'name': The title of the text format.
- *   - 'format': (optional) The internal ID of the text format. If omitted, a
- *     new text format is created.
  *   - 'weight': (optional) The weight of the text format, which controls its
  *     placement in text format lists. If omitted, the weight is set to 0.
  *   - 'filters': (optional) An associative, multi-dimensional array of filters
@@ -182,23 +187,31 @@ function filter_format_load($format_id) {
  *     - 'settings': (optional) An array of configured settings for the filter.
  *       See hook_filter_info() for details.
  */
-function filter_format_save(&$format) {
+function filter_format_save($format) {
   $format->name = trim($format->name);
   $format->cache = _filter_format_is_cacheable($format);
-  $format->status = 1;
+  if (!isset($format->status)) {
+    $format->status = 1;
+  }
+  if (!isset($format->weight)) {
+    $format->weight = 0;
+  }
+
+  // Insert or update the text format.
+  $return = db_merge('filter_format')
+    ->key(array('format' => $format->format))
+    ->fields(array(
+      'name' => $format->name,
+      'cache' => (int) $format->cache,
+      'status' => (int) $format->status,
+      'weight' => (int) $format->weight,
+    ))
+    ->execute();
+
   // Programmatic saves may not contain any filters.
   if (!isset($format->filters)) {
     $format->filters = array();
   }
-
-  // Add a new text format.
-  if (empty($format->format)) {
-    $return = drupal_write_record('filter_format', $format);
-  }
-  else {
-    $return = drupal_write_record('filter_format', $format, 'format');
-  }
-
   $filter_info = filter_get_filters();
   foreach ($filter_info as $name => $filter) {
     // Add new filters without weight to the bottom.
@@ -241,8 +254,8 @@ function filter_format_save(&$format) {
     module_invoke_all('filter_format_update', $format);
     // Explicitly indicate that the format was updated. We need to do this
     // since if the filters were updated but the format object itself was not,
-    // the call to drupal_write_record() above would not return an indication
-    // that anything had changed.
+    // the merge query above would not return an indication that anything had
+    // changed.
     $return = SAVED_UPDATED;
 
     // Clear the filter cache whenever a text format is updated.
@@ -258,9 +271,9 @@ function filter_format_save(&$format) {
  * Disable a text format.
  *
  * There is no core facility to re-enable a disabled format. It is not deleted
- * to keep information for contrib and to make sure the format auto increment
- * id is never reused. As there might be content using the disabled format,
- * this would lead to data corruption.
+ * to keep information for contrib and to make sure the format ID is never
+ * reused. As there might be content using the disabled format, this would lead
+ * to data corruption.
  *
  * @param $format
  *   The text format object to be disabled.
@@ -277,6 +290,23 @@ function filter_format_disable($format) {
   // Clear the filter cache whenever a text format is disabled.
   filter_formats_reset();
   cache_clear_all($format->format . ':', 'cache_filter', TRUE);
+}
+
+/**
+ * Determines if a text format exists.
+ *
+ * @param $format_id
+ *   The ID of the text format to check.
+ *
+ * @return
+ *   TRUE if the text format exists, FALSE otherwise. Note that for disabled
+ *   formats filter_format_exists() will return TRUE while filter_format_load()
+ *   will return FALSE.
+ *
+ * @see filter_format_load()
+ */
+function filter_format_exists($format_id) {
+  return (bool) db_query_range('SELECT 1 FROM {filter_format} WHERE format = :format', 0, 1, array(':format' => $format_id))->fetchField();
 }
 
 /**
@@ -368,17 +398,25 @@ function filter_modules_disabled($modules) {
  * @see filter_formats_reset()
  */
 function filter_formats($account = NULL) {
+  global $language;
   $formats = &drupal_static(__FUNCTION__, array());
 
-  // Statically cache all existing formats upfront.
+  // All available formats are cached for performance.
   if (!isset($formats['all'])) {
-    $formats['all'] = db_select('filter_format', 'ff')
-      ->addTag('translatable')
-      ->fields('ff')
-      ->condition('status', 1)
-      ->orderBy('weight')
-      ->execute()
-      ->fetchAllAssoc('format');
+    if ($cache = cache_get("filter_formats:{$language->language}")) {
+      $formats['all'] = $cache->data;
+    }
+    else {
+      $formats['all'] = db_select('filter_format', 'ff')
+        ->addTag('translatable')
+        ->fields('ff')
+        ->condition('status', 1)
+        ->orderBy('weight')
+        ->execute()
+        ->fetchAllAssoc('format');
+
+      cache_set("filter_formats:{$language->language}", $formats['all']);
+    }
   }
 
   // Build a list of user-specific formats.
@@ -395,11 +433,13 @@ function filter_formats($account = NULL) {
 }
 
 /**
- * Resets the static cache of all text formats.
+ * Resets text format caches.
  *
  * @see filter_formats()
  */
 function filter_formats_reset() {
+  cache_clear_all('filter_formats', 'cache', TRUE);
+  cache_clear_all('filter_list_format', 'cache', TRUE);
   drupal_static_reset('filter_list_format');
   drupal_static_reset('filter_formats');
 }
@@ -507,7 +547,7 @@ function filter_default_format($account = NULL) {
 function filter_fallback_format() {
   // This variable is automatically set in the database for all installations
   // of Drupal. In the event that it gets disabled or deleted somehow, there
-  // is no safe default to return, since we do not want to risk making an 
+  // is no safe default to return, since we do not want to risk making an
   // existing (and potentially unsafe) text format on the site automatically
   // available to all users. Returning NULL at least guarantees that this
   // cannot happen.
@@ -625,9 +665,15 @@ function filter_list_format($format_id) {
   $filter_info = filter_get_filters();
 
   if (!isset($filters['all'])) {
-    $result = db_query('SELECT * FROM {filter} ORDER BY weight, module, name');
-    foreach ($result as $record) {
-      $filters['all'][$record->format][$record->name] = $record;
+    if ($cache = cache_get('filter_list_format')) {
+      $filters['all'] = $cache->data;
+    }
+    else {
+      $result = db_query('SELECT * FROM {filter} ORDER BY weight, module, name');
+      foreach ($result as $record) {
+        $filters['all'][$record->format][$record->name] = $record;
+      }
+      cache_set('filter_list_format', $filters['all']);
     }
   }
 
@@ -1102,7 +1148,7 @@ function theme_filter_guidelines($variables) {
 }
 
 /**
- * @name Standard filters
+ * @defgroup standard_filters Standard filters
  * @{
  * Filters implemented by the filter.module.
  */

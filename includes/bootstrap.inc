@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.422 2010/10/07 03:32:59 webchick Exp $
+// $Id: bootstrap.inc,v 1.430 2010/10/23 05:30:57 webchick Exp $
 
 /**
  * @file
@@ -9,7 +9,7 @@
 /**
  * The current system version.
  */
-define('VERSION', '7.0-beta1');
+define('VERSION', '7.0-beta2');
 
 /**
  * Core API compatibility.
@@ -19,12 +19,12 @@ define('DRUPAL_CORE_COMPATIBILITY', '7.x');
 /**
  * Minimum supported version of PHP.
  */
-define('DRUPAL_MINIMUM_PHP',    '5.2.0');
+define('DRUPAL_MINIMUM_PHP',    '5.2.4');
 
 /**
  * Minimum recommended value of PHP memory_limit.
  */
-define('DRUPAL_MINIMUM_PHP_MEMORY_LIMIT',    '40M');
+define('DRUPAL_MINIMUM_PHP_MEMORY_LIMIT',    '32M');
 
 /**
  * Minimum supported version of MySQL, if it is used.
@@ -231,12 +231,6 @@ define('LANGUAGE_RTL', 1);
 define('REQUEST_TIME', $_SERVER['REQUEST_TIME']);
 
 /**
- * @name Title text filtering flags
- * @{
- * Flags for use in drupal_set_title().
- */
-
-/**
  * Flag for drupal_set_title(); text is not sanitized, so run check_plain().
  */
 define('CHECK_PLAIN', 0);
@@ -245,10 +239,6 @@ define('CHECK_PLAIN', 0);
  * Flag for drupal_set_title(); text has already been sanitized.
  */
 define('PASS_THROUGH', -1);
-
-/**
- * @} End of "Title text filtering flags".
- */
 
 /**
  * Signals that the registry lookup cache should be reset.
@@ -1481,25 +1471,7 @@ function t($string, array $args = array(), array $options = array()) {
  * @ingroup sanitization
  */
 function check_plain($text) {
-  // We do not want to use drupal_static() since PHP version will never change
-  // during a request.
-  static $php525;
-
-  if (!isset($php525)) {
-    $php525 = version_compare(PHP_VERSION, '5.2.5', '>=');
-  }
-  // We duplicate the preg_match() to validate strings as UTF-8 from
-  // drupal_validate_utf8() here. This avoids the overhead of an additional
-  // function call, since check_plain() may be called hundreds of times during
-  // a request. For PHP 5.2.5+, this check for valid UTF-8 should be handled
-  // internally by PHP in htmlspecialchars().
-  // See http://www.php.net/releases/5_2_5.php.
-  // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
-
-  if ($php525) {
-    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
-  }
-  return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
+  return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 }
 
 /**
@@ -1911,13 +1883,12 @@ function drupal_hash_base64($data) {
  *
  * @return Object - the user object.
  */
-function drupal_anonymous_user($session = '') {
+function drupal_anonymous_user() {
   $user = new stdClass();
   $user->uid = 0;
   $user->hostname = ip_address();
   $user->roles = array();
   $user->roles[DRUPAL_ANONYMOUS_RID] = 'anonymous user';
-  $user->session = $session;
   $user->cache = 0;
   return $user;
 }
@@ -2386,6 +2357,12 @@ function language_list($field = 'language') {
   if (!isset($languages)) {
     if (drupal_multilingual() || module_exists('locale')) {
       $languages['language'] = db_query('SELECT * FROM {languages} ORDER BY weight ASC, name ASC')->fetchAllAssoc('language');
+      // Users cannot uninstall the native English language. However, we allow
+      // it to be hidden from the installed languages. Therefore, at least one
+      // other language must be enabled then.
+      if (!$languages['language']['en']->enabled && !variable_get('language_native_enabled', TRUE)) {
+        unset($languages['language']['en']);
+      }
     }
     else {
       // No locale module, so use the default language only.

@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.install,v 1.37 2010/09/01 20:08:17 dries Exp $
+// $Id: simpletest.install,v 1.39 2010/10/15 23:40:21 webchick Exp $
 
 /**
  * @file
@@ -29,6 +29,8 @@ function simpletest_uninstall() {
 }
 
 /**
+ * Implements hook_requirements().
+ *
  * Check that the cURL extension exists for PHP.
  */
 function simpletest_requirements($phase) {
@@ -37,7 +39,7 @@ function simpletest_requirements($phase) {
 
   $has_curl = function_exists('curl_init');
   $has_hash = function_exists('hash_hmac');
-  $has_domdocument = class_exists('DOMDocument');
+  $has_domdocument = method_exists('DOMDocument', 'loadHTML');
   $open_basedir = ini_get('open_basedir');
 
   $requirements['curl'] = array(
@@ -81,6 +83,9 @@ function simpletest_requirements($phase) {
   return $requirements;
 }
 
+/**
+ * Implements hook_schema().
+ */
 function simpletest_schema() {
   $schema['simpletest'] = array(
     'description' => 'Stores simpletest messages',

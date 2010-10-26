@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.admin.inc,v 1.49 2010/09/11 01:47:14 dries Exp $
+// $Id: comment.admin.inc,v 1.51 2010/10/20 01:31:06 dries Exp $
 
 /**
  * @file
@@ -50,6 +50,8 @@ function comment_admin_overview($form, &$form_state, $arg) {
 
   $form['options']['operation'] = array(
     '#type' => 'select',
+    '#title' => t('Operation'),
+    '#title_display' => 'invisible',
     '#options' => $options,
     '#default_value' => 'publish',
   );
@@ -64,7 +66,7 @@ function comment_admin_overview($form, &$form_state, $arg) {
     'subject' => array('data' => t('Subject'), 'field' => 'subject'),
     'author' => array('data' => t('Author'), 'field' => 'name'),
     'posted_in' => array('data' => t('Posted in'), 'field' => 'node_title'),
-    'changed' => array('data' => t('Updated'), 'field' => 'changed', 'sort' => 'desc'),
+    'changed' => array('data' => t('Updated'), 'field' => 'c.changed', 'sort' => 'desc'),
     'operations' => array('data' => t('Operations')),
   );
 
