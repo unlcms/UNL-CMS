@@ -179,6 +179,69 @@ function unl_cas_import_user($username) {
   return $user;
 }
 
+/**
+ * Implements hook_user_presave()
+ * 
+ * On non-default sites, only allow users who are administrators on the default
+ * to be administrators.  Also, automatically make users who are administrators
+ * on the default site an administrator on non-default sites.
+ */
+function unl_cas_user_presave(&$edit, $account, $category) {
+  if (conf_path() == 'sites/default') {
+    return;
+  }
+  
+  if (isset($account->name)) {
+    $username = $account->name;
+  }
+  else {
+    $username = $edit['name'];
+  }
+
+  $local_admin_role_id = variable_get('user_admin_role');
+  
+  if (_unl_cas_is_user_default_site_administrator($username)) {
+    $local_admin_role = user_role_load($local_admin_role_id);
+    $edit['roles'][$local_admin_role_id] = $local_admin_role->name;
+  }
+  else {
+    unset($edit['roles'][$local_admin_role_id]);
+  }
+}
+
+/**
+ * Implements hook_user_login()
+ * 
+ * On non-default sites, if a user with the administrator role logs in, verify
+ * that they are still an admin in the default site.  If not, remove them from
+ * the role.
+ */
+function unl_cas_user_login(&$edit, $account) {
+  if (conf_path() == 'sites/default') {
+    return;
+  }
+  
+  if (!in_array(variable_get('user_admin_role'), array_keys($account->roles))) {
+    return;
+  }
+  
+  $edit = array(
+    'roles' => $account->roles,
+  );
+  user_save($account, $edit);
+}
+
+function _unl_cas_is_user_default_site_administrator($username) {
+  require 'sites/default/settings.php';
+  $shared_prefix = $databases['default']['default']['prefix'];
+  
+  $data = db_query("SELECT value FROM {$shared_prefix}variable WHERE name='user_admin_role'")->fetchCol();
+  $shared_admin_role_id = unserialize($data[0]);
+  
+  $shared_admin_usernames = db_query("SELECT u.name FROM {$shared_prefix}users AS u JOIN {$shared_prefix}users_roles AS r ON u.uid = r.uid WHERE name=:name AND rid=:rid", array(':name' => $username, ':rid' => $shared_admin_role_id))->fetchCol();
+  return count($shared_admin_usernames) > 0;
+}
+
 function unl_cas_preprocess_user_picture(&$variables) {
   //Default image: http://planetred.unl.edu/mod/profile/graphics/defaultmedium.gif
   if ($variables['account']->uid == 0) {
