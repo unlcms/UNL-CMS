@@ -189,6 +189,30 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       unset($form['checkboxes'][$role_id]);
     }
     
+    if (!in_array(variable_get('user_admin_role'), array_keys($GLOBALS['user']->roles))) {
+      $administrator_permissions = array(
+        'unl administer administrator permissions',
+        'unl site creation',
+        'administer modules',
+        'administer themes',
+        'administer software updates',
+        'administer imce',
+        'administer filters',
+      );
+    
+      foreach ($form['permission'] as $permission => $sub_form) {
+        if (in_array($permission, $administrator_permissions)) {
+          unset($form['permission'][$permission]);
+        }
+      }
+      foreach ($form['checkboxes'] as $role_id => $sub_form) {
+        foreach ($sub_form['#options'] as $permission => $value) {
+          if (in_array($permission, $administrator_permissions)) {
+            unset($form['checkboxes'][$role_id]['#options'][$permission]);
+          }
+        }
+      }
+    }
   }
 }
 
