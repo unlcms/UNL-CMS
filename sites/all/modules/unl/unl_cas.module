@@ -161,7 +161,8 @@ function unl_cas_user_logout($account) {
 function unl_cas_import_user($username) {
   $xml = @file_get_contents('http://peoplefinder.unl.edu/service.php?format=xml&uid=' . $username);
   if ($xml) {
-    $dom = DOMDocument::loadXML($xml);
+    $dom = new DOMDocument();
+    $dom->loadXML($xml);
     $firstName = $dom->getElementsByTagName('givenName')->item(0)->textContent;
     $lastName = $dom->getElementsByTagName('sn')->item(0)->textContent;
     $email = $dom->getElementsByTagName('mail')->item(0)->textContent;
@@ -172,7 +173,10 @@ function unl_cas_import_user($username) {
   }
   
   $userData = array(
-    'name' => $username, 'mail' => $email, 'status' => 1
+    'name'     => $username,
+    'mail'     => $email,
+    'status'   => 1,
+    'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
   );
   
   $user = user_save(NULL, $userData);
