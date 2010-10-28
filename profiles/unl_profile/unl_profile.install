@@ -261,8 +261,21 @@ EOF;
         module_enable(array('unl_cas'));
         
         
-        // Copy the authenticated user role's permissions for text formats from the default site.
-        db_query("REPLACE INTO {$new_prefix}role_permission (rid, permission, module) SELECT rid, permission, module FROM {$shared_prefix}role_permission WHERE rid=:rid AND module='filter'", array(':rid' => DRUPAL_AUTHENTICATED_RID));
+        // Copy the anonymous/authenticated user roles' permissions for text formats from the default site.
+        db_query(
+       	  "REPLACE INTO {$new_prefix}role_permission (rid, permission, module) "
+          . "SELECT rid, permission, module "
+          . "FROM {$shared_prefix}role_permission "
+          . "WHERE rid IN(:rid) AND module='filter' ",
+          array(':rid' => array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID))
+        );
+        
+        db_query(
+          "REPLACE INTO {$new_prefix}variable (name, value) "
+          . "SELECT name, value "
+          . "FROM {$shared_prefix}variable "
+          . "WHERE name='filter_fallback_format' "
+        );
         
         // Create the Site Admin role
         $site_admin_role = new stdClass();
