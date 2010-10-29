@@ -72,18 +72,19 @@ class Unl_Migration_Tool
 
     private $_curl;
 
-    private $_siteMap            = array();
-    private $_processedPages     = array();
-    private $_content            = array();
-    private $_createdContent     = array();
-    private $_lastModifications  = array();
-    private $_hrefTransform      = array();
-    private $_hrefTransformFiles = array();
-    private $_menu               = array();
-    private $_nodeMap            = array();
-    private $_pageTitles         = array();
-    private $_log                = array();
-    private $_blocks             = array();
+    private $_siteMap             = array();
+    private $_processedPages      = array();
+    private $_processedPageHashes = array();
+    private $_content             = array();
+    private $_createdContent      = array();
+    private $_lastModifications   = array();
+    private $_hrefTransform       = array();
+    private $_hrefTransformFiles  = array();
+    private $_menu                = array();
+    private $_nodeMap             = array();
+    private $_pageTitles          = array();
+    private $_log                 = array();
+    private $_blocks              = array();
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -397,6 +398,14 @@ class Unl_Migration_Tool
             $this->_log('The file at ' . $fullPath . ' was empty! Ignoring.');
             return;
         }
+        
+        $pageHash = hash('md5', $data['content']);
+        if (($matchingPath = array_search($pageHash, $this->_processedPageHashes)) !== FALSE) {
+            $this->_log("The file found at $fullPath was a duplicate of the file at {$this->_baseUrl}$matchingPath ! Ignoring.");
+            return;
+        }
+        $this->_processedPageHashes[$path] = $pageHash; 
+        
         if ($data['lastModified']) {
             $this->_lastModifications[$path] = $data['lastModified'];
         }
