@@ -70,7 +70,20 @@ function unl_permission() {
     'unl site creation' => array(
       'title'       => t('Site Creation'),
       'description' => t('Create new drupal sites using the UNL profile'),
-    )
+      'restrict access' => TRUE,
+    ),
+    
+    'unl grant all permissions' => array(
+      'title'       => t('Grant All Permissions'),
+      'description' => t('If this is not checked, a user can only grant permissions that they themselves have. Requires the "Administer permissions" permission.'),
+      'restrict access' => TRUE,
+    ),
+    
+    'unl administer administrator permissions' => array(
+      'title'       => t('Administer Administrator\'s Permissions'),
+      'description' => t('If this is not checked, a user can not change the permissions of the administrator role. Requires the "Administer permissions" permission.'),
+      'restrict access' => TRUE,
+    ),
   );
 }
 
@@ -133,6 +146,73 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#default_value' => variable_get('https', FALSE),
     );
     $form['#submit'][] = 'unl_system_settings_form_submit';
+  }
+  
+  if ($form_id == 'user_admin_permissions' && !in_array(variable_get('user_admin_role', -1), array_keys($GLOBALS['user']->roles))) {
+    
+    if (!user_access('unl grant all permissions')) {
+      // Remove permissions this user doesn't have from the headings list.
+      foreach ($form['permission'] as $permission => $sub_form) {
+        if (is_int($permission)) {
+          continue;
+        }
+        if (!user_access($permission)) {
+          unset($form['permission'][$permission]);
+        }
+      }
+    
+      // Remove any empty permission section headings.
+      $permission_sections = array_keys($form['permission']);
+      foreach ($permission_sections as $index => $permission_section) {
+        if (!is_int($permission_section)) {
+          continue;
+        }
+        if (!isset($permission_sections[$index + 1]) || is_int($permission_sections[$index + 1])) {
+          unset($form['permission'][$permission_section]);
+        }
+      }
+    
+      // Remove the permissions this user doesn't have from the checkboxes list.
+      foreach ($form['checkboxes'] as $role_id => $sub_form) {
+        foreach ($sub_form['#options'] as $permission => $value) {
+          if (!user_access($permission)) {
+            unset($form['checkboxes'][$role_id]['#options'][$permission]);
+          }
+        }
+      }
+    }
+    
+    if (!user_access('unl administer administrator permissions')) {
+      $role_id = variable_get('user_admin_role', -1);
+      unset($form['role_names'][$role_id]);
+      unset($form['role_names']['#value'][$role_id]);
+      unset($form['checkboxes'][$role_id]);
+    }
+    
+    if (!in_array(variable_get('user_admin_role'), array_keys($GLOBALS['user']->roles))) {
+      $administrator_permissions = array(
+        'unl administer administrator permissions',
+        'unl site creation',
+        'administer modules',
+        'administer themes',
+        'administer software updates',
+        'administer imce',
+        'administer filters',
+      );
+    
+      foreach ($form['permission'] as $permission => $sub_form) {
+        if (in_array($permission, $administrator_permissions)) {
+          unset($form['permission'][$permission]);
+        }
+      }
+      foreach ($form['checkboxes'] as $role_id => $sub_form) {
+        foreach ($sub_form['#options'] as $permission => $value) {
+          if (in_array($permission, $administrator_permissions)) {
+            unset($form['checkboxes'][$role_id]['#options'][$permission]);
+          }
+        }
+      }
+    }
   }
 }
 

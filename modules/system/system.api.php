@@ -1,5 +1,5 @@
 <?php
-// $Id: system.api.php,v 1.197 2010/10/02 01:22:41 dries Exp $
+// $Id: system.api.php,v 1.205 2010/10/22 17:20:41 dries Exp $
 
 /**
  * @file
@@ -284,6 +284,17 @@ function hook_entity_load($entities, $type) {
  *   The type of entity being inserted (i.e. node, user, comment).
  */
 function hook_entity_insert($entity, $type) {
+  // Insert the new entity into a fictional table of all entities.
+  $info = entity_get_info($type);
+  $id = reset(entity_extract_ids($type, $entity));
+  db_insert('example_entity')
+    ->fields(array(
+      'type' => $type,
+      'id' => $id,
+      'created' => REQUEST_TIME,
+      'updated' => REQUEST_TIME,
+    ))
+    ->execute();
 }
 
 /**
@@ -295,6 +306,34 @@ function hook_entity_insert($entity, $type) {
  *   The type of entity being updated (i.e. node, user, comment).
  */
 function hook_entity_update($entity, $type) {
+  // Update the entity's entry in a fictional table of all entities.
+  $info = entity_get_info($type);
+  $id = reset(entity_extract_ids($type, $entity));
+  db_update('example_entity')
+    ->fields(array(
+      'updated' => REQUEST_TIME,
+    ))
+    ->condition('type', $type)
+    ->condition('id', $id)
+    ->execute();
+}
+
+/**
+ * Act on entities when deleted.
+ *
+ * @param $entity
+ *   The entity object.
+ * @param $type
+ *   The type of entity being deleted (i.e. node, user, comment).
+ */
+function hook_entity_delete($entity, $type) {
+  // Delete the entity's entry from a fictional table of all entities.
+  $info = entity_get_info($type);
+  $id = reset(entity_extract_ids($type, $entity));
+  db_delete('example_entity')
+    ->condition('type', $type)
+    ->condition('id', $id)
+    ->execute();
 }
 
 /**
@@ -487,7 +526,7 @@ function hook_cron_queue_info_alter(&$queues) {
  * a matching theme function, e.g. theme_elementtype(), which should be
  * registered with hook_theme() as normal.
  *
- * Form more information about custom element types see the explanation at
+ * For more information about custom element types see the explanation at
  * http://drupal.org/node/169815.
  *
  * @return
@@ -969,9 +1008,6 @@ function hook_page_build(&$page) {
  *     default parent for 'admin/people/create' is 'admin/people').
  *   - "tab_root": For local task menu items, the path of the closest non-tab
  *     item; same default as "tab_parent".
- *   - "block callback": Name of a function used to render the block on the
- *     system administration page for this item (called with no arguments).
- *     If not provided, system_admin_menu_block() is used to generate it.
  *   - "position": Position of the block ('left' or 'right') on the system
  *     administration page for this item.
  *   - "type": A bitmask of flags describing properties of the menu item.
@@ -1365,7 +1401,9 @@ function hook_page_alter(&$page) {
  * @param $form
  *   Nested array of form elements that comprise the form.
  * @param $form_state
- *   A keyed array containing the current state of the form.
+ *   A keyed array containing the current state of the form. The arguments
+ *   that drupal_get_form() was originally called with are available in the
+ *   array $form_state['build_info']['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -1393,7 +1431,9 @@ function hook_form_alter(&$form, &$form_state, $form_id) {
  * @param $form
  *   Nested array of form elements that comprise the form.
  * @param $form_state
- *   A keyed array containing the current state of the form.
+ *   A keyed array containing the current state of the form. The arguments
+ *   that drupal_get_form() was originally called with are available in the
+ *   array $form_state['build_info']['args'].
  * @param $form_id
  *   String representing the name of the form itself. Typically this is the
  *   name of the function that generated the form.
@@ -2257,9 +2297,13 @@ function hook_modules_uninstalled($modules) {
  *   - 'class' A string specifying the PHP class that implements the
  *     DrupalStreamWrapperInterface interface.
  *   - 'description' A string with a short description of what the wrapper does.
- *   - 'type' A bitmask of flags indicating what type of streams this wrapper
- *     will access - local or remote, readable and/or writeable, etc. Many
- *     shortcut constants are defined in stream_wrappers.inc.
+ *   - 'type' (Optional) A bitmask of flags indicating what type of streams this
+ *     wrapper will access - local or remote, readable and/or writeable, etc.
+ *     Many shortcut constants are defined in stream_wrappers.inc. Defaults to
+ *     STREAM_WRAPPERS_NORMAL which includes all of these bit flags:
+ *     - STREAM_WRAPPERS_READ
+ *     - STREAM_WRAPPERS_WRITE
+ *     - STREAM_WRAPPERS_VISIBLE
  *
  * @see file_get_stream_wrappers()
  * @see hook_stream_wrappers_alter()
@@ -2271,18 +2315,35 @@ function hook_stream_wrappers() {
       'name' => t('Public files'),
       'class' => 'DrupalPublicStreamWrapper',
       'description' => t('Public local files served by the webserver.'),
+      'type' => STREAM_WRAPPERS_LOCAL_NORMAL,
     ),
     'private' => array(
       'name' => t('Private files'),
       'class' => 'DrupalPrivateStreamWrapper',
       'description' => t('Private local files served by Drupal.'),
+      'type' => STREAM_WRAPPERS_LOCAL_NORMAL,
     ),
     'temp' => array(
       'name' => t('Temporary files'),
       'class' => 'DrupalTempStreamWrapper',
       'description' => t('Temporary local files for upload and previews.'),
-      'type' => STREAM_WRAPPERS_HIDDEN,
-    )
+      'type' => STREAM_WRAPPERS_LOCAL_HIDDEN,
+    ),
+    'cdn' => array(
+      'name' => t('Content delivery network files'),
+      'class' => 'MyModuleCDNStreamWrapper',
+      'description' => t('Files served by a content delivery network.'),
+      // 'type' can be omitted to use the default of STREAM_WRAPPERS_NORMAL
+    ),
+    'youtube' => array(
+      'name' => t('YouTube video'),
+      'class' => 'MyModuleYouTubeStreamWrapper',
+      'description' => t('Video streamed from YouTube.'),
+      // A module implementing YouTube integration may decide to support using
+      // the YouTube API for uploading video, but here, we assume that this
+      // particular module only supports playing YouTube video.
+      'type' => STREAM_WRAPPERS_READ_VISIBLE,
+    ),
   );
 }
 
@@ -2871,7 +2932,7 @@ function hook_install() {
  * to provide feedback regarding completion level.
  *
  * See the batch operations page for more information on how to use the batch API:
- * @link http://drupal.org/node/146843 http://drupal.org/node/146843 @endlink
+ * @link http://drupal.org/node/180528 http://drupal.org/node/180528 @endlink
  *
  * @throws DrupalUpdateException, PDOException
  *   In case of error, update hooks should throw an instance of DrupalUpdateException
@@ -3748,26 +3809,36 @@ function hook_username_alter(&$name, $account) {
 /**
  * Provide replacement values for placeholder tokens.
  *
+ * This hook is invoked when someone calls token_replace(). That function first
+ * scans the text for [type:token] patterns, and splits the needed tokens into
+ * groups by type. Then hook_tokens() is invoked on each token-type group,
+ * allowing your module to respond by providing replacement text for any of
+ * the tokens in the group that your module knows how to process.
+ *
+ * A module implementing this hook should also implement hook_token_info() in
+ * order to list its available tokens on editing screens.
+ *
  * @param $type
- *   The type of token being replaced. 'node', 'user', and 'date' are common.
+ *   The machine-readable name of the type (group) of token being replaced, such
+ *   as 'node', 'user', or another type defined by a hook_token_info()
+ *   implementation.
  * @param $tokens
- *   An array of tokens to be replaced, keyed by the literal text of the token
- *   as it appeared in the source text.
+ *   An array of tokens to be replaced. The keys are the machine-readable token
+ *   names, and the values are the raw [type:token] strings that appeared in the
+ *   original text.
  * @param $data
- *   (optional) An associative array of objects to be used when generating replacement
- *   values.
+ *   (optional) An associative array of data objects to be used when generating
+ *   replacement values, as supplied in the $data parameter to token_replace().
  * @param $options
- *   (optional) A associative array of options to control the token
- *   replacement process. Common options are:
- *   - 'language' A language object to be used when generating locale-sensitive
- *     tokens.
- *   - 'sanitize' A boolean flag indicating that tokens should be sanitized for
- *     display to a web browser.
+ *   (optional) An associative array of options for token replacement; see
+ *   token_replace() for possible values.
  *
  * @return
- *   An associative array of replacement values, keyed by the original 'raw'
- *   tokens that were found in the source text. For example:
- *   $results['[node:title]'] = 'My new node';
+ *   An associative array of replacement values, keyed by the raw [type:token]
+ *   strings from the original text.
+ *
+ * @see hook_token_info()
+ * @see hook_tokens_alter()
  */
 function hook_tokens($type, $tokens, array $data = array(), array $options = array()) {
   $url_options = array('absolute' => TRUE);
@@ -3826,14 +3897,88 @@ function hook_tokens($type, $tokens, array $data = array(), array $options = arr
 }
 
 /**
- * Provide metadata about available placeholder tokens and token types.
+ * Alter replacement values for placeholder tokens.
+ *
+ * @param $replacements
+ *   An associative array of replacements returned by hook_tokens().
+ * @param $context
+ *   The context in which hook_tokens() was called. An associative array with
+ *   the following keys, which have the same meaning as the corresponding
+ *   parameters of hook_tokens():
+ *   - 'type'
+ *   - 'tokens'
+ *   - 'data'
+ *   - 'options'
+ *
+ * @see hook_tokens()
+ */
+function hook_tokens_alter(array &$replacements, array $context) {
+  $options = $context['options'];
+
+  if (isset($options['language'])) {
+    $url_options['language'] = $options['language'];
+    $language_code = $options['language']->language;
+  }
+  else {
+    $language_code = NULL;
+  }
+  $sanitize = !empty($options['sanitize']);
+
+  if ($context['type'] == 'node' && !empty($context['data']['node'])) {
+    $node = $context['data']['node'];
+
+    // Alter the [node:title] token, and replace it with the rendered content
+    // of a field (field_title).
+    if (isset($context['tokens']['title'])) {
+      $title = field_view_field('node', $node, 'field_title', 'default', $language_code);
+      $replacements[$context['tokens']['title']] = drupal_render($title);
+    }
+  }
+}
+
+/**
+ * Provide information about available placeholder tokens and token types.
+ *
+ * Tokens are placeholders that can be put into text by using the syntax
+ * [type:token], where type is the machine-readable name of a token type, and
+ * token is the machine-readable name of a token within this group. This hook
+ * provides a list of types and tokens to be displayed on text editing screens,
+ * so that people editing text can see what their token options are.
+ *
+ * The actual token replacement is done by token_replace(), which invokes
+ * hook_tokens(). Your module will need to implement that hook in order to
+ * generate token replacements from the tokens defined here.
  *
  * @return
- *   An associative array of available tokens and token types, each containing
- *   the raw name of the token or type, its user-friendly name, and a verbose
- *   description.
+ *   An associative array of available tokens and token types. The outer array
+ *   has two components:
+ *   - types: An associative array of token types (groups). Each token type is
+ *     an associative array with the following components:
+ *     - name: The translated human-readable short name of the token type.
+ *     - description: A translated longer description of the token type.
+ *     - needs-data: The type of data that must be provided to token_replace()
+ *       in the $data argument (i.e., the key name in $data) in order for tokens
+ *       of this type to be used in the $text being processed. For instance, if
+ *       the token needs a node object, 'needs-data' should be 'node', and to
+ *       use this token in token_replace(), the caller needs to supply a node
+ *       object as $data['node']. Some token data can also be supplied
+ *       indirectly; for instance, a node object in $data supplies a user object
+ *       (the author of the node), allowing user tokens to be used when only
+ *       a node data object is supplied.
+ *   - tokens: An associative array of tokens. The outer array is keyed by the
+ *     group name (the same key as in the types array). Within each group of
+ *     tokens, each token item is keyed by the machine name of the token, and
+ *     each token item has the following components:
+ *     - name: The translated human-readable short name of the token.
+ *     - description: A translated longer description of the token.
+ *     - type (optional): A 'needs-data' data type supplied by this token, which
+ *       should match a 'needs-data' value from another token type. For example,
+ *       the node author token provides a user object, which can then be used
+ *       for token replacement data in token_replace() without having to supply
+ *       a separate user object.
  *
  * @see hook_token_info_alter()
+ * @see hook_tokens()
  */
 function hook_token_info() {
   $type = array(
@@ -3875,34 +4020,6 @@ function hook_token_info() {
 }
 
 /**
- * Alter batch information before a batch is processed.
- *
- * Called by batch_process() to allow modules to alter a batch before it is
- * processed.
- *
- * @param $batch
- *   The associative array of batch information. See batch_set() for details on
- *   what this could contain.
- *
- * @see batch_set()
- * @see batch_process()
- *
- * @ingroup batch
- */
-function hook_batch_alter(&$batch) {
-  // If the current page request is inside the overlay, add ?render=overlay to
-  // the success callback URL, so that it appears correctly within the overlay.
-  if (overlay_get_mode() == 'child') {
-    if (isset($batch['url_options']['query'])) {
-      $batch['url_options']['query']['render'] = 'overlay';
-    }
-    else {
-      $batch['url_options']['query'] = array('render' => 'overlay');
-    }
-  }
-}
-
-/**
  * Alter the metadata about available placeholder tokens and token types.
  *
  * @param $data
@@ -3929,6 +4046,33 @@ function hook_token_info_alter(&$data) {
   );
 }
 
+/**
+ * Alter batch information before a batch is processed.
+ *
+ * Called by batch_process() to allow modules to alter a batch before it is
+ * processed.
+ *
+ * @param $batch
+ *   The associative array of batch information. See batch_set() for details on
+ *   what this could contain.
+ *
+ * @see batch_set()
+ * @see batch_process()
+ *
+ * @ingroup batch
+ */
+function hook_batch_alter(&$batch) {
+  // If the current page request is inside the overlay, add ?render=overlay to
+  // the success callback URL, so that it appears correctly within the overlay.
+  if (overlay_get_mode() == 'child') {
+    if (isset($batch['url_options']['query'])) {
+      $batch['url_options']['query']['render'] = 'overlay';
+    }
+    else {
+      $batch['url_options']['query'] = array('render' => 'overlay');
+    }
+  }
+}
 
 /**
  * Provide information on Updaters (classes that can update Drupal).

@@ -1,5 +1,5 @@
 <?php
-// $Id: field_ui.admin.inc,v 1.71 2010/10/04 18:00:45 dries Exp $
+// $Id: field_ui.admin.inc,v 1.79 2010/10/23 01:34:02 webchick Exp $
 
 /**
  * @file
@@ -175,12 +175,10 @@ function field_ui_table_pre_render($elements) {
     $elements['#regions'][$region_name]['rows_order'] = array_reduce($trees[$region_name], '_field_ui_reduce_order');
   }
 
-  drupal_add_js(array('fieldUIRowsData' => $js_settings), 'setting');
-  // @todo : use #attached instead when http://drupal.org/node/561858 is fixed.
-//  $elements['#attached']['js'][] = array(
-//    'type' => 'setting',
-//    'data' => array('fieldRowsData' => $js_settings),
-//  );
+  $elements['#attached']['js'][] = array(
+    'type' => 'setting',
+    'data' => array('fieldUIRowsData' => $js_settings),
+  );
 
   return $elements;
 }
@@ -328,6 +326,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       ),
       'weight' => array(
         '#type' => 'textfield',
+        '#title' => t('Weight for @title', array('@title' => $instance['label'])),
+        '#title_display' => 'invisible',
         '#default_value' => $instance['widget']['weight'],
         '#size' => 3,
         '#attributes' => array('class' => array('field-weight')),
@@ -335,7 +335,10 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'parent_wrapper' => array(
         'parent' => array(
           '#type' => 'select',
+          '#title' => t('Parent for @title', array('@title' => $instance['label'])),
+          '#title_display' => 'invisible',
           '#options' => $table['#parent_options'],
+          '#empty_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#parents' => array('fields', $name, 'parent'),
         ),
@@ -396,12 +399,15 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
         '#size' => 3,
         '#attributes' => array('class' => array('field-weight')),
         '#title_display' => 'invisible',
-        '#title' => t('Weight for @row', array('@row' => $extra_field['label'])),
+        '#title' => t('Weight for @title', array('@title' => $extra_field['label'])),
       ),
       'parent_wrapper' => array(
         'parent' => array(
           '#type' => 'select',
+          '#title' => t('Parent for @title', array('@title' => $extra_field['label'])),
+          '#title_display' => 'invisible',
           '#options' => $table['#parent_options'],
+          '#empty_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#parents' => array('fields', $name, 'parent'),
         ),
@@ -439,6 +445,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       '#region_callback' => 'field_ui_field_overview_row_region',
       'label' => array(
         '#type' => 'textfield',
+        '#title' => t('New field label'),
+        '#title_display' => 'invisible',
         '#size' => 15,
         '#description' => t('Label'),
         '#prefix' => '<div class="label-input"><div class="add-new-placeholder">' . t('Add new field') .'</div>',
@@ -456,7 +464,10 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'parent_wrapper' => array(
         'parent' => array(
           '#type' => 'select',
+          '#title' => t('Parent for new field'),
+          '#title_display' => 'invisible',
           '#options' => $table['#parent_options'],
+          '#empty_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
           '#parents' => array('fields', $name, 'parent'),
@@ -469,6 +480,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       ),
       'field_name' => array(
         '#type' => 'textfield',
+        '#title' => t('New field name'),
+        '#title_display' => 'invisible',
         // This field should stay LTR even for RTL languages.
         '#field_prefix' => '<span dir="ltr">field_',
         '#field_suffix' => '</span>&lrm;',
@@ -479,6 +492,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       ),
       'type' => array(
         '#type' => 'select',
+        '#title' => t('Type of new field'),
+        '#title_display' => 'invisible',
         '#options' => $field_type_options,
         '#empty_option' => t('- Select a field type -'),
         '#description' => t('Type of data to store.'),
@@ -487,6 +502,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       ),
       'widget_type' => array(
         '#type' => 'select',
+        '#title' => t('Widget for new field'),
+        '#title_display' => 'invisible',
         '#options' => $widget_type_options,
         '#empty_option' => t('- Select a widget -'),
         '#description' => t('Form element to edit the data.'),
@@ -507,6 +524,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       '#region_callback' => 'field_ui_field_overview_row_region',
       'label' => array(
         '#type' => 'textfield',
+        '#title' => t('Existing field label'),
+        '#title_display' => 'invisible',
         '#size' => 15,
         '#description' => t('Label'),
         '#attributes' => array('class' => array('label-textfield')),
@@ -525,7 +544,10 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       'parent_wrapper' => array(
         'parent' => array(
           '#type' => 'select',
+          '#title' => t('Parent for existing field'),
+          '#title_display' => 'invisible',
           '#options' => $table['#parent_options'],
+          '#empty_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#prefix' => '<div class="add-new-placeholder">&nbsp;</div>',
           '#parents' => array('fields', $name, 'parent'),
@@ -538,6 +560,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       ),
       'field_name' => array(
         '#type' => 'select',
+        '#title' => t('Existing field to share'),
+        '#title_display' => 'invisible',
         '#options' => $existing_field_options,
         '#empty_option' => t('- Select an existing field -'),
         '#description' => t('Field to share'),
@@ -547,6 +571,8 @@ function field_ui_field_overview_form($form, &$form_state, $entity_type, $bundle
       ),
       'widget_type' => array(
         '#type' => 'select',
+        '#title' => t('Widget for existing field'),
+        '#title_display' => 'invisible',
         '#options' => $widget_type_options,
         '#empty_option' => t('- Select a widget -'),
         '#description' => t('Form element to edit the data.'),
@@ -882,6 +908,8 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       ),
       'weight' => array(
         '#type' => 'textfield',
+        '#title' => t('Weight for @title', array('@title' => $instance['label'])),
+        '#title_display' => 'invisible',
         '#default_value' => $display['weight'],
         '#size' => 3,
         '#attributes' => array('class' => array('field-weight')),
@@ -889,7 +917,10 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       'parent_wrapper' => array(
         'parent' => array(
           '#type' => 'select',
+          '#title' => t('Label display for @title', array('@title' => $instance['label'])),
+          '#title_display' => 'invisible',
           '#options' => $table['#parent_options'],
+          '#empty_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#parents' => array('fields', $name, 'parent'),
         ),
@@ -901,6 +932,8 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       ),
       'label' => array(
         '#type' => 'select',
+        '#title' => t('Label display for @title', array('@title' => $instance['label'])),
+        '#title_display' => 'invisible',
         '#options' => $field_label_options,
         '#default_value' => $display['label'],
       ),
@@ -911,6 +944,8 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
     $table[$name]['format'] = array(
       'type' => array(
         '#type' => 'select',
+        '#title' => t('Formatter for @title', array('@title' => $instance['label'])),
+        '#title_display' => 'invisible',
         '#options' => $formatter_options,
         '#default_value' => $display['type'],
         '#parents' => array('fields', $name, 'type'),
@@ -956,7 +991,7 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
     if ($form_state['formatter_settings_edit'] == $name) {
       // We are currently editing this field's formatter settings. Display the
       // settings form and submit buttons.
-      $table[$name]['settings_edit_form'] = array();
+      $table[$name]['format']['settings_edit_form'] = array();
 
       $settings_form = array();
       $function = $formatter['module'] . '_field_formatter_settings_form';
@@ -1035,6 +1070,8 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       ),
       'weight' => array(
         '#type' => 'textfield',
+        '#title' => t('Weight for @title', array('@title' => $extra_field['label'])),
+        '#title_display' => 'invisible',
         '#default_value' => $display['weight'],
         '#size' => 3,
         '#attributes' => array('class' => array('field-weight')),
@@ -1042,7 +1079,10 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       'parent_wrapper' => array(
         'parent' => array(
           '#type' => 'select',
+          '#title' => t('Parents for @title', array('@title' => $extra_field['label'])),
+          '#title_display' => 'invisible',
           '#options' => $table['#parent_options'],
+          '#empty_value' => '',
           '#attributes' => array('class' => array('field-parent')),
           '#parents' => array('fields', $name, 'parent'),
         ),
@@ -1058,6 +1098,8 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
       'format' => array(
         'type' => array(
           '#type' => 'select',
+          '#title' => t('Visibility for @title', array('@title' => $extra_field['label'])),
+          '#title_display' => 'invisible',
           '#options' => $extra_visibility_options,
           '#default_value' => $display['visible'] ? 'visible' : 'hidden',
           '#parents' => array('fields', $name, 'type'),
@@ -1111,9 +1153,6 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
     '#type' => 'submit',
     '#value' => t('Refresh'),
     '#op' => 'refresh_table',
-    // Do not check errors, but make sure we get the values of the
-    // 'refresh_rows' input.
-    '#limit_validation_errors' => array(array('refresh_rows')),
     '#submit' => array('field_ui_display_overview_multistep_submit'),
     '#ajax' => array(
       'callback' => 'field_ui_display_overview_multistep_js',
@@ -1132,11 +1171,8 @@ function field_ui_display_overview_form($form, &$form_state, $entity_type, $bund
   $form['#attached']['css'][] = drupal_get_path('module', 'field_ui') . '/field_ui.css';
 
   // Add tabledrag behavior.
-  drupal_add_tabledrag('field-display-overview', 'order', 'sibling', 'field-weight');
-  drupal_add_tabledrag('field-display-overview', 'match', 'parent', 'field-parent', 'field-parent', 'field-name');
-// @todo : use #attached instead when http://drupal.org/node/561858 is fixed.
-//  $form['#attached']['drupal_add_tabledrag'][] = array('field-display-overview', 'order', 'sibling', 'field-weight');
-//  $form['#attached']['drupal_add_tabledrag'][] = array('field-display-overview', 'match', 'parent', 'field-parent', 'field-parent', 'field-name');
+  $form['#attached']['drupal_add_tabledrag'][] = array('field-display-overview', 'order', 'sibling', 'field-weight');
+  $form['#attached']['drupal_add_tabledrag'][] = array('field-display-overview', 'match', 'parent', 'field-parent', 'field-parent', 'field-name');
 
   return $form;
 }
@@ -1438,7 +1474,7 @@ function field_ui_field_settings_form($form, &$form_state, $instance) {
   // If so, prevent changes to the field settings.
   $has_data = field_has_data($field);
   if ($has_data) {
-    $form['field']['#description'] = '<div class=error>' . t('There is data for this field in the database. The field settings can no longer be changed.' . '</div>') . $form['field']['#description'];
+    $form['field']['#description'] = '<div class="messages error">' . t('There is data for this field in the database. The field settings can no longer be changed.') . '</div>' . $form['field']['#description'];
   }
 
   // Build the non-configurable field values.
@@ -1909,34 +1945,4 @@ function field_ui_next_destination($entity_type, $bundle) {
   }
   $admin_path = _field_ui_bundle_admin_path($entity_type, $bundle);
   return $admin_path . '/fields';
-}
-
-/**
- * Helper form element validator: integer.
- */
-function _element_validate_integer($element, &$form_state) {
-  $value = $element['#value'];
-  if ($value !== '' && (!is_numeric($value) || intval($value) != $value)) {
-    form_error($element, t('%name must be an integer.', array('%name' => $element['#title'])));
-  }
-}
-
-/**
- * Helper form element validator: integer > 0.
- */
-function _element_validate_integer_positive($element, &$form_state) {
-  $value = $element['#value'];
-  if ($value !== '' && (!is_numeric($value) || intval($value) != $value || $value <= 0)) {
-    form_error($element, t('%name must be a positive integer.', array('%name' => $element['#title'])));
-  }
-}
-
-/**
- * Helper form element validator: number.
- */
-function _element_validate_number($element, &$form_state) {
-  $value = $element['#value'];
-  if ($value != '' && !is_numeric($value)) {
-    form_error($element, t('%name must be a number.', array('%name' => $element['#title'])));
-  }
 }

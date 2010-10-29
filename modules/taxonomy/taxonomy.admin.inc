@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.admin.inc,v 1.111 2010/10/06 13:38:40 dries Exp $
+// $Id: taxonomy.admin.inc,v 1.114 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -19,7 +19,13 @@ function taxonomy_overview_vocabularies($form) {
   foreach ($vocabularies as $vocabulary) {
     $form[$vocabulary->vid]['#vocabulary'] = $vocabulary;
     $form[$vocabulary->vid]['name'] = array('#markup' => check_plain($vocabulary->name));
-    $form[$vocabulary->vid]['weight'] = array('#type' => 'weight', '#delta' => 10, '#default_value' => $vocabulary->weight);
+    $form[$vocabulary->vid]['weight'] = array(
+      '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $vocabulary->name)),
+      '#title_display' => 'invisible',
+      '#delta' => 10,
+      '#default_value' => $vocabulary->weight,
+    );
     $form[$vocabulary->vid]['edit'] = array('#type' => 'link', '#title' => t('edit vocabulary'), '#href' => "admin/structure/taxonomy/$vocabulary->machine_name/edit");
     $form[$vocabulary->vid]['list'] = array('#type' => 'link', '#title' => t('list terms'), '#href' => "admin/structure/taxonomy/$vocabulary->machine_name");
     $form[$vocabulary->vid]['add'] = array('#type' => 'link', '#title' => t('add terms'), '#href' => "admin/structure/taxonomy/$vocabulary->machine_name/add");
@@ -137,31 +143,18 @@ function taxonomy_form_vocabulary($form, &$form_state, $edit = array()) {
     '#default_value' => $vocabulary->name,
     '#maxlength' => 255,
     '#required' => TRUE,
-    '#field_suffix' => ' <small id="edit-name-suffix">&nbsp;</small>',
-  );
-  $js_settings = array(
-    'type' => 'setting',
-    'data' => array(
-      'machineReadableValue' => array(
-        'name' => array(
-          'text' => t('Machine name'),
-          'target' => 'machine-name',
-          'searchPattern' => '[^a-z0-9]+',
-          'replaceToken' => '_',
-        ),
-      ),
-    ),
   );
   $form['machine_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Machine-readable name'),
+    '#type' => 'machine_name',
     '#default_value' => $vocabulary->machine_name,
-    '#maxlength' => 255,
-    '#description' => t('The unique machine-readable name for this vocabulary, used for theme templates. Can only contain lowercase letters, numbers, and underscores.'),
-    '#required' => TRUE,
-    '#attached' => array(
-      'js' => array(drupal_get_path('module', 'system') . '/system.js', $js_settings),
+    '#maxlength' => 21,
+    '#machine_name' => array(
+      'exists' => 'taxonomy_vocabulary_machine_name_load',
     ),
+  );
+  $form['old_machine_name'] = array(
+    '#type' => 'value',
+    '#value' => $vocabulary->machine_name,
   );
   $form['description'] = array(
     '#type' => 'textfield',
@@ -186,34 +179,6 @@ function taxonomy_form_vocabulary($form, &$form_state, $edit = array()) {
 }
 
 /**
- * Validation handler for the vocabulary form.
- *
- * @see taxonomy_form_vocabulary()
- */
-function taxonomy_form_vocabulary_validate($form, &$form_state) {
-  if ($form_state['clicked_button']['#value'] != t('Delete') && isset($form_state['values']['machine_name'])) {
-
-    // Restrict machine names to appropriate characters.
-    $machine_name = $form_state['values']['machine_name'];
-    if (!preg_match('!^[a-z0-9_]+$!', $form_state['values']['machine_name'])) {
-      form_set_error('machine_name', t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
-    }
-    // Restrict machine names to 21 characters to avoid exceeding the limit
-    // for field names.
-    if (drupal_strlen($machine_name) > 21) {
-      form_set_error('machine_name', t('The machine-readable name must not exceed 21 characters.'));
-    }
-
-    // Do not allow duplicate machine names.
-    $vocabularies = taxonomy_get_vocabularies();
-    foreach ($vocabularies as $vocabulary) {
-      if ($machine_name == $vocabulary->machine_name && (!isset($form_state['values']['vid']) || $vocabulary->vid != $form_state['values']['vid'])) {
-        form_set_error('machine_name', t('This machine-readable name is already in use by another vocabulary and must be unique.'));
-      }
-    }
-  }
-}
-/**
  * Accept the form submission for a vocabulary and save the results.
  */
 function taxonomy_form_vocabulary_submit($form, &$form_state) {
@@ -223,12 +188,10 @@ function taxonomy_form_vocabulary_submit($form, &$form_state) {
     $form_state['confirm_delete'] = TRUE;
     return;
   }
-  $old_machine_name = $form_state['vocabulary']->machine_name;
+
   $vocabulary = $form_state['vocabulary'];
   entity_form_submit_build_entity('taxonomy_vocabulary', $vocabulary, $form, $form_state);
-  if ($vocabulary->machine_name != $old_machine_name) {
-    field_attach_rename_bundle('taxonomy_term', $old_machine_name, $vocabulary->machine_name);
-  }
+
   switch (taxonomy_vocabulary_save($vocabulary)) {
     case SAVED_NEW:
       drupal_set_message(t('Created new vocabulary %name.', array('%name' => $vocabulary->name)));
@@ -706,8 +669,7 @@ function taxonomy_form_term($form, &$form_state, $edit = array(), $vocabulary = 
   );
 
   $form['vocabulary_machine_name'] = array(
-    '#type' => 'textfield',
-    '#access' => FALSE,
+    '#type' => 'value',
     '#value' => isset($term->vocabulary_machine_name) ? $term->vocabulary_machine_name : $vocabulary->name,
   );
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: image.field.inc,v 1.30 2010/10/04 18:00:45 dries Exp $
+// $Id: image.field.inc,v 1.33 2010/10/22 00:42:42 dries Exp $
 
 /**
  * @file
@@ -86,6 +86,8 @@ function image_field_instance_settings_form($field, $instance) {
   );
   $form['max_resolution']['x'] = array(
     '#type' => 'textfield',
+    '#title' => t('Maximum width'),
+    '#title_display' => 'invisible',
     '#default_value' => $max_resolution[0],
     '#size' => 5,
     '#maxlength' => 5,
@@ -93,6 +95,8 @@ function image_field_instance_settings_form($field, $instance) {
   );
   $form['max_resolution']['y'] = array(
     '#type' => 'textfield',
+    '#title' => t('Maximum height'),
+    '#title_display' => 'invisible',
     '#default_value' => $max_resolution[1],
     '#size' => 5,
     '#maxlength' => 5,
@@ -111,6 +115,8 @@ function image_field_instance_settings_form($field, $instance) {
   );
   $form['min_resolution']['x'] = array(
     '#type' => 'textfield',
+    '#title' => t('Minimum width'),
+    '#title_display' => 'invisible',
     '#default_value' => $min_resolution[0],
     '#size' => 5,
     '#maxlength' => 5,
@@ -118,6 +124,8 @@ function image_field_instance_settings_form($field, $instance) {
   );
   $form['min_resolution']['y'] = array(
     '#type' => 'textfield',
+    '#title' => t('Minimum height'),
+    '#title_display' => 'invisible',
     '#default_value' => $min_resolution[1],
     '#size' => 5,
     '#maxlength' => 5,
@@ -270,6 +278,7 @@ function image_field_widget_settings_form($field, $instance) {
     '#title' => t('Preview image style'),
     '#type' => 'select',
     '#options' => image_style_options(FALSE),
+    '#empty_option' => '<' . t('no preview') . '>',
     '#default_value' => $settings['preview_image_style'],
     '#description' => t('The preview image will be shown while editing the content.'),
     '#weight' => 15,
@@ -419,7 +428,7 @@ function image_field_formatter_settings_form($field, $instance, $view_mode, $for
   $settings = $display['settings'];
 
   $image_styles = image_style_options(FALSE);
-  $form['image_style'] = array(
+  $element['image_style'] = array(
     '#title' => t('Image style'),
     '#type' => 'select',
     '#default_value' => $settings['image_style'],
@@ -431,14 +440,15 @@ function image_field_formatter_settings_form($field, $instance, $view_mode, $for
     'content' => t('Content'),
     'file' => t('File'),
   );
-  $form['image_link'] = array(
+  $element['image_link'] = array(
     '#title' => t('Link image to'),
     '#type' => 'select',
     '#default_value' => $settings['image_link'],
+    '#empty_option' => t('Nothing'),
     '#options' => $link_types,
   );
 
-  return $form;
+  return $element;
 }
 
 /**

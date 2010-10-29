@@ -1,5 +1,5 @@
 <?php
-// $Id: system.test,v 1.146 2010/10/05 00:22:24 webchick Exp $
+// $Id: system.test,v 1.149 2010/10/16 00:00:17 webchick Exp $
 
 /**
  * Helper class for module test cases.
@@ -161,11 +161,14 @@ class EnableDisableTestCase extends ModuleTestCase {
   /**
    * Tests entity cache after enabling a module with a dependency on an enitity
    * providing module.
+   *
+   * @see entity_cache_test_watchdog()
    */
   function testEntityCache() {
     module_enable(array('entity_cache_test'));
     $info = variable_get('entity_cache_test');
-    $this->assertNotNull($info, t('Entity information must not be NULL'));
+    $this->assertEqual($info['label'], 'Entity Cache Test', 'Entity info label is correct.');
+    $this->assertEqual($info['controller class'], 'DrupalDefaultEntityController', 'Entity controller class info is correct.');
   }
 }
 
@@ -948,7 +951,7 @@ class DateTimeFunctionalTest extends DrupalWebTestCase {
 
     // Add custom date type.
     $this->clickLink(t('Add date type'));
-    $date_type = $this->randomName(8);
+    $date_type = strtolower($this->randomName(8));
     $machine_name = 'machine_' . $date_type;
     $date_format = 'd.m.Y - H:i';
     $edit = array(
@@ -1939,7 +1942,7 @@ class ShutdownFunctionsTest extends DrupalWebTestCase {
 
     // Make sure exceptions displayed through _drupal_render_exception_safe()
     // are correctly escaped.
-    $this->assertText('Drupal is &lt;blink&gt;awesome&lt;/blink&gt;.');
+    $this->assertRaw('Drupal is &amp;lt;blink&amp;gt;awesome&amp;lt;/blink&amp;gt;.');
   }
 }
 

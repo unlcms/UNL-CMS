@@ -1,4 +1,4 @@
-/* $Id: style.css,v 1.76 2010/10/05 21:03:17 webchick Exp $ */
+/* $Id: style.css,v 1.80 2010/10/15 04:37:15 webchick Exp $ */
 
 /**
  * Generic elements.
@@ -31,7 +31,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: normal;
+  font-weight: bold;
   margin: 10px 0;
 }
 h1 {
@@ -476,6 +476,9 @@ table th a {
   display: block;
   position: relative;
 }
+table th.active a {
+  padding: 0 25px 0 0; /* LTR */
+}
 table th.active img {
   position: absolute;
   top: 3px;
@@ -890,7 +893,7 @@ ol.task-list li.done {
   z-index: 10;
 }
 #overlay-tabs {
-  bottom: -2px;
+  bottom: -1px;
   font-size: 1.54em;
   line-height: 1.54em;
   margin: 0;
@@ -904,6 +907,9 @@ ol.task-list li.done {
 }
 .overlay #content {
   padding: 0;
+}
+h1#overlay-title {
+  font-weight: normal;
 }
 
 /* Shortcut theming */
@@ -972,37 +978,4 @@ div.add-or-remove-shortcuts {
 }
 #user-login-form .openid-links .user-link {
   margin-left: 1.5em; /* LTR */
-}
-
-
-/* Available Updates */
-.update tr.ok {
-  color: #255b1e;
-  background: #e5ffe2;
-  border-bottom: 1px solid #89D47F;
-}
-.update tr.warning {
-  color: #840;
-  background: #fffce5;
-  border-bottom: 1px solid #ed5;
-}
-.update tr.warning .version-recommended {
-  background: #ffe;
-}
-.update tr.unknown {
-  background: #ddd;
-}
-.update tr.error {
-  color: #840;
-  background: #fffce5;
-  border-bottom: 1px solid #ed5;
-}
-.update tr.error .version-recommended {
-  background: #fdd;
-}
-table tbody tr.update-security,
-table tbody tr.update-unsupported {
-  color: #840;
-  background: #fffce5;
-  border-bottom: 1px solid #ed5;
 }

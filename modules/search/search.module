@@ -1,5 +1,5 @@
 <?php
-// $Id: search.module,v 1.363 2010/10/01 15:24:18 webchick Exp $
+// $Id: search.module,v 1.365 2010/10/20 01:31:07 dries Exp $
 
 /**
  * @file
@@ -978,7 +978,7 @@ function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL
   );
   // processed_keys is used to coordinate keyword passing between other forms
   // that hook into the basic search form.
-  $form['basic']['processed_keys'] = array('#type' => 'value', '#value' => array());
+  $form['basic']['processed_keys'] = array('#type' => 'value', '#value' => '');
   $form['basic']['submit'] = array('#type' => 'submit', '#value' => t('Search'));
 
   return $form;
@@ -995,6 +995,8 @@ function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL
 function search_box($form, &$form_state, $form_id) {
   $form[$form_id] = array(
     '#type' => 'textfield',
+    '#title' => t('Search'),
+    '#title_display' => 'invisible',
     '#size' => 15,
     '#default_value' => '',
     '#attributes' => array('title' => t('Enter the terms you wish to search for.')),

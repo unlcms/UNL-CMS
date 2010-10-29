@@ -226,13 +226,8 @@ EOF;
           'default'       => $new_prefix,
 
           // shared tables across all sites
-          'authmap'       => $shared_prefix,
           'filter'        => $shared_prefix,
           'filter_format' => $shared_prefix,
-          'role'          => $shared_prefix,
-          'sessions'      => $shared_prefix,
-          'users'         => $shared_prefix,
-          'users_roles'   => $shared_prefix,
           'wysiwyg'       => $shared_prefix,
         );
         
@@ -243,6 +238,9 @@ EOF;
         
         foreach ($settings['databases']['value'] as &$database) {
           $database['default']['prefix'] = $new_prefixes;
+          if (!isset($database['slave'])) {
+            continue;
+          }
           foreach ($database['slave'] as &$slave_database) {
             $slave_database['prefix'] = $new_prefixes;
           }
@@ -262,16 +260,44 @@ EOF;
         // Only enable CAS on subsites until we get some sort of bootstrap setup.
         module_enable(array('unl_cas'));
         
-        // Copy permissions from the parent site to the new site.
-        db_query("TRUNCATE ${new_prefix}role_permission")->execute();
-        // I'm using REPLACE because I keep getting duplicate entry errors, despite inserting into what should be an empty table.
-        db_query("REPLACE INTO ${new_prefix}role_permission (rid, permission, module) SELECT rid, permission, module FROM ${shared_prefix}role_permission")->execute();
+        
+        // Copy the anonymous/authenticated user roles' permissions for text formats from the default site.
+        db_query(
+       	  "REPLACE INTO {$new_prefix}role_permission (rid, permission, module) "
+          . "SELECT rid, permission, module "
+          . "FROM {$shared_prefix}role_permission "
+          . "WHERE rid IN(:rid) AND module='filter' ",
+          array(':rid' => array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID))
+        );
+        
+        db_query(
+          "REPLACE INTO {$new_prefix}variable (name, value) "
+          . "SELECT name, value "
+          . "FROM {$shared_prefix}variable "
+          . "WHERE name='filter_fallback_format' "
+        );
+        
+        // Create the Site Admin role
+        $site_admin_role = new stdClass();
+        $site_admin_role->name = 'Site Admin';
+        $site_admin_role->weight = 2;
+        user_role_save($site_admin_role);
+        
+        // Assign most permissions to the Site Admin role.
+        $all_permissions = module_invoke_all('permission');
+        unset($all_permissions['unl administer administrator permissions']);
+        unset($all_permissions['unl site creation']);
+        unset($all_permissions['administer modules']);
+        unset($all_permissions['administer themes']);
+        unset($all_permissions['administer software updates']);
+        unset($all_permissions['administer imce']);
+        unset($all_permissions['administer filters']);
+        foreach (array_keys(module_invoke('filter', 'permission')) as $permission) {
+          unset($all_permissions[$permission]);
+        }
+        user_role_grant_permissions($site_admin_role->rid, array_keys($all_permissions));
     }
     
-    
-    //$permissions = array_keys(module_invoke_all('permission'));
-    //print_r($permissions);
-    //user_role_grant_permissions(3, array($permissions));
     
     $files_dir = $settings_dir . '/files';
     chmod($files_dir, 0777);

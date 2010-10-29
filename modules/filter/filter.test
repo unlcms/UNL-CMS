@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.test,v 1.77 2010/09/28 03:30:37 webchick Exp $
+// $Id: filter.test,v 1.80 2010/10/23 02:26:11 webchick Exp $
 
 /**
  * Tests for text format and filter CRUD operations.
@@ -23,6 +23,7 @@ class FilterCRUDTestCase extends DrupalWebTestCase {
   function testTextFormatCRUD() {
     // Add a text format with minimum data only.
     $format = new stdClass();
+    $format->format = 'empty_format';
     $format->name = 'Empty format';
     filter_format_save($format);
     $this->verifyTextFormat($format);
@@ -30,6 +31,7 @@ class FilterCRUDTestCase extends DrupalWebTestCase {
 
     // Add another text format specifying all possible properties.
     $format = new stdClass();
+    $format->format = 'custom_format';
     $format->name = 'Custom format';
     $format->filters = array(
       'filter_url' => array(
@@ -184,6 +186,7 @@ class FilterAdminTestCase extends DrupalWebTestCase {
     $this->drupalGet('admin/config/content/formats');
     $this->clickLink('Add text format');
     $edit = array(
+      'format' => drupal_strtolower($this->randomName()),
       'name' => $this->randomName(),
     );
     $this->drupalPost(NULL, $edit, t('Save configuration'));
@@ -204,6 +207,24 @@ class FilterAdminTestCase extends DrupalWebTestCase {
     // Verify that disabled text format no longer exists.
     $this->drupalGet('admin/config/content/formats/' . $format->format);
     $this->assertResponse(404, t('Disabled text format no longer exists.'));
+
+    // Attempt to create a format of the same machine name as the disabled
+    // format but with a different human readable name.
+    $edit = array(
+      'format' => $format->format,
+      'name' => 'New format',
+    );
+    $this->drupalPost('admin/config/content/formats/add', $edit, t('Save configuration'));
+    $this->assertText('The machine-readable name is already in use. It must be unique.');
+
+    // Attempt to create a format of the same human readable name as the
+    // disabled format but with a different machine name.
+    $edit = array(
+      'format' => 'new_format',
+      'name' => $format->name,
+    );
+    $this->drupalPost('admin/config/content/formats/add', $edit, t('Save configuration'));
+    $this->assertText('Text format names must be unique. A format named ' . check_plain($format->name) . ' already exists.');
   }
 
   /**
@@ -268,6 +289,7 @@ class FilterAdminTestCase extends DrupalWebTestCase {
 
     // Add format.
     $edit = array();
+    $edit['format'] = drupal_strtolower($this->randomName());
     $edit['name'] = $this->randomName();
     $edit['roles[2]'] = 1;
     $edit['filters[' . $second_filter . '][status]'] = TRUE;
@@ -424,7 +446,10 @@ class FilterFormatAccessTestCase extends DrupalWebTestCase {
     $this->drupalLogin($this->filter_admin_user);
     $formats = array();
     for ($i = 0; $i < 2; $i++) {
-      $edit = array('name' => $this->randomName());
+      $edit = array(
+        'format' => drupal_strtolower($this->randomName()),
+        'name' => $this->randomName(),
+      );
       $this->drupalPost('admin/config/content/formats/add', $edit, t('Save configuration'));
       $this->resetFilterCaches();
       $format_id = db_query("SELECT format FROM {filter_format} WHERE name = :name", array(':name' => $edit['name']))->fetchField();
@@ -472,9 +497,18 @@ class FilterFormatAccessTestCase extends DrupalWebTestCase {
     // the disallowed format does not.
     $this->drupalLogin($this->web_user);
     $this->drupalGet('node/add/page');
-    $this->assertRaw($this->formatSelectorHTML($this->allowed_format), t('The allowed text format appears as an option when adding a new node.'));
-    $this->assertNoRaw($this->formatSelectorHTML($this->disallowed_format), t('The disallowed text format does not appear as an option when adding a new node.'));
-    $this->assertRaw($this->formatSelectorHTML(filter_format_load(filter_fallback_format())), t('The fallback format appears as an option when adding a new node.'));
+    $langcode = LANGUAGE_NONE;
+    $elements = $this->xpath('//select[@name=:name]/option', array(
+      ':name' => "body[$langcode][0][format]",
+      ':option' => $this->allowed_format->format,
+    ));
+    $options = array();
+    foreach ($elements as $element) {
+      $options[(string) $element['value']] = $element;
+    }
+    $this->assertTrue(isset($options[$this->allowed_format->format]), t('The allowed text format appears as an option when adding a new node.'));
+    $this->assertFalse(isset($options[$this->disallowed_format->format]), t('The disallowed text format does not appear as an option when adding a new node.'));
+    $this->assertTrue(isset($options[filter_fallback_format()]), t('The fallback format appears as an option when adding a new node.'));
   }
 
   function testFormatRoles() {
@@ -620,18 +654,6 @@ class FilterFormatAccessTestCase extends DrupalWebTestCase {
   }
 
   /**
-   * Returns the expected HTML for a particular text format selector.
-   *
-   * @param $format
-   *   An object representing the text format for which to return HTML.
-   * @return
-   *   The expected HTML for that text format's selector.
-   */
-  function formatSelectorHTML($format) {
-    return '<option value="' . $format->format . '">' . $format->name . '</option>';
-  }
-
-  /**
    * Rebuild text format and permission caches in the thread running the tests.
    */
   protected function resetFilterCaches() {
@@ -656,7 +678,10 @@ class FilterDefaultFormatTestCase extends DrupalWebTestCase {
     $this->drupalLogin($admin_user);
     $formats = array();
     for ($i = 0; $i < 2; $i++) {
-      $edit = array('name' => $this->randomName());
+      $edit = array(
+        'format' => drupal_strtolower($this->randomName()),
+        'name' => $this->randomName(),
+      );
       $this->drupalPost('admin/config/content/formats/add', $edit, t('Save configuration'));
       $this->resetFilterCaches();
       $format_id = db_query("SELECT format FROM {filter_format} WHERE name = :name", array(':name' => $edit['name']))->fetchField();
@@ -1072,7 +1097,7 @@ class FilterUnitTestCase extends DrupalUnitTestCase {
     $f = _filter_html('<p onerror="alert(0);" />', $filter);
     $this->assertNoNormalized($f, 'onerror', t('HTML filter should remove on* attributes on default.'));
 
-    $f = _filter_html('<code onerror>&nbsp;</code>', $filter);    
+    $f = _filter_html('<code onerror>&nbsp;</code>', $filter);
     $this->assertNoNormalized($f, 'onerror', t('HTML filter should remove empty on* attributes on default.'));
   }
 
@@ -1684,6 +1709,7 @@ class FilterHooksTestCase extends DrupalWebTestCase {
     // Add a text format.
     $name = $this->randomName();
     $edit = array();
+    $edit['format'] = drupal_strtolower($this->randomName());
     $edit['name'] = $name;
     $edit['roles[1]'] = 1;
     $this->drupalPost('admin/config/content/formats/add', $edit, t('Save configuration'));

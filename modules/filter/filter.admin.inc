@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.admin.inc,v 1.66 2010/09/29 19:52:12 dries Exp $
+// $Id: filter.admin.inc,v 1.69 2010/10/22 16:36:14 webchick Exp $
 
 /**
  * @file
@@ -34,7 +34,12 @@ function filter_admin_overview($form) {
     $form['formats'][$id]['roles'] = array('#markup' => $roles_markup);
     $form['formats'][$id]['configure'] = array('#type' => 'link', '#title' => t('configure'), '#href' => 'admin/config/content/formats/' . $id);
     $form['formats'][$id]['disable'] = array('#type' => 'link', '#title' => t('disable'), '#href' => 'admin/config/content/formats/' . $id . '/disable', '#access' => !$form['formats'][$id]['#is_fallback']);
-    $form['formats'][$id]['weight'] = array('#type' => 'weight', '#default_value' => $format->weight);
+    $form['formats'][$id]['weight'] = array(
+      '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $format->name)),
+      '#title_display' => 'invisible',
+      '#default_value' => $format->weight,
+    );
   }
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save changes'));
@@ -96,7 +101,10 @@ function theme_filter_admin_overview($variables) {
 function filter_admin_format_page($format = NULL) {
   if (!isset($format->name)) {
     drupal_set_title(t('Add text format'));
-    $format = (object) array('name' => '', 'format' => 0);
+    $format = (object) array(
+      'format' => NULL,
+      'name' => '',
+    );
   }
   return drupal_get_form('filter_admin_format_form', $format);
 }
@@ -121,6 +129,16 @@ function filter_admin_format_form($form, &$form_state, $format) {
     '#title' => t('Name'),
     '#default_value' => $format->name,
     '#required' => TRUE,
+  );
+  $form['format'] = array(
+    '#type' => 'machine_name',
+    '#required' => TRUE,
+    '#default_value' => $format->format,
+    '#maxlength' => 255,
+    '#machine_name' => array(
+      'exists' => 'filter_format_exists',
+    ),
+    '#disabled' => !empty($format->format),
   );
 
   // Add user role access selection.
@@ -191,6 +209,8 @@ function filter_admin_format_form($form, &$form_state, $format) {
     );
     $form['filters']['order'][$name]['weight'] = array(
       '#type' => 'weight',
+      '#title' => t('Weight for @title', array('@title' => $filter['title'])),
+      '#title_display' => 'invisible',
       '#delta' => 50,
       '#default_value' => $filters[$name]->weight,
       '#parents' => array('filters', $name, 'weight'),
@@ -227,9 +247,6 @@ function filter_admin_format_form($form, &$form_state, $format) {
     }
   }
 
-  if (!empty($format->format)) {
-    $form['format'] = array('#type' => 'value', '#value' => $format->format);
-  }
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
 
@@ -271,13 +288,16 @@ function theme_filter_admin_format_filter_order($variables) {
  * Validate text format form submissions.
  */
 function filter_admin_format_form_validate($form, &$form_state) {
-  if (!isset($form_state['values']['format'])) {
-    $format_name = trim($form_state['values']['name']);
-    form_set_value($form['name'], $format_name, $form_state);
-    $result = db_query("SELECT format FROM {filter_format} WHERE name = :name", array(':name' => $format_name))->fetchField();
-    if ($result) {
-      form_set_error('name', t('Text format names must be unique. A format named %name already exists.', array('%name' => $format_name)));
-    }
+  $format_format = trim($form_state['values']['format']);
+  $format_name = trim($form_state['values']['name']);
+
+  // Ensure that the values to be saved later are exactly the ones validated.
+  form_set_value($form['format'], $format_format, $form_state);
+  form_set_value($form['name'], $format_name, $form_state);
+
+  $result = db_query("SELECT format FROM {filter_format} WHERE name = :name AND format <> :format", array(':name' => $format_name, ':format' => $format_format))->fetchField();
+  if ($result) {
+    form_set_error('name', t('Text format names must be unique. A format named %name already exists.', array('%name' => $format_name)));
   }
 }
 
@@ -290,9 +310,6 @@ function filter_admin_format_form_submit($form, &$form_state) {
 
   // Save text format.
   $format = (object) $form_state['values'];
-  if (!isset($form_state['values']['format'])) {
-    $format->format = NULL;
-  }
   $status = filter_format_save($format);
 
   // Save user permissions.

@@ -1,5 +1,5 @@
 <?php
-// $Id: common.inc,v 1.1236 2010/10/07 00:28:19 webchick Exp $
+// $Id: common.inc,v 1.1244 2010/10/21 19:31:39 dries Exp $
 
 /**
  * @file
@@ -378,7 +378,7 @@ function drupal_get_feeds($delimiter = "\n") {
 }
 
 /**
- * @name HTTP handling
+ * @defgroup http_handling HTTP handling
  * @{
  * Functions to properly handle HTTP responses.
  */
@@ -1241,7 +1241,7 @@ function drupal_strip_dangerous_protocols($uri) {
   static $allowed_protocols;
 
   if (!isset($allowed_protocols)) {
-    $allowed_protocols = array_flip(variable_get('filter_allowed_protocols', array('ftp', 'http', 'https', 'irc', 'mailto', 'news', 'nntp', 'rtsp', 'sftp', 'ssh', 'telnet', 'webcal')));
+    $allowed_protocols = array_flip(variable_get('filter_allowed_protocols', array('ftp', 'http', 'https', 'irc', 'mailto', 'news', 'nntp', 'rtsp', 'sftp', 'ssh', 'tel', 'telnet', 'webcal')));
   }
 
   // Iteratively remove any invalid protocol found.
@@ -3369,6 +3369,15 @@ function drupal_build_css_cache($css) {
     if (!file_exists($uri) && !file_unmanaged_save_data($data, $uri, FILE_EXISTS_REPLACE)) {
       return FALSE;
     }
+    // If CSS gzip compression is enabled, clean URLs are enabled (which means
+    // that rewrite rules are working) and the zlib extension is available then
+    // create a gzipped version of this file. This file is served conditionally
+    // to browsers that accept gzip using .htaccess rules.
+    if (variable_get('css_gzip_compression', TRUE) && variable_get('clean_url', 0) && extension_loaded('zlib')) {
+      if (!file_exists($uri . '.gz') && !file_unmanaged_save_data(gzencode($data, 9, FORCE_GZIP), $uri . '.gz', FILE_EXISTS_REPLACE)) {
+        return FALSE;
+      }
+    }
     // Save the updated map.
     $map[$key] = $uri;
     variable_set('drupal_css_cache_files', $map);
@@ -3466,13 +3475,34 @@ function drupal_load_stylesheet_content($contents, $optimize = FALSE) {
     $double_quot = '"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"';
     // Regexp to match single quoted strings.
     $single_quot = "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'";
+    // Strip all comment blocks, but keep double/single quoted strings.
     $contents = preg_replace(
-      "<($double_quot|$single_quot)|$comment>Ss",  // Strip all comment blocks
-      "$1",                                        // but keep double/single
-      $contents);                                  // quoted strings.
-    $contents = preg_replace(
-      '<\s*([@{}:;,]|\)\s|\s\()\s*>S',             // Remove whitespace around separators,
-      '\1', $contents);                            // but keep space around parentheses.
+      "<($double_quot|$single_quot)|$comment>Ss",
+      "$1",
+      $contents
+    );
+    // Remove certain whitespace.
+    // There are different conditions for removing leading and trailing
+    // whitespace. To be able to use a single backreference in the replacement
+    // string, the outer pattern uses the ?| modifier, which makes all contained
+    // subpatterns appear in \1.
+    // @see http://php.net/manual/en/regexp.reference.subpatterns.php
+    $contents = preg_replace('<
+      (?|
+      # Strip leading and trailing whitespace.
+        \s*([@{};,])\s*
+      # Strip only leading whitespace from:
+      # - Closing parenthesis: Retain "@media (bar) and foo".
+      | \s+([\)])
+      # Strip only trailing whitespace from:
+      # - Opening parenthesis: Retain "@media (bar) and foo".
+      # - Colon: Retain :pseudo-selectors.
+      | ([\(:])\s+
+      )
+    >xS',
+      '\1',
+      $contents
+    );
     // End the file with a new line.
     $contents .= "\n";
   }
@@ -3767,7 +3797,7 @@ function drupal_region_class($region) {
  *   - scope: The location in which you want to place the script. Possible
  *     values are 'header' or 'footer'. If your theme implements different
  *     regions, you can also use these. Defaults to 'header'.
- *   - 'group': A number identifying the group in which to add the JavaScript.
+ *   - group: A number identifying the group in which to add the JavaScript.
  *     Available constants are:
  *     - JS_LIBRARY: Any libraries, settings, or jQuery plugins.
  *     - JS_DEFAULT: Any module-layer JavaScript.
@@ -3775,7 +3805,7 @@ function drupal_region_class($region) {
  *     The group number serves as a weight: JavaScript within a lower weight
  *     group is presented on the page before JavaScript within a higher weight
  *     group.
- *  - 'every_page': For optimal front-end performance when aggregation is
+ *   - every_page: For optimal front-end performance when aggregation is
  *     enabled, this should be set to TRUE if the JavaScript is present on every
  *     page of the website for users for whom it is present at all. This
  *     defaults to FALSE. It is set to TRUE for JavaScript files that are added
@@ -4637,8 +4667,17 @@ function drupal_build_js_cache($files) {
     $uri = $jspath . '/' . $filename;
     // Create the JS file.
     file_prepare_directory($jspath, FILE_CREATE_DIRECTORY);
-    if (!file_unmanaged_save_data($contents, $uri, FILE_EXISTS_REPLACE)) {
+    if (!file_exists($uri) && !file_unmanaged_save_data($contents, $uri, FILE_EXISTS_REPLACE)) {
       return FALSE;
+    }
+    // If JS gzip compression is enabled, clean URLs are enabled (which means
+    // that rewrite rules are working) and the zlib extension is available then
+    // create a gzipped version of this file. This file is served conditionally
+    // to browsers that accept gzip using .htaccess rules.
+    if (variable_get('js_gzip_compression', TRUE) && variable_get('clean_url', 0) && extension_loaded('zlib')) {
+      if (!file_exists($uri . '.gz') && !file_unmanaged_save_data(gzencode($contents, 9, FORCE_GZIP), $uri . '.gz', FILE_EXISTS_REPLACE)) {
+        return FALSE;
+      }
     }
     $map[$key] = $uri;
     variable_set('drupal_js_cache_files', $map);
@@ -4965,7 +5004,8 @@ function drupal_cron_cleanup() {
  * the file name ($key = 'filename'), the file name without the extension ($key
  * = 'name'), or the full file stream URI ($key = 'uri'). If you use a key of
  * 'filename' or 'name', files found later in the search will take precedence
- * over files found earlier; if you choose a key of 'uri', you will get all
+ * over files found earlier (unless they belong to a module or theme not
+ * compatible with Drupal core); if you choose a key of 'uri', you will get all
  * files found.
  *
  * @param string $mask
@@ -5019,7 +5059,31 @@ function drupal_system_listing($mask, $directory, $key = 'name', $min_depth = 1)
     require_once DRUPAL_ROOT . '/includes/file.inc';
   }
   foreach ($searchdir as $dir) {
-    $files = array_merge($files, file_scan_directory($dir, $mask, array('key' => $key, 'min_depth' => $min_depth)));
+    $files_to_add = file_scan_directory($dir, $mask, array('key' => $key, 'min_depth' => $min_depth));
+
+    // Duplicate files found in later search directories take precedence over
+    // earlier ones, so we want them to overwrite keys in our resulting
+    // $files array.
+    // The exception to this is if the later file is from a module or theme not
+    // compatible with Drupal core. This may occur during upgrades of Drupal
+    // core when new modules exist in core while older contrib modules with the
+    // same name exist in a directory such as sites/all/modules/.
+    foreach (array_intersect_key($files_to_add, $files) as $key => $file) {
+      // If it has no info file, then we just behave liberally and accept the
+      // new resource on the list for merging.
+      if (file_exists($info_file = dirname($file->uri) . '/' . $file->name . '.info')) {
+        // Get the .info file for the module or theme this file belongs to.
+        $info = drupal_parse_info_file($info_file);
+
+        // If the module or theme is incompatible with Drupal core, remove it
+        // from the array for the current search directory, so it is not
+        // overwritten when merged with the $files array.
+        if (isset($info['core']) && $info['core'] != DRUPAL_CORE_COMPATIBILITY) {
+          unset($files_to_add[$key]);
+        }
+      }
+    }
+    $files = array_merge($files, $files_to_add);
   }
 
   return $files;
@@ -5145,10 +5209,44 @@ function drupal_pre_render_conditional_comments($elements) {
  * @return
  *   The passed in elements containing a rendered link in '#markup'.
  */
-function drupal_pre_render_link($elements) {
-  $options = isset($elements['#options']) ? $elements['#options'] : array();
-  $elements['#markup'] = l($elements['#title'], $elements['#href'], $options);
-  return $elements;
+function drupal_pre_render_link($element) {
+  // By default, link options to pass to l() are normally set in #options.
+  $element += array('#options' => array());
+  // However, within the scope of renderable elements, #attributes is a valid
+  // way to specify attributes, too. Take them into account, but do not override
+  // attributes from #options.
+  if (isset($element['#attributes'])) {
+    $element['#options'] += array('attributes' => array());
+    $element['#options']['attributes'] += $element['#attributes'];
+  }
+
+  // This #pre_render callback can be invoked from inside or outside of a Form
+  // API context, and depending on that, a HTML ID may be already set in
+  // different locations. #options should have precedence over Form API's #id.
+  // #attributes have been taken over into #options above already.
+  if (isset($element['#options']['attributes']['id'])) {
+    $element['#id'] = $element['#options']['attributes']['id'];
+  }
+  elseif (isset($element['#id'])) {
+    $element['#options']['attributes']['id'] = $element['#id'];
+  }
+
+  // Conditionally invoke ajax_pre_render_element(), if #ajax is set.
+  if (isset($element['#ajax']) && !isset($element['#ajax_processed'])) {
+    // If no HTML ID was found above, automatically create one.
+    if (!isset($element['#id'])) {
+      $element['#id'] = $element['#options']['attributes']['id'] = drupal_html_id('ajax-link');
+    }
+    // If #ajax['path] was not specified, use the href as AJAX request URL.
+    if (!isset($element['#ajax']['path'])) {
+      $element['#ajax']['path'] = $element['#href'];
+      $element['#ajax']['options'] = $element['#options'];
+    }
+    $element = ajax_pre_render_element($element);
+  }
+
+  $element['#markup'] = l($element['#title'], $element['#href'], $element['#options']);
+  return $element;
 }
 
 /**
@@ -6780,7 +6878,11 @@ function _drupal_flush_css_js() {
  */
 function debug($data, $label = NULL, $print_r = FALSE) {
   // Print $data contents to string.
-  $string = $print_r ? print_r($data, TRUE) : var_export($data, TRUE);
+  $string = check_plain($print_r ? print_r($data, TRUE) : var_export($data, TRUE));
+
+  // Display values with pre-formatting to increase readability.
+  $string = '<pre>' . $string . '</pre>';
+
   trigger_error(trim($label ? "$label: $string" : $string));
 }
 

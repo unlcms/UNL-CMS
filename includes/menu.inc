@@ -1,5 +1,5 @@
 <?php
-// $Id: menu.inc,v 1.413 2010/10/03 23:29:09 dries Exp $
+// $Id: menu.inc,v 1.416 2010/10/21 11:56:17 dries Exp $
 
 /**
  * @file
@@ -72,7 +72,7 @@
  */
 
 /**
- * @name Menu flags
+ * @defgroup menu_flags Menu flags
  * @{
  * Flags for use in the "type" attribute of menu items.
  */
@@ -122,7 +122,7 @@ define('MENU_IS_LOCAL_ACTION', 0x0100);
  */
 
 /**
- * @name Menu item types
+ * @defgroup menu_item_types Menu item types
  * @{
  * Menu item definitions provide one of these constants, which are shortcuts for
  * combinations of the above flags.
@@ -185,7 +185,7 @@ define('MENU_LOCAL_ACTION', MENU_IS_LOCAL_TASK | MENU_IS_LOCAL_ACTION | MENU_VIS
  */
 
 /**
- * @name Menu context types
+ * @defgroup menu_context_types Menu context types
  * @{
  * Flags for use in the "context" attribute of menu router items.
  */
@@ -213,7 +213,7 @@ define('MENU_CONTEXT_INLINE', 0x0002);
  */
 
 /**
- * @name Menu status codes
+ * @defgroup menu_status_codes Menu status codes
  * @{
  * Status codes for menu callbacks.
  */
@@ -248,7 +248,7 @@ define('MENU_SITE_ONLINE', 5);
  */
 
 /**
- * @Name Menu tree parameters
+ * @defgroup menu_tree_parameters Menu tree parameters
  * @{
  * Menu tree
  */
@@ -3464,7 +3464,6 @@ function _menu_router_build($callbacks) {
       'page arguments' => array(),
       'page callback' => '',
       'delivery callback' => '',
-      'block callback' => '',
       'title arguments' => array(),
       'title callback' => 't',
       'theme arguments' => array(),
@@ -3523,7 +3522,6 @@ function _menu_router_save($menu, $masks) {
       'theme_callback',
       'theme_arguments',
       'type',
-      'block_callback',
       'description',
       'position',
       'weight',
@@ -3554,7 +3552,6 @@ function _menu_router_save($menu, $masks) {
       'theme_callback' => $item['theme callback'],
       'theme_arguments' => serialize($item['theme arguments']),
       'type' => $item['type'],
-      'block_callback' => $item['block callback'],
       'description' => $item['description'],
       'position' => $item['position'],
       'weight' => $item['weight'],
