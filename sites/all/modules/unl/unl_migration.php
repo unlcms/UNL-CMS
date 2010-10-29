@@ -748,10 +748,24 @@ class Unl_Migration_Tool
                       $content_start + strlen($start_token),
                       $content_end - $content_start - strlen($start_token));
     $content = trim($content);
-    if (!$content || $content_start === FALSE || $content_end === FALSE) {
-      return FALSE;
+    if ($content && $content_start !== FALSE && $content_end !== FALSE) {
+      return $content;
     }
-    return $content;
+    
+    $start_token = '<!-- TemplateBeginEditable name="' . $name . '" -->';
+    $end_token = '<!-- TemplateEndEditable -->';
+    
+    $content_start = strpos($html, $start_token);
+    $content_end = strpos($html, $end_token, $content_start);
+    $content = substr($html,
+                      $content_start + strlen($start_token),
+                      $content_end - $content_start - strlen($start_token));
+    $content = trim($content);
+    if ($content && $content_start !== FALSE && $content_end !== FALSE) {
+      return $content;
+    }
+    
+    return FALSE;
   }
 }
 
