@@ -49,13 +49,14 @@ function unl_cas_menu() {
   );
   
   $items['admin/people/import'] = array(
-    'title'            => 'Import User',
+    'title'            => 'Import User from People Finder',
     'description'      => 'Import a user from UNL People Finder',
     'access arguments' => array('administer users'),
     'page callback'    => 'drupal_get_form',
     'page arguments'   => array('unl_cas_user_import'),
     'type'             => MENU_LOCAL_ACTION,
     'file'             => 'unl_cas.admin.inc',
+    'weight'	       => 1,
   );
   
   return $items;
@@ -63,7 +64,8 @@ function unl_cas_menu() {
 
 function unl_cas_menu_alter(&$items)
 {
-  unset($items['admin/people/create']);
+  $items['admin/people/create']['weight'] = 2;
+  $items['admin/people/create']['title'] .= ' manually';
 }
 
 function unl_cas_validate() {
