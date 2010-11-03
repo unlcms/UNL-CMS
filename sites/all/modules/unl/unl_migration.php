@@ -78,6 +78,7 @@ class Unl_Migration_Tool
     private $_content             = array();
     private $_createdContent      = array();
     private $_lastModifications   = array();
+    private $_redirects           = array();
     private $_hrefTransform       = array();
     private $_hrefTransformFiles  = array();
     private $_menu                = array();
@@ -150,6 +151,9 @@ class Unl_Migration_Tool
                     unset($transforms['']);
                 }
                 foreach ($transforms as $oldPath => &$newPath) {
+                    if (array_key_exists($newPath, $this->_redirects)) {
+                        $newPath = $this->_redirects[$newPath];
+                    }
                     if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
                         $newPath = $this->_hrefTransformFiles[$newPath];
                     }
@@ -639,6 +643,13 @@ class Unl_Migration_Tool
             $location = $headers['Location'];
             $path = substr($location, strlen($this->_baseUrl));
             $this->_addSitePath($path);
+            
+            if (substr($location, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+                $this->_redirects[substr($url, strlen($this->_baseUrl))] = substr($location, strlen($this->_baseUrl));
+            } else {
+                $this->_redirects[substr($url, strlen($this->_baseUrl))] = $location;
+            }
+            
             $this->_log('Found a redirect from ' . $url . ' to ' . $location . '. Some links may need to be updated.');
             return FALSE;
         } else if ($meta['http_code'] != 200) {
