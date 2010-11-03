@@ -266,6 +266,17 @@ class Unl_Migration_Tool
 
     private function _createMenu()
     {
+        // Start off by removing the "Home" menu link if it exists.
+        $menu_links = menu_load_links('main-menu');
+        foreach ($menu_links as $menu_link) {
+          if ($menu_link['plid'] == 0 &&
+              $menu_link['link_title'] == 'Home' &&
+              $menu_link['link_path'] == '<front>') {
+            menu_link_delete($menu_link['mlid']);
+          }
+        }
+        
+        // Now recursively create each menu.
         $primaryWeights = 1;
         foreach ($this->_menu as $primaryMenu) {
             $item = array(
