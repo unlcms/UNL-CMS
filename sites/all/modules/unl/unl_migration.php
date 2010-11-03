@@ -621,6 +621,7 @@ class Unl_Migration_Tool
         
         if ($makeFrontPage) {
             variable_set('site_frontpage', 'node/' . $node->nid);
+            variable_set('site_name', $title);
         }
         
         $this->_log('Created page "' . $title . '" with node id ' . $node->nid . ' at ' . $alias . '.');
