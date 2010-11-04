@@ -86,6 +86,8 @@ class Unl_Migration_Tool
     private $_pageTitles          = array();
     private $_log                 = array();
     private $_blocks              = array();
+    private $_isFrontier          = FALSE;
+    private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -101,6 +103,13 @@ class Unl_Migration_Tool
     {
         header('Content-type: text/plain');
 
+        // Check to see if we're migrating from frontier so we can make some extra assumptions.
+        $baseUrlParts = parse_url($baseUrl);
+        $remoteHostname = gethostbyaddr(gethostbyname($baseUrlParts['host']));
+        if ($remoteHostname == 'frontier.unl.edu') {
+            $this->_isFrontier = TRUE;
+        }
+        
         // Add trailing slash if necessary
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
@@ -229,7 +238,7 @@ class Unl_Migration_Tool
     
         $linkNodes = $navlinksNode->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('href'), '');
+            $this->_processLinks($linkNode->getAttribute('href'), '', '<menu>');
         }
         
         $navlinksUlNode = $navlinksNode->getElementsByTagName('ul')->item(0);
@@ -496,18 +505,24 @@ class Unl_Migration_Tool
         $this->_pageTitles[$path] = $pageTitle;
     }
     
-    private function _processLinks($originalHref, $path)
+    private function _processLinks($originalHref, $path, $tag = NULL)
     {
         if (substr($originalHref, 0, 1) == '#') {
             return;
         }
+        
         $href = $this->_makeLinkAbsolute($originalHref, $path);
+        
         if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
             $newPath = substr($href, strlen($this->_baseUrl));
             if ($newPath === FALSE) {
                 $newPath = '';
             }
-            $this->_hrefTransform[$path][$originalHref] = $newPath;
+            if ($tag) {
+                $this->_hrefTransform[$tag][$originalHref] = $newPath;
+            } else {
+                $this->_hrefTransform[$path][$originalHref] = $newPath;
+            }
             $this->_addSitePath($newPath);
         }
     }
@@ -571,6 +586,16 @@ class Unl_Migration_Tool
         $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
         $absoluteUrl .= isset($parts['path']) ? $parts['path'] : '';
         $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+        
+        if (
+          $this->_isFrontier &&
+          substr($absoluteUrl, 0, strlen($this->_baseUrl)) == $this->_baseUrl &&
+          in_array(basename($parts['path']), $this->_frontierIndexFiles)
+        ) {
+            $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
+            $absoluteUrl .= isset($parts['path']) ? dirname($parts['path']) . '/' : '';
+            $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+        }
         
         return $absoluteUrl;
     }
@@ -713,7 +738,7 @@ class Unl_Migration_Tool
     
     private function _frontierConnect()
     {
-        if (!$this->_frontierPath) {
+        if (!$this->_isFrontier || !$this->_frontierPath) {
             return NULL;
         }
         
