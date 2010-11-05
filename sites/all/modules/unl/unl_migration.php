@@ -778,6 +778,7 @@ class Unl_Migration_Tool
                 $this->_frontier = NULL;
                 $this->_log('Error: could not connect to frontier with user ' . $this->_frontierUser . '.');
             }
+            ftp_pasv($this->_frontier, TRUE);
         }
         return $this->_frontier;
     }
