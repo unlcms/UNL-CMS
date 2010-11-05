@@ -113,7 +113,7 @@ class Unl_Migration_Tool
         // Add trailing slash if necessary
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
-            $baseUrl .= '/';
+            //$baseUrl .= '/';
         }
 
         $this->_frontierPath = $frontierPath;
@@ -175,7 +175,7 @@ class Unl_Migration_Tool
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
             foreach ($this->_content as $path => $content) {
-                if (in_array($path, $this->_createdContent)) {
+                if (in_array($path, $this->_createdContent, TRUE)) {
                     continue;
                 }
                 if (time() - $start_time > $time_limit) {
@@ -236,9 +236,16 @@ class Unl_Migration_Tool
         $dom->loadHTML($html);
         $navlinksNode = $dom->getElementById('navigation');
     
+        // Check to see if there's a base tag on this page.
+        $base_tags = $dom->getElementsByTagName('base');
+        $page_base = NULL;
+        if ($base_tags->length > 0) {
+          $page_base = $base_tags->item(0)->getAttribute('href');
+        }
+        
         $linkNodes = $navlinksNode->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('href'), '', '<menu>');
+            $this->_processLinks($linkNode->getAttribute('href'), '', $page_base, '<menu>');
         }
         
         $navlinksUlNode = $navlinksNode->getElementsByTagName('ul')->item(0);
@@ -459,6 +466,13 @@ class Unl_Migration_Tool
         $dom = new DOMDocument();
         $dom->loadHTML($html);
         
+        // Check to see if there's a base tag on this page.
+        $base_tags = $dom->getElementsByTagName('base');
+        $page_base = NULL;
+        if ($base_tags->length > 0) {
+          $page_base = $base_tags->item(0)->getAttribute('href');
+        }
+        
         $pageTitle = '';
         $pageTitleNode = $dom->getElementById('pagetitle');
         if ($pageTitleNode) {
@@ -493,25 +507,28 @@ class Unl_Migration_Tool
         
         $linkNodes = $maincontentNode->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('href'), $path);
+            $this->_processLinks($linkNode->getAttribute('href'), $path, $page_base);
         }
     
         $linkNodes = $maincontentNode->getElementsByTagName('img');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('src'), $path);
+            $this->_processLinks($linkNode->getAttribute('src'), $path, $page_base);
         }
         
         $this->_content[$path] = $maincontentarea;
         $this->_pageTitles[$path] = $pageTitle;
     }
     
-    private function _processLinks($originalHref, $path, $tag = NULL)
+    private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL)
     {
         if (substr($originalHref, 0, 1) == '#') {
             return;
         }
         
-        $href = $this->_makeLinkAbsolute($originalHref, $path);
+        if (!$page_base) {
+          $path_base = $path;
+        }
+        $href = $this->_makeLinkAbsolute($originalHref, $page_base);
         
         if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
             $newPath = substr($href, strlen($this->_baseUrl));
@@ -529,6 +546,15 @@ class Unl_Migration_Tool
     
     private function _makeLinkAbsolute($href, $path)
     {
+        $path_parts = parse_url($path);
+        
+        if ($path_parts['scheme']) {
+            $base_url = $path;
+            $path = '';
+        } else {
+            $base_url = $this->_baseUrl;
+        }
+        
         if (substr($path, -1) == '/') {
             $intermediatePath = $path;
         } else {
@@ -585,6 +611,7 @@ class Unl_Migration_Tool
         
         $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
         $absoluteUrl .= isset($parts['path']) ? $parts['path'] : '';
+        $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
         $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
         
         if (
@@ -594,6 +621,7 @@ class Unl_Migration_Tool
         ) {
             $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
             $absoluteUrl .= isset($parts['path']) ? dirname($parts['path']) . '/' : '';
+            $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
             $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
         }
         
@@ -770,8 +798,11 @@ class Unl_Migration_Tool
                 //file is a directory
                 $this->_frontierScan($path . $file . '/');
             } else {
+                if (substr($path, 0, 1) == '/') {
+                    $path = substr($path, 1);
+                }
                 $files[] = $file;
-                if ($file == 'index.shtml') {
+                if (in_array($file, $this->_frontierIndexFiles)) {
                     $this->_addSitePath($path);
                 } else {
                     $this->_addSitePath($path . $file);
