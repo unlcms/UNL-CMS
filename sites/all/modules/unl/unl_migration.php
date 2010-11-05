@@ -171,8 +171,6 @@ class Unl_Migration_Tool
            
             $this->_state = self::STATE_CREATING_NODES;
         }
-        print_r($this->_hrefTransform);
-        exit;
         
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
