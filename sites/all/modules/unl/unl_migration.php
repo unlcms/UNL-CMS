@@ -175,7 +175,7 @@ class Unl_Migration_Tool
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
             foreach ($this->_content as $path => $content) {
-                if (in_array($path, $this->_createdContent)) {
+                if (in_array($path, $this->_createdContent, TRUE)) {
                     continue;
                 }
                 if (time() - $start_time > $time_limit) {
@@ -798,8 +798,11 @@ class Unl_Migration_Tool
                 //file is a directory
                 $this->_frontierScan($path . $file . '/');
             } else {
+                if (substr($path, 0, 1) == '/') {
+                    $path = substr($path, 1);
+                }
                 $files[] = $file;
-                if ($file == 'index.shtml') {
+                if (in_array($file, $this->_frontierIndexFiles)) {
                     $this->_addSitePath($path);
                 } else {
                     $this->_addSitePath($path . $file);
