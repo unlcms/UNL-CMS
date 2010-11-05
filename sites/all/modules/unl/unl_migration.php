@@ -113,7 +113,7 @@ class Unl_Migration_Tool
         // Add trailing slash if necessary
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
-            $baseUrl .= '/';
+            //$baseUrl .= '/';
         }
 
         $this->_frontierPath = $frontierPath;
@@ -171,6 +171,8 @@ class Unl_Migration_Tool
            
             $this->_state = self::STATE_CREATING_NODES;
         }
+        print_r($this->_hrefTransform);
+        exit;
         
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
@@ -585,6 +587,7 @@ class Unl_Migration_Tool
         
         $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
         $absoluteUrl .= isset($parts['path']) ? $parts['path'] : '';
+        $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
         $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
         
         if (
@@ -594,6 +597,7 @@ class Unl_Migration_Tool
         ) {
             $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
             $absoluteUrl .= isset($parts['path']) ? dirname($parts['path']) . '/' : '';
+            $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
             $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
         }
         
