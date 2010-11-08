@@ -30,6 +30,11 @@ function unl_migration($form, &$form_state)
         '#title' => t('Frontier FTP Password'),
         '#required' => FALSE
     );
+    $form['root']['ignore_duplicates'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Ignore Duplicate Pages/Files'),
+        '#description' => t("This may be needed if your site has an unlimited number of dynamicly generated paths."),
+    );
     
     $form['submit'] = array(
         '#type' => 'submit',
@@ -45,7 +50,8 @@ function unl_migration_submit($form, &$form_state)
       $form_state['values']['site_url'],
       $form_state['values']['frontier_path'],
       $form_state['values']['frontier_user'],
-      $form_state['values']['frontier_pass']
+      $form_state['values']['frontier_pass'],
+      $form_state['values']['ignore_duplicates']
     );
     while (!$migration->migrate());
 }
@@ -88,6 +94,7 @@ class Unl_Migration_Tool
     private $_blocks              = array();
     private $_isFrontier          = FALSE;
     private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
+    private $_ignoreDuplicates    = FALSE;
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -99,7 +106,7 @@ class Unl_Migration_Tool
     const STATE_CREATING_NODES   = 3;
     const STATE_DONE             = 4;
     
-    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
+    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates)
     {
         header('Content-type: text/plain');
 
@@ -119,7 +126,8 @@ class Unl_Migration_Tool
         $this->_frontierPath = $frontierPath;
         $this->_frontierUser = $frontierUser;
         $this->_frontierPass = $frontierPass;
-
+        
+        $this->_ignoreDuplicates = (bool) $ignoreDuplicates;
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
@@ -432,8 +440,13 @@ class Unl_Migration_Tool
         
         $pageHash = hash('md5', $data['content']);
         if (($matchingPath = array_search($pageHash, $this->_processedPageHashes)) !== FALSE) {
-            $this->_log("The file found at $fullPath was a duplicate of the file at {$this->_baseUrl}$matchingPath ! Ignoring.");
-            return;
+            $logMessage = "The file found at $fullPath was a duplicate of the file at {$this->_baseUrl}$matchingPath !";
+            if ($this->_ignoreDuplicates) {
+                $this->_log($logMessage . ' Ignoring.');
+                return;
+            } else {
+                $this->_log($logMessage);
+            }
         }
         $this->_processedPageHashes[$path] = $pageHash; 
         
@@ -526,8 +539,9 @@ class Unl_Migration_Tool
         }
         
         if (!$page_base) {
-          $path_base = $path;
+          $page_base = $path;
         }
+        
         $href = $this->_makeLinkAbsolute($originalHref, $page_base);
         
         if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
