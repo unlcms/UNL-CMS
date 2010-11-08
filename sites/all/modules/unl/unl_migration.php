@@ -191,11 +191,9 @@ class Unl_Migration_Tool
                 }
                 set_time_limit(30);
                 
-                $hrefTransform = $this->_hrefTransform[$path];
+                $hrefTransform = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
+                $content = strtr($content, $hrefTransform);
                 
-                if (is_array($hrefTransform)) {
-                    $content = strtr($content, $hrefTransform);
-                }
                 $pageTitle = $this->_pageTitles[$path];
                 $this->_createPage($pageTitle, $content, $path, '' == $path);
                 $this->_createdContent[] = $path;
@@ -450,7 +448,7 @@ class Unl_Migration_Tool
         }
         $this->_processedPageHashes[$path] = $pageHash; 
         
-        if ($data['lastModified']) {
+        if (isset($data['lastModified'])) {
             $this->_lastModifications[$path] = $data['lastModified'];
         }
         if (strpos($data['contentType'], 'html') === FALSE) {
@@ -477,7 +475,7 @@ class Unl_Migration_Tool
         }
         
         $dom = new DOMDocument();
-        $dom->loadHTML($html);
+        @$dom->loadHTML($html);
         
         // Check to see if there's a base tag on this page.
         $base_tags = $dom->getElementsByTagName('base');
@@ -562,7 +560,7 @@ class Unl_Migration_Tool
     {
         $path_parts = parse_url($path);
         
-        if ($path_parts['scheme']) {
+        if (isset($path_parts['scheme'])) {
             $base_url = $path;
             $path = '';
         } else {
@@ -582,7 +580,7 @@ class Unl_Migration_Tool
         }
         
         $parts = parse_url($href);
-        if (isset($parts['scheme']) && $parts['scheme'] == 'mailto') {
+        if (isset($parts['scheme']) && !in_array($parts['scheme'], array('http', 'https'))) {
             return $href;
         }
         if (isset($parts['scheme'])) {
@@ -590,7 +588,7 @@ class Unl_Migration_Tool
         } else if (isset($parts['path']) && substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
             $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
-            if ($parts['fragment']) {
+            if (isset($parts['fragment'])) {
                 $absoluteUrl .= '#' . $parts['fragment'];
             }
         } else if (substr($href, 0, 1) == '#') {
@@ -672,7 +670,7 @@ class Unl_Migration_Tool
             return;
         }
         
-        if ($this->_lastModifications[$alias]) {
+        if (isset($this->_lastModifications[$alias])) {
             $mtime = $this->_lastModifications[$alias];
             $mtimes = array(
                 'created' => $mtime,
@@ -745,7 +743,7 @@ class Unl_Migration_Tool
             $mtime = $this->_getModifiedDate($url);
             if ($mtime) {
                 $data['lastModified'] = $mtime;
-            } else if ($headers['Last-Modified']) {
+            } else if (isset($headers['Last-Modified'])) {
                 $data['lastModified'] = strtotime($headers['Last-Modified']);
             }
         }
@@ -768,11 +766,24 @@ class Unl_Migration_Tool
         }
         
         $ftpPath = $this->_frontierPath . $path;
+        $ftpPaths = array();
         if (substr($ftpPath, -1) == '/') {
-            $ftpPath .= 'index.shtml';
+            foreach ($this->_frontierIndexFiles as $frontierIndexFile) {
+                $ftpPaths[] = $ftpPath . $frontierIndexFile;
+            }
+        } else {
+            $ftpPaths[] = $ftpPath;
         }
         
-        $files = ftp_rawlist($this->_frontier, $ftpPath);
+        foreach ($ftpPaths as $ftpPath) {
+            $files = ftp_rawlist($this->_frontier, $ftpPath);
+            if (isset($files[0])) {
+                break;
+            }
+        }
+        if (!isset($files[0])) {
+            return NULL;
+        }
         $mtime = substr($files[0], 43, 12);
         $mtime = strtotime($mtime);
         return $mtime;
