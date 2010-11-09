@@ -218,7 +218,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
    * be using the menu to build a site hierarchy.  Instead, add a button that will
    * determine whether or not the menu link is visible or not.
    */ 
-  if ($form_id == 'page_node_form') {
+  if (substr($form_id, -10) == '_node_form') {
     $form['menu']['#title'] = 'Site hierachy';
     
     $form['menu']['enabled']['#default_value'] = TRUE;
