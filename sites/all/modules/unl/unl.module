@@ -212,6 +212,66 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       }
     }
   }
+  
+  /**
+   * On the node edit form, hide the "Provide a menu link" checkbox since we'll
+   * be using the menu to build a site hierarchy.  Instead, add a button that will
+   * determine whether or not the menu link is visible or not.
+   */ 
+  if ($form_id == 'page_node_form') {
+    $form['menu']['#title'] = 'Site hierachy';
+    
+    $form['menu']['enabled']['#default_value'] = TRUE;
+    $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
+    $form['menu']['enabled']['#suffix'] = '</div>';
+    
+    $form['menu']['link']['link_title']['#required'] = TRUE;
+    
+  
+    $mlid = $form['menu']['link']['mlid']['#value'];
+    if ($mlid) {
+      $menu_link = menu_link_load($mlid);
+      $default_visible = ($menu_link['hidden'] ? 0 : 1);
+    }
+    else {
+      $default_visible = 0;
+    }
+    $form['menu']['visible'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Display in menu',
+      '#default_value' => $default_visible,
+      '#weight' => 0,
+    );
+    
+    $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
+  }
+}
+
+/**
+ * When a node is modified, update its menu link to be hidden or not based on the user input.
+ */
+function unl_node_form_submit($form, &$form_state) {
+  $menu_data = $form_state['values']['menu'];
+
+  if ($menu_data['mlid']) {
+    $menu_link = menu_link_load($menu_data['mlid']);
+  }
+  else {
+    list($parent_menu_name, $parent_mlid) = explode(':', $menu_data['parent']);
+    $menu_links = menu_load_links($parent_menu_name);
+    foreach ($menu_links as $menu_link) {
+      if ($menu_link['plid'] != $parent_mlid) {
+        continue;
+      }
+      if ($menu_link['link_path'] != 'node/' . $form_state['values']['nid']) {
+        continue;
+      }
+      break;
+    }
+  }
+  
+  $menu_link['hidden'] = $menu_data['visible'] ? 0 : 1;
+  menu_link_save($menu_link);
 }
 
 function unl_system_settings_form_submit($form, &$form_state) {
@@ -221,10 +281,10 @@ function unl_system_settings_form_submit($form, &$form_state) {
 function unl_theme() {
   return array(
     'unl_site_list_table' => array(
-      'render element' => 'form'
+      'render element' => 'form',
     ),
     'unl_alias_list_table' => array(
-      'render element' => 'form'
+      'render element' => 'form',
     ),
   );
 }
