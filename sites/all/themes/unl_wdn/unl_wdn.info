@@ -6,6 +6,8 @@ engine = phptemplate
 
 stylesheets[all][] = style.css
 
+scripts[] = theme.js
+
 features[] = main_menu
 features[] = name
 features[] = node_user_picture
