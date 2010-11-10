@@ -248,6 +248,14 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     // Also turn on revisioning by default
     $form['revision_information']['revision']['#default_value'] = TRUE;
     unset($form['revision_information']['revision']['#states']);
+    
+    // Also hide the "Promoted to front page" option
+    $form['options']['promote']['#prefix'] = '<div style="display:none;">';
+    $form['options']['promote']['#suffix'] = '</div>';
+    
+    // Also hide the "Sticky at top of lists" option
+    $form['options']['sticky']['#prefix'] = '<div style="display:none;">';
+    $form['options']['sticky']['#suffix'] = '</div>';
   }
 }
 
