@@ -244,6 +244,10 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     );
     
     $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
+    
+    // Also turn on revisioning by default
+    $form['revision_information']['revision']['#default_value'] = TRUE;
+    unset($form['revision_information']['revision']['#states']);
   }
 }
 
