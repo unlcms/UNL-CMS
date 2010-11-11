@@ -211,7 +211,10 @@ EOF;
     // End adding custom blocks
     
     
-    
+    // Set the "Home" menu link to be expanded by default
+    $links = menu_load_links('main-menu');
+    $links[0]['expanded'] = 1;
+    menu_link_save($links[0]);
     
     
 
