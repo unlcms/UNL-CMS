@@ -30,6 +30,11 @@ function unl_migration($form, &$form_state)
         '#title' => t('Frontier FTP Password'),
         '#required' => FALSE
     );
+    $form['root']['ignore_duplicates'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Ignore Duplicate Pages/Files'),
+        '#description' => t("This may be needed if your site has an unlimited number of dynamicly generated paths."),
+    );
     
     $form['submit'] = array(
         '#type' => 'submit',
@@ -45,7 +50,8 @@ function unl_migration_submit($form, &$form_state)
       $form_state['values']['site_url'],
       $form_state['values']['frontier_path'],
       $form_state['values']['frontier_user'],
-      $form_state['values']['frontier_pass']
+      $form_state['values']['frontier_pass'],
+      $form_state['values']['ignore_duplicates']
     );
     while (!$migration->migrate());
 }
@@ -78,6 +84,7 @@ class Unl_Migration_Tool
     private $_content             = array();
     private $_createdContent      = array();
     private $_lastModifications   = array();
+    private $_redirects           = array();
     private $_hrefTransform       = array();
     private $_hrefTransformFiles  = array();
     private $_menu                = array();
@@ -85,6 +92,9 @@ class Unl_Migration_Tool
     private $_pageTitles          = array();
     private $_log                 = array();
     private $_blocks              = array();
+    private $_isFrontier          = FALSE;
+    private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
+    private $_ignoreDuplicates    = FALSE;
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -96,20 +106,28 @@ class Unl_Migration_Tool
     const STATE_CREATING_NODES   = 3;
     const STATE_DONE             = 4;
     
-    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass)
+    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates)
     {
         header('Content-type: text/plain');
 
+        // Check to see if we're migrating from frontier so we can make some extra assumptions.
+        $baseUrlParts = parse_url($baseUrl);
+        $remoteHostname = gethostbyaddr(gethostbyname($baseUrlParts['host']));
+        if ($remoteHostname == 'frontier.unl.edu') {
+            $this->_isFrontier = TRUE;
+        }
+        
         // Add trailing slash if necessary
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
-            $baseUrl .= '/';
+            //$baseUrl .= '/';
         }
 
         $this->_frontierPath = $frontierPath;
         $this->_frontierUser = $frontierUser;
         $this->_frontierPass = $frontierPass;
-
+        
+        $this->_ignoreDuplicates = (bool) $ignoreDuplicates;
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
@@ -150,6 +168,9 @@ class Unl_Migration_Tool
                     unset($transforms['']);
                 }
                 foreach ($transforms as $oldPath => &$newPath) {
+                    if (array_key_exists($newPath, $this->_redirects)) {
+                        $newPath = $this->_redirects[$newPath];
+                    }
                     if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
                         $newPath = $this->_hrefTransformFiles[$newPath];
                     }
@@ -162,7 +183,7 @@ class Unl_Migration_Tool
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
             foreach ($this->_content as $path => $content) {
-                if (in_array($path, $this->_createdContent)) {
+                if (in_array($path, $this->_createdContent, TRUE)) {
                     continue;
                 }
                 if (time() - $start_time > $time_limit) {
@@ -170,11 +191,9 @@ class Unl_Migration_Tool
                 }
                 set_time_limit(30);
                 
-                $hrefTransform = $this->_hrefTransform[$path];
+                $hrefTransform = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
+                $content = strtr($content, $hrefTransform);
                 
-                if (is_array($hrefTransform)) {
-                    $content = strtr($content, $hrefTransform);
-                }
                 $pageTitle = $this->_pageTitles[$path];
                 $this->_createPage($pageTitle, $content, $path, '' == $path);
                 $this->_createdContent[] = $path;
@@ -223,9 +242,16 @@ class Unl_Migration_Tool
         $dom->loadHTML($html);
         $navlinksNode = $dom->getElementById('navigation');
     
+        // Check to see if there's a base tag on this page.
+        $base_tags = $dom->getElementsByTagName('base');
+        $page_base = NULL;
+        if ($base_tags->length > 0) {
+          $page_base = $base_tags->item(0)->getAttribute('href');
+        }
+        
         $linkNodes = $navlinksNode->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('href'), '');
+            $this->_processLinks($linkNode->getAttribute('href'), '', $page_base, '<menu>');
         }
         
         $navlinksUlNode = $navlinksNode->getElementsByTagName('ul')->item(0);
@@ -262,6 +288,17 @@ class Unl_Migration_Tool
 
     private function _createMenu()
     {
+        // Start off by removing the "Home" menu link if it exists.
+        $menu_links = menu_load_links('main-menu');
+        foreach ($menu_links as $menu_link) {
+          if ($menu_link['plid'] == 0 &&
+              $menu_link['link_title'] == 'Home' &&
+              $menu_link['link_path'] == '<front>') {
+            menu_link_delete($menu_link['mlid']);
+          }
+        }
+        
+        // Now recursively create each menu.
         $primaryWeights = 1;
         foreach ($this->_menu as $primaryMenu) {
             $item = array(
@@ -401,12 +438,17 @@ class Unl_Migration_Tool
         
         $pageHash = hash('md5', $data['content']);
         if (($matchingPath = array_search($pageHash, $this->_processedPageHashes)) !== FALSE) {
-            $this->_log("The file found at $fullPath was a duplicate of the file at {$this->_baseUrl}$matchingPath ! Ignoring.");
-            return;
+            $logMessage = "The file found at $fullPath was a duplicate of the file at {$this->_baseUrl}$matchingPath !";
+            if ($this->_ignoreDuplicates) {
+                $this->_log($logMessage . ' Ignoring.');
+                return;
+            } else {
+                $this->_log($logMessage);
+            }
         }
         $this->_processedPageHashes[$path] = $pageHash; 
         
-        if ($data['lastModified']) {
+        if (isset($data['lastModified'])) {
             $this->_lastModifications[$path] = $data['lastModified'];
         }
         if (strpos($data['contentType'], 'html') === FALSE) {
@@ -433,7 +475,14 @@ class Unl_Migration_Tool
         }
         
         $dom = new DOMDocument();
-        $dom->loadHTML($html);
+        @$dom->loadHTML($html);
+        
+        // Check to see if there's a base tag on this page.
+        $base_tags = $dom->getElementsByTagName('base');
+        $page_base = NULL;
+        if ($base_tags->length > 0) {
+          $page_base = $base_tags->item(0)->getAttribute('href');
+        }
         
         $pageTitle = '';
         $pageTitleNode = $dom->getElementById('pagetitle');
@@ -469,36 +518,55 @@ class Unl_Migration_Tool
         
         $linkNodes = $maincontentNode->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('href'), $path);
+            $this->_processLinks($linkNode->getAttribute('href'), $path, $page_base);
         }
     
         $linkNodes = $maincontentNode->getElementsByTagName('img');
         foreach ($linkNodes as $linkNode) {
-            $this->_processLinks($linkNode->getAttribute('src'), $path);
+            $this->_processLinks($linkNode->getAttribute('src'), $path, $page_base);
         }
         
         $this->_content[$path] = $maincontentarea;
         $this->_pageTitles[$path] = $pageTitle;
     }
     
-    private function _processLinks($originalHref, $path)
+    private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL)
     {
         if (substr($originalHref, 0, 1) == '#') {
             return;
         }
-        $href = $this->_makeLinkAbsolute($originalHref, $path);
+        
+        if (!$page_base) {
+          $page_base = $path;
+        }
+        
+        $href = $this->_makeLinkAbsolute($originalHref, $page_base);
+        
         if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
             $newPath = substr($href, strlen($this->_baseUrl));
             if ($newPath === FALSE) {
                 $newPath = '';
             }
-            $this->_hrefTransform[$path][$originalHref] = $newPath;
+            if ($tag) {
+                $this->_hrefTransform[$tag][$originalHref] = $newPath;
+            } else {
+                $this->_hrefTransform[$path][$originalHref] = $newPath;
+            }
             $this->_addSitePath($newPath);
         }
     }
     
     private function _makeLinkAbsolute($href, $path)
     {
+        $path_parts = parse_url($path);
+        
+        if (isset($path_parts['scheme'])) {
+            $base_url = $path;
+            $path = '';
+        } else {
+            $base_url = $this->_baseUrl;
+        }
+        
         if (substr($path, -1) == '/') {
             $intermediatePath = $path;
         } else {
@@ -512,7 +580,7 @@ class Unl_Migration_Tool
         }
         
         $parts = parse_url($href);
-        if (isset($parts['scheme']) && $parts['scheme'] == 'mailto') {
+        if (isset($parts['scheme']) && !in_array($parts['scheme'], array('http', 'https'))) {
             return $href;
         }
         if (isset($parts['scheme'])) {
@@ -520,7 +588,7 @@ class Unl_Migration_Tool
         } else if (isset($parts['path']) && substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
             $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
-            if ($parts['fragment']) {
+            if (isset($parts['fragment'])) {
                 $absoluteUrl .= '#' . $parts['fragment'];
             }
         } else if (substr($href, 0, 1) == '#') {
@@ -555,7 +623,19 @@ class Unl_Migration_Tool
         
         $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
         $absoluteUrl .= isset($parts['path']) ? $parts['path'] : '';
+        $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
         $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+        
+        if (
+          $this->_isFrontier &&
+          substr($absoluteUrl, 0, strlen($this->_baseUrl)) == $this->_baseUrl &&
+          in_array(basename($parts['path']), $this->_frontierIndexFiles)
+        ) {
+            $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
+            $absoluteUrl .= isset($parts['path']) ? dirname($parts['path']) . '/' : '';
+            $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
+            $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+        }
         
         return $absoluteUrl;
     }
@@ -590,7 +670,7 @@ class Unl_Migration_Tool
             return;
         }
         
-        if ($this->_lastModifications[$alias]) {
+        if (isset($this->_lastModifications[$alias])) {
             $mtime = $this->_lastModifications[$alias];
             $mtimes = array(
                 'created' => $mtime,
@@ -606,6 +686,7 @@ class Unl_Migration_Tool
         
         if ($makeFrontPage) {
             variable_set('site_frontpage', 'node/' . $node->nid);
+            variable_set('site_name', $title);
         }
         
         $this->_log('Created page "' . $title . '" with node id ' . $node->nid . ' at ' . $alias . '.');
@@ -639,6 +720,13 @@ class Unl_Migration_Tool
             $location = $headers['Location'];
             $path = substr($location, strlen($this->_baseUrl));
             $this->_addSitePath($path);
+            
+            if (substr($location, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+                $this->_redirects[substr($url, strlen($this->_baseUrl))] = substr($location, strlen($this->_baseUrl));
+            } else {
+                $this->_redirects[substr($url, strlen($this->_baseUrl))] = $location;
+            }
+            
             $this->_log('Found a redirect from ' . $url . ' to ' . $location . '. Some links may need to be updated.');
             return FALSE;
         } else if ($meta['http_code'] != 200) {
@@ -655,7 +743,7 @@ class Unl_Migration_Tool
             $mtime = $this->_getModifiedDate($url);
             if ($mtime) {
                 $data['lastModified'] = $mtime;
-            } else if ($headers['Last-Modified']) {
+            } else if (isset($headers['Last-Modified'])) {
                 $data['lastModified'] = strtotime($headers['Last-Modified']);
             }
         }
@@ -678,11 +766,24 @@ class Unl_Migration_Tool
         }
         
         $ftpPath = $this->_frontierPath . $path;
+        $ftpPaths = array();
         if (substr($ftpPath, -1) == '/') {
-            $ftpPath .= 'index.shtml';
+            foreach ($this->_frontierIndexFiles as $frontierIndexFile) {
+                $ftpPaths[] = $ftpPath . $frontierIndexFile;
+            }
+        } else {
+            $ftpPaths[] = $ftpPath;
         }
         
-        $files = ftp_rawlist($this->_frontier, $ftpPath);
+        foreach ($ftpPaths as $ftpPath) {
+            $files = ftp_rawlist($this->_frontier, $ftpPath);
+            if (isset($files[0])) {
+                break;
+            }
+        }
+        if (!isset($files[0])) {
+            return NULL;
+        }
         $mtime = substr($files[0], 43, 12);
         $mtime = strtotime($mtime);
         return $mtime;
@@ -690,7 +791,7 @@ class Unl_Migration_Tool
     
     private function _frontierConnect()
     {
-        if (!$this->_frontierPath) {
+        if (!$this->_isFrontier || !$this->_frontierPath) {
             return NULL;
         }
         
@@ -702,6 +803,7 @@ class Unl_Migration_Tool
                 $this->_frontier = NULL;
                 $this->_log('Error: could not connect to frontier with user ' . $this->_frontierUser . '.');
             }
+            ftp_pasv($this->_frontier, TRUE);
         }
         return $this->_frontier;
     }
@@ -722,8 +824,11 @@ class Unl_Migration_Tool
                 //file is a directory
                 $this->_frontierScan($path . $file . '/');
             } else {
+                if (substr($path, 0, 1) == '/') {
+                    $path = substr($path, 1);
+                }
                 $files[] = $file;
-                if ($file == 'index.shtml') {
+                if (in_array($file, $this->_frontierIndexFiles)) {
                     $this->_addSitePath($path);
                 } else {
                     $this->_addSitePath($path . $file);

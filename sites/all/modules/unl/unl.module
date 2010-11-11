@@ -47,6 +47,7 @@ function unl_wysiwyg_plugin($editor) {
             'skin' => 'unl',
             'table_styles' => 'ZenTable Bright (yellow)=zentable bright;ZenTable Cool (blue)=zentable cool;ZenTable Energetic (orange)=zentable energetic;ZenTable Soothing (green)=zentable soothing;ZenTable Primary (red)=zentable primary;ZenTable Neutral (gray)=zentable neutral;', 'doctype' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
           ),
+          'extended_valid_elements' => array('*[*]'),
         )
         // Wysiwyg wrapper plugin AJAX callback.
         // 'callback' => url('myplugin/browse'),
@@ -105,27 +106,25 @@ function unl_menu() {
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
       'title'            => 'UNL Site Creation Tool',
-      'description'      => 'Create a new UNL Drupal site',
+      'description'      => 'Create and manage UNL Drupal sites and aliases.',
       'access arguments' => array('unl site creation'),
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_site_creation'),
+      'page callback'    => 'unl_sites_page',
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
     
-    $items['admin/sites/unl/add'] = array(
-      'title'       => 'Add',
-      'description' => 'Determine access to features by selecting permissions for roles.',
+    $items['admin/sites/unl/sites'] = array(
+      'title'       => 'Sites',
+      'description' => 'Create and manage UNL Drupal sites.',
       'type'        => MENU_DEFAULT_LOCAL_TASK,
       'weight'      => -8,
     );
     
-    $items['admin/sites/unl/list'] = array(
-      'title'            => 'List',
-      'description'      => 'List UNL Drupal sites',
+    $items['admin/sites/unl/aliases'] = array(
+      'title'            => 'Aliases',
+      'description'      => 'Manage aliases of UNL Drupal sites.',
       'access arguments' => array('unl site creation'),
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_site_list'),
+      'page callback'    => 'unl_aliases_page',
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
@@ -214,6 +213,78 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       }
     }
   }
+  
+  /**
+   * On the node edit form, hide the "Provide a menu link" checkbox since we'll
+   * be using the menu to build a site hierarchy.  Instead, add a button that will
+   * determine whether or not the menu link is visible or not.
+   */ 
+  if (substr($form_id, -10) == '_node_form') {
+    $form['menu']['#title'] = 'Site hierachy';
+    
+    $form['menu']['enabled']['#default_value'] = TRUE;
+    $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
+    $form['menu']['enabled']['#suffix'] = '</div>';
+    
+    $form['menu']['link']['link_title']['#required'] = TRUE;
+    
+  
+    $mlid = $form['menu']['link']['mlid']['#value'];
+    if ($mlid) {
+      $menu_link = menu_link_load($mlid);
+      $default_visible = ($menu_link['hidden'] ? 0 : 1);
+    }
+    else {
+      $default_visible = 0;
+    }
+    $form['menu']['visible'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Display in menu',
+      '#default_value' => $default_visible,
+      '#weight' => 0,
+    );
+    
+    $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
+    
+    // Also turn on revisioning by default
+    $form['revision_information']['revision']['#default_value'] = TRUE;
+    unset($form['revision_information']['revision']['#states']);
+    
+    // Also hide the "Promoted to front page" option
+    $form['options']['promote']['#prefix'] = '<div style="display:none;">';
+    $form['options']['promote']['#suffix'] = '</div>';
+    
+    // Also hide the "Sticky at top of lists" option
+    $form['options']['sticky']['#prefix'] = '<div style="display:none;">';
+    $form['options']['sticky']['#suffix'] = '</div>';
+  }
+}
+
+/**
+ * When a node is modified, update its menu link to be hidden or not based on the user input.
+ */
+function unl_node_form_submit($form, &$form_state) {
+  $menu_data = $form_state['values']['menu'];
+
+  if ($menu_data['mlid']) {
+    $menu_link = menu_link_load($menu_data['mlid']);
+  }
+  else {
+    list($parent_menu_name, $parent_mlid) = explode(':', $menu_data['parent']);
+    $menu_links = menu_load_links($parent_menu_name);
+    foreach ($menu_links as $menu_link) {
+      if ($menu_link['plid'] != $parent_mlid) {
+        continue;
+      }
+      if ($menu_link['link_path'] != 'node/' . $form_state['values']['nid']) {
+        continue;
+      }
+      break;
+    }
+  }
+  
+  $menu_link['hidden'] = $menu_data['visible'] ? 0 : 1;
+  menu_link_save($menu_link);
 }
 
 function unl_system_settings_form_submit($form, &$form_state) {
@@ -223,8 +294,11 @@ function unl_system_settings_form_submit($form, &$form_state) {
 function unl_theme() {
   return array(
     'unl_site_list_table' => array(
-      'render element' => 'form'
-    )
+      'render element' => 'form',
+    ),
+    'unl_alias_list_table' => array(
+      'render element' => 'form',
+    ),
   );
 }
 

@@ -12,44 +12,125 @@ require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
 drupal_override_server_variables();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
-$query = db_query('SELECT * FROM {unl_sites} WHERE installed=0');
-while ($row = $query->fetchAssoc()) {
-  db_update('unl_sites')
-   ->fields(array('installed' => 1))
-   ->condition('site_id', $row['site_id'])
-   ->execute();
-  if (unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix'], $row['site_id'])) {
+unl_remove_aliases();
+unl_remove_sites();
+unl_add_sites();
+unl_add_aliases();
+
+function unl_add_sites() {
+  $query = db_query('SELECT * FROM {unl_sites} WHERE installed=0');
+  
+  while ($row = $query->fetchAssoc()) {
     db_update('unl_sites')
-      ->fields(array('installed' => 2))
+      ->fields(array('installed' => 1))
       ->condition('site_id', $row['site_id'])
       ->execute();
-  }
-  else {
-    db_update('unl_sites')
-      ->fields(array('installed' => 5))
-      ->condition('site_id', $row['site_id'])
-      ->execute();
+    if (unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix'], $row['site_id'])) {
+      db_update('unl_sites')
+        ->fields(array('installed' => 2))
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+    }
+    else {
+      db_update('unl_sites')
+        ->fields(array('installed' => 5))
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+    }
   }
 }
 
-$query = db_query('SELECT * FROM {unl_sites} WHERE installed=3');
-while ($row = $query->fetchAssoc()) {
-  db_update('unl_sites')
-    ->fields(array('installed' => 4))
-    ->condition('site_id', $row['site_id'])
-    ->execute();
-  if (unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix'], $row['site_id'])) {
-    db_delete('unl_sites')
-      ->condition('site_id', $row['site_id'])
-      ->execute();
-  }
-  else {
+function unl_remove_sites() {
+  $query = db_query('SELECT * FROM {unl_sites} WHERE installed=3');
+  while ($row = $query->fetchAssoc()) {
     db_update('unl_sites')
-      ->fields(array('installed' => 5))
+      ->fields(array('installed' => 4))
       ->condition('site_id', $row['site_id'])
       ->execute();
+    if (unl_remove_site($row['site_path'], $row['uri'], $row['db_prefix'], $row['site_id'])) {
+      db_delete('unl_sites')
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+    }
+    else {
+      db_update('unl_sites')
+        ->fields(array('installed' => 5))
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+    }
+  }
+}
+
+function unl_add_aliases() {
+  $query = db_select('unl_sites_aliases', 'a');
+  $query->join('unl_sites', 's', 's.site_id = a.site_id');
+  $query->fields('s', array('uri'));
+  $query->fields('a', array('site_alias_id', 'uri'));
+  $query->condition('a.installed', 0);
+  $results = $query->execute()->fetchAll();
+  
+  foreach ($results as $row) {
+    db_update('unl_sites_aliases')
+      ->fields(array('installed' => 1))
+      ->condition('site_alias_id', $row->site_alias_id)
+      ->execute();
+    if (unl_add_alias($row->uri, $row->a_uri)) {
+      db_update('unl_sites_aliases')
+        ->fields(array('installed' => 2))
+        ->condition('site_alias_id', $row->site_alias_id)
+        ->execute();
+    }
+    else {
+      db_update('unl_sites_aliases')
+        ->fields(array('installed' => 5))
+        ->condition('site_alias_id', $row->site_alias_id)
+        ->execute();
+    }
+  }
+}
+
+function unl_remove_aliases() {
+  $query = db_select('unl_sites_aliases', 'a');
+  $query->fields('a', array('site_alias_id', 'uri'));
+  $query->condition('a.installed', 3);
+  $results = $query->execute()->fetchAll();
+  
+  foreach ($results as $row) {
+    db_update('unl_sites_aliases')
+      ->fields(array('installed' => 4))
+      ->condition('site_alias_id', $row->site_alias_id)
+      ->execute();
+    if (unl_remove_alias($row->uri)) {
+      db_delete('unl_sites_aliases')
+        ->condition('site_alias_id', $row->site_alias_id)
+        ->execute();
+    }
+    else {
+      db_update('unl_sites_aliases')
+        ->fields(array('installed' => 5))
+        ->condition('site_alias_id', $row->site_alias_id)
+        ->execute();
+    }
+  }
+}
+
+
+function _unl_get_sites_subdir($uri, $trim_subdomain = TRUE) {
+  $path_parts = parse_url($uri);
+  if ($trim_subdomain && substr($path_parts['host'], -7) == 'unl.edu') {
+    $path_parts['host'] = 'unl.edu';
+  }
+  $sites_subdir = $path_parts['host'] . $path_parts['path'];
+  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
+
+  while (substr($sites_subdir, 0, 1) == '.') {
+    $sites_subdir = substr($sites_subdir, 1);
+  }
+  while (substr($sites_subdir, -1) == '.') {
+    $sites_subdir = substr($sites_subdir, 0, -1);
   }
   
+  return $sites_subdir;
 }
 
 
@@ -155,18 +236,16 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   return TRUE;
 }
 
-function _unl_get_sites_subdir($uri) {
-  $path_parts = parse_url($uri);
-  if (substr($path_parts['host'], -7) == 'unl.edu') {
-    $path_parts['host'] = 'unl.edu';
-  }
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.')); 
-  
-  return $sites_subdir;
+function unl_add_alias($site_uri, $alias_uri) {
+  $real_config_dir = _unl_get_sites_subdir($site_uri);
+  $alias_config_dir = _unl_get_sites_subdir($alias_uri, FALSE);
+  return symlink($real_config_dir, DRUPAL_ROOT . '/sites/' . $alias_config_dir);
 }
 
-
+function unl_remove_alias($alias_uri) {
+  $alias_config_dir = _unl_get_sites_subdir($alias_uri, FALSE);
+  return unlink(DRUPAL_ROOT . '/sites/' . $alias_config_dir);
+}
 
 
 
