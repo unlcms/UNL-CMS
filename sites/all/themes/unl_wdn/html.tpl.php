@@ -52,11 +52,18 @@ $t->doctitle = '<title>'.$head_title.'</title>';
 
 $html = $t->toHtml();
 
-$html = strtr($html, array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' => '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>',
-                           '<head>'                 => '<head profile="'.$grddl_profile.'">',
-                           '<body class="fixed">'   => '<body class="fixed '.$classes.'" '.$attributes.'>',
-                           '<p class="skipnav">'    => $page_top . PHP_EOL . '<p class="skipnav">',
-                           '</body>'                => $page_bottom . PHP_EOL . '</body>',
-                          ));
+if (module_exists('rdf')) {
+  $html = strtr($html, array(
+  	'<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' => '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>',
+    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN" "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">',
+    '<head>' => '<head profile="'.$grddl_profile.'">',
+  ));
+}
+
+$html = strtr($html, array(
+  '<body class="fixed">' => '<body class="fixed '.$classes.'" '.$attributes.'>',
+  '<p class="skipnav">'  => $page_top . PHP_EOL . '<p class="skipnav">',
+  '</body>'              => $page_bottom . PHP_EOL . '</body>',
+));
 
 echo $html;
