@@ -217,6 +217,9 @@ EOF;
     menu_link_save($links[0]);
     
     
+    // Remove the "Article" node type since we aren't using it.
+    node_type_delete('article');
+    
 
     // Update the settings file to use shared database tables (unless this is the default site)
     if (conf_path() != 'sites/default') {
