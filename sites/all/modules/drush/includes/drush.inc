@@ -1,5 +1,5 @@
 <?php
-// $Id: drush.inc,v 1.117 2010/06/16 12:51:23 weitzman Exp $
+// $Id: drush.inc,v 1.151 2010/12/01 21:02:21 jonhattan Exp $
 
 /**
  * @file
@@ -27,18 +27,9 @@ function drush_dispatch($command = NULL) {
     // Add command-specific options, if applicable
     drush_command_default_options($command);
 
-    if (isset($command['must-replace-spaces'])) {
-      $required_name = str_replace(' ', '-', $command['command']);
-      drush_set_error(dt('Notice: "!name" must be renamed to "!requiredname" in order to work with this version of drush.  If you are the maintainer for the module that defines this command, please rename it immediately.  If you are a user of this command, you may enable spaces in commands for a while by setting "allow-spaces-in-commands" in your drush configuration file.  See example.drushrc.php.', array('!name' => $command['command'], '!requiredname' => $required_name)));
-      return FALSE;
-    }
     // Print a warning if someone tries to use a deprecated alias.
     if (isset($command['deprecated'])) {
       drush_log(dt('Warning: The command name "!deprecated" is deprecated.  Please use a recommended form instead (!recommended).', array('!deprecated' => $command['deprecated-name'], '!recommended' => implode(',', array_merge(array($command['command']), $command['aliases'])))), 'warning');
-      if (isset($command['must-not-use-spaces'])) {
-        drush_set_error(dt('You may enable spaces in commands for a while by setting "allow-spaces-in-commands" in your drush configuration file.  See example.drushrc.php.', array('!name' => $command['command'], '!requiredname' => $required_name)));
-        return FALSE;
-      }
     }
     // Print a warning if a command callback function is misnamed
     if (isset($command['callback-required-prefix'])) {
@@ -194,32 +185,34 @@ function drush_include_engine($type, $engine, $version = NULL, $path = NULL) {
 
 /**
  * Detects the version number of the current Drupal installation,
- * if any. Returns false if there is no current Drupal installation,
+ * if any. Returns FALSE if there is no current Drupal installation,
  * or it is somehow broken.
- *
- * This function relies on the presence of DRUPAL_ROOT/modules/system/system.module
  *
  * @return
  *   A string containing the version number of the current
- *   Drupal installation, if any. Otherwise, return false.
+ *   Drupal installation, if any. Otherwise, return FALSE.
  */
-function drush_drupal_version() {
+function drush_drupal_version($drupal_root = NULL) {
   static $version = FALSE;
 
   if (!$version) {
-    if ($drupal_root = drush_get_context('DRUSH_DRUPAL_ROOT')) {
-      if (file_exists($drupal_root . '/modules/system/system.module')) {
-        // We can safely include system.module as it contains defines and functions only.
-        require_once($drupal_root . '/modules/system/system.module');
-        // We just might be dealing with an early Drupal version (pre 4.7)
-        if (defined('VERSION')) {
-          $version = VERSION;
+    if (($drupal_root != NULL) || ($drupal_root = drush_get_context('DRUSH_DRUPAL_ROOT'))) {
+      // D7 stores VERSION in bootstrap.inc
+      $version_constant_paths = array('/modules/system/system.module', '/includes/bootstrap.inc');
+      foreach ($version_constant_paths as $path) {
+        if (file_exists($drupal_root . $path)) {
+          require_once $drupal_root . $path;
         }
+      }
+      // We just might be dealing with an early Drupal version (pre 4.7)
+      if (defined('VERSION')) {
+        $version = VERSION;
       }
     }
   }
   return $version;
 }
+
 
 function drush_drupal_cache_clear_all() {
   $prior = drush_get_context('DRUSH_AFFIRMATIVE');
@@ -231,9 +224,9 @@ function drush_drupal_cache_clear_all() {
 /**
  * Returns the Drupal major version number (5, 6, 7 ...)
  */
-function drush_drupal_major_version() {
+function drush_drupal_major_version($drupal_root = NULL) {
   $major_version = FALSE;
-  if ($version = drush_drupal_version()) {
+  if ($version = drush_drupal_version($drupal_root)) {
     $version_parts = explode('.', $version);
     if (is_numeric($version_parts[0])) {
       $major_version = (integer)$version_parts[0];
@@ -249,7 +242,7 @@ function drush_drupal_major_version() {
  * with named placeholders in code for Drupal 5 and 6.
  *
  * @param $where
- *   Stringwith a WHERE snippet using named placeholders.
+ *   String with a WHERE snippet using named placeholders.
  * @param $args
  *   Array of placeholder values.
  * @return
@@ -364,7 +357,7 @@ function drush_db_select($table, $fields = '*', $where = NULL, $args = NULL, $st
  * @param $args
  *   Array. Arguments for the WHERE snippet.
  * @return
- *   Affected rows or FALSE.
+ *   Affected rows (except on D7+mysql without a WHERE clause - returns TRUE) or FALSE.
  */
 function drush_db_delete($table, $where = NULL, $args = NULL) {
   if (drush_drupal_major_version() >= 7) {
@@ -404,6 +397,7 @@ function drush_db_result($result) {
       if ($array = db_fetch_array($result)) {
         return array_shift($array); // return first element in array.
       }
+      return FALSE;
     case 6:
       return db_result($result);
     case 7:
@@ -443,6 +437,54 @@ function drush_save_data_to_temp_file($data) {
 }
 
 /**
+ * Returns the path to a temporary directory.
+ *
+ * This is a custom version of file_directory_path().
+ * We can't directly rely on sys_get_temp_dir() as this
+ * path is not valid in some setups for Mac.
+ */
+function drush_find_tmp() {
+  static $temporary_directory = NULL;
+
+  if (is_null($temporary_directory)) {
+    $directories = array();
+
+    // Operating system specific dirs.
+    if (substr(PHP_OS, 0, 3) == 'WIN') {
+      $directories[] = 'c:\\windows\\temp';
+      $directories[] = 'c:\\winnt\\temp';
+    }
+    else {
+      $directories[] = '/tmp';
+    }
+    // This function exists in PHP 5 >= 5.2.1, but drush
+    // requires PHP 5 >= 5.2.0, so we check for it.
+    if (function_exists('sys_get_temp_dir')) {
+      $directories[] = sys_get_temp_dir();
+    }
+
+    foreach ($directories as $directory) {
+      if (is_dir($directory) && is_writable($directory)) {
+        $temporary_directory = $directory;
+        break;
+      }
+    }
+
+    if (empty($temporary_directory)) {
+      // If no directory has been found, create one in cwd.
+      $temporary_directory = drush_cwd() . '/tmp';
+      drush_mkdir($temporary_directory);
+      if (!is_dir($directory)) {
+        return drush_set_error('DRUSH_UNABLE_TO_CREATE_TMP_DIR', dt("Unable to create a temporary directory."));
+      }
+      drush_register_file_for_deletion($temporary_directory);
+    }
+  }
+
+  return $temporary_directory;
+}
+
+/**
  * Creates a temporary file, and registers it so that
  * it will be deleted when drush exits.  Whenever possible,
  * drush_save_data_to_temp_file() should be used instead
@@ -450,12 +492,25 @@ function drush_save_data_to_temp_file($data) {
  */
 function drush_tempnam($pattern, $tmp_dir = NULL) {
   if ($tmp_dir == NULL) {
-    $tmp_dir = sys_get_temp_dir();
+    $tmp_dir = drush_find_tmp();
   }
   $tmp_file = tempnam($tmp_dir, $pattern);
   drush_register_file_for_deletion($tmp_file);
 
   return $tmp_file;
+}
+
+/**
+ * Creates a temporary directory and return its path.
+ */
+function drush_tempdir() {
+  $tmp_dir = rtrim(drush_find_tmp(), DIRECTORY_SEPARATOR);
+  $tmp_dir .= '/' . 'drush_tmp_' . time();
+
+  drush_mkdir($tmp_dir);
+  drush_register_file_for_deletion($tmp_dir);
+
+  return $tmp_dir;
 }
 
 /**
@@ -486,14 +541,18 @@ function _drush_delete_registered_files() {
     // in case someone came along and deleted it, even
     // though they did not need to.
     if (file_exists($file)) {
-      unlink($file);
+      if (is_dir($file)) {
+        drush_delete_dir($file);
+      }
+      else {
+        unlink($file);
+      }
     }
   }
 }
 
 /**
- * Deletes the provided file or folder and
- * everything inside it.
+ * Deletes the provided file or folder and everything inside it.
  *
  * @param $dir
  *   The directory to delete
@@ -511,7 +570,7 @@ function drush_delete_dir($dir) {
     if ($item == '.' || $item == '..') {
       continue;
     }
-    if (!drush_delete_dir($dir.DIRECTORY_SEPARATOR.$item)) {
+    if (!drush_delete_dir($dir.'/'.$item)) {
       return FALSE;
     }
   }
@@ -519,26 +578,26 @@ function drush_delete_dir($dir) {
 }
 
 /**
- * Move $src to $dest.  If the php 'rename' function
- * doesn't work, then we'll try rsync.
+ * Move $src to $dest.
+ *
+ * If the php 'rename' function doesn't work, then we'll try mv and if
+ * it also fails, rsync.
  *
  * @param $src
  *   The directory to move.
  * @param $dest
- *   The destination to move the source to, including
- *   the new name of the folder.  To move folder "a"
- *   from "/b" to "/c", then $src = "/b/a" and $dest = "/c/a".
- *   To move "a" to "/c" and rename it to "d", then
- *   $dest = "/c/d" (just like php rename function).
+ *   The destination to move the source to, including the new name of
+ *   the directory.  To move directory "a" from "/b" to "/c", then
+ *   $src = "/b/a" and $dest = "/c/a".  To move "a" to "/c" and rename
+ *   it to "d", then $dest = "/c/d" (just like php rename function).
  * @param $overwrite
- *   If TRUE, the destination will be deleted if it
- *   exists.  Defaults to FALSE.
+ *   If TRUE, the destination will be deleted if it exists.
  * @return
- *   TRUE on success, FALSE on failure
+ *   TRUE on success, FALSE on failure.
  */
 function drush_move_dir($src, $dest, $overwrite = FALSE) {
   // Preflight based on $overwrite if $dest exists.
-  if (is_dir($dest)) {
+  if (file_exists($dest)) {
     if ($overwrite) {
       drush_op('drush_delete_dir', $dest);
     }
@@ -546,26 +605,40 @@ function drush_move_dir($src, $dest, $overwrite = FALSE) {
       return drush_set_error('DRUSH_DESTINATION_EXISTS', dt('Destination directory !dest already exists.', array('!dest' => $dest)));
     }
   }
-
-  // If rename works, then we're done.
+  // $src readable?
+  if (!is_readable($src)) {
+    return drush_set_error('DRUSH_SOURCE_NOT_EXISTS', dt('Source directory !dest is not readable or does not exist.', array('!src' => $src)));
+  }
+  // $dest writable?
+  if (!is_writable(dirname($dest))) {
+    return drush_set_error('DRUSH_DESTINATION_NOT_WRITABLE', dt('Destination directory !dest is not writable.', array('!dest' => dirname($dest))));
+  }
+  // Try rename. It will fail if $src and $dest are not in the same partition.
   if (@drush_op('rename', $src, $dest)) {
     return TRUE;
   }
-  // Bail if we can't make a directory at the
-  // destination (e.g. permissions)
-  if (!is_dir($dest) && (drush_op('mkdir', $dest) === FALSE)) {
-    return FALSE;
+  // Eventually it will create an empty file in $dest. See
+  // http://www.php.net/manual/es/function.rename.php#90025
+  elseif (is_file($dest)) {
+    drush_op('unlink', $dest);
   }
-  // If rename doesn't work, then try rsync.
-  $exec = 'rsync -raz --remove-source-files ' . $src . DIRECTORY_SEPARATOR . ' ' . $dest;
-  $rsync_result = drush_op('system', $exec);
-  if($rsync_result !== FALSE) {
+
+  // Do it with mv.
+  if (drush_shell_exec('mv %s %s', $src, $dest)) {
+    return TRUE;
+  }
+
+  // Lastly try rsync.
+  drush_op('mkdir', $dest);
+  $exec = 'rsync -raz --remove-source-files ' . $src . '/ ' . $dest;
+  if (drush_shell_exec($exec)) {
     // --remove-source-files deletes all of the files, but
     // we still need to get rid of the directories.
     drush_op('drush_delete_dir', $src);
     return TRUE;
   }
-  return FALSE;
+
+  return drush_set_error('DRUSH_MOVE_DIR_FAILURE', dt('Unable to move !src to !dest.', array('src' => $src, 'dest' => $dest)));
 }
 
 /**
@@ -576,7 +649,7 @@ function drush_move_dir($src, $dest, $overwrite = FALSE) {
  * if the simulation mode is enabled.
  *
  * @param $function
- *   The name of the function.
+ *   The name of the function. Any additional arguments are passed along.
  * @return
  *   The return value of the function, or TRUE if simulation mode is enabled.
  */
@@ -623,13 +696,34 @@ function dt($string, $args = array()) {
 }
 
 /**
- * Get the available options for Drush for use by help page.
+ * Convert a csv string, or an array of items which
+ * may contain csv strings, into an array of items.
+ *
+ * @param $args
+ *   A simple csv string; e.g. 'a,b,c'
+ *   or a simple list of items; e.g. array('a','b','c')
+ *   or some combination; e.g. array('a,b','c') or array('a,','b,','c,')
+ *   
+ * @returns array
+ *   A simple list of items (e.g. array('a','b','c')
+ */
+function _convert_csv_to_array($args) {
+  //
+  // Step 1: implode(',',$args) converts from, say, array('a,','b,','c,') to 'a,,b,,c,'
+  // Step 2: explode(',', ...) converts to array('a','','b','','c','')
+  // Step 3: array_filter(...) removes the empty items
+  //
+  return array_filter(explode(',', is_array($args) ? implode(',',$args) : $args));
+}
+
+/**
+ * Get the available global options. Used by help command.
  *
  * @return
  *   An associative array containing the option definition as the key, and the description as the value,
  *   for each of the available options.
  */
-function drush_get_option_help() {
+function drush_get_global_options() {
   // TODO: Add a hook for this, to allow other modules to add their global options
   $options['-r <path>, --root=<path>'] = dt("Drupal root directory to use (default: current directory)");
   $options['-l <uri>, --uri=http://example.com']   = dt('URI of the drupal site to use (only needed in multisite environments)');
@@ -654,58 +748,25 @@ function drush_get_option_help() {
 /**
  * Prints out help for a given command.
  */
-function drush_show_help($commands) {
+function drush_show_help($commandstring) {
   $phases = _drush_bootstrap_phases();
 
-  $commandstring = implode(" ", $commands);
-
   foreach ($phases as $phase_index) {
-    if ($phase_index > drush_get_context('DRUSH_BOOTSTRAP_PHASE')) {
-      drush_bootstrap($phase_index);
+    if ($validated = drush_bootstrap_validate($phase_index)) {
+      if ($phase_index > drush_get_context('DRUSH_BOOTSTRAP_PHASE')) {
+        drush_bootstrap($phase_index);
+      }
     }
     if (!drush_get_error()) {
       $commands = drush_get_commands();
       if (array_key_exists($commandstring, $commands)) {
         $command = $commands[$commandstring];
 
-        // Merge in engine specific help.
-        foreach ($command['engines'] as $type => $description) {
-          $all_engines = drush_get_engines($type);
-          foreach ($all_engines as $name => $engine) {
-            $command = array_merge_recursive($command, $engine);
-          }
+        if ($validated && $command['bootstrap'] > $phase_index) {
+          continue;
         }
 
-        if (!$help = drush_command_invoke_all('drush_help', 'drush:'. $command['command'])) {
-          $help = array($command['description']);
-        }
-        drush_print(wordwrap(implode("\n", $help), drush_get_context('DRUSH_COLUMNS', 80)));
-        drush_print();
-
-        // TODO: Let commands define additional sections.
-        $sections = array(
-          'examples' => 'Examples',
-          'arguments' => 'Arguments',
-          'options' => 'Options',
-        );
-
-        foreach ($sections as $key => $value) {
-          if (!empty($command[$key])) {
-            drush_print(dt($value) . ':');
-            foreach ($command[$key] as $name => $description) {
-              // '[command] is a token representing the current command. @see pm_drush_engine_version_control().
-              $rows[] = array(str_replace('[command]', $commandstring, $name), dt($description));
-            }
-            drush_print_table($rows, false, array(40));
-            unset($rows);
-            drush_print();
-          }
-        }
-
-        // Append aliases if any.
-        if ($command['aliases']) {
-          drush_print(dt("Aliases: ") . implode(', ', $command['aliases']));
-        }
+        drush_print_help($command);
 
         return TRUE;
 
@@ -716,6 +777,83 @@ function drush_show_help($commands) {
     }
   }
   return drush_set_error('DRUSH_COMMAND_NOT_FOUND', dt('Invalid command !command.', array('!command' => $commandstring)));
+}
+
+/**
+ * Print the help for a single command to the screen.
+ *
+ * @param array $command 
+ *   A fully loaded $command array.
+ */
+function drush_print_help($command) {
+  // Merge in engine specific help.
+  foreach ($command['engines'] as $type => $description) {
+    $all_engines = drush_get_engines($type);
+    foreach ($all_engines as $name => $engine) {
+      $command = array_merge_recursive($command, $engine);
+    }
+  }
+
+  if (!$help = drush_command_invoke_all('drush_help', 'drush:'. $command['command'])) {
+    $help = array($command['description']);
+  }
+
+  // Give commandfiles an opportunity to add examples and options to the command.
+  drush_bootstrap_max(DRUSH_BOOTSTRAP_DRUPAL_SITE);
+  drush_command_invoke_all_ref('drush_help_alter', $command);
+
+  drush_print(wordwrap(implode("\n", $help), drush_get_context('DRUSH_COLUMNS', 80)));
+  drush_print();
+
+  foreach ($command['sections'] as $key => $value) {
+    if (!empty($command[$key])) {
+      drush_print(dt($value) . ':');
+      foreach ($command[$key] as $name => $description) {
+        // '[command] is a token representing the current command. @see pm_drush_engine_version_control().
+        $rows[] = array(str_replace('[command]', $command['command'], $name), dt($description));
+        
+        // Process the subsections too, if any
+        if (!empty($command['sub-' . $key]) && array_key_exists($name, $command['sub-' . $key])) {
+          foreach ($command['sub-' . $key][$name] as $name => $description) {
+            $rows[] = array('  ' . str_replace('[command]', $command['command'], $name), dt($description));
+          }
+        }
+      }
+      drush_print_table($rows, FALSE, array(40));
+      unset($rows);
+      drush_print();
+    }
+  }
+
+  // Append aliases if any.
+  if ($command['aliases']) {
+    drush_print(dt("Aliases: ") . implode(', ', $command['aliases']));
+  }
+}
+
+
+/**
+ * Executes a shell command at a new working directory.
+ * The old cwd is restored on exit.
+ *
+ * @param $effective_wd
+ *   The new working directory to execute the shell command at.
+ * @param $cmd
+ *   The command to execute. May include placeholders used for sprintf.
+ * @param ...
+ *   Values for the placeholders specified in $cmd. Each of these will be passed through escapeshellarg() to ensure they are safe to use on the command line.
+ * @return
+ *   0 if success.
+ */
+function drush_shell_cd_and_exec($effective_wd, $cmd) {
+  $args = func_get_args();
+  
+  $effective_wd = array_shift($args);
+  $cwd = getcwd();
+  drush_op('chdir', $effective_wd);
+  $result = call_user_func_array('drush_shell_exec', $args);
+  drush_op('chdir', $cwd);
+  return $result;
 }
 
 /**
@@ -732,8 +870,29 @@ function drush_show_help($commands) {
  *   0 if success.
  */
 function drush_shell_exec($cmd) {
-  $args = func_get_args();
+  return _drush_shell_exec(func_get_args());
+}
 
+/**
+ * Executes a command in interactive mode.
+ *
+ * @see drush_shell_exec.
+ */
+function drush_shell_exec_interactive($cmd) {
+  return _drush_shell_exec(func_get_args(), TRUE);
+}
+
+/**
+ * Internal function: executes a shell command:
+ *
+ * @param $args
+ *   The command and its arguments.
+ * @param $interactive
+ *   Whether to run in 
+ *
+ * @see drush_shell_exec.
+ */
+function _drush_shell_exec($args, $interactive = FALSE) {
   //do not change the command itself, just the parameters.
   for ($x = 1; $x < sizeof($args); $x++) {
     $args[$x] = escapeshellarg($args[$x]);
@@ -745,7 +904,7 @@ function drush_shell_exec($cmd) {
   }
 
   if (!drush_get_context('DRUSH_SIMULATE')) {
-    exec($command . ' 2>&1', $output, $result);
+    exec($command . ($interactive ? '' : ' 2>&1'), $output, $result);
     _drush_shell_exec_output_set($output);
 
     if (drush_get_context('DRUSH_DEBUG')) {
@@ -793,6 +952,41 @@ function drush_die($msg = NULL, $status = NULL) {
 }
 
 /**
+ * Exit due to user declining a confirmation prompt.
+ */
+function drush_user_abort($msg = NULL, $status = NULL) {
+  drush_set_context('DRUSH_USER_ABORT', TRUE);
+  drush_die($msg ? $msg : 'Aborting.', $status);
+}
+
+/*
+ * Check to see if the provided line is a "#!/usr/bin/env drush"
+ * "shebang" script line.
+ */
+function _drush_is_drush_shebang_line($line) {
+   return ((substr($line,0,2) == '#!') && (strstr($line, 'drush') !== FALSE));
+}
+
+/*
+ * Check to see if the provided script file is a "#!/usr/bin/env drush"
+ * "shebang" script line.
+ */
+function _drush_is_drush_shebang_script($script_filename) {
+  $result = FALSE;
+  
+  if (file_exists($script_filename)) {
+    $fp = fopen($script_filename, "r");
+    if ($fp !== FALSE) {
+      $line = fgets($fp);
+      $result = _drush_is_drush_shebang_line($line);
+      fclose($fp);
+    }
+  }
+  
+  return $result;
+}
+
+/**
  * Prints a message with optional indentation. In general,
  * drush_log($message, 'ok') is often a better choice than this function.
  * That gets your confirmation message (for example) into the logs for this
@@ -810,6 +1004,16 @@ function drush_print($message = '', $indent = 0) {
     $msg = iconv('UTF-8', $charset, $msg);
   }
   print $msg;
+}
+
+/**
+ * Print the contents of a file.
+ *
+ * @param string $file 
+ *   Full path to a file.
+ */
+function drush_print_file($file) {
+  drush_print(file_get_contents($file));
 }
 
 /**
@@ -927,9 +1131,16 @@ function drush_choice($options, $prompt = 'Enter a number.', $label = '!value') 
  * The input can be anything that fits on a single line (not only y/n),
  * so we can't use drush_confirm()
  *
+ * @param $prompt
+ *   The text which is displayed to the user.
+ * @param $default
+ *   The default value of the input.
+ * @param $optional
+ *   If TRUE, user may continue even when no value is in the input.
+ *
  * @see drush_confirm()
  */
-function drush_prompt($prompt, $default = NULL) {
+function drush_prompt($prompt, $default = NULL, $optional = FALSE) {
   if (!is_null($default)) {
     $prompt .= " [" . $default . "]";
   }
@@ -948,7 +1159,7 @@ function drush_prompt($prompt, $default = NULL) {
     if ($line === "") {
       $line = $default;
     }
-    if ($line) {
+    if ($line || $optional) {
       break;
     }
     print $prompt;
@@ -963,8 +1174,7 @@ function drush_prompt($prompt, $default = NULL) {
  * @param $rows
  *   The rows to print.
  * @param $header
- *   If TRUE, the first line will be treated as table header and therefore be
- *   underlined.
+ *   If TRUE, the first line will be treated as table header.
  * @param $widths
  *   The widths of each column (in characters) to use - if not specified this
  *   will be determined automatically, based on a "best fit" algorithm.
@@ -990,7 +1200,11 @@ function drush_print_table($rows, $header = FALSE, $widths = array()) {
   }
 
   $tbl->addData($newrows);
-  drush_print($tbl->getTable());
+  $output = $tbl->getTable();
+  if (!stristr(PHP_OS, 'WIN')) {
+    $output = str_replace("\r\n", PHP_EOL, $output);
+  }
+  drush_print($output);
   return $tbl;
 }
 
@@ -1102,6 +1316,14 @@ function drush_table_column_autowidth($rows, $widths) {
 }
 
 /**
+ * Cross-platform compatible helper function to recursively create a directory tree.
+ * @see http://theserverpages.com/php/manual/en/function.mkdir.php#50383
+ */
+function drush_mkdir($path) {
+  return is_dir($path) || (drush_mkdir(dirname($path)) && drush_shell_exec('mkdir %s', $path));
+}
+
+/**
  * @defgroup dispatching Command dispatching functions.
  * @{
  *
@@ -1147,7 +1369,7 @@ function drush_remote_command() {
       }
 
       if (drush_confirm('Continue? ') === FALSE) {
-         drush_die('Aborting.');
+         drush_user_abort();
       }
     }
     $command = array_shift($args);
@@ -1200,7 +1422,7 @@ function drush_do_multiple_command($command, $source_record, $destination_record
       }
 
       if (drush_confirm('Continue? ') === FALSE) {
-         drush_die('Aborting.');
+         drush_user_abort();
       }
     }
 
@@ -1237,8 +1459,7 @@ function drush_do_site_command($site_record, $command, $args = array(), $data = 
         $drush_path = $site_record['path-aliases']['%drush-script'];
       }
     }
-
-    $values = drush_backend_invoke_args($command, $args, $data, 'GET', $integrate, $drush_path, array_key_exists('remote-host', $site_record) ? $site_record['remote-host'] : NULL, array_key_exists('remote-user', $site_record) ? $site_record['remote-user'] : NULL);
+    $values = drush_backend_invoke_args($command, $args, $data, 'GET', $integrate, $drush_path, array_key_exists('remote-host', $site_record) ? $site_record['remote-host'] : NULL, array_key_exists('remote-user', $site_record) ? $site_record['remote-user'] : NULL, array_key_exists('ssh-options', $site_record) ? $site_record['ssh-options'] : NULL);
   }
   return $values;
 }
@@ -1279,8 +1500,8 @@ function drush_do_command_redispatch($command, $args = array(), $remote_host = N
 function drush_redispatch_get_options() {
   // Start off by taking everything from the site alias and command line
   // ('options' context)
-  $alias_context = array_diff_key(drush_get_context('alias'), array_flip(drush_sitealias_site_selection_keys()));
-  $options = array_merge($alias_context, drush_get_context('options'));
+  $options = array_merge(drush_get_context('alias'), drush_get_context('options'));
+  $options = array_diff_key($options, array_flip(drush_sitealias_site_selection_keys()));
   unset($options['command-specific']);
   unset($options['path-aliases']);
   // If we can parse the current command, then examine all contexts
@@ -1300,7 +1521,10 @@ function drush_redispatch_get_options() {
   // is not used (e.g. when calling a remote instance of drush), then --php
   // should not be passed along.
   unset($options['php']);
-
+  // If --bootstrap-to-first-arg is specified, do not
+  // pass it along to remote commands.
+  unset($options['bootstrap-to-first-arg']);
+  
   return $options;
 }
 
@@ -1372,12 +1596,14 @@ function dlm($object) {
   drush_log($contents);
 }
 
-/*
+/**
  * Display the pipe output for the current request.
  */
 function drush_pipe_output() {
   $pipe = drush_get_context('DRUSH_PIPE_BUFFER');
-  drush_print_r($pipe);
+  if (!empty($pipe)) {
+    drush_print_r($pipe);
+  }
 }
 
 /**
@@ -1424,6 +1650,7 @@ function _drush_print_log($entry) {
     case 'notice' :
     case 'message' :
     case 'info' :
+    case 'status':
       if (!$verbose) {
         // print nothing. exit cleanly.
         return TRUE;
@@ -1507,7 +1734,7 @@ function drush_print_timers() {
 function _drush_log_drupal_messages() {
   if (function_exists('drupal_get_messages')) {
 
-    $messages = drupal_get_messages();
+    $messages = drupal_get_messages(NULL, TRUE);
 
     if (array_key_exists('error', $messages)) {
       //Drupal message errors.
@@ -1584,7 +1811,6 @@ function drush_format_size($size, $langcode = NULL) {
  * A sneaky implementation of hook_watchdog().
  */
 function system_watchdog($log_entry) {
-
   // Transform non informative severity levels to 'error' for compatibility with _drush_print_log.
   // Other severity levels are coincident with the ones we use in drush.
   if (drush_drupal_major_version() >= 6 && $log_entry['severity'] <= 2) {
@@ -1762,7 +1988,20 @@ function drush_errors_on() {
  * @} End of "defgroup errorhandling".
  */
 
- /**
+/**
+ * Test to see if a file exists and is not empty
+ */
+function drush_file_not_empty($file_to_test) {
+  if (file_exists($file_to_test)) {
+    $stat = stat($file_to_test);
+    if ($stat['size'] > 0) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
  * Get the PHP memory_limit value in bytes.
  */
 function drush_memory_limit() {
@@ -1770,11 +2009,11 @@ function drush_memory_limit() {
   $last = strtolower($value[strlen($value)-1]);
   switch ($last) {
     case 'g':
-      $value *= 1024;
+      $value *= DRUSH_DRUPAL_KILOBYTE;
     case 'm':
-      $value *= 1024;
+      $value *= DRUSH_DRUPAL_KILOBYTE;
     case 'k':
-      $value *= 1024;
+      $value *= DRUSH_DRUPAL_KILOBYTE;
   }
 
   return $value;

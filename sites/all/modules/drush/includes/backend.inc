@@ -1,5 +1,5 @@
 <?php
-// $Id: backend.inc,v 1.30 2010/04/22 17:05:52 weitzman Exp $
+// $Id: backend.inc,v 1.33 2010/11/27 03:12:19 weitzman Exp $
 
 /**
  * @file Drush backend API
@@ -149,7 +149,7 @@ function _drush_backend_integrate($data) {
     }
   }
   // Output will either be printed, or buffered to the drush_backend_output command.
-  if (drush_cmp_error('DRUSH_APPLICATION_ERROR')) {
+  if (drush_cmp_error('DRUSH_APPLICATION_ERROR') && !empty($data['output'])) {
     drush_set_error("DRUSH_APPLICATION_ERROR", dt("Output from failed command :\n !output", array('!output' => $data['output'])));
   }
   else {
@@ -252,11 +252,11 @@ function drush_backend_invoke($command, $data = array(), $method = 'GET', $integ
   return drush_backend_invoke_args($command, $args, $data, $method, $integrate, $drush_path, $hostname, $username);
 }
 
-/*
+/**
  * A variant of drush_backend_invoke() which specifies command and arguments separately.
  */
-function drush_backend_invoke_args($command, $args, $data = array(), $method = 'GET', $integrate = TRUE, $drush_path = NULL, $hostname = NULL, $username = NULL) {
-  $cmd = _drush_backend_generate_command($command, $args, $data, $method, $drush_path, $hostname, $username);
+function drush_backend_invoke_args($command, $args, $data = array(), $method = 'GET', $integrate = TRUE, $drush_path = NULL, $hostname = NULL, $username = NULL, $ssh_options = NULL) {
+  $cmd = _drush_backend_generate_command($command, $args, $data, $method, $drush_path, $hostname, $username, $ssh_options);
   return _drush_backend_invoke($cmd, $data, $integrate);
 }
 
@@ -336,11 +336,11 @@ function _drush_backend_invoke($cmd, $data = null, $integrate = TRUE) {
  * @return
  *   A text string representing a fully escaped command.
  */
-function _drush_backend_generate_command($command, $args, &$data, $method = 'GET', $drush_path = null, $hostname = null, $username = null) {
+function _drush_backend_generate_command($command, $args, &$data, $method = 'GET', $drush_path = null, $hostname = null, $username = null, $ssh_options = NULL) {
   if (drush_is_local_host($hostname)) {
     $hostname = null;
   }
-
+  
   $drush_path = !is_null($drush_path) ? $drush_path : (is_null($hostname) ? DRUSH_COMMAND : 'drush'); // Call own drush.php file on local machines, or 'drush' on remote machines.
   $data['root'] = array_key_exists('root', $data) ? $data['root'] : drush_get_context('DRUSH_DRUPAL_ROOT');
   $data['uri'] = array_key_exists('uri', $data) ? $data['uri'] : drush_get_context('DRUSH_URI');
@@ -360,7 +360,7 @@ function _drush_backend_generate_command($command, $args, &$data, $method = 'GET
 
   if (!is_null($hostname)) {
     $username = (!is_null($username)) ? $username : get_current_user();
-    $ssh_options = drush_get_option('ssh-options', "-o PasswordAuthentication=no");
+    $ssh_options = (!is_null($ssh_options)) ? $ssh_options : drush_get_option('ssh-options', "-o PasswordAuthentication=no");
     $cmd = "ssh " . $ssh_options . " " . escapeshellarg($username) . "@" . escapeshellarg($hostname) . " " . escapeshellarg($cmd);
   }
 

@@ -8,6 +8,7 @@ function unl_sites_page() {
   $page = array();
   $page[] = drupal_get_form('unl_site_create');
   $page[] = drupal_get_form('unl_site_list');
+  $page[] = drupal_get_form('unl_site_updates');
   
   return $page;
 }
@@ -154,6 +155,37 @@ function unl_site_list_submit($form, &$form_state) {
     }
   }
 }
+
+
+function unl_site_updates($form, &$form_state) {
+  $form['root'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Maintenance',
+    '#description' => 'Using drush, do database updates and clear the caches of all sites.',
+  );
+  
+  $form['root']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => 'Run Drush',
+  );
+  
+  return $form;
+}
+
+function unl_site_updates_submit($form, &$form_state) {
+  $sites = db_select('unl_sites', 's')
+    ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
+    ->execute()
+    ->fetchAll();
+  
+  foreach ($sites as $site) {
+    $uri = escapeshellarg($site->uri);
+    $root = escapeshellarg(DRUPAL_ROOT);
+    $command = "sites/all/modules/drush/drush.php -y --token=secret --root={$root} --uri={$uri} updatedb";
+    drupal_set_message('Messages from ' . $site->uri . ':<br />' . PHP_EOL . '<pre>' . shell_exec($command) . '</pre>', 'status');
+  }
+}
+
 
 
 function unl_site_remove($site_id) {

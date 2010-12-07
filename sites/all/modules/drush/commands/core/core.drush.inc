@@ -1,5 +1,5 @@
 <?php
-// $Id: core.drush.inc,v 1.103.2.2 2010/07/01 15:25:06 weitzman Exp $
+// $Id: core.drush.inc,v 1.135 2010/12/01 20:59:56 jonhattan Exp $
 
 /**
  * @file
@@ -23,15 +23,21 @@ function core_drush_command() {
   $items = array();
 
   $items['help'] = array(
-    'description' => 'Print this help message. Use --filter to limit command list to one command file (e.g. --filter=pm)',
+    'description' => 'Print this help message. See `drush help help` for more options.',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap.
-    'options' => drush_get_option_help(),
-    'examples' => array(
-      'drush dl cck zen' => 'Download CCK module and Zen theme.',
-      'drush --uri=http://example.com status' => 'Show status command for the example.com multi-site.',
-      'drush help --pipe' => 'A list of available commands, one per line.',
-      'drush help --html' => 'Print help for all commands in HTML format.',
+    'options' => array(
+      '--sort' => 'Sort commands in alphabetical order. drush waits for full bootstrap before printing any commands when this option is used.',
+      '--filter' => 'Restrict command list to those commands defined in the specified file.',
+      '--html' => 'Print help for all commands in HTML format.',
+      '--pipe' => 'A list of available commands, one per line.',
     ),
+    'examples' => array(
+      'drush' => 'List all commands.',
+      'drush --filter=devel_generate' => 'Show only commands defined in devel_generate.drush.inc',
+      'drush help pm-download' => 'Show help for one command.',
+      'drush help dl' => 'Show help for one command using an alias.',
+    ),
+    'topics' => array('core-readme'),
   );
   $items['core-cron'] = array(
     'description' => 'Run all cron hooks.',
@@ -56,7 +62,8 @@ function core_drush_command() {
     ),
     'options' => array(
       'show-passwords' => 'Show database password.',
-    )
+    ),
+    'topics' => array('core-readme'),
   );
   $items['php-script'] = array(
     'description' => "Run php script(s).",
@@ -64,13 +71,16 @@ function core_drush_command() {
       'drush php-script scratch' => 'Run scratch.php script. See commands/core directory.',
       'drush php-script example --script-path=/path/to/scripts:/another/path' => 'Run script from specified paths',
       'drush php-script' => 'List all available scripts.',
+      '' => '',
+      "#!/usr/bin/env drush\n<?php\nvariable_set('key', drush_shift());" => "Execute php code with a full Drupal bootstrap directly from a shell script.",
     ),
     'arguments' => array(
       'filename' => 'Optional. The file you wish to execute (without extension). If omitted, list files ending in .php in the current working directory and specified script-path. Some might not be real drush scripts. Beware.',
     ),
     'options' => array(
-      '--script-path' => "Additional paths to search for scripts.  Use POSIX path separator (':') for multiple paths.",
+      '--script-path' => "Additional paths to search for scripts, separated by : (Unix-based systems) or ; (Windows).",
     ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap.
     'aliases' => array('scr'),
     'deprecated-aliases' => array('script'),
   );
@@ -114,8 +124,8 @@ function core_drush_command() {
       '--exclude-files' => 'Exclude the files directory.',
       '--exclude-sites' => 'Exclude all directories in "sites/" except for "sites/all".',
       '--exclude-other-sites' => 'Exclude all directories in "sites/" except for "sites/all" and the site directory for the site being synced.  Note: if the site directory is different between the source and destination, use --exclude-sites followed by "drush rsync @from:%site @to:%site"',
-      '--exclude-paths' => 'Coma-separated list of paths to exclude.',
-      '--include-paths' => 'Coma-separated list of paths to include.',
+      '--exclude-paths' => 'List of paths to exclude, seperated by : (Unix-based systems) or ; (Windows).',
+      '--include-paths' => 'List of paths to include, seperated by : (Unix-based systems) or ; (Windows).',
     ),
     'examples' => array(
       'drush rsync @dev @stage' => 'Rsync Drupal root from dev to stage (one of which must be local).',
@@ -154,9 +164,9 @@ function core_drush_command() {
     'examples' => array(
       'drush site-install expert --locale=uk' => '(Re)install using the expert install profile. Set default language to Ukranian.',
       'drush site-install --db-url=mysql://root:pass@localhost:port/dbname ' => 'Install using the specified DB params.',
-      'drush site-install --account-user=joe --account-pass=mom' => 'Re-install with specified uid1 credentials.',
+      'drush site-install --account-name=joe --account-pass=mom' => 'Re-install with specified uid1 credentials.',
     ),
-    'core' => array(7),
+    'core' => array(6,7),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_ROOT,
     'aliases' => array('si'),
     'deprecated-aliases' => array('installsite', 'is'),
@@ -209,6 +219,16 @@ function core_drush_command() {
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_SITE,
   );
 
+  // Topic commands
+  $items['core-readme'] = array(
+    'description' => dt('README.txt'),
+    'hidden' => TRUE,
+    'topic' => TRUE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+    'callback' => 'drush_print_file',
+    'callback arguments' => array(DRUSH_BASE_PATH . '/README.txt'),
+  );
+
   return $items;
 }
 
@@ -217,6 +237,7 @@ function core_drush_engine_drupal() {
   $engines['batch'] = array();
   $engines['update'] = array();
   $engines['environment'] = array();
+  $engines['site_install'] = array();
   return $engines;
 }
 
@@ -238,22 +259,36 @@ function drush_core_updatedb() {
 }
 
 /**
- * This is called if no command or an unknown command is entered.
+ * This is called for help command, or no command.
  */
 function drush_core_help() {
   $commands = func_get_args();
 
-  if (drush_get_option('html')) {
-    return drush_print(drush_help_html());
-  }
-  elseif (empty($commands)) {
-    drush_show_help(array('help'));
+
+  if (empty($commands)) {
+    // Build a fake command for the purposes of showing examples and options.
+    $fake = array(
+      'description' => 'Execute a drush command. Run `drush help [command]` to view command-specific help.',
+      'options' => drush_get_global_options(),
+      'examples' => array(
+        'drush dl cck zen' => 'Download CCK module and Zen theme.',
+        'drush --uri=http://example.com status' => 'Show status command for the example.com multi-site.',
+      ),
+    );
+    $fake += drush_command_defaults('fake', 'fake', __FILE__);
+    if (!drush_get_option('html')) {
+      drush_print_help($fake);
+    }
+
+    if (!drush_get_option('html')) {
+      drush_print(dt('Commands: '));
+    }
+
     $phases = _drush_bootstrap_phases();
     // For speed, only bootstrap up to DRUSH_BOOTSTRAP_DRUPAL_SITE+1.
     $phases = array_slice($phases, 0, DRUSH_BOOTSTRAP_DRUPAL_SITE+1);
-    drush_print(dt('Commands: '));
 
-    $printed_rows = array();
+    $printed_rows = $all_rows = array();
     $phase_index = DRUSH_BOOTSTRAP_DRUSH;
 
     foreach ($phases as $phase_index) {
@@ -280,12 +315,17 @@ function drush_core_help() {
               if (!array_key_exists($key, $printed_rows)) {
                 $name = $command['aliases'] ? $key . ' (' . implode(', ', $command['aliases']) . ')': $key;
                 $rows[$key] = array($name, $command['description']);
+                $all_rows[$key] = array($name, $command['description']);
                 $pipe[] = "\"$key\"";
               }
             }
           }
         }
-        drush_print_table($rows, FALSE, array(0 => 20));
+
+        // These two options require delayed printing.
+        if (!drush_get_option('sort') && !drush_get_option('html')) {
+          drush_print_table($rows, FALSE, array(0 => 20));
+        }
         $printed_rows = array_merge($printed_rows, $rows);
       }
       else {
@@ -293,12 +333,27 @@ function drush_core_help() {
       }
     }
 
+    // We delayed printing until now.
+    ksort($all_rows);
+    if (drush_get_option('sort')) {
+      drush_print_table($all_rows, FALSE, array(0 => 20));
+    }
+    elseif (drush_get_option('html')) {
+      return drush_print(drush_help_html($commands));
+    }
+
     // Newline-delimited list for use by other scripts. Set the --pipe option.
-    drush_print_pipe($pipe);
+    if (drush_get_option('pipe') && isset($pipe)) {
+      drush_print_pipe($pipe);
+    }
     return;
   }
   else {
-    return drush_show_help($commands);
+    $result = TRUE;
+    while ((count($commands) > 0) && !drush_get_error()) {
+      $result =  drush_show_help(array_shift($commands));
+    }
+    return $result;
   }
 
   drush_set_error('DRUSH_COMMAND_NOT_FOUND', dt('Invalid command !command.', array('!command' => implode(" ", $commands))));
@@ -308,26 +363,18 @@ function drush_core_help() {
 /**
  * Return an HTML page documenting all available commands and global options.
  */
-function drush_help_html() {
-  foreach (drush_get_commands() as $key => $command) {
-    // Get rid of aliases in command list.
-    if (empty($command['is_alias']) && !$command['hidden']) {
-      $commands[$key] = $command;
-    }
-  }
-  unset($commands['help']);
-
+function drush_help_html($commands) {
   $output =  "<html><head><title>drush help</title><style>dt {font-size: 110%; font-weight: bold}</style></head><body>\n";
 
   // Command table
-  $output .=  '<h3>Command list</h3><table>';
+  $output .=  "<h3>Command list</h3>\n<table>\n";
   foreach ($commands as $key => $command) {
-    $output .=  "<tr><td><a href=\"#$key\">$key</a></td><td>" . $command['description'] . "</td></tr>\n";
+    $output .=  "  <tr><td><a href=\"#$key\">$key</a></td><td>" . $command['description'] . "</td></tr>\n";
   }
   $output .=  "</table>\n";
 
   // Global options
-  $options = drush_get_option_help();
+  $options = drush_get_global_options();
   $output .=  '<h3>Global Options</h3><table>';
   foreach ($options as $key => $value) {
     $output .=  "<tr><td>$key</td><td>" . $value . "</td></tr>\n";
@@ -339,7 +386,7 @@ function drush_help_html() {
   foreach ($commands as $key => $command) {
     $output .=  "\n<a name=\"$key\"></a><dt>$key</dt><dd><pre>\n";
     ob_start();
-    drush_show_help(array($key));
+    drush_show_help($key);
     $output .= ob_get_clean();
     $output .=  "</pre></dd>\n";
   }
@@ -363,14 +410,12 @@ function drush_help_html() {
  */
 function core_drush_help($section) {
   switch ($section) {
-    case 'drush:help':
-      return dt('Execute a drush command. Run `drush help [command]` to view command-specific help.');
     case 'drush:cron':
       return dt("Runs all cron hooks in all active modules for specified site.");
     case 'drush:status':
       return dt("View the Drupal version and DB credentials for the current site.");
     case 'drush:php-script':
-      return dt("Runs the given php script(s) after a full Drupal bootstrap. A useful alternative to eval command when your php is lengthy or you can't be bothered to figure out bash quoting. if you plan to share a script with others, consider making a full drush command instead since thats more self-documenting.");
+      return dt("Runs the given php script(s) after a full Drupal bootstrap. A useful alternative to eval command when your php is lengthy or you can't be bothered to figure out bash quoting. If you plan to share a script with others, consider making a full drush command instead, since that's more self-documenting.  Drush provides commandline options to the script via drush_get_option('option-name'), and commandline arguments can be accessed either via drush_get_arguments(), which returns all arguments in an array, or drush_shift(), which removes the next argument from the list and returns it.");
     case 'drush:cache-clear':
       return dt("Delete a specific drupal cache, or all caches.");
     case 'drush:search-status':
@@ -390,7 +435,7 @@ function core_drush_help($section) {
     case 'drush:drupal-directory':
       return dt("Return the filesystem path for projects/themes and other key folders. Used by `cli` command for handy commands `cdd` and `lsd`. If you want to use this command directly, you usually want to prefix the command with cd and enclose the command invocation in backticks. See Examples below.");
     case 'drush:core-cli':
-      return dt("Enter a new shell optimized for drush use.  See help for more details.");
+      return dt("Enter a new shell optimized for drush use.  All .bashrc customizations are still available. See help for more details.");
     case 'error:DRUSH_DRUPAL_DB_ERROR' :
       $message = dt("Drush was not able to start (bootstrap) the Drupal database.\n");
       $message .= dt("Hint: This error often occurs when Drush is trying to bootstrap a site that has not been installed or does not have a configured database.\n");
@@ -438,11 +483,23 @@ function _core_path_aliases($project = '') {
     $paths['%root'] = $drupal_root;
     if ($site_root = drush_get_context('DRUSH_DRUPAL_SITE_ROOT')) {
       $paths['%site'] = $site_root;
-      $paths['%modules'] = 'sites'.DIRECTORY_SEPARATOR.'all'.DIRECTORY_SEPARATOR.'modules';
-      $paths['%themes'] = 'sites'.DIRECTORY_SEPARATOR.'all'.DIRECTORY_SEPARATOR.'themes';
+      if (is_dir($modules_path = conf_path() . '/modules')) {
+        $paths['%modules'] = $modules_path;
+      }
+      else {
+        $paths['%modules'] = 'sites/all/modules';
+      }
+      if (is_dir($themes_path = conf_path() . '/themes')) {
+        $paths['%themes'] = $themes_path;
+      }
+      else {
+        $paths['%themes'] = 'sites/all/themes';
+      }
       if (drush_drupal_major_version() >= 7) {
-        $paths['%files'] = DrupalPublicStreamWrapper::getDirectoryPath();
-        $paths['%private'] = DrupalPrivateStreamWrapper::getDirectoryPath();
+        if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_FULL) {
+          $paths['%files'] = DrupalPublicStreamWrapper::getDirectoryPath();
+          $paths['%private'] = DrupalPrivateStreamWrapper::getDirectoryPath();
+        }
       }
       elseif (function_exists('file_directory_path')) {
         $paths['%files'] = file_directory_path();
@@ -501,8 +558,10 @@ function _core_site_status_table($project = '') {
     // users figure out their php.ini issues.
     $status_table['PHP configuration'] = php_ini_loaded_file();
   }
+  drush_sitealias_load_all();
   $status_table['Drush version'] = DRUSH_VERSION;
   $status_table['Drush configuration'] = implode(' ', drush_get_context_options('context-path', TRUE));
+  $status_table['Drush alias files'] = implode(' ', drush_get_context('drush-alias-files'));
 
   // None of the Status keys are in dt(); this helps with machine-parsing of status?
   $path_names['root'] = 'Drupal root';
@@ -555,11 +614,19 @@ function drush_core_cron() {
 }
 
 /**
+ * Bootstrap 'status' command during the init phase.
+ * Always use bootstrap_max from _init() so that command
+ * hooks have a chance to be initialized.
+ */
+function drush_core_status_init() {
+  drush_bootstrap_max();
+}
+
+/**
  * Command callback. Provides a birds-eye view of the current Drupal
  * installation.
  */
 function drush_core_status() {
-  drush_bootstrap_max();
   $status_table = _core_site_status_table(drush_get_option('project',''));
   // If args are specified, filter out any entry that is not named
   // (in other words, only show lines named by one of the arg values)
@@ -606,50 +673,82 @@ function _drush_core_is_named_in_array($key, $the_array) {
 }
 
 /**
- * Command callback. Runs "naked" php scripts.
+ * Bootstrap 'php-script' command during the init phase.
+ * Always use bootstrap_max from _init() so that command
+ * hooks have a chance to be initialized.
+ */
+function drush_php_script_init() {
+  drush_bootstrap_max();
+}
+
+/**
+ * Command callback. Runs "naked" php scripts
+ * and drush "shebang" scripts ("#!/usr/bin/env drush").
  */
 function drush_core_php_script() {
-  $args = func_get_args();
-
-  // Array of paths to search for scripts
-  $searchpath['DIR'] = dirname(__FILE__);
-  $searchpath['cwd'] = drush_cwd();
-
-  // Additional script paths, specified by 'script-path' option
-  if ($script_path = drush_get_option('script-path', FALSE)) {
-    foreach (explode(":", $script_path) as $path) {
-      $searchpath[] = $path;
-    }
+  $found = FALSE;
+  $script = NULL;
+  if ($args = func_get_args()) {
+    $script = $args[0];
   }
-
-  if (empty($args)) {
-    // List all available scripts.
-    $all = array();
-    foreach($searchpath as $key => $path) {
-      $recurse = !$key == 'cwd';
-      $all = array_merge( $all , array_keys(drush_scan_directory($path, '/\.php$/', array('.', '..', 'CVS'), NULL, $recurse)) );
-    }
-    drush_print(implode("\n", $all));
+  
+  if ($script == '-') {
+    eval(stream_get_contents(STDIN));
+  }
+  elseif (file_exists($script)) {
+    $found = $script;
   }
   else {
-    // Execute the specified script.
-    $script = $args[0];
-    if (!preg_match('/\.php$/i', $script)) {
-      $script .= '.php';
-    }
-    $found = FALSE;
-    foreach($searchpath as $path) {
-      $script_filename = $path . '/' . $script;
-      if (file_exists($script_filename)) {
-        include($script_filename);
-        $found = TRUE;
-        break;
-      }
-      $all[] = $script_filename;
-    }
+    // Array of paths to search for scripts
+    $searchpath['DIR'] = dirname(__FILE__);
+    $searchpath['cwd'] = drush_cwd();
 
-    if (!$found) {
-      drush_set_error('Script not found.', dt('Unable to find any of the following: @files', array('@files' => implode(', ', $all))));
+    // Additional script paths, specified by 'script-path' option
+    if ($script_path = drush_get_option('script-path', FALSE)) {
+      foreach (explode(PATH_SEPARATOR, $script_path) as $path) {
+        $searchpath[] = $path;
+      }
+    }
+    drush_log(dt('Searching for scripts in ') . implode(',', $searchpath), 'debug');
+
+    if (!isset($script)) {
+      // List all available scripts.
+      $all = array();
+      foreach($searchpath as $key => $path) {
+        $recurse = !(($key == 'cwd') || ($path == '/'));
+        $all = array_merge( $all , array_keys(drush_scan_directory($path, '/\.php$/', array('.', '..', 'CVS'), NULL, $recurse)) );
+      }
+      drush_print(implode("\n", $all));
+    }
+    else {
+      // Execute the specified script.
+      foreach($searchpath as $path) {
+        $script_filename = $path . '/' . $script;
+        if (file_exists($script_filename . '.php')) {
+          $script_filename .= '.php';
+        }
+        if (file_exists($script_filename)) {
+          $found = $script_filename;
+          break;
+        }
+        $all[] = $script_filename;
+      }
+      if (!$found) {
+        return drush_set_error('Script not found.', dt('Unable to find any of the following: @files', array('@files' => implode(', ', $all))));
+      }
+    }
+  }
+  
+  if ($found) {
+    // Set the DRUSH_SHIFT_SKIP to two; this will cause
+    // drush_shift to skip the next two arguments the next
+    // time it is called.  This allows scripts to get all
+    // arguments, including the 'php-script' and script
+    // pathname, via drush_get_arguments(), or it can process
+    // just the arguments that are relevant using drush_shift().
+    drush_set_context('DRUSH_SHIFT_SKIP', 2);
+    if (_drush_core_eval_shebang_script($found) === FALSE) {
+      include($found);
     }
   }
 }
@@ -657,6 +756,41 @@ function drush_core_php_script() {
 function drush_core_php_eval($command) {
   eval($command . ';');
 }
+
+/*
+ * Evaluate a script that begins with #!drush php-script
+ */
+function _drush_core_eval_shebang_script($script_filename) {
+  $found = FALSE;
+  $fp = fopen($script_filename, "r");
+  if ($fp !== FALSE) {
+    $line = fgets($fp);
+    if (_drush_is_drush_shebang_line($line)) {
+      $first_script_line = '';
+      while ($line = fgets($fp)) {
+        $line = trim($line);
+        if ($line == '<?php') {
+          $found = TRUE;
+          break;
+        }
+        elseif (!empty($line)) {
+          $first_script_line = $line . "\n";
+          break;
+        }
+      }
+      $script = stream_get_contents($fp);
+      // Pop off the first two arguments, the
+      // command (php-script) and the path to
+      // the script to execute, as a service
+      // to the script.
+      eval($first_script_line . $script);
+      $found = TRUE;
+    }
+    fclose($fp);
+  }
+  return $found;
+}
+
 
 /**
  * Process sets from the specified batch.
@@ -729,9 +863,9 @@ function drush_core_drupal_directory($target = 'root') {
 function drush_core_find_project_path($target) {
   $theme_suffix = drush_drupal_major_version() >= 6 ? '.info' : '/style.css';
   $masks = array(
-    conf_path() . '/modules' => "/^$target.module/",
-    'profiles/default/modules' => "/^$target.module/", // Too early for variable_get('install_profile', 'default'); Just use default.
-    'sites/all/modules' => "/^$target.module/", // Add all module paths, even disabled modules.
+    conf_path() . '/modules' => "/^$target\.module$/",
+    'profiles/default/modules' => "/^$target\.module$/", // Too early for variable_get('install_profile', 'default'); Just use default.
+    'sites/all/modules' => "/^$target\.module$/", // Add all module paths, even disabled modules.
     conf_path() . '/themes' => "/^$target" . "$theme_suffix/",
     'sites/all/themes' => "/^$target" . "$theme_suffix/",
   );
@@ -748,11 +882,18 @@ function drush_core_find_project_path($target) {
   return NULL;
 }
 
-function drush_core_cli() {
+/**
+ * Bootstrap 'cli' command during the init phase.
+ * Always use bootstrap_max from _init() so that command
+ * hooks have a chance to be initialized.
+ */
+function drush_core_cli_init() {
   drush_bootstrap_max();
+}
 
+function drush_core_cli() {
   // Do not allow cli to start recursively, or from backend invoke.
-  if (drush_get_option('in-cli',FALSE)) {
+  if (drush_get_option('in-cli', FALSE)) {
     return drush_set_error(dt('Already in drush core-cli; press control-d to exit.'));
   }
   if (drush_get_context('DRUSH_BACKEND')) {
@@ -790,6 +931,13 @@ function drush_core_cli() {
 function core_cli_bashrc($drush_command) {
   // Set up our default bashrc file for the drush cli
   $bashrc_data = <<<EOD
+
+# source the user's .bashrc file
+[ -r ~/.bashrc ] && {
+  pushd ~ > /dev/null
+  . .bashrc
+  popd > /dev/null
+}
 
 PS1="drush> "
 

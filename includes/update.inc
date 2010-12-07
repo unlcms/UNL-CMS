@@ -85,6 +85,8 @@ function update_prepare_d7_bootstrap() {
   // still being used.
   include_once DRUPAL_ROOT . '/includes/install.inc';
   drupal_bootstrap(DRUPAL_BOOTSTRAP_CONFIGURATION);
+  require_once DRUPAL_ROOT . '/includes/unl_bootstrap.inc';
+  unl_bootstrap_update();
   global $databases, $db_url, $db_prefix, $update_rewrite_settings;
   if (empty($databases) && !empty($db_url)) {
     $databases = update_parse_db_url($db_url, $db_prefix);
