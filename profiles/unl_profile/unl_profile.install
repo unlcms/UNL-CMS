@@ -232,9 +232,10 @@ EOF;
           'default'       => $new_prefix,
 
           // shared tables across all sites
-          'filter'        => $shared_prefix,
-          'filter_format' => $shared_prefix,
-          'wysiwyg'       => $shared_prefix,
+          'filter'           => $shared_prefix,
+          'filter_format'    => $shared_prefix,
+          'unl_cas_settings' => $shared_prefix,
+          'wysiwyg'          => $shared_prefix,
         );
         
         $settings['databases'] = array(

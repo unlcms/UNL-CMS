@@ -65,4 +65,49 @@ function unl_cas_user_import_submit($form, &$form_state) {
 	if($user) drupal_set_message('<li>User '.$name.' successfully created.</li>');
 }
 
-?>
+function unl_cas_config($form, &$form_state) {
+  
+  $form['ldap'] = array(
+    '#tree' => TRUE,
+    '#type'  => 'fieldset',
+    '#title' => 'LDAP Settings',
+  );
+  
+  $form['ldap']['uri'] = array(
+    '#type' => 'textfield',
+    '#title' => 'URI',
+    '#description' => 'ie: ldap://example.com/',
+    '#default_value' => unl_cas_get_setting('ldap_uri'),
+    '#parents' => array('ldap', 'uri'),
+    '#required' => TRUE,
+  );
+  
+  $form['ldap']['dn'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Distinguished Name (DN)',
+    '#description' => 'ie: uid=admin,dc=example,dc=com',
+    '#default_value' => unl_cas_get_setting('ldap_dn'),
+    '#parents' => array('ldap', 'dn'),
+    '#required' => TRUE,
+  );
+  
+  $form['ldap']['password'] = array(
+    '#type' => 'password',
+    '#title' => 'Password',
+    '#parents' => array('ldap', 'password'),
+    '#required' => TRUE,
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Update',
+  );
+  
+  return $form;
+}
+
+function unl_cas_config_submit($form, &$form_state) {
+  unl_cas_set_setting('ldap_uri', $form_state['values']['ldap']['uri']);
+  unl_cas_set_setting('ldap_dn', $form_state['values']['ldap']['dn']);
+  unl_cas_set_setting('ldap_password', $form_state['values']['ldap']['password']);
+}
