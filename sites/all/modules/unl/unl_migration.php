@@ -457,6 +457,9 @@ class Unl_Migration_Tool
                 return;
             }
             @drupal_mkdir('public://' . dirname($path), NULL, TRUE);
+            if (!mb_check_encoding($path, 'UTF-8')) {
+                $path = iconv('ISO-8859-1', 'UTF-8', $path); 
+            }
             $file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
             $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
             return;
@@ -610,7 +613,7 @@ class Unl_Migration_Tool
         
         if (isset($parts['path'])) {
             while (strpos($parts['path'], '/./') !== FALSE) {
-                $parts['path'] = strtr($parts['path'], array('/./', '/'));
+                $parts['path'] = strtr($parts['path'], array('/./' => '/'));
             }
             $i = 0;
             while (strpos($parts['path'], '/../') !== FALSE) {
@@ -698,6 +701,7 @@ class Unl_Migration_Tool
         curl_setopt($this->_curl, CURLOPT_URL, $url);
         curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
         curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
+        curl_setopt($this->_curl, CURLOPT_NOBODY, TRUE);
         
         $data = curl_exec($this->_curl);
         $meta = curl_getinfo($this->_curl);
@@ -714,7 +718,17 @@ class Unl_Migration_Tool
             $headers[$headerKey] = trim($headerValue);
         }
         
-        $content = substr($data, $meta['header_size']);
+        // don't copy files greater than 100MB in size
+        if (isset($headers['Content-Length']) && $headers['Content-Length'] > (100 * 1024 * 1024)) {
+            $size = floor($headers['Content-Length'] / (1024 * 1024)); 
+            $this->_log("The file at $url is $size MB!  Ignoring.");
+            $content = '';
+        } else {
+            curl_setopt($this->_curl, CURLOPT_NOBODY, FALSE);
+            $data = curl_exec($this->_curl);
+            $content = substr($data, $meta['header_size']);
+        }
+        
         
         if (in_array($meta['http_code'], array(301, 302))) {
             $location = $headers['Location'];
