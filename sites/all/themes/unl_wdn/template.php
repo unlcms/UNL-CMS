@@ -106,19 +106,19 @@ function unl_wdn_menu_tree($variables)
     return '<ul>' . $tree . '</ul>' . PHP_EOL;
 }
 
-function unl_wdn_menu_local_tasks()
+function unl_wdn_menu_local_tasks($variables)
 {
-    $output = array();
+    $output = '';
     
-    if ($primary = menu_primary_local_tasks()) {
-        $primary['#prefix'] = '<ul class="wdn_tabs cms_tabs disableSwitching">';
-        $primary['#suffix'] = '</ul>';
-        $output[] = $primary;
+    if (!empty($variables['primary'])) {
+        $variables['primary']['#prefix'] = '<ul class="wdn_tabs cms_tabs disableSwitching">';
+        $variables['primary']['#suffix'] = '</ul>';
+        $output .= drupal_render($variables['primary']);
     }
-    if ($secondary = menu_secondary_local_tasks()) {
-        $secondary['#prefix'] = '<ul class="wdn_tabs cms_tabs disableSwitching">';
-        $secondary['#suffix'] = '</ul>';
-        $output[] = $secondary;
+    if (!empty($variables['secondary'])) {
+        $variables['secondary']['#prefix'] = '<ul class="wdn_tabs cms_tabs disableSwitching">';
+        $variables['secondary']['#suffix'] = '</ul>';
+        $output .= drupal_render($variables['secondary']);
     }
     
     return $output;
