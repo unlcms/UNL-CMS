@@ -47,10 +47,15 @@ function tac_admin($form, $form_state, $rid = NULL) {
       foreach (taxonomy_get_tree($vocabulary) as $term) {
         $subform['term_' . $term->tid] = array(
           '#title' => $term->name,
-          'view' => array(
-            '#parents'       => array('edit', $rid, $term->tid, 'view'),
+          'list' => array(
+            '#parents'       => array('edit', $rid, $term->tid, 'list'),
             '#type'          => 'checkbox',
-            '#default_value' => (isset($currentValues[$rid][$term->tid]->grant_view) ? $currentValues[$rid][$term->tid]->grant_view : 0),
+            '#default_value' => (isset($currentValues[$rid][$term->tid]->grant_list) ? $currentValues[$rid][$term->tid]->grant_list : 0),
+          ),
+          'create' => array(
+            '#parents'       => array('edit', $rid, $term->tid, 'create'),
+            '#type'          => 'checkbox',
+            '#default_value' => (isset($currentValues[$rid][$term->tid]->grant_create) ? $currentValues[$rid][$term->tid]->grant_create : 0),
           ),
           'update' => array(
             '#parents'       => array('edit', $rid, $term->tid, 'update'),
@@ -79,13 +84,14 @@ function tac_admin($form, $form_state, $rid = NULL) {
 function theme_tac_term_list($variables) {
   $form = $variables['form'];
   
-  $headers = array('Term', 'View', 'Update', 'Delete');
+  $headers = array('Term', 'List', 'Create', 'Update', 'Delete');
   $rows = array();
   foreach (element_children($form) as $key) {
     $rows[] = array(
       'data' => array(
         $form[$key]['#title'],
-        drupal_render($form[$key]['view']),
+        drupal_render($form[$key]['list']),
+        drupal_render($form[$key]['create']),
         drupal_render($form[$key]['update']),
         drupal_render($form[$key]['delete']),
       )
@@ -115,12 +121,12 @@ function tac_admin_submit($form, &$form_state) {
   }
   
 
-  $insert = db_insert('tac_map')->fields(array('rid', 'tid', 'grant_view', 'grant_update', 'grant_delete'));
+  $insert = db_insert('tac_map')->fields(array('rid', 'tid', 'grant_list', 'grant_create', 'grant_update', 'grant_delete'));
   
   foreach ($form_state['values']['edit'] as $rid => $terms) {
     foreach ($terms as $tid => $grants) {
       $insert->values(array(
-        $rid, $tid, $grants['view'], $grants['update'], $grants['delete'],
+        $rid, $tid, $grants['list'], $grants['create'], $grants['update'], $grants['delete'],
       ));
     }
   }

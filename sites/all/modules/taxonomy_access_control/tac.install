@@ -45,6 +45,22 @@ function tac_schema()
         'default' => 0,
         'size' => 'tiny',
       ),
+      'grant_create' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can create this term on a node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'grant_list' => array(
+        'description' => 'Boolean indicating whether a user with the realm/grant pair can list this term.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
     ),
     'primary key' => array('rid', 'tid'),
     'foreign keys' => array(
@@ -122,6 +138,25 @@ function tac_update_7100()
   db_create_table('tac_map', $table);
 }
 
+function tac_update_7101() {
+  db_add_field('tac_map', 'grant_create', array(
+    'description' => 'Boolean indicating whether a user with the realm/grant pair can create this term on a node.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'size' => 'tiny',
+  ));
+  
+  db_add_field('tac_map', 'grant_list', array(
+    'description' => 'Boolean indicating whether a user with the realm/grant pair can list this term.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'size' => 'tiny',
+  ));
+}
 
 
 

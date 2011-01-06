@@ -40,14 +40,7 @@ function tac_node_access_records($node) {
   $tac_vid = variable_get('tac_vocabulary', -1);
   $fields_to_check = array();
   
-  $fields = field_info_instances('node', $node->type);
-  foreach ($fields as $field) {
-    $fieldInfo = field_info_field($field['field_name']);
-    if ($fieldInfo['type'] != 'taxonomy_term_reference') {
-      continue;
-    }
-    $fields_to_check[] = $field['field_name'];
-  }
+  $fields_to_check = _tac_get_taxonomy_fields_for_node($node);
   
   $selected_tids = array();
   foreach ($fields_to_check as $field) {
@@ -103,3 +96,185 @@ function tac_node_grants($account, $op) {
   
   return $grants;
 }
+
+function tac_form_alter(&$form, &$form_state, $form_id) {
+  if (substr($form_id, -10) == '_node_form') {
+    
+    // If the current user can bypass node access controls, we don't need to filter anything
+    if (user_access('bypass node access')) {
+      return;
+    }
+    
+    $taxonomy_fields = _tac_get_taxonomy_fields_for_node($form['#node']);
+    
+    $query = db_select('tac_map', 'm');
+    $query->fields('m');
+    $query->condition('m.rid', array_keys($GLOBALS['user']->roles), 'IN');
+    $data = $query->execute()->fetchAll();
+    
+    $grants = array();
+    foreach ($data as $row) {
+      if ($row->grant_create) {
+        $grants[$row->tid]['create'] = TRUE;
+      }
+      if ($row->grant_list) {
+        $grants[$row->tid]['list'] = TRUE;
+      }
+    }
+    
+    array_unshift($form['#validate'], 'tac_node_form_validate');
+    foreach ($taxonomy_fields as $field) {
+      
+      // If the terms are displayed as checkboxes, hide/disable them as necessary
+      if ($form[$field]['und']['#type'] == 'checkboxes' || $form[$field]['und']['#type'] == 'radios') {
+        $hidden_checkboxes = 0;
+        foreach ($form[$field]['und']['#options'] as $tid => $term) {
+          if ($tid == '_none') {
+            continue;
+          }
+          if (!isset($grants[$tid]['list']) || !$grants[$tid]['list']) {
+            $form[$field]['und'][$tid]['#type'] = 'hidden';
+            $form_state['storage']['tac'][$field][$tid] = $tid;
+            $hidden_checkboxes++;
+          }
+          if (!isset($grants[$tid]['create']) || !$grants[$tid]['create']) {
+            $form[$field]['und'][$tid]['#disabled'] = 'TRUE';
+            $form_state['storage']['tac'][$field][$tid] = $tid;
+          }
+        }
+        
+        // If all of the checkboxes are hidden, don't display the entire checkboxes elememnt
+        if ($hidden_checkboxes == count($form[$field]['und']['#options'])) {
+          $form[$field]['und']['#prefix'] = '<div style="display: none;">';
+          $form[$field]['und']['#suffix'] = '</div>';
+        }
+      }
+      
+      // If the terms are in a [multi-]select list, hide terms as necessary (since drupal doesn't support disabling)
+      if ($form[$field]['und']['#type'] == 'select') {
+        if ($form[$field]['und']['#multiple']) {
+          unset($form[$field]['und']['#options']['_none']);
+        }
+        foreach ($form[$field]['und']['#options'] as $tid => $term) {
+          if ($tid == '_none') {
+            continue;
+          }
+          if (!isset($grants[$tid]['create']) || !isset($grants[$tid]['list']) || !$grants[$tid]['create'] || !$grants[$tid]['list']) {
+            unset($form[$field]['und']['#options'][$tid]);
+            $form_state['storage']['tac'][$field][$tid] = $tid;
+          }
+        }
+      }
+      
+      if ($form[$field]['und']['#type'] == 'textfield') {
+        form_set_error('tac', "Autocomplete term widgets are not allowed when used with TAC.");
+      }
+    }
+  }
+}
+
+function tac_node_form_validate($form, &$form_state) {
+  if (!isset($form_state['storage']['tac'])) {
+    return;
+  }
+  
+  foreach ($form_state['storage']['tac'] as $field => $locked_terms) {
+    $default_terms = $form[$field]['und']['#default_value'];
+    if ($form[$field]['und']['#type'] == 'select' && !$form[$field]['und']['#multiple']) {
+      $default_terms = $default_terms[0];
+    }
+    
+    $set_terms = array();
+    foreach ($form_state['values'][$field]['und'] as $key => $term_value) {
+      $set_terms[$key] = $term_value['tid'];
+    }
+    
+    // If multiple terms can be selected:
+    if (is_array($default_terms)) {
+      foreach ($locked_terms as $locked_term) {
+        if (in_array($locked_term, $default_terms) && !in_array($locked_term, $set_terms)) {
+          $form_state['values'][$field]['und'][] = array(
+            'tid' => $locked_term,
+          );
+        }
+        if (!in_array($locked_term, $default_terms) && in_array($locked_term, $set_terms)) {
+          form_set_error('tac', 'Attempt to add a denied term detected.');
+          return;
+        }
+      }
+    }
+    // If only one term can be selected:
+    else {
+      if (in_array($default_terms, $locked_terms) && !in_array($default_terms, $set_terms)) {
+        drupal_set_message("A term you don't have access to was alerady selected.", 'warning');
+        $form_state['values'][$field]['und'] = array(array('tid' => $default_terms));
+      }
+    }
+  }
+}
+
+function tac_query_alter(QueryAlterableInterface $query) {
+  if (!$query->hasTag('term_access')) {
+    return;
+  }
+  
+  // We need slightly more advanced filtering on the edit page.  Handle it there.
+  if (arg(2) == 'edit') {
+    return;
+  }
+  
+  // If the current user can bypass node access controls, we don't need to filter anything
+  if (user_access('bypass node access') || user_access('administer taxonomy')) {
+    return;
+  }
+  
+  $alias = '';
+  foreach ($query->getTables() as $table) {
+    if ($table['table'] == 'taxonomy_term_data') {
+      $alias = $table['alias'];
+    }
+  }
+  
+  $query->distinct();
+  $query->addJoin(
+  	'LEFT',
+  	'{tac_map}',
+  	'tm',
+  	"$alias.tid = tm.tid AND tm.rid IN (:rids)",
+    array(':rids' => array_keys($GLOBALS['user']->roles))
+  );
+  $query->where('tm.grant_list = 1 OR tm.grant_list IS NULL');
+}
+
+function _tac_get_taxonomy_fields_for_node($node) {
+  $tac_vid = variable_get('tac_vocabulary', -1);
+  $vocabularies = taxonomy_get_vocabularies();
+  if (!isset($vocabularies[$tac_vid])) {
+    return array();
+  }
+  $vocabulary = $vocabularies[$tac_vid];
+  
+  $taxonomy_fields = array();
+  
+  $fields = field_info_instances('node', $node->type);
+  foreach ($fields as $field) {
+    $fieldInfo = field_info_field($field['field_name']);
+    if ($fieldInfo['type'] != 'taxonomy_term_reference') {
+      continue;
+    }
+    
+    $is_correct_vocabulary = FALSE;
+    foreach ($fieldInfo['settings']['allowed_values'] as $allowed_value) {
+      if ($allowed_value['vocabulary'] == $vocabulary->machine_name) {
+        $is_correct_vocabulary = TRUE;
+      }
+    }
+    if (!$is_correct_vocabulary) {
+      continue;
+    }
+    
+    $taxonomy_fields[] = $field['field_name'];
+  }
+  return $taxonomy_fields;
+}
+
