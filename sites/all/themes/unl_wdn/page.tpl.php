@@ -126,4 +126,5 @@ if ($page['optionalfooter']) {
 if ($page['footercontent']) {
     $t->footercontent = render($page['footercontent']);
 }
+$t->footercontent = preg_replace('/&copy;\s*[0-9]{4}/', '&copy; ' . date('Y'), $t->footercontent);
 $t->footercontent .= '<p style="margin:0.5em 0 -1.4em 0">This site is an instance of <a href="http://unlcms.unl.edu/" title="Go to the UNL CMS website">UNL CMS</a> powered by <a href="http://drupal.org/" title="Go to the official website of Drupal">Drupal</a></p>';
