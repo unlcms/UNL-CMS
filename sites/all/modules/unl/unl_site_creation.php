@@ -164,9 +164,15 @@ function unl_site_updates($form, &$form_state) {
     '#description' => 'Using drush, do database updates and clear the caches of all sites.',
   );
   
+  if ($form_state['rebuild']) {
+    $button_text = 'Continue Drush';
+  }
+  else {
+    $button_text = 'Run Drush';
+  } 
   $form['root']['submit'] = array(
     '#type'  => 'submit',
-    '#value' => 'Run Drush',
+    '#value' => $button_text,
   );
   
   return $form;
@@ -178,11 +184,32 @@ function unl_site_updates_submit($form, &$form_state) {
     ->execute()
     ->fetchAll();
   
+  $start_time = time();
+  if (isset($form_state['storage'])) {
+    $completed_sites = $form_state['storage'];
+  }
+  else {
+    $completed_sites = array();
+  }
+  
   foreach ($sites as $site) {
+    if (in_array($site->uri, $completed_sites)) {
+      continue;
+    }
+  
+    if (time() - $start_time > 30) {
+      $form_state['rebuild'] = TRUE;
+      $form_state['storage'] = $completed_sites;
+      drupal_set_message('Drush ran out of time to process every site. Click "Continue Drush" below.', 'warning');
+      return;
+    }
+    
     $uri = escapeshellarg($site->uri);
     $root = escapeshellarg(DRUPAL_ROOT);
     $command = "sites/all/modules/drush/drush.php -y --token=secret --root={$root} --uri={$uri} updatedb";
     drupal_set_message('Messages from ' . $site->uri . ':<br />' . PHP_EOL . '<pre>' . shell_exec($command) . '</pre>', 'status');
+    
+    $completed_sites[] = $site->uri;
   }
 }
 
