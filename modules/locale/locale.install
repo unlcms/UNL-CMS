@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.install,v 1.69 2010/10/20 00:37:20 dries Exp $
+// $Id: locale.install,v 1.72 2011/01/02 17:26:39 webchick Exp $
 
 /**
  * @file
@@ -28,7 +28,7 @@ function locale_install() {
 }
 
 /**
- * @defgroup updates-6.x-to-7.x Locale updates from 6.x to 7.x
+ * @addtogroup updates-6.x-to-7.x
  * @{
  */
 
@@ -113,7 +113,21 @@ function locale_update_7001() {
 }
 
 /**
- * @} End of "defgroup updates-6.x-to-7.x"
+ * Updates URL language negotiation by adding the URL fallback detection method.
+ */
+function locale_update_7002() {
+  // language.inc may not have been included during bootstrap if there is not
+  // more than one language currently enabled.
+  require_once DRUPAL_ROOT . '/includes/language.inc';
+  $language_types_info = language_types_info();
+  $info = $language_types_info[LANGUAGE_TYPE_URL];
+  if (isset($info['fixed'])) {
+    language_negotiation_set(LANGUAGE_TYPE_URL, array_flip($info['fixed']));
+  }
+}
+
+/**
+ * @} End of "addtogroup updates-6.x-to-7.x"
  */
 
 /**

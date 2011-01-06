@@ -1,5 +1,5 @@
 <?php
-// $Id: contact.module,v 1.148 2010/09/24 00:37:42 dries Exp $
+// $Id: contact.module,v 1.150 2010/12/20 19:59:41 webchick Exp $
 
 /**
  * @file
@@ -116,7 +116,7 @@ function contact_menu() {
  *   TRUE if the current user has access to the requested user's contact form,
  *   or FALSE otherwise.
  */
-function _contact_personal_tab_access(stdClass $account) {
+function _contact_personal_tab_access($account) {
   global $user;
 
   // Anonymous users cannot have contact forms.
@@ -239,7 +239,7 @@ function contact_user_presave(&$edit, $account, $category) {
 }
 
 /**
- * Implement of hook_form_FORM_ID_alter().
+ * Implements hook_form_FORM_ID_alter().
  *
  * Add the default personal contact setting on the user settings page.
  */
@@ -253,6 +253,6 @@ function contact_form_user_admin_settings_alter(&$form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Enable the personal contact form by default for new users.'),
     '#description' => t('Changing this setting will not affect existing users.'),
-    '#default_value' => 1,
+    '#default_value' => variable_get('contact_default_status', 1),
   );
 }

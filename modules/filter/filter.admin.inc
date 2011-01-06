@@ -1,5 +1,5 @@
 <?php
-// $Id: filter.admin.inc,v 1.69 2010/10/22 16:36:14 webchick Exp $
+// $Id: filter.admin.inc,v 1.71 2010/12/14 02:40:15 dries Exp $
 
 /**
  * @file
@@ -172,6 +172,9 @@ function filter_admin_format_form($form, &$form_state, $format) {
     // Create an empty filter object for new/unconfigured filters.
     if (!isset($filters[$name])) {
       $filters[$name] = new stdClass();
+      $filters[$name]->format = $format->format;
+      $filters[$name]->module = $filter['module'];
+      $filters[$name]->name = $name;
       $filters[$name]->status = 0;
       $filters[$name]->weight = $filter['weight'];
       $filters[$name]->settings = array();
@@ -308,8 +311,11 @@ function filter_admin_format_form_submit($form, &$form_state) {
   // Remove unnecessary values.
   form_state_values_clean($form_state);
 
-  // Save text format.
-  $format = (object) $form_state['values'];
+  // Add the submitted form values to the text format, and save it.
+  $format = $form['#format'];
+  foreach ($form_state['values'] as $key => $value) {
+    $format->$key = $value;
+  }
   $status = filter_format_save($format);
 
   // Save user permissions.

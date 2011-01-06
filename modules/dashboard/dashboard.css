@@ -1,4 +1,4 @@
-/* $Id: dashboard.css,v 1.14 2010/08/30 00:22:03 webchick Exp $ */
+/* $Id: dashboard.css,v 1.16 2011/01/03 07:04:48 webchick Exp $ */
 
 #dashboard div.dashboard-region {
   float: left;
@@ -32,9 +32,13 @@
   padding: 6px 4px 6px 8px;
   margin: 3px 3px 3px 0;
   float: left;
-  border-radius: 4px;
   -moz-border-radius: 4px;
   -webkit-border-radius: 4px;
+  border-radius: 4px;
+}
+
+#dashboard .dashboard-add-other-blocks {
+  margin: 10px 0 0 0;
 }
 
 #dashboard .ui-sortable {
@@ -66,7 +70,6 @@
   background-color: #E0E0D8;
   border: #ccc 1px solid;
   padding: 10px;
-  min-height: 90px;
 }
 
 #dashboard #disabled-blocks {

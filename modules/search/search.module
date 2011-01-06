@@ -1,5 +1,5 @@
 <?php
-// $Id: search.module,v 1.365 2010/10/20 01:31:07 dries Exp $
+// $Id: search.module,v 1.371 2011/01/04 05:31:09 webchick Exp $
 
 /**
  * @file
@@ -143,6 +143,7 @@ function search_block_info() {
   $blocks['form']['info'] = t('Search form');
   // Not worth caching.
   $blocks['form']['cache'] = DRUPAL_NO_CACHE;
+  $blocks['form']['properties']['administrative'] = TRUE;
   return $blocks;
 }
 
@@ -209,6 +210,7 @@ function search_menu() {
       );
       $items["$path/%menu_tail"] = array(
         'title' => $search_info['title'],
+        'load arguments' => array('%map', '%index'),
         'page callback' => 'search_view',
         'page arguments' => array($module, 2),
         'access callback' => '_search_menu_access',
@@ -296,41 +298,44 @@ function _search_menu_access($name) {
 }
 
 /**
- * Wipes a part of or the entire search index.
+ * Clears a part of or the entire search index.
  *
  * @param $sid
- *  (optional) The SID of the item to wipe. If specified, $type must be passed
- *  too.
- * @param $type
- *  (optional) The type of item to wipe.
+ *   (optional) The ID of the item to remove from the search index. If
+ *   specified, $module must also be given. Omit both $sid and $module to clear
+ *   the entire search index.
+ * @param $module
+ *   (optional) The machine-readable name of the module for the item to remove
+ *   from the search index.
  */
-function search_reindex($sid = NULL, $type = NULL, $reindex = FALSE) {
-  if ($type == NULL && $sid == NULL) {
+function search_reindex($sid = NULL, $module = NULL, $reindex = FALSE) {
+  if ($module == NULL && $sid == NULL) {
     module_invoke_all('search_reset');
   }
   else {
     db_delete('search_dataset')
       ->condition('sid', $sid)
-      ->condition('type', $type)
+      ->condition('type', $module)
       ->execute();
     db_delete('search_index')
       ->condition('sid', $sid)
-      ->condition('type', $type)
+      ->condition('type', $module)
       ->execute();
     // Don't remove links if re-indexing.
     if (!$reindex) {
       db_delete('search_node_links')
         ->condition('sid', $sid)
-        ->condition('type', $type)
+        ->condition('type', $module)
         ->execute();
     }
   }
 }
 
 /**
- * Marks a word as dirty (or retrieves the list of dirty words). This is used
- * during indexing (cron). Words which are dirty have outdated total counts in
- * the search_total table, and need to be recounted.
+ * Marks a word as "dirty" (changed), or retrieves the list of dirty words.
+ *
+ * This is used during indexing (cron). Words that are dirty have outdated
+ * total counts in the search_total table, and need to be recounted.
  */
 function search_dirty($word = NULL) {
   $dirty = &drupal_static(__FUNCTION__, array());
@@ -345,8 +350,9 @@ function search_dirty($word = NULL) {
 /**
  * Implements hook_cron().
  *
- * Fires hook_update_index() in all modules and cleans up dirty words (see
- * search_dirty).
+ * Fires hook_update_index() in all modules and cleans up dirty words.
+ *
+ * @see search_dirty()
  */
 function search_cron() {
   // We register a shutdown function to ensure that search_total is always up
@@ -360,7 +366,9 @@ function search_cron() {
 }
 
 /**
- * This function is called on shutdown to ensure that search_total is always
+ * Updates the {search_total} database table.
+ *
+ * This function is called on shutdown to ensure that {search_total} is always
  * up to date (even if cron times out or otherwise fails).
  */
 function search_update_totals() {
@@ -392,6 +400,14 @@ function search_update_totals() {
 
 /**
  * Simplifies a string according to indexing rules.
+ *
+ * @param $text
+ *   Text to simplify.
+ *
+ * @return
+ *   Simplified text.
+ *
+ * @see hook_search_preprocess()
  */
 function search_simplify($text) {
   // Decode entities to UTF-8
@@ -428,6 +444,11 @@ function search_simplify($text) {
   // With the exception of the rules above, we consider all punctuation,
   // marks, spacers, etc, to be a word boundary.
   $text = preg_replace('/[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . ']+/u', ' ', $text);
+
+  // Truncate everything to 50 characters.
+  $words = explode(' ', $text);
+  array_walk($words, '_search_index_truncate');
+  $text = implode(' ', $words);
 
   return $text;
 }
@@ -479,7 +500,7 @@ function search_expand_cjk($matches) {
 }
 
 /**
- * Splits a string into tokens for indexing.
+ * Simplifies and splits a string into tokens for indexing.
  */
 function search_index_split($text) {
   $last = &drupal_static(__FUNCTION__);
@@ -491,7 +512,6 @@ function search_index_split($text) {
   // Process words
   $text = search_simplify($text);
   $words = explode(' ', $text);
-  array_walk($words, '_search_index_truncate');
 
   // Save last keyword result
   $last = $text;
@@ -504,6 +524,9 @@ function search_index_split($text) {
  * Helper function for array_walk in search_index_split.
  */
 function _search_index_truncate(&$text) {
+  if (is_numeric($text)) {
+    $text = ltrim($text, '0');
+  }
   $text = truncate_utf8($text, 50);
 }
 
@@ -520,17 +543,16 @@ function search_invoke_preprocess(&$text) {
  * Update the full-text search index for a particular item.
  *
  * @param $sid
- *   A number identifying this particular item (e.g. node id).
- *
- * @param $type
- *   A string defining this type of item (e.g. 'node')
- *
+ *   An ID number identifying this particular item (e.g., node ID).
+ * @param $module
+ *   The machine-readable name of the module that this item comes from (a module
+ *   that implements hook_search_info()).
  * @param $text
- *   The content of this item. Must be a piece of HTML text.
+ *   The content of this item. Must be a piece of HTML or plain text.
  *
  * @ingroup search
  */
-function search_index($sid, $type, $text) {
+function search_index($sid, $module, $text) {
   $minimum_word_size = variable_get('minimum_word_size', 3);
 
   // Link matching
@@ -638,14 +660,8 @@ function search_index($sid, $type, $text) {
         foreach ($words as $word) {
           // Add word to accumulator
           $accum .= $word . ' ';
-          $num = is_numeric($word);
           // Check wordlength
-          if ($num || drupal_strlen($word) >= $minimum_word_size) {
-            // Normalize numbers
-            if ($num) {
-              $word = (int)ltrim($word, '-0');
-            }
-
+          if (is_numeric($word) || drupal_strlen($word) >= $minimum_word_size) {
             // Links score mainly for the target.
             if ($link) {
               if (!isset($results[$linknid])) {
@@ -677,13 +693,13 @@ function search_index($sid, $type, $text) {
     $tag = !$tag;
   }
 
-  search_reindex($sid, $type, TRUE);
+  search_reindex($sid, $module, TRUE);
 
   // Insert cleaned up data into dataset
   db_insert('search_dataset')
     ->fields(array(
       'sid' => $sid,
-      'type' => $type,
+      'type' => $module,
       'data' => $accum,
       'reindex' => 0,
     ))
@@ -698,7 +714,7 @@ function search_index($sid, $type, $text) {
       ->key(array(
         'word' => $word,
         'sid' => $sid,
-        'type' => $type,
+        'type' => $module,
       ))
       ->fields(array('score' => $score))
       ->expression('score', 'score + :score', array(':score' => $score))
@@ -710,7 +726,7 @@ function search_index($sid, $type, $text) {
   // Get all previous links from this item.
   $result = db_query("SELECT nid, caption FROM {search_node_links} WHERE sid = :sid AND type = :type", array(
     ':sid' => $sid,
-    ':type' => $type
+    ':type' => $module
   ), array('target' => 'slave'));
   $links = array();
   foreach ($result as $link) {
@@ -726,7 +742,7 @@ function search_index($sid, $type, $text) {
         db_update('search_node_links')
           ->fields(array('caption' => $caption))
           ->condition('sid', $sid)
-          ->condition('type', $type)
+          ->condition('type', $module)
           ->condition('nid', $nid)
           ->execute();
         search_touch_node($nid);
@@ -734,14 +750,14 @@ function search_index($sid, $type, $text) {
       // Unset the link to mark it as processed.
       unset($links[$nid]);
     }
-    elseif ($sid != $nid || $type != 'node') {
+    elseif ($sid != $nid || $module != 'node') {
       // Insert the existing link and mark the node for reindexing, but don't
       // reindex if this is a link in a node pointing to itself.
       db_insert('search_node_links')
         ->fields(array(
           'caption' => $caption,
           'sid' => $sid,
-          'type' => $type,
+          'type' => $module,
           'nid' => $nid,
         ))
         ->execute();
@@ -752,7 +768,7 @@ function search_index($sid, $type, $text) {
   foreach ($links as $nid => $caption) {
     db_delete('search_node_links')
       ->condition('sid', $sid)
-      ->condition('type', $type)
+      ->condition('type', $module)
       ->condition('nid', $nid)
       ->execute();
     search_touch_node($nid);
@@ -760,10 +776,10 @@ function search_index($sid, $type, $text) {
 }
 
 /**
- * Change a node's changed timestamp to 'now' to force reindexing.
+ * Changes a node's changed timestamp to 'now' to force reindexing.
  *
  * @param $nid
- *   The nid of the node that needs reindexing.
+ *   The node ID of the node that needs reindexing.
  */
 function search_touch_node($nid) {
   db_update('search_dataset')
@@ -903,15 +919,15 @@ function search_expression_insert($expression, $option, $value = NULL) {
  * for all of the search features to work.
  *
  * There are three ways to interact with the search system:
- * - Specifically for searching nodes, you can implement hook_node_update_index()
- *   and hook_node_search_result(). However, note that the search system already
- *   indexes all visible output of a node, i.e. everything displayed normally
- *   by hook_view() and hook_node_view(). This is usually sufficient. You should
- *   only use this mechanism if you want additional, non-visible data to be
- *   indexed.
- * - Implement hook_search_info(). This will create a search tab for your module on
- *   the /search page with a simple keyword search form. You will also need to
- *   implement hook_search_execute() to perform the search.
+ * - Specifically for searching nodes, you can implement
+ *   hook_node_update_index() and hook_node_search_result(). However, note that
+ *   the search system already indexes all visible output of a node; i.e.,
+ *   everything displayed normally by hook_view() and hook_node_view(). This is
+ *   usually sufficient. You should only use this mechanism if you want
+ *   additional, non-visible data to be indexed.
+ * - Implement hook_search_info(). This will create a search tab for your module
+ *   on the /search page with a simple keyword search form. You will also need
+ *   to implement hook_search_execute() to perform the search.
  * - Implement hook_update_index(). This allows your module to use Drupal's
  *   HTML indexing mechanism for searching full text efficiently.
  *
@@ -926,11 +942,11 @@ function search_expression_insert($expression, $option, $value = NULL) {
  *
  * @param $action
  *   Form action. Defaults to "search/$path", where $path is the search path
- *   associated with the $type module in its hook_search_info(). This will be
+ *   associated with the module in its hook_search_info(). This will be
  *   run through url().
  * @param $keys
  *   The search string entered by the user, containing keywords for the search.
- * @param $type
+ * @param $module
  *   The search module to render the form for: a module that implements
  *   hook_search_info(). If not supplied, the default search module is used.
  * @param $prompt
@@ -940,14 +956,14 @@ function search_expression_insert($expression, $option, $value = NULL) {
  * @return
  *   A Form API array for the search form.
  */
-function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL, $prompt = NULL) {
+function search_form($form, &$form_state, $action = '', $keys = '', $module = NULL, $prompt = NULL) {
   $module_info = FALSE;
-  if (!$type) {
+  if (!$module) {
     $module_info = search_get_default_module_info();
   }
   else {
     $info = search_get_info();
-    $module_info = isset($info[$type]) ? $info[$type] : FALSE;
+    $module_info = isset($info[$module]) ? $info[$module] : FALSE;
   }
 
   // Sanity check.
@@ -967,7 +983,7 @@ function search_form($form, &$form_state, $action = '', $keys = '', $type = NULL
   // Record the $action for later use in redirecting.
   $form_state['action'] = $action;
   $form['#attributes']['class'][] = 'search-form';
-  $form['module'] = array('#type' => 'value', '#value' => $type);
+  $form['module'] = array('#type' => 'value', '#value' => $module);
   $form['basic'] = array('#type' => 'container', '#attributes' => array('class' => array('container-inline')));
   $form['basic']['keys'] = array(
     '#type' => 'textfield',
@@ -1018,6 +1034,16 @@ function search_box_form_submit($form, &$form_state) {
   // (see http://drupal.org/node/292565).
   if (isset($_GET['destination'])) {
     unset($_GET['destination']);
+  }
+
+  // Check to see if the form was submitted empty.
+  // If it is empty, display an error message.
+  // (This method is used instead of setting #required to TRUE for this field
+  // because that results in a confusing error message.  It would say a plain
+  // "field is required" because the search keywords field has no title.
+  // The error message would also complain about a missing #title field.)
+  if ($form_state['values']['search_block_form'] == '') {
+    form_set_error('keys', t('Please enter some keywords.'));
   }
 
   $form_id = $form['form_id']['#value'];
@@ -1116,12 +1142,13 @@ function search_excerpt($keys, $text) {
   array_walk($keys, '_search_excerpt_replace');
   $workkeys = $keys;
 
-  // Extract a fragment per keyword for at most 4 keywords.
+  // Extract fragments around keywords.
   // First we collect ranges of text around each keyword, starting/ending
-  // at spaces.
+  // at spaces, trying to get to 256 characters.
   // If the sum of all fragments is too short, we look for second occurrences.
   $ranges = array();
   $included = array();
+  $foundkeys = array();
   $length = 0;
   while ($length < 256 && count($workkeys)) {
     foreach ($workkeys as $k => $key) {
@@ -1138,10 +1165,26 @@ function search_excerpt($keys, $text) {
       if (!isset($included[$key])) {
         $included[$key] = 0;
       }
-      // Locate a keyword (position $p), then locate a space in front (position
-      // $q) and behind it (position $s)
+      // Locate a keyword (position $p, always >0 because $text starts with a
+      // space). First try bare keyword, but if that doesn't work, try to find a
+      // derived form from search_simplify().
+      $p = 0;
       if (preg_match('/' . $boundary . $key . $boundary . '/iu', $text, $match, PREG_OFFSET_CAPTURE, $included[$key])) {
         $p = $match[0][1];
+      }
+      else {
+        $info = search_simplify_excerpt_match($key, $text, $included[$key], $boundary);
+        if ($info['where']) {
+          $p = $info['where'];
+          if ($info['keyword']) {
+            $foundkeys[] = $info['keyword'];
+          }
+        }
+      }
+      // Now locate a space in front (position $q) and behind it (position $s),
+      // leaving about 60 characters extra before and after for context.
+      // Note that a space was added to the front and end of $text above.
+      if ($p) {
         if (($q = strpos(' ' . $text, ' ', max(0, $p - 61))) !== FALSE) {
           $end = substr($text . ' ', $p, 80);
           if (($s = strrpos($end, ' ')) !== FALSE) {
@@ -1207,6 +1250,10 @@ function search_excerpt($keys, $text) {
   $text = (isset($newranges[0]) ? '' : $dots[0]) . implode($dots[1], $out) . $dots[2];
   $text = check_plain($text);
 
+  // Slash-escape quotes in keys found in a derived form and merge with original keys.
+  array_walk($foundkeys, '_search_excerpt_replace');
+  $keys = array_merge($keys, $foundkeys);
+
   // Highlight keywords. Must be done at once to prevent conflicts ('strong' and '<strong>').
   $text = preg_replace('/' . $boundary . '(' . implode('|', $keys) . ')' . $boundary . '/iu', '<strong>\0</strong>', $text);
   return $text;
@@ -1221,6 +1268,76 @@ function search_excerpt($keys, $text) {
  */
 function _search_excerpt_replace(&$text) {
   $text = preg_quote($text, '/');
+}
+
+/**
+ * Find words in the original text that matched via search_simplify().
+ *
+ * This is called in search_excerpt() if an exact match is not found in the
+ * text, so that we can find the derived form that matches.
+ *
+ * @param $key
+ *   The keyword to find.
+ * @param $text
+ *   The text to search for the keyword.
+ * @param $offset
+ *   Offset position in $text to start searching at.
+ * @param $boundary
+ *   Text to include in a regular expression that will match a word boundary.
+ *
+ * @return
+ *   FALSE if no match is found. If a match is found, return an associative
+ *   array with element 'where' giving the position of the match, and element
+ *   'keyword' giving the actual word found in the text at that position.
+ */
+function search_simplify_excerpt_match($key, $text, $offset, $boundary) {
+  $pos = NULL;
+  $simplified_key = search_simplify($key);
+  $simplified_text = search_simplify($text);
+
+  // Check if we have a match after simplification in the text.
+  if (!preg_match('/' . $boundary . $simplified_key . $boundary . '/iu', $simplified_text, $match, PREG_OFFSET_CAPTURE, $offset)) {
+    return FALSE;
+  }
+
+  // If we get here, we have a match. Now find the exact location of the match
+  // and the original text that matched. Start by splitting up the text by all
+  // potential starting points of the matching text and iterating through them.
+  $split = array_filter(preg_split('/' . $boundary . '/iu', $text, -1, PREG_SPLIT_OFFSET_CAPTURE), '_search_excerpt_match_filter');
+  foreach ($split as $value) {
+    // Skip starting points before the offset.
+    if ($value[1] < $offset) {
+      continue;
+    }
+
+    // Check a window of 80 characters after the starting point for a match,
+    // based on the size of the excerpt window.
+    $window = substr($text, $value[1], 80);
+    $simplified_window = search_simplify($window);
+    if (strpos($simplified_window, $simplified_key) === 0) {
+      // We have a match in this window. Store the position of the match.
+      $pos = $value[1];
+      // Iterate through the text in the window until we find the full original
+      // matching text.
+      $length = strlen($window);
+      for ($i = 1; $i <= $length; $i++) {
+        $keyfound = substr($text, $value[1], $i);
+        if ($simplified_key == search_simplify($keyfound)) {
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  return $pos ? array('where' => $pos, 'keyword' => $keyfound) : FALSE;
+}
+
+/**
+ * Helper function for array_filter() in search_search_excerpt_match().
+ */
+function _search_excerpt_match_filter($var) {
+  return strlen(trim($var[0]));
 }
 
 /**

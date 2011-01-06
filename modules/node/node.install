@@ -1,5 +1,5 @@
 <?php
-// $Id: node.install,v 1.60 2010/10/07 00:28:20 webchick Exp $
+// $Id: node.install,v 1.62 2011/01/02 17:26:39 webchick Exp $
 
 /**
  * @file
@@ -446,7 +446,7 @@ function _update_7000_node_get_types() {
 }
 
 /**
- * @defgroup updates-6.x-to-7.x System updates from 6.x to 7.x
+ * @addtogroup updates-6.x-to-7.x
  * @{
  */
 
@@ -521,7 +521,7 @@ function node_update_7004() {
 
   // Map old preview setting to new values order.
   $original_preview ? $original_preview = 2 : $original_preview = 1;
-  drupal_static_reset('_node_types_build');
+  node_type_cache_reset();
 
   // Apply original settings to all types.
   foreach (_update_7000_node_get_types() as $type => $type_object) {
@@ -552,7 +552,7 @@ function node_update_7006(&$sandbox) {
   $sandbox['#finished'] = 0;
 
   // Get node type info for every invocation.
-  drupal_static_reset('_node_types_build');
+  node_type_cache_reset();
 
   if (!isset($sandbox['total'])) {
     // Initial invocation.
@@ -804,6 +804,5 @@ function node_update_7010() {
 }
 
 /**
- * @} End of "defgroup updates-6.x-to-7.x"
- * The next series of updates should start at 8000.
+ * @} End of "addtogroup updates-6.x-to-7.x"
  */

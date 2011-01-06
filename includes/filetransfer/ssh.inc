@@ -1,5 +1,5 @@
 <?php
-// $Id: ssh.inc,v 1.5 2010/01/30 07:59:24 dries Exp $
+// $Id: ssh.inc,v 1.8 2011/01/03 02:32:27 webchick Exp $
 
 /**
  * The SSH connection class for the update module.
@@ -17,7 +17,7 @@ class FileTransferSSH extends FileTransfer implements FileTransferChmodInterface
   function connect() {
     $this->connection = @ssh2_connect($this->hostname, $this->port);
     if (!$this->connection) {
-      throw new FileTransferException('SSH Connection failed to @host:@port', NULL, array('@host' => $this->hostname, '@port' => 21));
+      throw new FileTransferException('SSH Connection failed to @host:@port', NULL, array('@host' => $this->hostname, '@port' => $this->port));
     }
     if (!@ssh2_auth_password($this->connection, $this->username, $this->password)) {
       throw new FileTransferException('The supplied username/password combination was not accepted.');
@@ -25,9 +25,11 @@ class FileTransferSSH extends FileTransfer implements FileTransferChmodInterface
   }
 
   static function factory($jail, $settings) {
-    $settings['hostname'] = empty($settings['hostname']) ? 'localhost' : $settings['hostname'];
-    $settings['port'] = empty($settings['port']) ? 22 : $settings['port'];
-    return new FileTransferSSH($jail, $settings['username'], $settings['password'], $settings['hostname'], $settings['port']);
+    $username = empty($settings['username']) ? '' : $settings['username'];
+    $password = empty($settings['password']) ? '' : $settings['password'];
+    $hostname = empty($settings['advanced']['hostname']) ? 'localhost' : $settings['advanced']['hostname'];
+    $port = empty($settings['advanced']['port']) ? 22 : $settings['advanced']['port'];
+    return new FileTransferSSH($jail, $username, $password, $hostname, $port);
   }
 
   protected function copyFileJailed($source, $destination) {
@@ -94,5 +96,14 @@ class FileTransferSSH extends FileTransfer implements FileTransferChmodInterface
     if (@!ssh2_exec($this->connection, $cmd)) {
       throw new FileTransferException('Cannot change permissions of @path.', NULL, array('@path' => $path));
     }
+  }
+
+  /**
+   * Returns the form to configure the FileTransfer class for SSH.
+   */
+  public function getSettingsForm() {
+    $form = parent::getSettingsForm();
+    $form['advanced']['port']['#default_value'] = 22;
+    return $form;
   }
 }

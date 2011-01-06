@@ -1,5 +1,5 @@
 <?php
-// $Id: options.test,v 1.17 2010/09/24 00:37:42 dries Exp $
+// $Id: options.test,v 1.23 2010/12/18 00:50:03 dries Exp $
 
 class OptionsWidgetsTestCase extends FieldTestCase {
   public static function getInfo() {
@@ -16,11 +16,11 @@ class OptionsWidgetsTestCase extends FieldTestCase {
     // Field with cardinality 1.
     $this->card_1 = array(
       'field_name' => 'card_1',
-      'type' => 'list',
+      'type' => 'list_integer',
       'cardinality' => 1,
       'settings' => array(
         // Make sure that 0 works as an option.
-        'allowed_values' => "0|Zero\n1|One\n2|Some <script>dangerous</script> & unescaped <strong>markup</strong>\n",
+        'allowed_values' => array(0 => 'Zero', 1 => 'One', 2 => 'Some <script>dangerous</script> & unescaped <strong>markup</strong>'),
       ),
     );
     $this->card_1 = field_create_field($this->card_1);
@@ -28,11 +28,11 @@ class OptionsWidgetsTestCase extends FieldTestCase {
     // Field with cardinality 2.
     $this->card_2 = array(
       'field_name' => 'card_2',
-      'type' => 'list',
+      'type' => 'list_integer',
       'cardinality' => 2,
       'settings' => array(
         // Make sure that 0 works as an option.
-        'allowed_values' => "0|Zero\n1|One\n2|Some <script>dangerous</script> & unescaped <strong>markup</strong>\n",
+        'allowed_values' => array(0 => 'Zero', 1 => 'One', 2 => 'Some <script>dangerous</script> & unescaped <strong>markup</strong>'),
       ),
     );
     $this->card_2 = field_create_field($this->card_2);
@@ -44,7 +44,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
       'cardinality' => 1,
       'settings' => array(
         // Make sure that 0 works as a 'on' value'.
-        'allowed_values' => "1|No\n0|Some <script>dangerous</script> & unescaped <strong>markup</strong>\n",
+        'allowed_values' => array(1 => 'Zero', 0 => 'Some <script>dangerous</script> & unescaped <strong>markup</strong>'),
       ),
     );
     $this->bool = field_create_field($this->bool);
@@ -100,7 +100,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
     $this->assertFieldValues($entity_init, 'card_1', $langcode, array());
 
     // Check that required radios with one option is auto-selected.
-    $this->card_1['settings']['allowed_values'] = '99|Only allowed value';
+    $this->card_1['settings']['allowed_values'] = array(99 => 'Only allowed value');
     field_update_field($this->card_1);
     $instance['required'] = TRUE;
     field_update_instance($instance);
@@ -112,9 +112,6 @@ class OptionsWidgetsTestCase extends FieldTestCase {
    * Tests the 'options_buttons' widget (multiple select).
    */
   function testCheckBoxes() {
-    // Checkboxes do not support '0' as an option, the widget internally
-    // replaces it with '_0'.
-
     // Create an instance of the 'multiple values' field.
     $instance = array(
       'field_name' => $this->card_2['field_name'],
@@ -142,7 +139,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
 
     // Submit form: select first and third options.
     $edit = array(
-      "card_2[$langcode][_0]" => TRUE,
+      "card_2[$langcode][0]" => TRUE,
       "card_2[$langcode][1]" => FALSE,
       "card_2[$langcode][2]" => TRUE,
     );
@@ -157,7 +154,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
 
     // Submit form: select only first option.
     $edit = array(
-      "card_2[$langcode][_0]" => TRUE,
+      "card_2[$langcode][0]" => TRUE,
       "card_2[$langcode][1]" => FALSE,
       "card_2[$langcode][2]" => FALSE,
     );
@@ -172,7 +169,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
 
     // Submit form: select the three options while the field accepts only 2.
     $edit = array(
-      "card_2[$langcode][_0]" => TRUE,
+      "card_2[$langcode][0]" => TRUE,
       "card_2[$langcode][1]" => TRUE,
       "card_2[$langcode][2]" => TRUE,
     );
@@ -181,7 +178,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
 
     // Submit form: uncheck all options.
     $edit = array(
-      "card_2[$langcode][_0]" => FALSE,
+      "card_2[$langcode][0]" => FALSE,
       "card_2[$langcode][1]" => FALSE,
       "card_2[$langcode][2]" => FALSE,
     );
@@ -190,7 +187,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
     $this->assertFieldValues($entity_init, 'card_2', $langcode, array());
 
     // Required checkbox with one option is auto-selected.
-    $this->card_2['settings']['allowed_values'] = '99|Only allowed value';
+    $this->card_2['settings']['allowed_values'] = array(99 => 'Only allowed value');
     field_update_field($this->card_2);
     $instance['required'] = TRUE;
     field_update_instance($instance);
@@ -266,7 +263,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
 
     // Test optgroups.
 
-    $this->card_1['settings']['allowed_values'] = NULL;
+    $this->card_1['settings']['allowed_values'] = array();
     $this->card_1['settings']['allowed_values_function'] = 'list_test_allowed_values_callback';
     field_update_field($this->card_1);
 
@@ -381,7 +378,7 @@ class OptionsWidgetsTestCase extends FieldTestCase {
     // Test optgroups.
 
     // Use a callback function defining optgroups.
-    $this->card_2['settings']['allowed_values'] = NULL;
+    $this->card_2['settings']['allowed_values'] = array();
     $this->card_2['settings']['allowed_values_function'] = 'list_test_allowed_values_callback';
     field_update_field($this->card_2);
     $instance['required'] = FALSE;
@@ -456,6 +453,62 @@ class OptionsWidgetsTestCase extends FieldTestCase {
     // Display form: with 'off' value, option is unchecked.
     $this->drupalGet('test-entity/manage/' . $entity->ftid . '/edit');
     $this->assertNoFieldChecked("edit-bool-$langcode");
+
+    // Create admin user.
+    $admin_user = $this->drupalCreateUser(array('access content', 'administer content types', 'administer taxonomy'));
+    $this->drupalLogin($admin_user);
+
+    // Create a test field instance.
+    $fieldUpdate = $this->bool;
+    $fieldUpdate['settings']['allowed_values'] = array(0 => 0, 1 => 'MyOnValue');
+    field_update_field($fieldUpdate);
+    $instance = array(
+      'field_name' => $this->bool['field_name'],
+      'entity_type' => 'node',
+      'bundle' => 'page',
+      'widget' => array(
+            'type' => 'options_onoff',
+            'module' => 'options',
+        ),
+    );
+    field_create_instance($instance);
+
+    // Go to the edit page and check if the default settings works as expected
+    $fieldEditUrl = 'admin/structure/types/manage/page/fields/bool';
+    $this->drupalGet($fieldEditUrl);
+
+    $this->assertText(
+      'Use field label instead of the "On value" as label ',
+      t('Display setting checkbox available.')
+    );
+
+    $this->assertFieldByXPath(
+      '*//label[@for="edit-' . $this->bool['field_name'] . '-und" and text()="MyOnValue "]',
+      TRUE,
+      t('Default case shows "On value"')
+    );
+
+    // Enable setting
+    $edit = array('instance[widget][settings][display_label]' => 1);
+    // Save the new Settings
+    $this->drupalPost($fieldEditUrl, $edit, t('Save settings'));
+
+    // Go again to the edit page and check if the setting
+    // is stored and has the expected effect
+    $this->drupalGet($fieldEditUrl);
+    $this->assertText(
+      'Use field label instead of the "On value" as label ',
+      t('Display setting checkbox is available')
+    );
+    $this->assertFieldChecked(
+      'edit-instance-widget-settings-display-label',
+      t('Display settings checkbox checked')
+    );
+    $this->assertFieldByXPath(
+      '*//label[@for="edit-' . $this->bool['field_name'] . '-und" and text()="' . $this->bool['field_name'] . ' "]',
+      TRUE,
+      t('Display label changes label of the checkbox')
+    );
   }
 }
 

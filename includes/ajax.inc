@@ -1,5 +1,5 @@
 <?php
-// $Id: ajax.inc,v 1.37 2010/10/21 19:31:39 dries Exp $
+// $Id: ajax.inc,v 1.42 2011/01/02 17:26:39 webchick Exp $
 
 /**
  * @file
@@ -9,6 +9,8 @@
 /**
  * @defgroup ajax AJAX framework
  * @{
+ * Functions for Drupal's AJAX framework.
+ *
  * Drupal's AJAX framework is used to dynamically update parts of a page's HTML
  * based on data from the server. Upon a specified event, such as a button
  * click, a callback function is triggered which performs server-side logic and
@@ -407,19 +409,49 @@ function ajax_base_page_theme() {
 /**
  * Package and send the result of a page callback to the browser as an AJAX response.
  *
+ * This function is the equivalent of drupal_deliver_html_page(), but for AJAX
+ * requests. Like that function, it:
+ * - Adds needed HTTP headers.
+ * - Prints rendered output.
+ * - Performs end-of-request tasks.
+ *
  * @param $page_callback_result
  *   The result of a page callback. Can be one of:
  *   - NULL: to indicate no content.
  *   - An integer menu status constant: to indicate an error condition.
  *   - A string of HTML content.
  *   - A renderable array of content.
+ *
+ * @see drupal_deliver_html_page()
  */
 function ajax_deliver($page_callback_result) {
-  $commands = array();
-  $header = TRUE;
+  // Emit a Content-Type HTTP header if none has been added by the page callback
+  // or by a wrapping delivery callback.
+  if (is_null(drupal_get_http_header('Content-Type'))) {
+    // The standard header for JSON is application/json.
+    // @see http://www.ietf.org/rfc/rfc4627.txt?number=4627
+    // However, browsers do not allow JavaScript to read the contents of a
+    // user's local files. To work around that, jQuery submits forms containing
+    // a file input element to an IFRAME, instead of using XHR.
+    // @see http://malsup.com/jquery/form/#file-upload
+    // When Internet Explorer receives application/json content in an IFRAME, it
+    // treats it as a file download and prompts the user to save it. To prevent
+    // that, we return the content as text/plain. But only for POST requests,
+    // since jQuery should always use XHR for GET requests and the incorrect
+    // mime type should not end up in page or proxy server caches.
+    // @see http://drupal.org/node/995854
+    $iframe_upload = !isset($_SERVER['HTTP_X_REQUESTED_WITH']) || $_SERVER['HTTP_X_REQUESTED_WITH'] != 'XMLHttpRequest';
+    if ($iframe_upload && $_SERVER['REQUEST_METHOD'] == 'POST') {
+      drupal_add_http_header('Content-Type', 'text/plain; charset=utf-8');
+    }
+    else {
+      drupal_add_http_header('Content-Type', 'application/json; charset=utf-8');
+    }
+  }
 
   // Normalize whatever was returned by the page callback to an AJAX commands
   // array.
+  $commands = array();
   if (!isset($page_callback_result)) {
     // Simply delivering an empty commands array is sufficient. This results
     // in the AJAX request being completed, but nothing being done to the page.
@@ -444,7 +476,6 @@ function ajax_deliver($page_callback_result) {
     // Complex AJAX callbacks can return a result that contains an error message
     // or a specific set of commands to send to the browser.
     $page_callback_result += element_info('ajax');
-    $header = $page_callback_result['#header'];
     $error = $page_callback_result['#error'];
     if (isset($error) && $error !== FALSE) {
       if ((empty($error) || $error === TRUE)) {
@@ -470,24 +501,10 @@ function ajax_deliver($page_callback_result) {
     $commands[] = ajax_command_prepend(NULL, theme('status_messages'));
   }
 
-  // This function needs to do the same thing that drupal_deliver_html_page()
-  // does: add any needed http headers, print rendered output, and perform
-  // end-of-request tasks. By default, $header=TRUE, and we add a
-  // 'text/javascript' header. The page callback can override $header by
-  // returning an 'ajax' element with a #header property. This can be set to
-  // FALSE to prevent the 'text/javascript' header from being output, necessary
-  // when outputting to an IFRAME. This can also be set to 'multipart', in which
-  // case, we don't output JSON, but JSON content wrapped in a textarea, making
-  // a 'text/javascript' header incorrect.
-  if ($header && $header !== 'multipart') {
-    drupal_add_http_header('Content-Type', 'text/javascript; charset=utf-8');
-  }
-  $output = ajax_render($commands);
-  if ($header === 'multipart') {
-    // jQuery file uploads: http://malsup.com/jquery/form/#code-samples
-    $output = '<textarea>' . $output . '</textarea>';
-  }
-  print $output;
+  // Unlike the recommendation in http://malsup.com/jquery/form/#file-upload,
+  // we do not have to wrap the JSON string in a TEXTAREA, because
+  // drupal_json_encode() returns an HTML-safe JSON string.
+  print ajax_render($commands);
   ajax_footer();
 }
 
@@ -604,8 +621,8 @@ function ajax_pre_render_element($element) {
 
   // Attach JavaScript settings to the element.
   if (isset($element['#ajax']['event'])) {
-    $element['#attached']['library'][] = array('system', 'form');
-    $element['#attached']['js']['misc/ajax.js'] = array('group' => JS_LIBRARY, 'weight' => 2);
+    $element['#attached']['library'][] = array('system', 'jquery.form');
+    $element['#attached']['library'][] = array('system', 'drupal.ajax');
 
     $settings = $element['#ajax'];
 
@@ -613,15 +630,10 @@ function ajax_pre_render_element($element) {
     $settings += array(
       'path' => 'system/ajax',
       'options' => array(),
-      'selector' => '#' . $element['#id'],
-      'effect' => 'none',
-      'speed' => 'none',
-      'method' => 'replaceWith',
-      'progress' => array('type' => 'throbber'),
     );
 
     // @todo Legacy support. Remove in Drupal 8.
-    if ($settings['method'] == 'replace') {
+    if (isset($settings['method']) && $settings['method'] == 'replace') {
       $settings['method'] = 'replaceWith';
     }
 
@@ -659,17 +671,13 @@ function ajax_pre_render_element($element) {
     }
 
     // Convert a simple #ajax['progress'] string into an array.
-    if (is_string($settings['progress'])) {
+    if (isset($settings['progress']) && is_string($settings['progress'])) {
       $settings['progress'] = array('type' => $settings['progress']);
     }
     // Change progress path to a full URL.
     if (isset($settings['progress']['path'])) {
       $settings['progress']['url'] = url($settings['progress']['path']);
       unset($settings['progress']['path']);
-    }
-    // Add progress.js if we're doing a bar display.
-    if ($settings['progress']['type'] == 'bar') {
-      $element['#attached']['js']['misc/progress.js'] = array('cache' => FALSE);
     }
 
     $element['#attached']['js'][] = array(
@@ -690,6 +698,10 @@ function ajax_pre_render_element($element) {
 /**
  * @defgroup ajax_commands AJAX framework commands
  * @{
+ * Functions to create various AJAX commands.
+ *
+ * These functions can be used to create arrays for use with the
+ * ajax_render() function.
  */
 
 /**
@@ -1002,7 +1014,7 @@ function ajax_command_changed($selector, $asterisk = '') {
  * The 'css' command will instruct the client to use the jQuery css() method
  * to apply the CSS arguments to elements matched by the given selector.
  *
- * This command is implemented by Drupal.ajax.prototype.commands.insert()
+ * This command is implemented by Drupal.ajax.prototype.commands.css()
  * defined in misc/ajax.js.
  *
  * @param $selector
@@ -1084,6 +1096,37 @@ function ajax_command_data($selector, $name, $value) {
     'selector' => $selector,
     'name' => $name,
     'value' => $value,
+  );
+}
+
+/**
+ * Creates a Drupal AJAX 'invoke' command.
+ *
+ * The 'invoke' command will instruct the client to invoke the given jQuery
+ * method with the supplied arguments on the elements matched by the given
+ * selector. Intended for simple jQuery commands, such as attr(), addClass(),
+ * removeClass(), toggleClass(), etc.
+ *
+ * This command is implemented by Drupal.ajax.prototype.commands.invoke()
+ * defined in misc/ajax.js.
+ *
+ * @param $selector
+ *   A jQuery selector string. If the command is a response to a request from
+ *   an #ajax form element then this value can be NULL.
+ * @param $method
+ *   The jQuery method to invoke.
+ * @param $arguments
+ *   (optional) A list of arguments to the jQuery $method, if any.
+ *
+ * @return
+ *   An array suitable for use with the ajax_render() function.
+ */
+function ajax_command_invoke($selector, $method, array $arguments = array()) {
+  return array(
+    'command' => 'invoke',
+    'selector' => $selector,
+    'method' => $method,
+    'arguments' => $arguments,
   );
 }
 

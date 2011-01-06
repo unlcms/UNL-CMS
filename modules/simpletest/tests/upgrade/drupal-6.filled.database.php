@@ -1,5 +1,5 @@
 <?php
-// $Id: drupal-6.filled.database.php,v 1.4 2010/10/04 14:51:16 webchick Exp $
+// $Id: drupal-6.filled.database.php,v 1.6 2010/12/30 03:44:39 webchick Exp $
 
 /**
  * @file
@@ -1031,6 +1031,12 @@ db_insert('filter_formats')->fields(array(
 ->values(array(
   'format' => '2',
   'name' => 'Full HTML',
+  'roles' => '',
+  'cache' => '1',
+))
+->values(array(
+  'format' => '3',
+  'name' => 'Escape HTML Filter',
   'roles' => '',
   'cache' => '1',
 ))
@@ -19735,11 +19741,25 @@ db_insert('variable')->fields(array(
 ))
 ->values(array(
   'name' => 'file_directory_temp',
-  'value' => 's:26:"/Applications/MAMP/tmp/php";',
+  'value' => 's:29:"/drupal-6/file/directory/temp";',
+))
+->values(array(
+  'name' => 'file_directory_path',
+  'value' => 's:29:"/drupal-6/file/directory/path";',
+))
+->values(array(
+  'name' => 'file_downloads',
+  'value' => 'i:2;',
 ))
 ->values(array(
   'name' => 'filter_html_1',
   'value' => 'i:1;',
+))
+// Add the Escape HTML filter to the custom input format 'Escape HTML Filter'
+// to test that the filter may be upgraded to its Drupal 7 equivalent.
+->values(array(
+  'name' => 'filter_html_3',
+  'value' => 'i:2;',
 ))
 ->values(array(
   'name' => 'install_profile',

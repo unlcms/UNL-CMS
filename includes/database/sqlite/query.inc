@@ -1,5 +1,5 @@
 <?php
-// $Id: query.inc,v 1.13 2010/09/25 01:41:26 dries Exp $
+// $Id: query.inc,v 1.15 2010/12/22 01:16:43 webchick Exp $
 
 /**
  * @file
@@ -10,16 +10,6 @@
  * @ingroup database
  * @{
  */
-
-/**
- * SQLite specific query builder for SELECT statements.
- */
-class SelectQuery_sqlite extends SelectQuery {
-  public function forUpdate($set = TRUE) {
-    // SQLite does not support FOR UPDATE so nothing to do.
-    return $this;
-  }
-}
 
 /**
  * SQLite specific implementation of InsertQuery.
@@ -107,7 +97,7 @@ class UpdateQuery_sqlite extends UpdateQuery {
     foreach ($fields as $field => $data) {
       if (is_array($data)) {
         // The field is an expression.
-        $condition->condition($field, $data['expression'], '<>');
+        $condition->where($field . ' <> ' . $data['expression']);
         $condition->isNull($field);
       }
       elseif (!isset($data)) {

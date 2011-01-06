@@ -1,5 +1,5 @@
 <?php
-// $Id: database_test.test,v 1.104 2010/10/15 04:34:15 webchick Exp $
+// $Id: database_test.test,v 1.110 2010/12/31 20:43:43 webchick Exp $
 
 /**
  * Dummy class for fetching into a class.
@@ -776,6 +776,25 @@ class DatabaseUpdateTestCase extends DatabaseTestCase {
     $this->assertIdentical($num_matches, '1', t('Updated fields successfully.'));
   }
 
+  /**
+   * Test updating with expressions.
+   */
+  function testExpressionUpdate() {
+    // Set age = 1 for a single row for this test to work.
+    db_update('test')
+      ->condition('id', 1)
+      ->fields(array('age' => 1))
+      ->execute();
+
+    // Ensure that expressions are handled properly.  This should set every
+    // record's age to a square of itself, which will change only three of the
+    // four records in the table since 1*1 = 1. That means only three records
+    // are modified, so we should get back 3, not 4, from execute().
+    $num_rows = db_update('test')
+      ->expression('age', 'age * age')
+      ->execute();
+    $this->assertIdentical($num_rows, 3, t('Number of affected rows are returned.'));
+  }
 }
 
 /**
@@ -1665,6 +1684,61 @@ class DatabaseSelectSubqueryTestCase extends DatabaseTestCase {
 
     $this->assertEqual(count($people), 2, t('Returned the correct number of rows.'));
   }
+
+  /**
+   * Test EXISTS subquery conditionals on SELECT statements.
+   */
+  function testExistsSubquerySelect() {
+    // Put George into {test_people}.
+    db_insert('test_people')
+      ->fields(array(
+        'name' => 'George',
+        'age' => 27,
+        'job' => 'Singer',
+      ))
+      ->execute();
+    // Base query to {test}.
+    $query = db_select('test', 't')
+      ->fields('t', array('name'));
+    // Subquery to {test_people}.
+    $subquery = db_select('test_people', 'tp')
+      ->fields('tp', array('name'))
+      ->condition('name', 'George');
+    $query->exists($subquery);
+    $result = $query->execute();
+
+    // Ensure that we got the right record.
+    $record = $result->fetch();
+    $this->assertEqual($record->name, 'George', t('Fetched name is correct using EXISTS query.'));
+  }
+
+  /**
+   * Test NOT EXISTS subquery conditionals on SELECT statements.
+   */
+  function testNotExistsSubquerySelect() {
+    // Put George into {test_people}.
+    db_insert('test_people')
+      ->fields(array(
+        'name' => 'George',
+        'age' => 27,
+        'job' => 'Singer',
+      ))
+      ->execute();
+
+    // Base query to {test}.
+    $query = db_select('test', 't')
+      ->fields('t', array('name'));
+    // Subquery to {test_people}.
+    $subquery = db_select('test_people', 'tp')
+      ->fields('tp', array('name'))
+      ->condition('name', 'George');
+    $query->notExists($subquery);
+    $result = $query->execute();
+
+    // Ensure that we got the right record.
+    $record = $result->fetch();
+    $this->assertFalse($record, t('NOT EXISTS query returned no results.'));
+  }
 }
 
 /**
@@ -1970,6 +2044,25 @@ class DatabaseSelectComplexTestCase extends DatabaseTestCase {
     $this->assertEqual($count, 4, t('Counted the correct number of records.'));
   }
 
+
+  /**
+   * Test that countQuery properly removes fields and expressions.
+   */
+  function testCountQueryFieldRemovals() {
+    // countQuery should remove all fields and expressions, so this can be
+    // tested by adding a non-existant field and expression: if it ends
+    // up in the query, an error will be thrown. If not, it will return the
+    // number of records, which in this case happens to be 4 (there are four
+    // records in the {test} table).
+    $query = db_select('test');
+    $query->fields('test', array('fail'));
+    $this->assertEqual(4, $query->countQuery()->execute()->fetchField(), t('Count Query removed fields'));
+
+    $query = db_select('test');
+    $query->addExpression('fail');
+    $this->assertEqual(4, $query->countQuery()->execute()->fetchField(), t('Count Query removed expressions'));
+  }
+
   /**
    * Test that we can generate a count query from a query with distinct.
    */
@@ -1990,6 +2083,18 @@ class DatabaseSelectComplexTestCase extends DatabaseTestCase {
     $query = db_select('test_task');
     $pid_field = $query->addField('test_task', 'pid');
     $query->groupBy('pid');
+
+    $count = $query->countQuery()->execute()->fetchField();
+
+    $this->assertEqual($count, 3, t('Counted the correct number of records.'));
+
+    // Use a column alias as, without one, the query can succeed for the wrong
+    // reason.
+    $query = db_select('test_task');
+    $pid_field = $query->addField('test_task', 'pid', 'pid_alias');
+    $query->addExpression('COUNT(test_task.task)', 'count');
+    $query->groupBy('pid_alias');
+    $query->orderBy('pid_alias', 'asc');
 
     $count = $query->countQuery()->execute()->fetchField();
 
@@ -2747,6 +2852,33 @@ class DatabaseLoggingTestCase extends DatabaseTestCase {
 
     $this->assertEqual(count($queries1), 1, t('Correct number of queries recorded for first connection.'));
     $this->assertEqual(count($queries2), 1, t('Correct number of queries recorded for second connection.'));
+  }
+}
+
+/**
+ * Query serialization tests.
+ */
+class DatabaseSerializeQueryTestCase extends DatabaseTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Serialize query',
+      'description' => 'Test serializing and unserializing a query.',
+      'group' => 'Database',
+    );
+  }
+
+  /**
+   * Confirm that a query can be serialized and unserialized.
+   */
+  function testSerializeQuery() {
+    $query = db_select('test');
+    $query->addField('test', 'age');
+    $query->condition('name', 'Ringo');
+    // If this doesn't work, it will throw an exception, so no need for an
+    // assertion.
+    $query = unserialize(serialize($query));
+    $results = $query->execute()->fetchCol();
+    $this->assertEqual($results[0], 28, t('Query properly executed after unserialization.'));
   }
 }
 

@@ -1,14 +1,17 @@
 <?php
-// $Id: schema.inc,v 1.39 2010/08/22 13:55:53 dries Exp $
+// $Id: schema.inc,v 1.44 2011/01/03 18:03:54 webchick Exp $
 
 /**
  * @file
  * Generic Database schema code.
  */
 
+require_once dirname(__FILE__) . '/query.inc';
+
 /**
  * @defgroup schemaapi Schema API
  * @{
+ * API to handle database schemas.
  *
  * A Drupal schema definition is an array structure representing one or
  * more tables and their related keys and indexes. A schema is defined by
@@ -38,10 +41,16 @@
  *       description might contain "Always holds the largest (most
  *       recent) {node_revision}.vid value for this nid."
  *     - 'type': The generic datatype: 'char', 'varchar', 'text', 'blob', 'int',
- *       'float', 'numeric', 'serial', 'date', 'datetime' or 'time'. Most types
- *       types just map to the according database engine specific datatypes. Use
- *       'serial' for auto incrementing fields. This will expand to 'INT
- *       auto_increment' on MySQL.
+ *       'float', 'numeric', or 'serial'. Most types just map to the according
+ *       database engine specific datatypes. Use 'serial' for auto incrementing
+ *       fields. This will expand to 'INT auto_increment' on MySQL.
+ *     - 'mysql_type', 'pgsql_type', 'sqlite_type', etc.: If you need to
+ *       use a record type not included in the officially supported list
+ *       of types above, you can specify a type for each database
+ *       backend. In this case, you can leave out the type parameter,
+ *       but be advised that your schema will fail to load on backends that
+ *       do not have a type specified. A possible solution can be to
+ *       use the "text" type as a fallback.
  *     - 'serialize': A boolean indicating whether the field will be stored as
  *       a serialized string.
  *     - 'size': The data size: 'tiny', 'small', 'medium', 'normal',

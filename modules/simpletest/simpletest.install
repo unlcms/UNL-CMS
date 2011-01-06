@@ -1,5 +1,5 @@
 <?php
-// $Id: simpletest.install,v 1.39 2010/10/15 23:40:21 webchick Exp $
+// $Id: simpletest.install,v 1.41 2011/01/03 06:40:49 webchick Exp $
 
 /**
  * @file
@@ -7,31 +7,12 @@
  */
 
 /**
- * Implements hook_uninstall().
+ * Minimum value of PHP memory_limit for SimpleTest.
  */
-function simpletest_uninstall() {
-  simpletest_clean_environment();
-
-  // Remove settings variables.
-  variable_del('simpletest_httpauth_method');
-  variable_del('simpletest_httpauth_username');
-  variable_del('simpletest_httpauth_password');
-  variable_del('simpletest_clear_results');
-  variable_del('simpletest_verbose');
-
-  // Remove generated files.
-  $path = 'public://simpletest';
-  $files = file_scan_directory($path, '/.*/');
-  foreach ($files as $file) {
-    file_unmanaged_delete($file->uri);
-  }
-  drupal_rmdir($path);
-}
+define('SIMPLETEST_MINIMUM_PHP_MEMORY_LIMIT', '64M');
 
 /**
  * Implements hook_requirements().
- *
- * Check that the cURL extension exists for PHP.
  */
 function simpletest_requirements($phase) {
   $requirements = array();
@@ -78,6 +59,14 @@ function simpletest_requirements($phase) {
   if ($open_basedir) {
     $requirements['php_open_basedir']['severity'] = REQUIREMENT_ERROR;
     $requirements['php_open_basedir']['description'] = t('The testing framework requires the PHP <a href="@open_basedir-url">open_basedir</a> restriction to be disabled. Check your webserver configuration or contact your web host.', array('@open_basedir-url' => 'http://php.net/manual/en/ini.core.php#ini.open-basedir'));
+  }
+
+  // Check the current memory limit. If it is set too low, SimpleTest will fail
+  // to load all tests and throw a fatal error.
+  $memory_limit = ini_get('memory_limit');
+  if ($memory_limit && $memory_limit != -1 && parse_size($memory_limit) < parse_size(SIMPLETEST_MINIMUM_PHP_MEMORY_LIMIT)) {
+    $requirements['php_memory_limit']['severity'] = REQUIREMENT_ERROR;
+    $requirements['php_memory_limit']['description'] = t('The testing framework requires the PHP memory limit to be at least %memory_minimum_limit. The current value is %memory_limit. <a href="@url">Follow these steps to continue</a>.', array('%memory_limit' => $memory_limit, '%memory_minimum_limit' => SIMPLETEST_MINIMUM_PHP_MEMORY_LIMIT, '@url' => 'http://drupal.org/node/207036'));
   }
 
   return $requirements;
@@ -173,4 +162,21 @@ function simpletest_schema() {
     'primary key' => array('test_id'),
   );
   return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function simpletest_uninstall() {
+  simpletest_clean_environment();
+
+  // Remove settings variables.
+  variable_del('simpletest_httpauth_method');
+  variable_del('simpletest_httpauth_username');
+  variable_del('simpletest_httpauth_password');
+  variable_del('simpletest_clear_results');
+  variable_del('simpletest_verbose');
+
+  // Remove generated files.
+  file_unmanaged_delete_recursive('public://simpletest');
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: update.module,v 1.70 2010/10/06 13:36:30 dries Exp $
+// $Id: update.module,v 1.75 2011/01/03 02:17:34 webchick Exp $
 
 /**
  * @file
@@ -301,6 +301,9 @@ function update_cron() {
     // missing data, and if so, try to fetch the data.
     update_get_available(TRUE);
   }
+
+  // Clear garbage from disk.
+  update_clear_update_disk_cache();
 }
 
 /**
@@ -641,8 +644,75 @@ function theme_update_last_check($variables) {
 }
 
 /**
+ * Implements hook_verify_update_archive().
+ *
+ * First, we ensure that the archive isn't a copy of Drupal core, which the
+ * Update manager does not yet support. @see http://drupal.org/node/606592
+ *
+ * Then, we make sure that at least one module included in the archive file has
+ * an .info file which claims that the code is compatible with the current
+ * version of Drupal core.
+ *
+ * @see drupal_system_listing()
+ * @see _system_rebuild_module_data()
+ */
+function update_verify_update_archive($project, $archive_file, $directory) {
+  $errors = array();
+
+  // Make sure this isn't a tarball of Drupal core.
+  if (
+    file_exists("$directory/$project/index.php")
+    && file_exists("$directory/$project/update.php")
+    && file_exists("$directory/$project/includes/bootstrap.inc")
+    && file_exists("$directory/$project/modules/node/node.module")
+    && file_exists("$directory/$project/modules/system/system.module")
+  ) {
+    return array(
+      'no-core' => t('Automatic updating of Drupal core is not supported. See the <a href="@upgrade-guide">upgrade guide</a> for information on how to update Drupal core manually.', array('@upgrade-guide' => 'http://drupal.org/upgrade')),
+    );
+  }
+
+  // Parse all the .info files and make sure at least one is compatible with
+  // this version of Drupal core. If one is compatible, then the project as a
+  // whole is considered compatible (since, for example, the project may ship
+  // with some out-of-date modules that are not necessary for its overall
+  // functionality).
+  $compatible_project = FALSE;
+  $incompatible = array();
+  $files = file_scan_directory("$directory/$project", '/^' . DRUPAL_PHP_FUNCTION_PATTERN . '\.info$/', array('key' => 'name', 'min_depth' => 0));
+  foreach ($files as $key => $file) {
+    // Get the .info file for the module or theme this file belongs to.
+    $info = drupal_parse_info_file($file->uri);
+
+    // If the module or theme is incompatible with Drupal core, set an error.
+    if (empty($info['core']) || $info['core'] != DRUPAL_CORE_COMPATIBILITY) {
+      $incompatible[] = !empty($info['name']) ? $info['name'] : t('Unknown');
+    }
+    else {
+      $compatible_project = TRUE;
+      break;
+    }
+  }
+
+  if (empty($files)) {
+    $errors[] = t('%archive_file does not contain any .info files.', array('%archive_file' => basename($archive_file)));
+  }
+  elseif (!$compatible_project) {
+    $errors[] = format_plural(
+      count($incompatible),
+      '%archive_file contains a version of %names that is not compatible with Drupal !version.',
+      '%archive_file contains versions of modules or themes that are not compatible with Drupal !version: %names',
+      array('!version' => DRUPAL_CORE_COMPATIBILITY, '%archive_file' => basename($archive_file), '%names' => implode(', ', $incompatible))
+    );
+  }
+
+  return $errors;
+}
+
+/**
  * @defgroup update_status_cache Private update status cache system
  * @{
+ * Functions to manage the update status cache.
  *
  * We specifically do NOT use the core cache API for saving the fetched data
  * about available updates. It is vitally important that this cache is only
@@ -786,3 +856,46 @@ function update_flush_caches() {
 /**
  * @} End of "defgroup update_status_cache".
  */
+
+/**
+ * Clear the temporary files and directories based on file age from disk.
+ */
+function update_clear_update_disk_cache() {
+  // List of update module cache directories.
+  $directories = array(
+    'temporary://update-cache',
+    'temporary://update-extraction',
+  );
+
+  // Search for files and directories in base folder only without recursion.
+  foreach ($directories as $directory) {
+    file_scan_directory($directory, '/.*/', array('callback' => 'update_delete_file_if_stale', 'recurse' => FALSE));
+  }
+}
+
+/**
+ * Delete stale files and directories from the Update manager disk cache.
+ *
+ * Files and directories older than 6 hours and development snapshots older
+ * than 5 minutes are considered stale. We only cache development snapshots
+ * for 5 minutes since otherwise updated snapshots might not be downloaded as
+ * expected.
+ *
+ * When checking file ages, we need to use the ctime, not the mtime
+ * (modification time) since many (all?) tar implementations go out of their
+ * way to set the mtime on the files they create to the timestamps recorded
+ * in the tarball. We want to see the last time the file was changed on disk,
+ * which is left alone by tar and correctly set to the time the archive file
+ * was unpacked.
+ *
+ * @param $path
+ *   A string containing a file path or (streamwrapper) URI.
+ */
+function update_delete_file_if_stale($path) {
+  if (file_exists($path)) {
+    $filectime = filectime($path);
+    if (REQUEST_TIME - $filectime > DRUPAL_MAXIMUM_TEMP_FILE_AGE || (preg_match('/.*-dev\.(tar\.gz|zip)/i', $path) && REQUEST_TIME - $filectime > 300)) {
+      file_unmanaged_delete_recursive($path);
+    }
+  }
+}

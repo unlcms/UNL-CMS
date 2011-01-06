@@ -1,5 +1,5 @@
 <?php
-// $Id: pager.inc,v 1.85 2010/10/08 05:07:53 webchick Exp $
+// $Id: pager.inc,v 1.87 2011/01/03 18:03:54 webchick Exp $
 
 /**
  * @file
@@ -20,7 +20,7 @@ class PagerDefault extends SelectQueryExtender {
    *
    * @var int
    */
-  static protected $maxElement = 0;
+  static $maxElement = 0;
 
   /**
    * The number of elements per page to allow.
@@ -431,8 +431,9 @@ function theme_pager($variables) {
 /**
  * @defgroup pagerpieces Pager pieces
  * @{
- * Use these pieces to construct your own custom pagers in your theme. Note that
- * you should NOT modify this file to customize your pager.
+ * Use these pieces to construct your own custom pagers in your theme.
+ *
+ * Note that you should NOT modify this file to customize your pager.
  */
 
 /**

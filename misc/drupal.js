@@ -1,4 +1,4 @@
-// $Id: drupal.js,v 1.69 2010/07/28 01:38:28 dries Exp $
+// $Id: drupal.js,v 1.72 2011/01/01 04:11:39 webchick Exp $
 
 var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'locale': {} };
 
@@ -114,11 +114,14 @@ Drupal.detachBehaviors = function (context, settings, trigger) {
  * Encode special characters in a plain-text string for display as HTML.
  */
 Drupal.checkPlain = function (str) {
+  var character, regex,
+      replace = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
   str = String(str);
-  var replace = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
-  for (var character in replace) {
-    var regex = new RegExp(character, 'g');
-    str = str.replace(regex, replace[character]);
+  for (character in replace) {
+    if (replace.hasOwnProperty(character)) {
+      regex = new RegExp(character, 'g');
+      str = str.replace(regex, replace[character]);
+    }
   }
   return str;
 };
@@ -228,8 +231,9 @@ Drupal.formatPlural = function (count, singular, plural, args) {
  * theme does not provide an override function, the generic theme function is
  * called.
  *
- * For example, to retrieve the HTML that is output by theme_placeholder(text),
- * call Drupal.theme('placeholder', text).
+ * For example, to retrieve the HTML for text that should be emphasized and
+ * displayed as a placeholder inside a sentence, call
+ * Drupal.theme('placeholder', text).
  *
  * @param func
  *   The name of the theme function to call.
@@ -240,9 +244,7 @@ Drupal.formatPlural = function (count, singular, plural, args) {
  *   but also a complex object.
  */
 Drupal.theme = function (func) {
-  for (var i = 1, args = []; i < arguments.length; i++) {
-    args.push(arguments[i]);
-  }
+  var args = Array.prototype.slice.apply(arguments, [1]);
 
   return (Drupal.theme[func] || Drupal.theme.prototype[func]).apply(this, args);
 };
@@ -312,8 +314,22 @@ Drupal.ajaxError = function (xmlhttp, uri) {
   }
   statusCode += "\n" + Drupal.t("Debugging information follows.");
   pathText = "\n" + Drupal.t("Path: !uri", {'!uri': uri} );
-  statusText = xmlhttp.statusText ? ("\n" + Drupal.t("StatusText: !statusText", {'!statusText': $.trim(xmlhttp.statusText)})) : "";
-  responseText = xmlhttp.responseText ? ("\n" + Drupal.t("ResponseText: !responseText", {'!responseText': $.trim(xmlhttp.responseText)})) : "";
+  statusText = '';
+  // In some cases, when statusCode == 0, xmlhttp.statusText may not be defined.
+  // Unfortunately, testing for it with typeof, etc, doesn't seem to catch that
+  // and the test causes an exception. So we need to catch the exception here.
+  try {
+    statusText = "\n" + Drupal.t("StatusText: !statusText", {'!statusText': $.trim(xmlhttp.statusText)});
+  }
+  catch (e) {}
+
+  responseText = '';
+  // Again, we don't have a way to know for sure whether accessing
+  // xmlhttp.responseText is going to throw an exception. So we'll catch it.
+  try {
+    responseText = "\n" + Drupal.t("ResponseText: !responseText", {'!responseText': $.trim(xmlhttp.responseText) } );
+  } catch (e) {}
+
   // Make the responseText more readable by stripping HTML tags and newlines.
   responseText = responseText.replace(/<("[^"]*"|'[^']*'|[^'">])*>/gi,"");
   responseText = responseText.replace(/[\n]+\s+/g,"\n");
@@ -364,7 +380,7 @@ Drupal.theme.prototype = {
    *   The formatted text (html).
    */
   placeholder: function (str) {
-    return '<em>' + Drupal.checkPlain(str) + '</em>';
+    return '<em class="placeholder">' + Drupal.checkPlain(str) + '</em>';
   }
 };
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.admin.inc,v 1.51 2010/10/20 01:31:06 dries Exp $
+// $Id: comment.admin.inc,v 1.53 2011/01/03 05:18:42 webchick Exp $
 
 /**
  * @file
@@ -73,6 +73,7 @@ function comment_admin_overview($form, &$form_state, $arg) {
   $query = db_select('comment', 'c')->extend('PagerDefault')->extend('TableSort');
   $query->join('node', 'n', 'n.nid = c.nid');
   $query->addField('n', 'title', 'node_title');
+  $query->addTag('node_access');
   $result = $query
     ->fields('c', array('cid', 'subject', 'name', 'changed'))
     ->condition('c.status', $status)
@@ -232,7 +233,7 @@ function comment_multiple_delete_confirm_submit($form, &$form_state) {
     cache_clear_all();
     $count = count($form_state['values']['comments']);
     watchdog('content', 'Deleted @count comments.', array('@count' => $count));
-    drupal_set_message(t('Deleted @count comments.', array('@count' => $count)));
+    drupal_set_message(format_plural($count, 'Deleted 1 comment.', 'Deleted @count comments.'));
   }
   $form_state['redirect'] = 'admin/content/comment';
 }

@@ -1,10 +1,19 @@
-/* $Id: layout.css,v 1.4 2010/10/05 01:48:11 dries Exp $ */
+/* $Id: layout.css,v 1.8 2011/01/04 05:24:13 webchick Exp $ */
 
 /* ---------- Basic Layout Styles ----------- */
 
+html,
+body,
+#page  {
+  height: 100%;
+}
+#page-wrapper {
+  min-height: 100%;
+  min-width: 960px;
+}
 #header div.section,
 #featured div.section,
-#messages,
+#messages div.section,
 #main,
 #triptych,
 #footer-columns,
@@ -33,7 +42,8 @@
   width: 480px;
 }
 #content,
-.sidebar,
+#sidebar-first,
+#sidebar-second,
 .region-triptych-first,
 .region-triptych-middle,
 .region-triptych-last,
@@ -55,13 +65,13 @@
   width: 960px;
   float: none;
 }
-.sidebar {
+#sidebar-first,
+#sidebar-second {
   width: 240px;
 }
 #main-wrapper {
-  min-height: 500px;
+  min-height: 300px;
 }
-#messages div.section,
 #content .section,
 .sidebar .section {
   padding: 0 15px;

@@ -1,10 +1,12 @@
 <?php
-// $Id: select.inc,v 1.52 2010/10/05 01:42:24 dries Exp $
+// $Id: select.inc,v 1.59 2010/12/31 20:43:43 webchick Exp $
 
 /**
  * @ingroup database
  * @{
  */
+
+require_once dirname(__FILE__) . '/query.inc';
 
 /**
  * Interface for extendable query objects.
@@ -642,7 +644,9 @@ class SelectQueryExtender implements SelectQueryInterface {
   /* Implementations of QueryExtendableInterface. */
 
   public function extend($extender_name) {
-    $class = $this->connection->getDriverClass($extender_name);
+    // The extender can be anywhere so this needs to go to the registry, which
+    // is surely loaded by now.
+    $class = $this->connection->getDriverClass($extender_name, array(), TRUE);
     return new $class($this, $this->connection);
   }
 
@@ -806,6 +810,16 @@ class SelectQueryExtender implements SelectQueryInterface {
     return $this;
   }
 
+  public function exists(SelectQueryInterface $select) {
+    $this->query->exists($select);
+    return $this;
+  }
+
+  public function notExists(SelectQueryInterface $select) {
+    $this->query->notExists($select);
+    return $this;
+  }
+  
   public function __toString() {
     return (string) $this->query;
   }
@@ -1018,6 +1032,16 @@ class SelectQuery extends Query implements SelectQueryInterface {
     return $this;
   }
 
+  public function exists(SelectQueryInterface $select) {
+    $this->where->exists($select);
+    return $this;
+  }
+
+  public function notExists(SelectQueryInterface $select) {
+    $this->where->notExists($select);
+    return $this;
+  }
+  
   public function compile(DatabaseConnection $connection, QueryPlaceholderInterface $queryPlaceholder = NULL) {
     return $this->where->compile($connection, isset($queryPlaceholder) ? $queryPlaceholder : $this);
   }
@@ -1065,7 +1089,17 @@ class SelectQuery extends Query implements SelectQueryInterface {
     $this->having->isNotNull($field);
     return $this;
   }
-
+  
+  public function havingExists(SelectQueryInterface $select) {
+    $this->having->exists($select);
+    return $this;
+  }
+  
+  public function havingNotExists(SelectQueryInterface $select) {
+    $this->having->notExists($select);
+    return $this;
+  }
+  
   public function forUpdate($set = TRUE) {
     if (isset($set)) {
       $this->forUpdate = $set;
@@ -1350,7 +1384,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
   }
 
   public function groupBy($field) {
-    $this->group[] = $field;
+    $this->group[$field] = $field;
     return $this;
   }
 
@@ -1358,7 +1392,7 @@ class SelectQuery extends Query implements SelectQueryInterface {
     // Create our new query object that we will mutate into a count query.
     $count = clone($this);
 
-    $group_by = array_keys($count->getGroupBy());
+    $group_by = $count->getGroupBy();
 
     if (!$count->distinct) {
       // When not executing a distinct query, we can zero-out existing fields
@@ -1366,14 +1400,14 @@ class SelectQuery extends Query implements SelectQueryInterface {
       // the GROUP BY clause need to be present in the query.
       $fields =& $count->getFields();
       foreach (array_keys($fields) as $field) {
-        if (!empty($group_by[$field])) {
+        if (empty($group_by[$field])) {
           unset($fields[$field]);
         }
       }
       $expressions =& $count->getExpressions();
       foreach (array_keys($expressions) as $field) {
-        if (!empty($group_by[$field])) {
-          unset($fields[$field]);
+        if (empty($group_by[$field])) {
+          unset($expressions[$field]);
         }
       }
 

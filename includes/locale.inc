@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.inc,v 1.260 2010/10/06 13:38:39 dries Exp $
+// $Id: locale.inc,v 1.266 2011/01/03 18:03:54 webchick Exp $
 
 /**
  * @file
@@ -21,6 +21,12 @@ define('LOCALE_LANGUAGE_NEGOTIATION_BROWSER', 'locale-browser');
  * The language is determined using the current interface language.
  */
 define('LOCALE_LANGUAGE_NEGOTIATION_INTERFACE', 'locale-interface');
+
+/**
+ * If no URL language is available language is determined using an already
+ * detected one.
+ */
+define('LOCALE_LANGUAGE_NEGOTIATION_URL_FALLBACK', 'locale-url-fallback');
 
 /**
  * The language is set based on the user language settings.
@@ -64,6 +70,10 @@ define('LOCALE_LANGUAGE_NEGOTIATION_URL_DOMAIN', 1);
 /**
  * @defgroup locale-languages-negotiation Language negotiation options
  * @{
+ * Functions for language negotiation.
+ *
+ * There are functions that provide the ability to identify the
+ * language. This behavior can be controlled by various options.
  */
 
 /**
@@ -211,6 +221,53 @@ function locale_language_from_url($languages) {
 }
 
 /**
+ * Determines the language to be assigned to URLs when none is detected.
+ *
+ * The language negotiation process has a fallback chain that ends with the
+ * default language provider. Each built-in language type has a separate
+ * initialization:
+ * - Interface language, which is the only configurable one, always gets a valid
+ *   value. If no request-specific language is detected, the default language
+ *   will be used.
+ * - Content language merely inherits the interface language by default.
+ * - URL language is detected from the requested URL and will be used to rewrite
+ *   URLs appearing in the page being rendered. If no language can be detected,
+ *   there are two possibilities:
+ *   - If the default language has no configured path prefix or domain, then the
+ *     default language is used. This guarantees that (missing) URL prefixes are
+ *     preserved when navigating through the site.
+ *   - If the default language has a configured path prefix or domain, a
+ *     requested URL having an empty prefix or domain is an anomaly that must be
+ *     fixed. This is done by introducing a prefix or domain in the rendered
+ *     page matching the detected interface language.
+ *
+ * @param $languages
+ *   (optional) An array of valid language objects. This is passed by
+ *   language_provider_invoke() to every language provider callback, but it is
+ *   not actually needed here. Defaults to NULL.
+ * @param $language_type
+ *   (optional) The language type to fall back to. Defaults to the interface
+ *   language.
+ *
+ * @return
+ *   A valid language code.
+ */
+function locale_language_url_fallback($language = NULL, $language_type = LANGUAGE_TYPE_INTERFACE) {
+  $default = language_default();
+  $prefix = (variable_get('locale_language_negotiation_url_part', LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX) == LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX);
+
+  // If the default language is not configured to convey language information,
+  // a missing URL language information indicates that URL language should be
+  // the default one, otherwise we fall back to an already detected language.
+  if (($prefix && empty($default->prefix)) || (!$prefix && empty($default->domain))) {
+    return $default->language;
+  }
+  else {
+    return $GLOBALS[$language_type]->language;
+  }
+}
+
+/**
  * Return the URL language switcher block. Translation links may be provided by
  * other modules.
  */
@@ -268,10 +325,26 @@ function locale_language_switcher_session($type, $path) {
  * Rewrite URLs for the URL language provider.
  */
 function locale_language_url_rewrite_url(&$path, &$options) {
+  static $drupal_static_fast;
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['languages'] = &drupal_static(__FUNCTION__);
+  }
+  $languages = &$drupal_static_fast['languages'];
+
+  if (!isset($languages)) {
+    $languages = language_list('enabled');
+    $languages = array_flip(array_keys($languages[1]));
+  }
+
   // Language can be passed as an option, or we go for current URL language.
   if (!isset($options['language'])) {
     global $language_url;
     $options['language'] = $language_url;
+  }
+  // We allow only enabled languages here.
+  elseif (!isset($languages[$options['language']->language])) {
+    unset($options['language']);
+    return;
   }
 
   if (isset($options['language'])) {
@@ -351,8 +424,11 @@ function locale_string_is_safe($string) {
 }
 
 /**
- * @defgroup locale-api-add Language addition API.
+ * @defgroup locale-api-add Language addition API
  * @{
+ * Add a language.
+ *
+ * The language addition API is used to create languages and store them.
  */
 
 /**
@@ -429,8 +505,12 @@ function locale_add_language($langcode, $name = NULL, $native = NULL, $direction
  */
 
 /**
- * @defgroup locale-api-import Translation import API.
+ * @defgroup locale-api-import-export Translation import/export API.
  * @{
+ * Functions to import and export translations.
+ *
+ * These functions provide the ability to import translations from
+ * external files and to export translations and translation templates.
  */
 
 /**
@@ -556,7 +636,7 @@ function _locale_import_read_po($op, $file, $mode = NULL, $lang = NULL, $group =
       $context = "MSGID_PLURAL";
     }
     elseif (!strncmp("msgid", $line, 5)) {
-      if ($context == "MSGSTR") {   // End current entry, start a new one
+      if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) {   // End current entry, start a new one
         _locale_import_one_string($op, $current, $mode, $lang, $file, $group);
         $current = array();
       }
@@ -574,7 +654,7 @@ function _locale_import_read_po($op, $file, $mode = NULL, $lang = NULL, $group =
       $context = "MSGID";
     }
     elseif (!strncmp("msgctxt", $line, 7)) {
-      if ($context == "MSGSTR") {   // End current entry, start a new one
+      if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) {   // End current entry, start a new one
         _locale_import_one_string($op, $current, $mode, $lang, $file, $group);
         $current = array();
       }
@@ -650,8 +730,8 @@ function _locale_import_read_po($op, $file, $mode = NULL, $lang = NULL, $group =
     }
   }
 
-  // End of PO file, flush last entry
-  if (!empty($current) && !empty($current['msgstr'])) {
+  // End of PO file, flush last entry.
+  if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) {
     _locale_import_one_string($op, $current, $mode, $lang, $file, $group);
   }
   elseif ($context != "COMMENT") {
@@ -1205,7 +1285,7 @@ function _locale_import_parse_quoted($string) {
   }
 }
 /**
- * @} End of "locale-api-import"
+ * @} End of "locale-api-import-export"
  */
 
 /**
@@ -1278,7 +1358,7 @@ function _locale_parse_js_file($filepath) {
 }
 
 /**
- * @defgroup locale-api-export Translation (template) export API.
+ * @addtogroup locale-api-import-export
  * @{
  */
 
@@ -1515,12 +1595,16 @@ function _locale_export_remove_plural($entry) {
   return preg_replace('/(@count)\[[0-9]\]/', '\\1', $entry);
 }
 /**
- * @} End of "locale-api-export"
+ * @} End of "locale-api-import-export"
  */
 
 /**
- * @defgroup locale-api-seek String search functions.
+ * @defgroup locale-api-seek Translation search API
  * @{
+ * Functions to search in translation files.
+ *
+ * These functions provide the functionality to search for specific
+ * translations.
  */
 
 /**
@@ -1825,6 +1909,7 @@ function _locale_translate_language_list($translation, $limit_language) {
 /**
  * @defgroup locale-api-predefined List of predefined languages
  * @{
+ * API to provide a list of predefined languages.
  */
 
 /**
@@ -1859,6 +1944,10 @@ function _locale_prepare_predefined_list() {
 /**
  * @defgroup locale-autoimport Automatic interface translation import
  * @{
+ * Functions to create batches for importing translations.
+ *
+ * These functions can be used to import translations for installed
+ * modules.
  */
 
 /**
