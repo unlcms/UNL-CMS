@@ -121,6 +121,7 @@ class Unl_Migration_Tool
     private $_blocks              = array();
     private $_isFrontier          = FALSE;
     private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
+    private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
     
     /**
@@ -133,6 +134,8 @@ class Unl_Migration_Tool
     const STATE_PROCESSING_PAGES  = 3;
     const STATE_CREATING_NODES    = 4;
     const STATE_DONE              = 5;
+    
+    private $_start_time;
     
     public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates)
     {
@@ -163,14 +166,16 @@ class Unl_Migration_Tool
     
     public function migrate($time_limit = 30)
     {
-        $start_time = time();
+        $this->_start_time = time();
         ini_set('memory_limit', -1);
         
         if ($this->_state == self::STATE_NONE) {
-            $this->_frontierScan('');
+            if (!$this->_frontierScan('', $time_limit)) {
+                return FALSE;
+            }
             
             $this->_state = self::STATE_PROCESSING_BLOCKS;
-            if (time() - $start_time > $time_limit) {
+            if (time() - $this->_start_time > $time_limit) {
                 return FALSE;
             }
         }
@@ -189,7 +194,7 @@ class Unl_Migration_Tool
                 
                 $pagesToProcess = $this->_getPagesToProcess();
                 foreach ($pagesToProcess as $pageToProcess) {
-                    if (time() - $start_time > $time_limit) {
+                    if (time() - $this->_start_time > $time_limit) {
                         return FALSE;
                     }
                     $this->_processPage($pageToProcess);
@@ -221,7 +226,7 @@ class Unl_Migration_Tool
                 if (in_array($path, $this->_createdContent, TRUE)) {
                     continue;
                 }
-                if (time() - $start_time > $time_limit) {
+                if (time() - $this->_start_time > $time_limit) {
                     return FALSE;
                 }
                 set_time_limit(30);
@@ -860,7 +865,7 @@ class Unl_Migration_Tool
         return $this->_frontier;
     }
     
-    private function _frontierScan($path)
+    private function _frontierScan($path, $time_limit)
     {
         if (!$this->_frontierConnect()) {
             return;
@@ -872,13 +877,24 @@ class Unl_Migration_Tool
         $files = array();
         foreach ($rawFileList as $index => $rawListing) {
             $file = substr($fileList[$index], strlen($ftpPath));
+            
+            if (time() - $this->_start_time > $time_limit) {
+                return FALSE;
+            }
+            
+            if (in_array($path . $file, $this->_frontierFilesScanned)) {
+                continue;
+            }
+            
             if (in_array($file, array('_notes', '_baks'))) {
                 continue;
             }
             
             if (substr($rawListing, 0, 1) == 'd') {
                 //file is a directory
-                $this->_frontierScan($path . $file . '/');
+                if (!$this->_frontierScan($path . $file . '/',  $time_limit)) {
+                    return FALSE;
+                };
             } else {
                 if (substr($path, 0, 1) == '/') {
                     $path = substr($path, 1);
@@ -890,7 +906,9 @@ class Unl_Migration_Tool
                     $this->_addSitePath($path . $file);
                 }
             }
+            $this->_frontierFilesScanned[] = $path . $file;
         }
+        return TRUE;
     }
     
     private function _log($message)
