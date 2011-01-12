@@ -1,5 +1,5 @@
 <?php
-// $Id: wysiwyg.module,v 1.45 2010/03/20 14:54:29 sun Exp $
+// $Id: wysiwyg.module,v 1.51 2011/01/06 01:43:26 sun Exp $
 
 /**
  * @file
@@ -110,8 +110,9 @@ function wysiwyg_element_info_alter(&$types) {
  */
 function wysiwyg_pre_render_text_format($element) {
   // filter_process_format() copies properties to the expanded 'value' child
-  // element.
-  if (!isset($element['format'])) {
+  // element. Skip this text format widget, if it contains no 'format' or when
+  // the current user does not have access to edit the value.
+  if (!isset($element['format']) || !empty($element['value']['#disabled'])) {
     return $element;
   }
 
@@ -136,10 +137,12 @@ function wysiwyg_pre_render_text_format($element) {
   foreach ($format_field['format']['#options'] as $format_id => $format_name) {
     $format = 'format' . $format_id;
     // Initialize default settings, defaulting to 'none' editor.
-    $settings[$format]['editor'] = 'none';
-    $settings[$format]['status'] = 1;
-    $settings[$format]['toggle'] = 1;
-    $settings[$format]['resizable'] = $resizable;
+    $settings[$format] = array(
+      'editor' => 'none',
+      'status' => 1,
+      'toggle' => 1,
+      'resizable' => $resizable,
+    );
 
     // Fetch the profile associated to this text format.
     $profile = wysiwyg_get_profile($format_id);
@@ -161,15 +164,23 @@ function wysiwyg_pre_render_text_format($element) {
   }
   // Use a hidden element for a single text format.
   if (!$format_field['format']['#access']) {
-    $format_field['guidelines']['format'] = array(
+    $format_field['wysiwyg'] = array(
       '#type' => 'hidden',
       '#name' => $format_field['format']['#name'],
-      '#id' => $format_field['format']['#id'],
       '#value' => $format_id,
-      '#attributes' => array('class' => array('wysiwyg')),
+      '#attributes' => array(
+        'id' => $format_field['format']['#id'],
+        'class' => array('wysiwyg'),
+      ),
     );
-    $format_field['guidelines']['format']['#attached']['js'][] = array(
-      'data' => array('wysiwyg' => array('triggers' => array($format_field['format']['#id'] => $settings))),
+    $format_field['wysiwyg']['#attached']['js'][] = array(
+      'data' => array(
+        'wysiwyg' => array(
+          'triggers' => array(
+            $format_field['format']['#id'] => $settings,
+          ),
+        ),
+      ),
       'type' => 'setting',
     );
   }
@@ -177,7 +188,13 @@ function wysiwyg_pre_render_text_format($element) {
   else {
     $format_field['format']['#attributes']['class'][] = 'wysiwyg';
     $format_field['format']['#attached']['js'][] = array(
-      'data' => array('wysiwyg' => array('triggers' => array($format_field['format']['#id'] => $settings))),
+      'data' => array(
+        'wysiwyg' => array(
+          'triggers' => array(
+            $format_field['format']['#id'] => $settings,
+          ),
+        ),
+      ),
       'type' => 'setting',
     );
   }
@@ -307,7 +324,7 @@ function wysiwyg_load_editor($profile) {
     $path = drupal_get_path('module', 'wysiwyg');
     // Initialize our namespaces in the *header* to do not force editor
     // integration scripts to check and define Drupal.wysiwyg on its own.
-    drupal_add_js($path . '/wysiwyg.init.js', array('weight' => JS_LIBRARY));
+    drupal_add_js($path . '/wysiwyg.init.js', array('group' => JS_LIBRARY));
 
     // The 'none' editor is a special editor implementation, allowing us to
     // attach and detach regular Drupal behaviors just like any other editor.
@@ -560,7 +577,7 @@ function wysiwyg_get_css() {
 
   $files = array();
   foreach (drupal_add_css() as $filepath => $info) {
-    if ($info['weight'] >= CSS_THEME && $info['media'] != 'print') {
+    if ($info['group'] >= CSS_THEME && $info['media'] != 'print') {
       if (file_exists($filepath)) {
         $files[] = base_path() . $filepath;
       }
@@ -575,12 +592,16 @@ function wysiwyg_get_css() {
 function wysiwyg_profile_load($format) {
   static $profiles;
 
-  if (!isset($profiles) || !array_key_exists($format, $profiles)) {
-    $result = db_query('SELECT format, editor, settings FROM {wysiwyg} WHERE format = :format', array(':format' => $format));
+  if ($cached = cache_get('wysiwyg_profiles')) {
+    $profiles = $cached->data;
+  }
+  else {
+    $result = db_query('SELECT format, editor, settings FROM {wysiwyg}');
     foreach ($result as $profile) {
       $profile->settings = unserialize($profile->settings);
       $profiles[$profile->format] = $profile;
     }
+    cache_set('wysiwyg_profiles', $profiles);
   }
 
   return (isset($profiles[$format]) ? $profiles[$format] : FALSE);
@@ -605,46 +626,87 @@ function wysiwyg_profile_load_all() {
 }
 
 /**
- * Implementation of hook_user().
+ * Implements hook_form_FORM_ID_alter().
  */
-function wysiwyg_user($type, &$edit, &$user, $category = NULL) {
-  if ($type == 'form' && $category == 'account') {
-    // @todo http://drupal.org/node/322433
-    $profile = new stdClass;
-    if (isset($profile->settings['user_choose']) && $profile->settings['user_choose']) {
-      $form['wysiwyg'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Wysiwyg Editor settings'),
-        '#weight' => 10,
-        '#collapsible' => TRUE,
-        '#collapsed' => TRUE,
-      );
-      $form['wysiwyg']['wysiwyg_status'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Enable editor by default'),
-        '#default_value' => isset($user->wysiwyg_status) ? $user->wysiwyg_status : (isset($profile->settings['default']) ? $profile->settings['default'] : FALSE),
-        '#return_value' => 1,
-        '#description' => t('If enabled, rich-text editing is enabled by default in textarea fields.'),
-      );
-      return array('wysiwyg' => $form);
+function wysiwyg_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
+  $account = $form['#user'];
+  $user_formats = filter_formats($account);
+  $options = array();
+  $options_default = array();
+  foreach (wysiwyg_profile_load_all() as $format => $profile) {
+    // Only show profiles that have user_choose enabled.
+    if (!empty($profile->settings['user_choose']) && isset($user_formats[$format])) {
+      $options[$format] = check_plain($user_formats[$format]->name);
+      if (wysiwyg_user_get_status($profile, $account)) {
+        $options_default[] = $format;
+      }
     }
   }
-  elseif ($type == 'validate' && isset($edit['wysiwyg_status'])) {
-    return array('wysiwyg_status' => $edit['wysiwyg_status']);
+  if (!empty($options)) {
+    $form['wysiwyg']['wysiwyg_status'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Text formats enabled for rich-text editing'),
+      '#options' => $options,
+      '#default_value' => $options_default,
+    );
   }
 }
 
-function wysiwyg_user_get_status($profile) {
+/**
+ * Implements hook_user_insert().
+ *
+ * Wysiwyg's user preferences are normally not exposed on the user registration
+ * form, but in case they are manually altered in, we invoke
+ * wysiwyg_user_update() accordingly.
+ */
+function wysiwyg_user_insert(&$edit, $account, $category) {
+  wysiwyg_user_update($edit, $account, $category);
+}
+
+/**
+ * Implements hook_user_update().
+ */
+function wysiwyg_user_update(&$edit, $account, $category) {
+  if (isset($edit['wysiwyg_status'])) {
+    db_delete('wysiwyg_user')
+      ->condition('uid', $account->uid)
+      ->execute();
+    $query = db_insert('wysiwyg_user')
+      ->fields(array('uid', 'format', 'status'));
+    foreach ($edit['wysiwyg_status'] as $format => $status) {
+      $query->values(array(
+        'uid' => $account->uid,
+        'format' => $format,
+        'status' => (int) (bool) $status,
+      ));
+    }
+    $query->execute();
+  }
+}
+
+function wysiwyg_user_get_status($profile, $account = NULL) {
   global $user;
 
-  if (!empty($profile->settings['user_choose']) && isset($user->wysiwyg_status)) {
-    $status = $user->wysiwyg_status;
+  if (!isset($account)) {
+    $account = $user;
+  }
+
+  // Default wysiwyg editor status information is only required on forms, so we
+  // do not pre-emptively load and attach this information on every user_load().
+  if (!isset($account->wysiwyg_status)) {
+    $account->wysiwyg_status = db_query("SELECT format, status FROM {wysiwyg_user} WHERE uid = :uid", array(
+      ':uid' => $account->uid,
+    ))->fetchAllKeyed();
+  }
+
+  if (!empty($profile->settings['user_choose']) && isset($account->wysiwyg_status[$profile->format])) {
+    $status = $account->wysiwyg_status[$profile->format];
   }
   else {
     $status = isset($profile->settings['default']) ? $profile->settings['default'] : TRUE;
   }
 
-  return $status;
+  return (bool) $status;
 }
 
 /**
@@ -960,4 +1022,3 @@ function _wysiwyg_process_include($module, $identifier, $path, $hook) {
 /**
  * @} End of "defgroup wysiwyg_api".
  */
-

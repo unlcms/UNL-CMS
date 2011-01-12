@@ -1,4 +1,4 @@
-// $Id: fckeditor-2.6.js,v 1.21 2010/09/10 02:06:48 sun Exp $
+// $Id: fckeditor-2.6.js,v 1.22 2010/11/13 18:53:15 sun Exp $
 (function($) {
 
 /**
@@ -135,6 +135,10 @@ Drupal.wysiwyg.editor.instance.fckeditor = {
           return FCK_TRISTATE_DISABLED;
         }
         var state = instance.FCK.GetNamedCommandState(this.Name);
+        // FCKeditor sets the wrong state in WebKit browsers.
+        if (!$.support.queryCommandEnabled && state == FCK_TRISTATE_DISABLED) {
+          state = FCK_TRISTATE_OFF;
+        }
         if (state == FCK_TRISTATE_OFF && instance.FCK.EditMode == FCK_EDITMODE_WYSIWYG) {
           if (typeof Drupal.wysiwyg.plugins[plugin].isNode == 'function') {
             var node = instance.FCKSelection.GetSelectedElement();

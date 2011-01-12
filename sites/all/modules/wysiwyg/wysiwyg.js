@@ -1,4 +1,4 @@
-// $Id: wysiwyg.js,v 1.19 2010/09/25 00:46:33 twod Exp $
+// $Id: wysiwyg.js,v 1.22 2011/01/06 00:11:48 sun Exp $
 (function($) {
 
 /**
@@ -46,7 +46,7 @@ Drupal.behaviors.attachWysiwyg = {
     }
 
     $('.wysiwyg', context).once('wysiwyg', function() {
-      if (!this.id || !this.value || typeof Drupal.settings.wysiwyg.triggers[this.id] === 'undefined') {
+      if (!this.id || typeof Drupal.settings.wysiwyg.triggers[this.id] === 'undefined') {
         return;
       }
       var $this = $(this);
@@ -72,7 +72,11 @@ Drupal.behaviors.attachWysiwyg = {
         });
       }
       // Detach any editor when the containing form is submitted.
-      $('#' + params.field).parents('form').submit(function () {
+      $('#' + params.field).parents('form').submit(function (event) {
+        // Do not detach if the event was cancelled.
+        if (event.originalEvent.returnValue === false) {
+          return;
+        }
         Drupal.wysiwygDetach(context, params[format]);
       });
     });
@@ -160,33 +164,42 @@ Drupal.wysiwygAttachToggleLink = function(context, params) {
   }
   $('#wysiwyg-toggle-' + params.field)
     .html(params.status ? Drupal.settings.wysiwyg.disable : Drupal.settings.wysiwyg.enable).show()
-    .unbind('click').click(function() {
-      if (params.status) {
-        // Detach current editor.
-        params.status = false;
-        Drupal.wysiwygDetach(context, params);
-        // After disabling the editor, re-attach default behaviors.
-        // @todo We HAVE TO invoke Drupal.wysiwygAttach() here.
-        Drupal.wysiwyg.editor.attach.none(context, params);
-        Drupal.wysiwyg.instances[params.field] = Drupal.wysiwyg.editor.instance.none;
-        Drupal.wysiwyg.instances[params.field].editor = 'none';
-        $(this).html(Drupal.settings.wysiwyg.enable).blur();
-      }
-      else {
-        // Before enabling the editor, detach default behaviors.
-        Drupal.wysiwyg.editor.detach.none(context, params);
-        // Attach new editor using parameters of the currently selected input format.
-        params = Drupal.settings.wysiwyg.triggers[params.trigger]['format' + $('#' + params.trigger).val()];
-        params.status = true;
-        Drupal.wysiwygAttach(context, params);
-        $(this).html(Drupal.settings.wysiwyg.disable).blur();
-      }
-    });
+    .unbind('click.wysiwyg', Drupal.wysiwyg.toggleWysiwyg)
+    .bind('click.wysiwyg', { params: params, context: context }, Drupal.wysiwyg.toggleWysiwyg);
+
   // Hide toggle link in case no editor is attached.
   if (params.editor == 'none') {
     $('#wysiwyg-toggle-' + params.field).hide();
   }
 };
+
+/**
+ * Callback for the Enable/Disable rich editor link.
+ */
+Drupal.wysiwyg.toggleWysiwyg = function (event) {
+  var context = event.data.context;
+  var params = event.data.params;
+  if (params.status) {
+    // Detach current editor.
+    params.status = false;
+    Drupal.wysiwygDetach(context, params);
+    // After disabling the editor, re-attach default behaviors.
+    // @todo We HAVE TO invoke Drupal.wysiwygAttach() here.
+    Drupal.wysiwyg.editor.attach.none(context, params);
+    Drupal.wysiwyg.instances[params.field] = Drupal.wysiwyg.editor.instance.none;
+    Drupal.wysiwyg.instances[params.field].editor = 'none';
+    $(this).html(Drupal.settings.wysiwyg.enable).blur();
+  }
+  else {
+    // Before enabling the editor, detach default behaviors.
+    Drupal.wysiwyg.editor.detach.none(context, params);
+    // Attach new editor using parameters of the currently selected input format.
+    params = Drupal.settings.wysiwyg.triggers[params.trigger]['format' + $('#' + params.trigger).val()];
+    params.status = true;
+    Drupal.wysiwygAttach(context, params);
+    $(this).html(Drupal.settings.wysiwyg.disable).blur();
+  }
+}
 
 /**
  * Parse the CSS classes of an input format DOM element into parameters.

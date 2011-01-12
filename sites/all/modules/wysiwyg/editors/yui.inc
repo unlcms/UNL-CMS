@@ -1,5 +1,5 @@
 <?php
-// $Id: yui.inc,v 1.10 2010/04/02 14:05:36 sun Exp $
+// $Id: yui.inc,v 1.11 2010/11/13 18:31:21 sun Exp $
 
 /**
  * @file
@@ -144,14 +144,15 @@ function wysiwyg_yui_settings($editor, $config, $theme) {
     $settings['autoHeight'] = TRUE;
   }
 
+  $settings += array(
+    'toolbar' => array(
+      'collapse' => FALSE,
+      'draggable' => TRUE,
+      'buttonType' => 'advanced',
+      'buttons' => array(),
+    ),
+  );
   if (!empty($config['buttons'])) {
-    $settings += array(
-      'toolbar' => array(
-        'collapse' => FALSE,
-        'draggable' => TRUE,
-        'buttonType' => 'advanced',
-      ),
-    );
     $buttons = array();
     foreach ($config['buttons'] as $plugin => $enabled_buttons) {
       foreach ($enabled_buttons as $button => $enabled) {

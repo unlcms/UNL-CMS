@@ -1,5 +1,5 @@
 <?php
-// $Id: openwysiwyg.inc,v 1.6 2010/04/07 21:18:20 sun Exp $
+// $Id: openwysiwyg.inc,v 1.7 2010/11/13 18:31:21 sun Exp $
 
 /**
  * @file
@@ -108,6 +108,7 @@ function wysiwyg_openwysiwyg_settings($editor, $config, $theme) {
     }
   }
 
+  $settings['Toolbar'] = array();
   if (!empty($config['buttons'])) {
     $plugins = wysiwyg_get_plugins($editor['name']);
     foreach ($config['buttons'] as $plugin => $buttons) {

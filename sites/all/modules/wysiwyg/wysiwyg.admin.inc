@@ -1,5 +1,5 @@
 <?php
-// $Id: wysiwyg.admin.inc,v 1.23 2010/02/07 14:49:45 sun Exp $
+// $Id: wysiwyg.admin.inc,v 1.29 2011/01/06 00:03:13 sun Exp $
 
 /**
  * @file
@@ -13,7 +13,7 @@ function wysiwyg_profile_form($form, &$form_state, $profile) {
   // Merge in defaults.
   $profile = (array) $profile;
   $profile += array(
-    'format' => 0,
+    'format' => '',
     'editor' => '',
   );
   if (empty($profile['settings'])) {
@@ -92,13 +92,26 @@ function wysiwyg_profile_form($form, &$form_state, $profile) {
 
   $form['basic']['language'] = array(
     '#type' => 'select',
-    '#title' => t('Language'),
+    '#title' => t('Interface language'),
     '#default_value' => $profile->settings['language'],
-    '#options' => drupal_map_assoc(array('ar', 'ca', 'cs', 'cy', 'da', 'de', 'el', 'en', 'es', 'fa', 'fi', 'fr', 'fr_ca', 'he', 'hu', 'is', 'it', 'ja', 'ko', 'nb', 'nl', 'nn', 'pl', 'pt', 'pt_br', 'ru', 'ru_KOI8-R', 'ru_UTF-8', 'si', 'sk', 'sv', 'th', 'tr', 'uk', 'zh_cn', 'zh_tw', 'zh_tw_utf8')),
-    '#description' => t('The language to use for the editor interface. Language codes are based on the <a href="http://www.loc.gov/standards/iso639-2/englangn.html">ISO-639-2</a> format.'),
   );
+  // @see _locale_prepare_predefined_list()
+  require_once DRUPAL_ROOT . '/includes/iso.inc';
+  $predefined = _locale_get_predefined_list();
+  foreach ($predefined as $key => $value) {
+    // Include native name in output, if possible
+    if (count($value) > 1) {
+      $tname = t($value[0]);
+      $predefined[$key] = ($tname == $value[1]) ? $tname : "$tname ($value[1])";
+    }
+    else {
+      $predefined[$key] = t($value[0]);
+    }
+  }
+  asort($predefined);
+  $form['basic']['language']['#options'] = $predefined;
 
-  $form['wysiwyg_buttons'] = array(
+  $form['buttons'] = array(
     '#type' => 'fieldset',
     '#title' => t('Buttons and plugins'),
     '#collapsible' => TRUE,
@@ -125,7 +138,7 @@ function wysiwyg_profile_form($form, &$form_state, $profile) {
         }
         $title = (isset($meta['url']) ? l($title, $meta['url'], array('target' => '_blank')) : $title);
         $title = (!empty($icon) ? $icon . ' ' . $title : $title);
-        $form['wysiwyg_buttons'][$name][$button] = array(
+        $form['buttons'][$name][$button] = array(
           '#type' => 'checkbox',
           '#title' => $title,
           '#default_value' => !empty($profile->settings['buttons'][$name][$button]) ? $profile->settings['buttons'][$name][$button] : FALSE,
@@ -134,7 +147,7 @@ function wysiwyg_profile_form($form, &$form_state, $profile) {
     }
     else if (isset($meta['extensions']) && is_array($meta['extensions'])) {
       foreach ($meta['extensions'] as $extension => $title) {
-        $form['wysiwyg_buttons'][$name][$extension] = array(
+        $form['buttons'][$name][$extension] = array(
           '#type' => 'checkbox',
           '#title' => isset($meta['url']) ? l($title, $meta['url'], array('target' => '_blank')) : $title,
           '#default_value' => !empty($profile->settings['buttons'][$name][$extension]) ? $profile->settings['buttons'][$name][$extension] : FALSE,
@@ -297,14 +310,18 @@ function wysiwyg_profile_form($form, &$form_state, $profile) {
  */
 function wysiwyg_profile_form_submit($form, &$form_state) {
   $values = $form_state['values'];
-  if (isset($values['wysiwyg_buttons'])) {
+  if (isset($values['buttons'])) {
     // Store only enabled buttons for each plugin.
-    foreach ($values['wysiwyg_buttons'] as $plugin => $buttons) {
-      $values['buttons'][$plugin] = array_filter($values['wysiwyg_buttons'][$plugin]);
+    foreach ($values['buttons'] as $plugin => $buttons) {
+      $values['buttons'][$plugin] = array_filter($values['buttons'][$plugin]);
     }
     // Store only enabled plugins.
     $values['buttons'] = array_filter($values['buttons']);
   }
+  // Remove any white-space from 'block_formats' setting, since editor
+  // implementations rely on a comma-separated list to explode().
+  $values['block_formats'] = preg_replace('@\s+@', '', $values['block_formats']);
+
   // Remove input format name.
   $format = $values['format'];
   $input_format = $values['input_format'];
@@ -317,6 +334,7 @@ function wysiwyg_profile_form_submit($form, &$form_state) {
 
   // Insert new profile data.
   db_query("UPDATE {wysiwyg} SET settings = :settings WHERE format = :format", array(':settings' => serialize($values), ':format' => $format));
+  cache_clear_all('wysiwyg_profiles', 'cache');
 
   drupal_set_message(t('Wysiwyg profile for %format has been saved.', array('%format' => $input_format)));
 
@@ -500,6 +518,7 @@ function wysiwyg_profile_overview_submit($form, &$form_state) {
       ))
       ->execute();
   }
+  cache_clear_all('wysiwyg_profiles', 'cache');
 }
 
 /**
@@ -525,6 +544,8 @@ function wysiwyg_profile_delete_confirm($form, &$form_state, $profile) {
 function wysiwyg_profile_delete_confirm_submit($form, &$form_state) {
   $format = $form_state['values']['format'];
   wysiwyg_profile_delete($format->format);
+  cache_clear_all('wysiwyg_profiles', 'cache');
+
   drupal_set_message(t('Wysiwyg profile for %name has been deleted.', array('%name' => $format->name)));
   $form_state['redirect'] = 'admin/config/content/wysiwyg';
 }
