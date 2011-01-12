@@ -2,9 +2,22 @@
 
 function unl_migration($form, &$form_state)
 {
+    if ($form_state['rebuild']) {
+        $form['root'] = array(
+            '#type' => 'fieldset',
+            '#title' => 'This is taking a while.  Click continue.'
+        );
+        $form['root']['submit'] = array(
+            '#type' => 'submit',
+            '#value' => 'Continue',
+        );
+        return $form;
+    } 
+    
+    
     $form['root'] = array(
         '#type' => 'fieldset',
-        '#title' => 'Migration Tool'
+        '#title' => 'Migration Tool',
     );
     
     $form['root']['site_url'] = array(
@@ -44,8 +57,12 @@ function unl_migration($form, &$form_state)
     return $form;
 }
 
-function unl_migration_submit($form, &$form_state)
-{
+function unl_migration_submit($form, &$form_state) {
+  if (isset($form_state['storage']) && file_exists($form_state['storage'])) {
+    $migration = unserialize(file_get_contents($form_state['storage']));
+    unlink($form_state['storage']);
+  }
+  else {
     $migration = new Unl_Migration_Tool(
       $form_state['values']['site_url'],
       $form_state['values']['frontier_path'],
@@ -53,7 +70,17 @@ function unl_migration_submit($form, &$form_state)
       $form_state['values']['frontier_pass'],
       $form_state['values']['ignore_duplicates']
     );
-    while (!$migration->migrate());
+  }
+  
+  if ($migration->migrate()) {
+    $form_state['rebuild'] = FALSE;
+    return;
+  }
+  
+  $form_state['rebuild'] = TRUE;
+  $migration_storage_file = drupal_tempnam(file_directory_temp(), 'unl_migration_');
+  $form_state['storage'] = $migration_storage_file;
+  file_put_contents($migration_storage_file, serialize($migration));
 }
 
 
@@ -94,17 +121,21 @@ class Unl_Migration_Tool
     private $_blocks              = array();
     private $_isFrontier          = FALSE;
     private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
+    private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
      * @var int
      */
-    private $_state           = self::STATE_NONE;
-    const STATE_NONE             = 1;
-    const STATE_PROCESSING_PAGES = 2;
-    const STATE_CREATING_NODES   = 3;
-    const STATE_DONE             = 4;
+    public $_state = self::STATE_NONE;
+    const STATE_NONE              = 1;
+    const STATE_PROCESSING_BLOCKS = 2;
+    const STATE_PROCESSING_PAGES  = 3;
+    const STATE_CREATING_NODES    = 4;
+    const STATE_DONE              = 5;
+    
+    private $_start_time;
     
     public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates)
     {
@@ -131,16 +162,25 @@ class Unl_Migration_Tool
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
-        $this->_curl = curl_init();
-        $this->_frontierScan('/');
     }
     
-    public function migrate($time_limit = 1)
+    public function migrate($time_limit = 30)
     {
-        $start_time = time();
+        $this->_start_time = time();
         ini_set('memory_limit', -1);
-                
+        
         if ($this->_state == self::STATE_NONE) {
+            if (!$this->_frontierScan('', $time_limit)) {
+                return FALSE;
+            }
+            
+            $this->_state = self::STATE_PROCESSING_BLOCKS;
+            if (time() - $this->_start_time > $time_limit) {
+                return FALSE;
+            }
+        }
+        
+        if ($this->_state == self::STATE_PROCESSING_BLOCKS) {
             // Parse the menu
             $this->_processMenu();
             $this->_process_blocks();
@@ -154,7 +194,7 @@ class Unl_Migration_Tool
                 
                 $pagesToProcess = $this->_getPagesToProcess();
                 foreach ($pagesToProcess as $pageToProcess) {
-                    if (time() - $start_time > $time_limit) {
+                    if (time() - $this->_start_time > $time_limit) {
                         return FALSE;
                     }
                     $this->_processPage($pageToProcess);
@@ -186,7 +226,7 @@ class Unl_Migration_Tool
                 if (in_array($path, $this->_createdContent, TRUE)) {
                     continue;
                 }
-                if (time() - $start_time > $time_limit) {
+                if (time() - $this->_start_time > $time_limit) {
                     return FALSE;
                 }
                 set_time_limit(30);
@@ -697,6 +737,9 @@ class Unl_Migration_Tool
     
     private function _getUrl($url)
     {
+        if (!$this->_curl) {
+          $this->_curl = curl_init();
+        }
         $url = strtr($url, array(' ' => '%20'));
         curl_setopt($this->_curl, CURLOPT_URL, $url);
         curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
@@ -822,10 +865,10 @@ class Unl_Migration_Tool
         return $this->_frontier;
     }
     
-    private function _frontierScan($path)
+    private function _frontierScan($path, $time_limit)
     {
         if (!$this->_frontierConnect()) {
-            return;
+            return TRUE;
         }
         
         $ftpPath = $this->_frontierPath . $path;
@@ -834,9 +877,24 @@ class Unl_Migration_Tool
         $files = array();
         foreach ($rawFileList as $index => $rawListing) {
             $file = substr($fileList[$index], strlen($ftpPath));
+            
+            if (time() - $this->_start_time > $time_limit) {
+                return FALSE;
+            }
+            
+            if (in_array($path . $file, $this->_frontierFilesScanned)) {
+                continue;
+            }
+            
+            if (in_array($file, array('_notes', '_baks'))) {
+                continue;
+            }
+            
             if (substr($rawListing, 0, 1) == 'd') {
                 //file is a directory
-                $this->_frontierScan($path . $file . '/');
+                if (!$this->_frontierScan($path . $file . '/',  $time_limit)) {
+                    return FALSE;
+                };
             } else {
                 if (substr($path, 0, 1) == '/') {
                     $path = substr($path, 1);
@@ -848,7 +906,9 @@ class Unl_Migration_Tool
                     $this->_addSitePath($path . $file);
                 }
             }
+            $this->_frontierFilesScanned[] = $path . $file;
         }
+        return TRUE;
     }
     
     private function _log($message)
