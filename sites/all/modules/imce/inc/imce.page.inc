@@ -1,5 +1,5 @@
 <?php
-// $Id: imce.page.inc,v 1.10 2010/08/30 04:06:25 ufku Exp $
+// $Id: imce.page.inc,v 1.10.2.3 2010/12/27 20:09:02 ufku Exp $
 
 /**
  * @file
@@ -599,14 +599,14 @@ function imce_remove_file($filename, &$imce) {
 /**
  * Validate uploaded file.
  */
-function imce_validate_all(&$file, $imce) {
+function imce_validate_all($file, $imce) {
 
   //validate image resolution only if filesize validation passes.
   //because user might have uploaded a very big image
   //and scaling it may exploit system memory.
   $errors = imce_validate_filesize($file, $imce['filesize']);
   //image resolution validation
-  if (empty($errors)) {
+  if (empty($errors) && preg_match('/\.(png|gif|jpe?g)$/i', $file->filename)) {
     $errors = array_merge($errors, file_validate_image_resolution($file, $imce['dimensions']));
   }
   //directory quota validation

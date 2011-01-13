@@ -1,4 +1,4 @@
-// $Id: README.txt,v 1.18 2010/10/06 04:42:57 ufku Exp $
+// $Id: README.txt,v 1.18.2.1 2010/11/08 04:37:21 ufku Exp $
 
 IMCE
 http://drupal.org/project/imce
@@ -54,7 +54,7 @@ Having nothing to do with IMCE, it appeared many times in issue queues. This is 
 - Upload does not work in Opera
 Jquery form plugin before version 2.09 has problems with Opera 9.2+. Replace Drupal's misc/jquery.form.js with the one at http://jquery.malsup.com/form/#download
 
-- IMCE may have problem working with Google Analytics and Secure pages modules. Just make sure to add imce* path to the exceptions list of these modules.
+- IMCE may have problem working with Google Analytics and Secure pages modules. Just make sure to add *imce* path to the exceptions list of these modules.
 
 
 INTEGRATION METHODS
