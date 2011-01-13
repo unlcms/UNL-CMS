@@ -143,7 +143,7 @@ class Unl_Migration_Tool
 
         // Check to see if we're migrating from frontier so we can make some extra assumptions.
         $baseUrlParts = parse_url($baseUrl);
-        $remoteHostname = gethostbyaddr(gethostbyname($baseUrlParts['host']));
+        $remoteHostname = @gethostbyaddr(gethostbyname($baseUrlParts['host']));
         if ($remoteHostname == 'frontier.unl.edu') {
             $this->_isFrontier = TRUE;
         }
@@ -166,6 +166,10 @@ class Unl_Migration_Tool
     
     public function migrate($time_limit = 30)
     {
+        if (!$this->_sanity_check()) {
+            return TRUE;
+        }
+      
         $this->_start_time = time();
         ini_set('memory_limit', -1);
         
@@ -247,6 +251,14 @@ class Unl_Migration_Tool
         
         return TRUE;
     }
+
+    private function _sanity_check() {
+      if (!$this->_getUrl($this->_baseUrl)) {
+        form_set_error('unl', 'The specified site does not exist!');
+        return FALSE;
+      }
+      return TRUE;
+    }
     
     private function _addSitePath($path)
     {
@@ -281,6 +293,9 @@ class Unl_Migration_Tool
         $dom = new DOMDocument();
         $dom->loadHTML($html);
         $navlinksNode = $dom->getElementById('navigation');
+        if (!$navlinksNode) {
+          return;
+        }
     
         // Check to see if there's a base tag on this page.
         $base_tags = $dom->getElementsByTagName('base');
@@ -496,11 +511,11 @@ class Unl_Migration_Tool
                 $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.');
                 return;
             }
-            @drupal_mkdir('public://' . dirname($path), NULL, TRUE);
+            @drupal_mkdir('public://' . urldecode(dirname($path)), NULL, TRUE);
             if (!mb_check_encoding($path, 'UTF-8')) {
                 $path = iconv('ISO-8859-1', 'UTF-8', $path); 
             }
-            $file = file_save_data($data['content'], 'public://' . $path, FILE_EXISTS_REPLACE);
+            $file = file_save_data($data['content'], 'public://' . urldecode($path), FILE_EXISTS_REPLACE);
             $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
             return;
         }
@@ -512,6 +527,10 @@ class Unl_Migration_Tool
         }
         
         $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        if (!$maincontentarea) {
+            $maincontentarea = $this->_get_old_main_content_area($html);
+        }
+    
         if (!$maincontentarea) {
             $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
             return;
@@ -769,6 +788,7 @@ class Unl_Migration_Tool
         } else {
             curl_setopt($this->_curl, CURLOPT_NOBODY, FALSE);
             $data = curl_exec($this->_curl);
+            $meta = curl_getinfo($this->_curl);
             $content = substr($data, $meta['header_size']);
         }
         
@@ -921,25 +941,43 @@ class Unl_Migration_Tool
     $start_token = '<!-- InstanceBeginEditable name="' . $name . '" -->';
     $end_token = '<!-- InstanceEndEditable -->';
     
-    $content_start = strpos($html, $start_token);
-    $content_end = strpos($html, $end_token, $content_start);
-    $content = substr($html,
-                      $content_start + strlen($start_token),
-                      $content_end - $content_start - strlen($start_token));
-    $content = trim($content);
-    if ($content && $content_start !== FALSE && $content_end !== FALSE) {
+    if ($content = $this->_get_text_between_tokens($html, $start_token, $end_token)) {
       return $content;
     }
+    
     
     $start_token = '<!-- TemplateBeginEditable name="' . $name . '" -->';
     $end_token = '<!-- TemplateEndEditable -->';
     
-    $content_start = strpos($html, $start_token);
-    $content_end = strpos($html, $end_token, $content_start);
-    $content = substr($html,
+    if ($content = $this->_get_text_between_tokens($html, $start_token, $end_token)) {
+      return $content;
+    }
+    
+    return FALSE;
+  }
+  
+  private function _get_old_main_content_area(&$html) {
+    $start_token = '<!--THIS IS THE MAIN CONTENT AREA -->';
+    $end_token = '<!--THIS IS THE END OF THE MAIN CONTENT AREA.-->';
+    
+    $content = $this->_get_text_between_tokens($html, $start_token, $end_token);
+    
+    $html = strtr($html, array(
+      $start_token => $start_token . '<div id="maincontent">',
+      $end_token   => $end_token . '</div>'
+    ));
+    
+    return $content;
+  }
+  
+  private function _get_text_between_tokens($text, $start_token, $end_token) {
+    $content_start = strpos($text, $start_token);
+    $content_end = strpos($text, $end_token, $content_start);
+    $content = substr($text,
                       $content_start + strlen($start_token),
                       $content_end - $content_start - strlen($start_token));
     $content = trim($content);
+  
     if ($content && $content_start !== FALSE && $content_end !== FALSE) {
       return $content;
     }
