@@ -58,28 +58,60 @@ function unl_migration($form, &$form_state)
 }
 
 function unl_migration_submit($form, &$form_state) {
-  if (isset($form_state['storage']) && file_exists($form_state['storage'])) {
-    $migration = unserialize(file_get_contents($form_state['storage']));
-    unlink($form_state['storage']);
+  
+  $operations = array();
+  
+  $operations = array(
+    array(
+      'unl_migration_step',
+      array(
+        $form_state['values']['site_url'],
+        $form_state['values']['frontier_path'],
+        $form_state['values']['frontier_user'],
+        $form_state['values']['frontier_pass'],
+        $form_state['values']['ignore_duplicates'],
+      )
+    )
+  );
+  
+  $batch = array(
+  	'operations' => $operations,
+  	'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
+  );
+  batch_set($batch);
+}
+
+function unl_migration_step($site_url, $frontier_path, $frontier_user, $frontier_pass, $ignore_duplicates, &$context)
+{
+  $finished = 0;
+  if (isset($context['sandbox']['file']) && file_exists($context['sandbox']['file'])) {
+    $migration = unserialize(file_get_contents($context['sandbox']['file']));
+    unlink($form_state['storage']['file']);
+    $finished = $context['sandbox']['finished'];
   }
   else {
     $migration = new Unl_Migration_Tool(
-      $form_state['values']['site_url'],
-      $form_state['values']['frontier_path'],
-      $form_state['values']['frontier_user'],
-      $form_state['values']['frontier_pass'],
-      $form_state['values']['ignore_duplicates']
+      $site_url,
+      $frontier_path,
+      $frontier_user,
+      $frontier_pass,
+      $ignore_duplicates
     );
   }
   
   if ($migration->migrate()) {
-    $form_state['rebuild'] = FALSE;
+    $context['finished'] = 1;
     return;
   }
   
-  $form_state['rebuild'] = TRUE;
+  $finished += 0.01;
+  if ($finished == 1.0) {
+    $finished = 0.99;
+  }
+  $context['finished'] = $finished;
+  $context['sandbox']['finished'] = $finished;
   $migration_storage_file = drupal_tempnam(file_directory_temp(), 'unl_migration_');
-  $form_state['storage'] = $migration_storage_file;
+  $context['sandbox']['file'] = $migration_storage_file;
   file_put_contents($migration_storage_file, serialize($migration));
 }
 
@@ -164,7 +196,7 @@ class Unl_Migration_Tool
         $this->_addSitePath('');
     }
     
-    public function migrate($time_limit = 30)
+    public function migrate($time_limit = 5)
     {
         if (!$this->_sanity_check()) {
             return TRUE;
