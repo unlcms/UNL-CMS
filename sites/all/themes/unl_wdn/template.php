@@ -65,11 +65,13 @@ function unl_wdn_breadcrumb($variables)
                       array_shift($breadcrumbs)));
     }
     
-    //Add the intermediate breadcrumb if it exists
-    $intermediateBreadcrumbText = theme_get_setting('intermediate_breadcrumb_text');
-    $intermediateBreadcrumbHref = theme_get_setting('intermediate_breadcrumb_href');
-    if ($intermediateBreadcrumbText && $intermediateBreadcrumbHref) {
-        array_unshift($breadcrumbs, '<a href="' . $intermediateBreadcrumbHref . '">' . $intermediateBreadcrumbText . '</a>');
+    //Add the intermediate breadcrumbs if they exist
+    $intermediateBreadcrumbs = theme_get_setting('intermediate_breadcrumbs');
+    krsort($intermediateBreadcrumbs);
+    foreach ($intermediateBreadcrumbs as $intermediateBreadcrumb) {
+      if ($intermediateBreadcrumb['text'] && $intermediateBreadcrumb['href']) {
+        array_unshift($breadcrumbs, '<a href="' . $intermediateBreadcrumb['href'] . '">' . $intermediateBreadcrumb['text'] . '</a>');
+      }
     }
     
     //Prepend UNL
