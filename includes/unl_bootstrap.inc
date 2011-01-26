@@ -39,6 +39,11 @@ function unl_bootstrap() {
     $previous_script_name = $_SERVER['SCRIPT_NAME'];
   }
   
+  if (isset($_SERVER['HTTP_X_FORWARDED_HOST']) && isset($_SERVER['HTTP_X_FORWARDED_PATH'])) {
+    $GLOBALS['base_url'] = 'http://' . $_SERVER['HTTP_X_FORWARDED_HOST'] . $_SERVER['HTTP_X_FORWARDED_PATH'];
+    $GLOBALS['cookie_domain'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+  }
+  
   conf_path(TRUE, TRUE);
 }
 
