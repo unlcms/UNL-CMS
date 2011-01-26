@@ -293,10 +293,7 @@ function unl_system_settings_form_submit($form, &$form_state) {
 
 function unl_theme() {
   return array(
-    'unl_site_list_table' => array(
-      'render element' => 'form',
-    ),
-    'unl_alias_list_table' => array(
+    'unl_table' => array(
       'render element' => 'form',
     ),
   );

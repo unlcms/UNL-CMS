@@ -92,25 +92,53 @@ function unl_site_list($form, &$form_state) {
     '#title' => 'Existing Sites',
   );
   
+  $headers = array(
+    'site_path' => array(
+      'data' => 'Site Path',
+      'field' => 's.site_path',
+    ),
+    'db_prefix' => array(
+      'data' => 'Datbase Prefix',
+      'field' => 's.db_prefix',
+    ),
+    'installed' => array(
+      'data' => 'Status',
+      'field' => 's.installed',
+    ),
+    'uri'       => array(
+      'data' => 'Link',
+      'field' => 's.uri',
+    ),
+    'remove'    => 'Remove (can not undo!)'
+  );
+  
   $form['root']['site_list'] = array(
-    '#theme' => 'unl_site_list_table',
+    '#theme' => 'unl_table',
+    '#header' => $headers,
   );
   
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
+    ->extend('TableSort')
+    ->orderByHeader($headers)
     ->execute()
     ->fetchAll();
   
   foreach ($sites as $site) {
-    $form['root']['site_list'][$site->site_id] = array(
-      'site_path' => array('#value' => $site->site_path),
-      'db_prefix' => array('#value' => $site->db_prefix . '_' . $GLOBALS['databases']['default']['default']['prefix']),
-      'installed' => array('#value' => $site->installed),
-      'uri'       => array('#value' => $site->uri),
+    unset($checkbox);
+    $form['root']['site_list']['rows'][$site->site_id] = array(
+      'site_path' => array('#prefix' => $site->site_path),
+      'db_prefix' => array('#prefix' => $site->db_prefix . '_' . $GLOBALS['databases']['default']['default']['prefix']),
+      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
+      'uri'       => array(
+        '#type'  => 'link',
+        '#title' => $site->uri,
+        '#href'  => $site->uri,
+      ),
       'remove'    => array(
         '#type'          => 'checkbox',
         '#parents'       => array('sites', $site->site_id, 'remove'),
-      	'#default_value' => 0
+        '#default_value' => 0,
       ),
     );
   }
@@ -121,27 +149,6 @@ function unl_site_list($form, &$form_state) {
   );
   
   return $form;
-}
-
-function theme_unl_site_list_table($variables) {
-  $form = $variables['form'];
-  
-  $headers = array('Site Path', 'Datbase Prefix', 'Status', 'Link', 'Remove (can not undo!)');
-  $rows = array();
-  foreach (element_children($form) as $key) {
-    $installed = _unl_get_install_status_text($form[$key]['installed']['#value']);
-    $rows[] = array(
-      'data' => array(
-        $form[$key]['site_path']['#value'],
-        $form[$key]['db_prefix']['#value'],
-        $installed,
-        '<a href="' . $form[$key]['uri']['#value'] . '/">' . $form[$key]['uri']['#value'] . '/</a>',
-        drupal_render($form[$key]['remove']),
-      )
-    );
-  }
-  
-  return theme('table', array('header' => $headers, 'rows' => $rows));
 }
 
 function unl_site_list_submit($form, &$form_state) {
@@ -185,8 +192,8 @@ function unl_site_updates_submit($form, &$form_state) {
   }
   
   $batch = array(
-  	'operations' => $operations,
-  	'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
+    'operations' => $operations,
+    'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
   );
   batch_set($batch);
 }
@@ -312,30 +319,50 @@ function unl_alias_create_submit($form, &$form_state) {
 
 
 function unl_alias_list($form, &$form_state) {
-  $query = db_select('unl_sites_aliases', 'a');
-  $query->join('unl_sites', 's', 's.site_id = a.site_id');
-  $query->fields('s', array('uri'));
-  $query->fields('a', array('site_alias_id', 'uri', 'installed'));
-  $sites = $query->execute()->fetchAll();
 
   $form['root'] = array(
     '#type'  => 'fieldset',
     '#title' => 'Existing Aliases',
   );
   
-  $form['root']['alias_list'] = array(
-    '#theme' => 'unl_alias_list_table',
+  $headers = array(
+    'site_uri' => array(
+      'data' => 'Site URI',
+      'field' => 's.uri',
+    ),
+    'alias_uri' => array(
+      'data' => 'Alias URI',
+      'field' => 'a.uri',
+    ),
+    'installed' => array(
+      'data' => 'Status',
+      'field' => 'a.installed',
+    ),
+    'remove'    => 'Remove (can not undo!)'
   );
   
+  $form['root']['alias_list'] = array(
+    '#theme'  => 'unl_table',
+    '#header' => $headers,
+  );
+  
+  $query = db_select('unl_sites_aliases', 'a')
+    ->extend('TableSort')
+    ->orderByHeader($headers);
+  $query->join('unl_sites', 's', 's.site_id = a.site_id');
+  $query->fields('s', array('uri'));
+  $query->fields('a', array('site_alias_id', 'uri', 'installed'));
+  $sites = $query->execute()->fetchAll();
+  
   foreach ($sites as $site) {
-    $form['root']['alias_list'][$site->site_alias_id] = array(
-      'site_uri' => array('#value' => $site->uri),
-      'alias_uri' => array('#value' => $site->a_uri),
-      'installed' => array('#value' => $site->installed),
+    $form['root']['alias_list']['rows'][$site->site_alias_id] = array(
+      'site_uri' => array('#prefix'  => $site->uri),
+      'alias_uri' => array('#prefix' => $site->a_uri),
+      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
       'remove'    => array(
         '#type'          => 'checkbox',
         '#parents'       => array('aliases', $site->site_alias_id, 'remove'),
-      	'#default_value' => 0
+        '#default_value' => 0
       ),
     );
   }
@@ -346,26 +373,6 @@ function unl_alias_list($form, &$form_state) {
   );
   
   return $form;
-}
-
-function theme_unl_alias_list_table($variables) {
-  $form = $variables['form'];
-  
-  $headers = array('Site URI', 'Alias URI', 'Status', 'Remove (can not undo!)');
-  $rows = array();
-  foreach (element_children($form) as $key) {
-    $installed = _unl_get_install_status_text($form[$key]['installed']['#value']);
-    $rows[] = array(
-      'data' => array(
-        $form[$key]['site_uri']['#value'],
-        $form[$key]['alias_uri']['#value'],
-        $installed,
-        drupal_render($form[$key]['remove']),
-      )
-    );
-  }
-  
-  return theme('table', array('header' => $headers, 'rows' => $rows));
 }
 
 function unl_alias_list_submit($form, &$form_state) {
@@ -386,21 +393,21 @@ function unl_alias_list_submit($form, &$form_state) {
 function _unl_get_install_status_text($id) {
   switch ($id) {
     case 0:
-  	$installed = 'Scheduled for creation.';
-  	break;
-  	
+    $installed = 'Scheduled for creation.';
+    break;
+    
     case 1:
-  	$installed = 'Curently being created.';
-  	break;
+    $installed = 'Curently being created.';
+    break;
 
-  	case 2:
-  	  $installed = 'In production.';
-  	  break;
+    case 2:
+      $installed = 'In production.';
+      break;
 
     case 3:
       $installed = 'Scheduled for removal.';
       break;
-    	
+      
     case 4:
       $installed = 'Currently being removed.';
       break;
@@ -413,6 +420,17 @@ function _unl_get_install_status_text($id) {
   return $installed;
 }
 
+
+function theme_unl_table($variables) {
+  $form = $variables['form'];
+  foreach (element_children($form['rows']) as $row_index) {
+    foreach (element_children($form['rows'][$row_index]) as $column_index) {
+      $form['#rows'][$row_index][$column_index] = drupal_render($form['rows'][$row_index][$column_index]);
+    }
+  }
+  
+  return theme('table', $form);
+}
 
 
 
