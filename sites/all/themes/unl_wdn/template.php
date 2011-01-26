@@ -32,6 +32,15 @@ function unl_wdn_preprocess_html(&$vars, $hook)
   $vars['head_title'] = implode(' | ', $head_title);
 }
 
+function unl_wdn_preprocess_page(&$vars, $hook)
+{
+  //Unset the sidebars if on a user page (i.e. user profile or imce file browser)
+  if (arg(0) == 'user') {
+    $vars['page']['sidebar_first'] = array();
+    $vars['page']['sidebar_second'] = array();
+  }
+}
+
 function unl_wdn_get_instance()
 {
     static $instance;

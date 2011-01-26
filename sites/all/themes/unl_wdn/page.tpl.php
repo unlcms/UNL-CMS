@@ -58,6 +58,8 @@ Any real output is being deferred to html.tpl.php
  * Regions:
  * - $page['navlinks']: Navigation Links
  * - $page['content']: Main Content Area
+ * - $page['sidebar_first']: Sidebar first
+ * - $page['sidebar_second']: Sidebar second
  * - $page['leftcollinks']: Related Links
  * - $page['contactinfo']: Contact Us
  * - $page['optionalfooter']: Optional Footer
@@ -86,11 +88,40 @@ if (isset($title) && $title) {
 }
 
 
+
+
+
 $t->maincontentarea = $messages . PHP_EOL
                     . render($tabs) . PHP_EOL
-                    . render($action_links) . PHP_EOL
-                    . strtr(render($page['content']), array('sticky-enabled' => 'zentable cool')) . PHP_EOL
-                    ;
+                    . render($action_links) . PHP_EOL;
+
+if ($page['sidebar_first']) {
+    $t->maincontentarea .= '<div id="sidebar-first" class="sidebar col left">' . PHP_EOL
+                         . render($page['sidebar_first']) . PHP_EOL
+                         . '</div>';
+}
+
+if ($page['sidebar_first'] && !$page['sidebar_second']) {
+    $t->maincontentarea .= '<div class="three_col right">' . PHP_EOL;
+} else if ($page['sidebar_first'] && $page['sidebar_second']) {
+    $t->maincontentarea .= '<div class="two_col">' . PHP_EOL;
+} else if (!$page['sidebar_first'] && $page['sidebar_second']) {
+    $t->maincontentarea .= '<div class="three_col left">' . PHP_EOL;
+}
+
+$t->maincontentarea .= strtr(render($page['content']), array('sticky-enabled' => 'zentable cool')) . PHP_EOL;
+
+if ($page['sidebar_second']) {
+    $t->maincontentarea .= '</div>' . PHP_EOL
+                         . '<div id="sidebar-second" class="sidebar col right">' . PHP_EOL
+                         . render($page['sidebar_second']) . PHP_EOL
+                         . '</div>' . PHP_EOL;
+}
+
+if ($page['sidebar_first'] && !$page['sidebar_second']) {
+    $t->maincontentarea .= '</div>' . PHP_EOL;
+} 
+
 
 
 
