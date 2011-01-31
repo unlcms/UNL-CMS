@@ -85,6 +85,11 @@ function unl_permission() {
       'description' => t('If this is not checked, a user can not change the permissions of the administrator role. Requires the "Administer permissions" permission.'),
       'restrict access' => TRUE,
     ),
+    
+    'unl theme settings' => array(
+      'title' => t('Change Theme Settings'),
+      'description' => t('Allow this role to change the current theme settings.'),
+    )
   );
 }
 
@@ -101,6 +106,16 @@ function unl_menu() {
     'page arguments'   => array('unl_migration'),
     'type'             => MENU_LOCAL_TASK,
     'file'             => 'unl_migration.php',
+  );
+  
+  $items['admin/themes'] = array(
+    'title' => 'Appearance',
+    'description' => 'Configure your theme.',
+    'access callback' => 'unl_user_access',
+    'access arguments' => array(array('!administer themes', 'unl theme settings')),
+    'page callback' => 'drupal_get_form',
+    'position' => 'left',
+    'weight' => -6,
   );
   
   if (conf_path() == 'sites/default') {
@@ -130,6 +145,15 @@ function unl_menu() {
     );
   }
   
+  return $items;
+}
+
+function unl_menu_alter(&$items)
+{
+  foreach (array('module', 'file', 'page arguments') as $key) {
+    $items['admin/themes'][$key] = $items['admin/appearance/settings/' . variable_get('theme_default')][$key];
+  }
+
   return $items;
 }
 
@@ -318,4 +342,20 @@ function unl_url_outbound_alter(&$path, &$options, $original_path) {
   $options['https'] = (bool) (variable_get('https', 0) && !$generic_user);
 }
 
-
+function unl_user_access($permissions, $account = NULL) {
+  foreach ($permissions as $permission) {
+    if (substr($permission, 0, 1) == '!') {
+      $permission = substr($permission, 1);
+      $result = !user_access($permission, $account);
+    }
+    else {
+      $result = user_access($permission, $account);
+    }
+    
+    if (!$result) {
+      return FALSE;
+    }
+  }
+  
+  return TRUE;
+}
