@@ -143,6 +143,16 @@ function unl_menu() {
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
+    
+    $items['admin/sites/unl/wdn_registry'] = array(
+      'title'            => 'WDN Registry',
+      'description'      => 'Settings for the connection to the WDN Registry.',
+      'access arguments' => array('unl site creation'),
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('unl_wdn_registry'),
+      'type'             => MENU_LOCAL_TASK,
+      'file'             => 'unl_site_creation.php',
+    );
   }
   
   return $items;
@@ -358,4 +368,94 @@ function unl_user_access($permissions, $account = NULL) {
   }
   
   return TRUE;
+}
+
+function unl_cron()
+{
+  if (PHP_SAPI == 'cli') {
+    return;
+  }
+ 
+  $queue = DrupalQueue::get('unl_migration');
+  if ($queue->numberOfItems() > 0) {
+    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
+    $item = $queue->claimItem(120);
+    $queue->deleteItem($item);
+    unl_migration_queue_step($item->data);
+  }
+  
+  if (conf_path() == 'sites/default') {
+    
+    $wdn_registry_info = array(
+      'database' => variable_get('unl_wdn_registry_database'),
+      'username' => variable_get('unl_wdn_registry_username'),
+      'password' => variable_get('unl_wdn_registry_password'),
+      'host'     => variable_get('unl_wdn_registry_host'),
+      'driver'   => 'mysql',
+    );
+    
+    if (!$wdn_registry_info['database']) {
+      return;
+    }
+    
+    Database::addConnectionInfo('wdn_registry', 'default', $wdn_registry_info);
+    db_set_active('wdn_registry');
+    
+    try {
+      $data = db_select('site_request', 'r')
+        ->fields('r')
+        ->where('`url` IS NULL')
+        ->execute()
+        ->fetchAll();
+    }
+    catch (Exception $e) {
+      db_set_active();
+      return;
+    }
+    
+    $sites_to_create = array();
+    foreach ($data as $site) {
+      $path = $site->department . '/' . $site->site_name;
+      $path = strtolower($path);
+      $path = strtr($path, array(' ' => ''));
+      
+      $db_prefix = $site->site_name;
+      $db_prefix = strtolower($db_prefix);
+      $db_prefix = strtr($db_prefix, array(' ' => ''));
+      
+      $path = 'incubator/' . $path;
+      
+      $sites_to_create[] = array(
+        'site_path'      => $path,
+        'uri'            => url($path),
+        'clean_url'      => TRUE,
+        'db_prefix'      => $db_prefix,
+        'site_admin'     => $site->site_admin,
+        'migration_url'  => $site->migration_url,
+        'migration_path' => $site->migration_path,
+      );
+      
+      if (variable_get('unl_wdn_registry_production')) {
+        db_update('site_request')
+          ->fields(array('url' => url($path)))
+          ->condition('id', $site->id)
+          ->execute();
+      }
+    }
+    
+    db_set_active();
+    
+    foreach ($sites_to_create as $site_to_create) {
+      try {
+        db_insert('unl_sites')->fields($site_to_create)->execute();
+      }
+      catch (PDOException $e) {
+        // Ignore duplicate records.
+        if ($e->getCode() != 23000) {
+          throw $e;
+        }
+      }
+    }
+    
+  }
 }

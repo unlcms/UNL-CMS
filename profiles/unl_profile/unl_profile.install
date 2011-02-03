@@ -227,6 +227,7 @@ EOF;
     
         $new_prefix = $GLOBALS['databases']['default']['default']['prefix'];
         $shared_prefix = $parent_site_database_settings['default']['default']['prefix'];
+        $short_prefix = substr($new_prefix, 0, 0 - (strlen($shared_prefix) + 1));
         $new_prefixes = array(
           // Localized tables, prefixed with site name
           'default'       => $new_prefix,
@@ -303,6 +304,48 @@ EOF;
           unset($all_permissions[$permission]);
         }
         user_role_grant_permissions($site_admin_role->rid, array_keys($all_permissions));
+        
+        // If a site admin has been specified, add that user and add them to the Site Admin role.
+        $data = db_query(
+          "SELECT * " 
+          . "FROM {$shared_prefix}variable "
+          . "WHERE name IN ('unl_frontier_username', 'unl_frontier_password')"
+        );
+        $frontier_config = array();
+        foreach ($data as $row) {
+          $frontier_config[$row->name] = unserialize($row->value);
+        }
+        
+        $data = db_query(
+          "SELECT * "
+          . "FROM {$shared_prefix}unl_sites "
+          . "WHERE db_prefix = :prefix ",
+          array(':prefix' => $short_prefix)
+        );
+        foreach ($data as $row) {
+          if ($row->site_admin) {
+            $userData = array(
+              'name'     => $row->site_admin,
+              'status'   => 1,
+              'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
+              'roles'    => array($site_admin_role->rid => $site_admin_role->name),
+            );
+            user_save(NULL, $userData);
+          }
+          
+          if ($row->migration_url) {
+            require_once DRUPAL_ROOT . '/sites/all/modules/unl/unl_migration.php';
+            $migration = new Unl_Migration_Tool(
+              $row->migration_url,
+              $row->migration_path,
+              $frontier_config['unl_frontier_username'],
+              $frontier_config['unl_frontier_password'],
+              FALSE
+            );
+            DrupalQueue::get('unl_migration', TRUE)
+              ->createItem(Unl_Migration_Tool::save_to_disk($migration));
+          }
+        }
     }
     
     

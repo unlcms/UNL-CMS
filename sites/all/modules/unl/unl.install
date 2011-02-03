@@ -37,7 +37,26 @@ function unl_schema() {
         'length'   => 255,
         'not null' => TRUE,
         'default'  => '',
-      )
+      ),
+      'site_admin' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
+      'migration_url' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
+      'migration_path' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
+  
     ),
     'primary key' => array('site_id'),
     'unique keys' => array(
@@ -187,4 +206,28 @@ function unl_update_7103() {
   );
   
   db_create_table('unl_sites_aliases', $table);
+}
+
+function unl_update_7104() {
+  db_add_field('unl_sites', 'site_admin', array(
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+    'default'  => '',
+  ));
+}
+
+function unl_update_7105() {
+  db_add_field('unl_sites', 'migration_url', array(
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+    'default'  => '',
+  ));
+  db_add_field('unl_sites', 'migration_path', array(
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+    'default'  => '',
+  ));
 }

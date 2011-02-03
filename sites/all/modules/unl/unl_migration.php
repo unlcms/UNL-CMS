@@ -59,20 +59,26 @@ function unl_migration($form, &$form_state)
 
 function unl_migration_submit($form, &$form_state) {
   
-  $operations = array();
+  $migration = new Unl_Migration_Tool(
+    $form_state['values']['site_url'],
+    $form_state['values']['frontier_path'],
+    $form_state['values']['frontier_user'],
+    $form_state['values']['frontier_pass'],
+    $form_state['values']['ignore_duplicates']
+  );
   
   $operations = array(
     array(
       'unl_migration_step',
       array(
-        $form_state['values']['site_url'],
-        $form_state['values']['frontier_path'],
-        $form_state['values']['frontier_user'],
-        $form_state['values']['frontier_pass'],
-        $form_state['values']['ignore_duplicates'],
+        $migration,
       )
     )
   );
+  
+  DrupalQueue::get('unl_migration', TRUE)
+    ->createItem(Unl_Migration_Tool::save_to_disk($migration));
+  return;
   
   $batch = array(
   	'operations' => $operations,
@@ -81,22 +87,12 @@ function unl_migration_submit($form, &$form_state) {
   batch_set($batch);
 }
 
-function unl_migration_step($site_url, $frontier_path, $frontier_user, $frontier_pass, $ignore_duplicates, &$context)
+function unl_migration_step($migration, &$context)
 {
   $finished = 0;
   if (isset($context['sandbox']['file']) && file_exists($context['sandbox']['file'])) {
-    $migration = unserialize(file_get_contents($context['sandbox']['file']));
-    unlink($form_state['storage']['file']);
+    $migration = Unl_Migration_Tool::load_from_disk($context['sandbox']['file']);
     $finished = $context['sandbox']['finished'];
-  }
-  else {
-    $migration = new Unl_Migration_Tool(
-      $site_url,
-      $frontier_path,
-      $frontier_user,
-      $frontier_pass,
-      $ignore_duplicates
-    );
   }
   
   if ($migration->migrate()) {
@@ -110,9 +106,16 @@ function unl_migration_step($site_url, $frontier_path, $frontier_user, $frontier
   }
   $context['finished'] = $finished;
   $context['sandbox']['finished'] = $finished;
-  $migration_storage_file = drupal_tempnam(file_directory_temp(), 'unl_migration_');
-  $context['sandbox']['file'] = $migration_storage_file;
-  file_put_contents($migration_storage_file, serialize($migration));
+  $context['sandbox']['file'] = Unl_Migration_Tool::save_to_disk($migration);
+}
+
+function unl_migration_queue_step($migration_storage_file) {
+  $migration = Unl_Migration_Tool::load_from_disk($migration_storage_file);
+  if ($migration->migrate(30)) {
+    return;
+  }
+  DrupalQueue::get('unl_migration', TRUE)
+    ->createItem(Unl_Migration_Tool::save_to_disk($migration));
 }
 
 
@@ -751,7 +754,7 @@ class Unl_Migration_Tool
             'und' => array(
                 array(
                     'value' => $content,
-                    'format' => filter_default_format()
+                    'format' => array_shift(array_keys(filter_formats()))
                 )
             )
         );
@@ -1015,6 +1018,22 @@ class Unl_Migration_Tool
     }
     
     return FALSE;
+  }
+  
+  static public function save_to_disk(Unl_Migration_Tool $instance)
+  {
+    $migration_storage_file = drupal_tempnam(file_directory_temp(), 'unl_migration_');
+    file_put_contents($migration_storage_file, serialize($instance));
+    if (PHP_SAPI == 'cli') {
+      chmod($migration_storage_file, 0666);
+    }
+    return $migration_storage_file;
+  }
+  
+  static public function load_from_disk($migration_storage_file) {
+    $instance = unserialize(file_get_contents($migration_storage_file));
+    unlink($migration_storage_file);
+    return $instance;
   }
 }
 

@@ -390,6 +390,85 @@ function unl_alias_list_submit($form, &$form_state) {
 }
 
 
+function unl_wdn_registry($form, &$form_state) {
+  
+  $form['root'] = array(
+    '#type'  => 'fieldset',
+    '#title' => 'WDN Registry Database',
+  );
+  
+  $form['root']['production'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'This is production.',
+    '#description' => 'If this box checked, sites imported will be marked as imported.',
+    '#default_value' => variable_get('unl_wdn_registry_production'),
+  );
+  
+  $form['root']['host'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Host',
+    '#description' => 'Hostname of the WDN Registry database.',
+    '#default_value' => variable_get('unl_wdn_registry_host'),
+    '#required' => TRUE,
+  );
+  
+  $form['root']['username'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Username',
+    '#description' => 'Username for the WDN Registry database.',
+    '#default_value' => variable_get('unl_wdn_registry_username'),
+    '#required' => TRUE,
+  );
+  
+  $form['root']['password'] = array(
+    '#type' => 'password',
+    '#title' => 'Password',
+    '#description' => 'Password for the WDN Registry database.',
+    '#required' => TRUE,
+  );
+  
+  $form['root']['database'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Database',
+    '#description' => 'Database for the WDN Registry database.',
+    '#default_value' => variable_get('unl_wdn_registry_database'),
+    '#required' => TRUE,
+  );
+  
+  $form['root']['frontier_username'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Frontier Username',
+    '#description' => 'Username to connect to frontier FTP.',
+    '#default_value' => variable_get('unl_frontier_username'),
+    '#required' => TRUE,
+  );
+  
+  $form['root']['frontier_password'] = array(
+    '#type' => 'password',
+    '#title' => 'Frontier Password',
+    '#description' => 'Password to connect to frontier FTP.',
+    '#required' => TRUE,
+  );
+  
+  $form['root']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => 'Update',
+  );
+  
+  return $form;
+}
+
+function unl_wdn_registry_submit($form, &$form_state) {
+  variable_set('unl_wdn_registry_production', $form_state['values']['production']);
+  variable_set('unl_wdn_registry_host', $form_state['values']['host']);
+  variable_set('unl_wdn_registry_username', $form_state['values']['username']);
+  variable_set('unl_wdn_registry_password', $form_state['values']['password']);
+  variable_set('unl_wdn_registry_database', $form_state['values']['database']);
+  variable_set('unl_frontier_username', $form_state['values']['frontier_username']);
+  variable_set('unl_frontier_password', $form_state['values']['frontier_password']);
+}
+
+
 function _unl_get_install_status_text($id) {
   switch ($id) {
     case 0:
