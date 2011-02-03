@@ -1,0 +1,4 @@
+; $Id$
+name = Page Preview
+description = Allows node previews to be viewed as fully-rendered pages.
+core = 7.x

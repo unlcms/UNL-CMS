@@ -1,0 +1,21 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Install functions for the Page Preview module.
+ */
+
+/**
+ * Implements hook_install().
+ *
+ * Set module weight to so that pagepreview_init() can run early.
+ */
+function pagepreview_install() {
+  db_update('system')
+    ->fields(array(
+      'weight' => -1,
+    ))
+    ->condition('name', 'pagepreview', '=')
+    ->execute();
+}
