@@ -750,6 +750,10 @@ class Unl_Migration_Tool
         $node->title = $title;
         $node->language = 'und';
         $node->path['alias'] = $alias;
+        if (module_exists('pathauto')) {
+          $node->path['pathauto'] = FALSE;
+        }
+        $node->path['pathauto'] = FALSE;
         $node->body = array(
             'und' => array(
                 array(
