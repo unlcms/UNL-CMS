@@ -55,37 +55,35 @@ function unl_wysiwyg_plugin($editor) {
         // Might need to be set later on; after retrieving customized editor
         // layout.
         //'theme_advanced_buttons1' => array(t('Button title (optional)') => 'myplugin'),
-      
       );
   }
 }
-
 
 function unl_permission() {
   return array(
     'unl migration' => array(
       'title'       => t('Migration'),
       'description' => t('Migrate UNL Template based sites to drupal'),
-    ), 
+    ),
 
     'unl site creation' => array(
       'title'       => t('Site Creation'),
       'description' => t('Create new drupal sites using the UNL profile'),
       'restrict access' => TRUE,
     ),
-    
+
     'unl grant all permissions' => array(
       'title'       => t('Grant All Permissions'),
       'description' => t('If this is not checked, a user can only grant permissions that they themselves have. Requires the "Administer permissions" permission.'),
       'restrict access' => TRUE,
     ),
-    
+
     'unl administer administrator permissions' => array(
       'title'       => t('Administer Administrator\'s Permissions'),
       'description' => t('If this is not checked, a user can not change the permissions of the administrator role. Requires the "Administer permissions" permission.'),
       'restrict access' => TRUE,
     ),
-    
+
     'unl theme settings' => array(
       'title' => t('Change Theme Settings'),
       'description' => t('Allow this role to change the current theme settings.'),
@@ -107,7 +105,7 @@ function unl_menu() {
     'type'             => MENU_LOCAL_TASK,
     'file'             => 'unl_migration.php',
   );
-  
+
   $items['admin/themes'] = array(
     'title' => 'Appearance',
     'description' => 'Configure your theme.',
@@ -117,7 +115,7 @@ function unl_menu() {
     'position' => 'left',
     'weight' => -6,
   );
-  
+
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
       'title'            => 'UNL Site Creation Tool',
@@ -127,14 +125,14 @@ function unl_menu() {
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
-    
+
     $items['admin/sites/unl/sites'] = array(
       'title'       => 'Sites',
       'description' => 'Create and manage UNL Drupal sites.',
       'type'        => MENU_DEFAULT_LOCAL_TASK,
       'weight'      => -8,
     );
-    
+
     $items['admin/sites/unl/aliases'] = array(
       'title'            => 'Aliases',
       'description'      => 'Manage aliases of UNL Drupal sites.',
@@ -143,7 +141,7 @@ function unl_menu() {
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
-    
+
     $items['admin/sites/unl/wdn_registry'] = array(
       'title'            => 'WDN Registry',
       'description'      => 'Settings for the connection to the WDN Registry.',
@@ -154,12 +152,11 @@ function unl_menu() {
       'file'             => 'unl_site_creation.php',
     );
   }
-  
+
   return $items;
 }
 
-function unl_menu_alter(&$items)
-{
+function unl_menu_alter(&$items) {
   foreach (array('module', 'file', 'page arguments') as $key) {
     $items['admin/themes'][$key] = $items['admin/appearance/settings/' . variable_get('theme_default')][$key];
   }
@@ -180,89 +177,109 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     );
     $form['#submit'][] = 'unl_system_settings_form_submit';
   }
-  
-  if ($form_id == 'user_admin_permissions' && !in_array(variable_get('user_admin_role', -1), array_keys($GLOBALS['user']->roles))) {
-    
-    if (!user_access('unl grant all permissions')) {
-      // Remove permissions this user doesn't have from the headings list.
-      foreach ($form['permission'] as $permission => $sub_form) {
-        if (is_int($permission)) {
-          continue;
-        }
-        if (!user_access($permission)) {
-          unset($form['permission'][$permission]);
-        }
-      }
-    
-      // Remove any empty permission section headings.
-      $permission_sections = array_keys($form['permission']);
-      foreach ($permission_sections as $index => $permission_section) {
-        if (!is_int($permission_section)) {
-          continue;
-        }
-        if (!isset($permission_sections[$index + 1]) || is_int($permission_sections[$index + 1])) {
-          unset($form['permission'][$permission_section]);
-        }
-      }
-    
-      // Remove the permissions this user doesn't have from the checkboxes list.
-      foreach ($form['checkboxes'] as $role_id => $sub_form) {
-        foreach ($sub_form['#options'] as $permission => $value) {
-          if (!user_access($permission)) {
-            unset($form['checkboxes'][$role_id]['#options'][$permission]);
+
+  /**
+   * Modify the Permissions and Roles forms for non-administrators
+   */
+  $admin_role_id = variable_get('user_admin_role', -1);
+  if (!in_array($admin_role_id, array_keys($GLOBALS['user']->roles))) {
+    switch ($form_id) {
+      // Add additional validation on admin/people/permissions/roles/edit/%
+      case 'user_admin_role' :
+        $form['#validate'][] = 'unl_user_admin_role_validate';
+        break;
+      // Hide administrator role on admin/people/permissions/roles
+      case 'user_admin_roles' :
+        foreach ($form['roles'] as $key => $role) {
+          if (isset($role['#role']->rid) && $role['#role']->rid == $admin_role_id) {
+            unset($form['roles'][$key]);
           }
         }
-      }
-    }
-    
-    if (!user_access('unl administer administrator permissions')) {
-      $role_id = variable_get('user_admin_role', -1);
-      unset($form['role_names'][$role_id]);
-      unset($form['role_names']['#value'][$role_id]);
-      unset($form['checkboxes'][$role_id]);
-    }
-    
-    if (!in_array(variable_get('user_admin_role'), array_keys($GLOBALS['user']->roles))) {
-      $administrator_permissions = array(
-        'unl administer administrator permissions',
-        'unl site creation',
-        'administer modules',
-        'administer themes',
-        'administer software updates',
-        'administer imce',
-        'administer filters',
-      );
-    
-      foreach ($form['permission'] as $permission => $sub_form) {
-        if (in_array($permission, $administrator_permissions)) {
-          unset($form['permission'][$permission]);
+        break;
+      // Hide administrator column on admin/people/permissions
+      case 'user_admin_permissions' :
+        if (!user_access('unl grant all permissions')) {
+          // Remove permissions this user doesn't have from the headings list.
+          foreach ($form['permission'] as $permission => $sub_form) {
+            if (is_int($permission)) {
+              continue;
+            }
+            if (!user_access($permission)) {
+              unset($form['permission'][$permission]);
+            }
+          }
+
+          // Remove any empty permission section headings.
+          $permission_sections = array_keys($form['permission']);
+          foreach ($permission_sections as $index => $permission_section) {
+            if (!is_int($permission_section)) {
+              continue;
+            }
+            if (!isset($permission_sections[$index + 1]) || is_int($permission_sections[$index + 1])) {
+              unset($form['permission'][$permission_section]);
+            }
+          }
+
+          // Remove the permissions this user doesn't have from the checkboxes list.
+          foreach ($form['checkboxes'] as $role_id => $sub_form) {
+            foreach ($sub_form['#options'] as $permission => $value) {
+              if (!user_access($permission)) {
+                unset($form['checkboxes'][$role_id]['#options'][$permission]);
+              }
+            }
+          }
         }
-      }
-      foreach ($form['checkboxes'] as $role_id => $sub_form) {
-        foreach ($sub_form['#options'] as $permission => $value) {
+
+        // Unset the administrator checkbox column if user can't administer administrator permissions
+        if (!user_access('unl administer administrator permissions')) {
+          unset($form['role_names'][$admin_role_id]);
+          unset($form['role_names']['#value'][$admin_role_id]);
+          unset($form['checkboxes'][$admin_role_id]);
+        }
+
+        // Make these settings unavailable even if they are enabled for the user
+        $administrator_permissions = array(
+          'unl administer administrator permissions',
+          'unl site creation',
+          'administer modules',
+          'administer themes',
+          'administer software updates',
+          'administer imce',
+          'administer filters',
+        );
+        foreach ($form['permission'] as $permission => $sub_form) {
           if (in_array($permission, $administrator_permissions)) {
-            unset($form['checkboxes'][$role_id]['#options'][$permission]);
+            unset($form['permission'][$permission]);
           }
         }
-      }
+        foreach ($form['checkboxes'] as $admin_role_id => $sub_form) {
+          foreach ($sub_form['#options'] as $permission => $value) {
+            if (in_array($permission, $administrator_permissions)) {
+              unset($form['checkboxes'][$admin_role_id]['#options'][$permission]);
+            }
+          }
+        }
+        break;
+      default :
+        break;
     }
   }
-  
+
   /**
    * On the node edit form, hide the "Provide a menu link" checkbox since we'll
    * be using the menu to build a site hierarchy.  Instead, add a button that will
    * determine whether or not the menu link is visible or not.
-   */ 
+   */
   if (substr($form_id, -10) == '_node_form') {
     $form['menu']['#title'] = 'Site hierachy';
-    
+
     $form['menu']['enabled']['#default_value'] = TRUE;
     $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
     $form['menu']['enabled']['#suffix'] = '</div>';
-    
+
     $form['menu']['link']['link_title']['#required'] = TRUE;
-    
-  
+
+
     $mlid = $form['menu']['link']['mlid']['#value'];
     if ($mlid) {
       $menu_link = menu_link_load($mlid);
@@ -277,17 +294,17 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#default_value' => $default_visible,
       '#weight' => 0,
     );
-    
+
     $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
-    
+
     // Also turn on revisioning by default
     $form['revision_information']['revision']['#default_value'] = TRUE;
     unset($form['revision_information']['revision']['#states']);
-    
+
     // Also hide the "Promoted to front page" option
     $form['options']['promote']['#prefix'] = '<div style="display:none;">';
     $form['options']['promote']['#suffix'] = '</div>';
-    
+
     // Also hide the "Sticky at top of lists" option
     $form['options']['sticky']['#prefix'] = '<div style="display:none;">';
     $form['options']['sticky']['#suffix'] = '</div>';
@@ -316,7 +333,7 @@ function unl_node_form_submit($form, &$form_state) {
       break;
     }
   }
-  
+
   $menu_link['hidden'] = $menu_data['visible'] ? 0 : 1;
   menu_link_save($menu_link);
 }
@@ -338,7 +355,7 @@ function unl_url_outbound_alter(&$path, &$options, $original_path) {
   if (isset($path_parts['scheme']) || $path == 'user/cas') {
     return;
   }
-  
+
   $user = $GLOBALS['user'];
   $user_roles = array_keys($user->roles);
   $generic_user = TRUE;
@@ -348,7 +365,7 @@ function unl_url_outbound_alter(&$path, &$options, $original_path) {
     }
     $generic_user = FALSE;
   }
-  
+
   $options['https'] = (bool) (variable_get('https', 0) && !$generic_user);
 }
 
@@ -361,21 +378,35 @@ function unl_user_access($permissions, $account = NULL) {
     else {
       $result = user_access($permission, $account);
     }
-    
+
     if (!$result) {
       return FALSE;
     }
   }
-  
+
   return TRUE;
 }
 
-function unl_cron()
-{
+/**
+ * Additional validation on the user_admin_role form (admin/people/permissions/roles/edit/%)
+ * to prevent a user from deleting the administrator role.
+ */
+function unl_user_admin_role_validate($form, &$form_state) {
+  $admin_role_id = variable_get('user_admin_role', -1);
+
+  if ($form_state['values']['op'] == t('Delete role')) {
+    $role = user_role_load_by_name($form_state['values']['name']);
+    if ($role && $role->rid == $admin_role_id) {
+      form_set_error('name', t('The role name %name can not be deleted. Seriously dude. Seriously.', array('%name' => $form_state['values']['name'])));
+    }
+  }
+}
+
+function unl_cron() {
   if (PHP_SAPI == 'cli') {
     return;
   }
- 
+
   $queue = DrupalQueue::get('unl_migration');
   if ($queue->numberOfItems() > 0) {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
@@ -383,9 +414,9 @@ function unl_cron()
     $queue->deleteItem($item);
     unl_migration_queue_step($item->data);
   }
-  
+
   if (conf_path() == 'sites/default') {
-    
+
     $wdn_registry_info = array(
       'database' => variable_get('unl_wdn_registry_database'),
       'username' => variable_get('unl_wdn_registry_username'),
@@ -393,14 +424,14 @@ function unl_cron()
       'host'     => variable_get('unl_wdn_registry_host'),
       'driver'   => 'mysql',
     );
-    
+
     if (!$wdn_registry_info['database']) {
       return;
     }
-    
+
     Database::addConnectionInfo('wdn_registry', 'default', $wdn_registry_info);
     db_set_active('wdn_registry');
-    
+
     try {
       $data = db_select('site_request', 'r')
         ->fields('r')
@@ -412,19 +443,19 @@ function unl_cron()
       db_set_active();
       return;
     }
-    
+
     $sites_to_create = array();
     foreach ($data as $site) {
       $path = $site->department . '/' . $site->site_name;
       $path = strtolower($path);
       $path = strtr($path, array(' ' => ''));
-      
+
       $db_prefix = $site->site_name;
       $db_prefix = strtolower($db_prefix);
       $db_prefix = strtr($db_prefix, array(' ' => ''));
-      
+
       $path = 'incubator/' . $path;
-      
+
       $sites_to_create[] = array(
         'site_path'      => $path,
         'uri'            => url($path),
@@ -434,7 +465,7 @@ function unl_cron()
         'migration_url'  => $site->migration_url,
         'migration_path' => $site->migration_path,
       );
-      
+
       if (variable_get('unl_wdn_registry_production')) {
         db_update('site_request')
           ->fields(array('url' => url($path)))
@@ -442,9 +473,9 @@ function unl_cron()
           ->execute();
       }
     }
-    
+
     db_set_active();
-    
+
     foreach ($sites_to_create as $site_to_create) {
       try {
         db_insert('unl_sites')->fields($site_to_create)->execute();
@@ -456,6 +487,6 @@ function unl_cron()
         }
       }
     }
-    
+
   }
 }
