@@ -76,10 +76,6 @@ function unl_migration_submit($form, &$form_state) {
     )
   );
   
-  DrupalQueue::get('unl_migration', TRUE)
-    ->createItem(Unl_Migration_Tool::save_to_disk($migration));
-  return;
-  
   $batch = array(
   	'operations' => $operations,
   	'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
