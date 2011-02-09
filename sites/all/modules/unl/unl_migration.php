@@ -749,7 +749,6 @@ class Unl_Migration_Tool
         if (module_exists('pathauto')) {
           $node->path['pathauto'] = FALSE;
         }
-        $node->path['pathauto'] = FALSE;
         $node->body = array(
             'und' => array(
                 array(
