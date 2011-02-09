@@ -814,8 +814,8 @@ class Unl_Migration_Tool
             $headers[$headerKey] = trim($headerValue);
         }
         
-        // don't copy files greater than 100MB in size
-        if (isset($headers['Content-Length']) && $headers['Content-Length'] > (100 * 1024 * 1024)) {
+        // don't copy files greater than 10MB in size
+        if (isset($headers['Content-Length']) && $headers['Content-Length'] > (10 * 1024 * 1024)) {
             $size = floor($headers['Content-Length'] / (1024 * 1024)); 
             $this->_log("The file at $url is $size MB!  Ignoring.");
             $content = '';
