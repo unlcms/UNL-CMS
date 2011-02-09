@@ -5,101 +5,96 @@
  *
  * Perform actions to set up the site for this profile.
  */
-function unl_profile_install()
-{
-    // Start out by calling the standard profile's setup.
-    require_once dirname(__FILE__) . '/../standard/standard.install';
-    standard_install();
+function unl_profile_install() {
+  // Start out by calling the standard profile's setup.
+  require_once dirname(__FILE__) . '/../standard/standard.install';
+  standard_install();
 
-    // Load the ini file (if it exists)
-    $ini_file = dirname(__FILE__) . '/unl_profile.ini';
-    $ini_settings = array();
-    if (file_exists($ini_file)) {
-    	$ini_settings = parse_ini_file($ini_file);
-    }
-    
-    // Enable some standard blocks.
-    $values = array(
-        array(
-            'module' => 'system',
-            'delta' => 'main',
-            'theme' => 'unl_wdn',
-            'status' => 1,
-            'weight' => 0,
-            'region' => 'content',
-            'pages' => '',
-            'cache' => -1,
-        ),
-        array(
-            'module' => 'system',
-            'delta' => 'main-menu',
-            'theme' => 'unl_wdn',
-            'status' => 1,
-            'weight' => 0,
-            'region' => 'navlinks',
-            'pages' => '',
-            'cache' => -1,
-        ),
-    );
-    $query = db_insert('block')->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'));
-    foreach ($values as $record) {
-        $query->values($record);
-    }
-    $query->execute();
-    
-    // Enable the UNL theme
-    theme_enable(array('unl_wdn'));
-    // Set the UNL theme as the defaul
-    variable_set('theme_default', 'unl_wdn');
-    // Keep the standard admin theme
-    variable_set('node_admin_theme', 1);
-    
-    // Establish temp directory
-    if (isset($ini_settings['temp_dir'])) {
-    	variable_set('file_temporary_path', $ini_settings['temp_dir']);
-    }
-    
-    // Set the error level
-    if (isset($ini_settings['error_level'])) {
-    	variable_set('error_level', $ini_settings['error_level']);
-    }
-    
-    // Add shortcuts
-    unl_profile_add_shortcut('Related Links',    'admin/structure/block/manage/block/102/configure');
-    unl_profile_add_shortcut('Footer',           'admin/structure/block/manage/block/104/configure');
-    unl_profile_add_shortcut('Contact Us',       'admin/structure/block/manage/block/101/configure');
-    unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
-    
-    module_disable(array('overlay'));
-    
-    // IMCE setup (currently cannot be shared between sites)
-    // We set every role but the anonymous role to use the "User-1" profile.
-    $roles = array();
-    foreach (user_roles() as $role_id => $role) {
-        if ($role_id == DRUPAL_ANONYMOUS_RID) {
-            $roles[$role_id] = array(
-            	'public_pid' => 0,
-            	'temporary_pid' => 0
-            ); 
-        } else {
-            $roles[$role_id] = array(
-                'public_pid' => 1,
-                'temporary_pid' => 1
-            );
-        }
-    }
-    krsort($roles);
-    variable_set('imce_roles_profiles', $roles);
-    // End IMCE setup.
+  // Load the ini file (if it exists)
+  $ini_file = dirname(__FILE__) . '/unl_profile.ini';
+  $ini_settings = array();
+  if (file_exists($ini_file)) {
+    $ini_settings = parse_ini_file($ini_file);
+  }
 
-    
-    
-    
-    // Add custom blocks for extra sections of the UNL Template (ie: Contact Us, Footer)
-    
-    $block_contents = array();
-    
-    $block_contents['contactinfo'] = <<<EOF
+  // Enable some standard blocks.
+  $values = array(
+    array(
+      'module' => 'system',
+      'delta' => 'main',
+      'theme' => 'unl_wdn',
+      'status' => 1,
+      'weight' => 0,
+      'region' => 'content',
+      'pages' => '',
+      'cache' => -1,
+    ),
+    array(
+      'module' => 'system',
+      'delta' => 'main-menu',
+      'theme' => 'unl_wdn',
+      'status' => 1,
+      'weight' => 0,
+      'region' => 'navlinks',
+      'pages' => '',
+      'cache' => -1,
+    ),
+  );
+  $query = db_insert('block')->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'));
+  foreach ($values as $record) {
+    $query->values($record);
+  }
+  $query->execute();
+
+  // Enable the UNL theme
+  theme_enable(array('unl_wdn'));
+  // Set the UNL theme as the defaul
+  variable_set('theme_default', 'unl_wdn');
+  // Keep the standard admin theme
+  variable_set('node_admin_theme', 1);
+
+  // Establish temp directory
+  if (isset($ini_settings['temp_dir'])) {
+    variable_set('file_temporary_path', $ini_settings['temp_dir']);
+  }
+
+  // Set the error level
+  if (isset($ini_settings['error_level'])) {
+    variable_set('error_level', $ini_settings['error_level']);
+  }
+
+  // Add shortcuts
+  unl_profile_add_shortcut('Related Links',    'admin/structure/block/manage/block/102/configure');
+  unl_profile_add_shortcut('Footer',           'admin/structure/block/manage/block/104/configure');
+  unl_profile_add_shortcut('Contact Us',       'admin/structure/block/manage/block/101/configure');
+  unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
+
+  module_disable(array('overlay'));
+
+  // IMCE setup (currently cannot be shared between sites)
+  // We set every role but the anonymous role to use the "User-1" profile.
+  $roles = array();
+  foreach (user_roles() as $role_id => $role) {
+    if ($role_id == DRUPAL_ANONYMOUS_RID) {
+      $roles[$role_id] = array(
+        'public_pid' => 0,
+        'temporary_pid' => 0
+      );
+    }
+    else {
+      $roles[$role_id] = array(
+        'public_pid' => 1,
+        'temporary_pid' => 1
+      );
+    }
+  }
+  krsort($roles);
+  variable_set('imce_roles_profiles', $roles);
+  // End IMCE setup.
+
+  // Add custom blocks for extra sections of the UNL Template (ie: Contact Us, Footer)
+  $block_contents = array();
+  $block_contents['contactinfo'] = <<<EOF
 <p>
     <strong>University of Nebraska-Lincoln</strong><br />
     1400 R Street<br />
@@ -107,276 +102,264 @@ function unl_profile_install()
     402-472-7211
 </p>
 EOF;
-    
-    $block_contents['leftcollinks'] = <<<EOF
+
+  $block_contents['leftcollinks'] = <<<EOF
 <ul>
     <li><a href="http://events.unl.edu/">UNL Events Calendar</a></li>
     <li><a href="http://ucomm.unl.edu/">University Communications</a></li>
     <li><a href="http://www.unl.edu/ucomm/chancllr/">Office of the Chancellor</a></li>
 </ul>
 EOF;
-    
-    $block_contents['optionalfooter'] = '';
-    
-    $year = date("Y");
-    $block_contents['footercontent'] = <<<EOF
+
+  $block_contents['optionalfooter'] = '';
+
+  $year = date("Y");
+  $block_contents['footercontent'] = <<<EOF
 &copy; {$year} University of Nebraska&ndash;Lincoln | Lincoln, NE 68588 | 402-472-7211 | <a href="http://www.unl.edu/ucomm/aboutunl/" title="Click here to know more about UNL">About UNL</a> | <a href="http://www1.unl.edu/comments/" title="Click here to direct your comments and questions">comments?</a><br />
 UNL is an equal opportunity employer with a comprehensive plan for diversity. Find out more: <a href="https://employment.unl.edu/" target="_blank" title="Employment at UNL">employment.unl.edu</a><br />
 EOF;
-    
 
-    // Enable some standard blocks.
-    
-    db_insert('block')
-        ->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'))
-        ->values(array(
-            'module' => 'block',
-            'delta'  => 101,
-            'theme'  => 'unl_wdn',
-            'status' => 1,
-            'weight' => 0,
-            'region' => 'contactinfo',
-            'pages'  => '',
-            'cache'  => DRUPAL_CACHE_GLOBAL,
-        ))
-        ->values(array(
-            'module' => 'block',
-            'delta'  => 102,
-            'theme'  => 'unl_wdn',
-            'status' => 1,
-            'weight' => 0,
-            'region' => 'leftcollinks',
-            'pages'  => '',
-            'cache'  => DRUPAL_CACHE_GLOBAL,
-        ))
-        ->values(array(
-            'module' => 'block',
-            'delta'  => 103,
-            'theme'  => 'unl_wdn',
-            'status' => 1,
-            'weight' => 0,
-            'region' => 'optionalfooter',
-            'pages'  => '',
-            'cache'  => DRUPAL_CACHE_GLOBAL,
-        ))
-        ->values(array(
-            'module' => 'block',
-            'delta'  => 104,
-            'theme'  => 'unl_wdn',
-            'status' => 1,
-            'weight' => 0,
-            'region' => 'footercontent',
-            'pages'  => '',
-            'cache'  => DRUPAL_CACHE_GLOBAL,
-        ))
-        ->execute();
-    
-    
-    // Get the default filter_format from the parent database.
+  // Enable some standard blocks.
+
+  db_insert('block')
+    ->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'))
+    ->values(array(
+      'module' => 'block',
+      'delta'  => 101,
+      'theme'  => 'unl_wdn',
+      'status' => 1,
+      'weight' => 0,
+      'region' => 'contactinfo',
+      'pages'  => '',
+      'cache'  => DRUPAL_CACHE_GLOBAL,
+    ))
+    ->values(array(
+      'module' => 'block',
+      'delta'  => 102,
+      'theme'  => 'unl_wdn',
+      'status' => 1,
+      'weight' => 0,
+      'region' => 'leftcollinks',
+      'pages'  => '',
+      'cache'  => DRUPAL_CACHE_GLOBAL,
+    ))
+    ->values(array(
+      'module' => 'block',
+      'delta'  => 103,
+      'theme'  => 'unl_wdn',
+      'status' => 1,
+      'weight' => 0,
+      'region' => 'optionalfooter',
+      'pages'  => '',
+      'cache'  => DRUPAL_CACHE_GLOBAL,
+    ))
+    ->values(array(
+      'module' => 'block',
+      'delta'  => 104,
+      'theme'  => 'unl_wdn',
+      'status' => 1,
+      'weight' => 0,
+      'region' => 'footercontent',
+      'pages'  => '',
+      'cache'  => DRUPAL_CACHE_GLOBAL,
+    ))
+    ->execute();
+
+  // Get the default filter_format from the parent database.
+  $parent_site_database_settings = unl_profile_get_default_site_db_settings();
+  $parent_site_prefix = $parent_site_database_settings['default']['default']['prefix'];
+  $results = db_query("SELECT * FROM {$parent_site_prefix}filter_format WHERE status=1 ORDER BY weight LIMIT 1");
+  foreach ($results as $result) {
+    $format = $result->format;
+  }
+
+  db_insert('block_custom')
+    ->fields(array('bid', 'body', 'info', 'format'))
+    ->values(array(
+      'bid'    => 101,
+      'body'   => $block_contents['contactinfo'],
+      'info'   => 'Contact Info',
+      'format' => $format,
+    ))
+    ->values(array(
+      'bid'    => 102,
+      'body'   => $block_contents['leftcollinks'],
+      'info'   => 'Related Links',
+      'format' => $format,
+    ))
+    ->values(array(
+      'bid'    => 103,
+      'body'   => $block_contents['optionalfooter'],
+      'info'   => 'Optional Footer',
+      'format' => $format,
+    ))
+    ->values(array(
+      'bid'    => 104,
+      'body'   => $block_contents['footercontent'],
+      'info'   => 'Footer Content',
+      'format' => $format,
+    ))
+    ->execute();
+  // End adding custom blocks
+
+  // Set the "Home" menu link to be expanded by default
+  $links = menu_load_links('main-menu');
+  $links[0]['expanded'] = 1;
+  menu_link_save($links[0]);
+
+  // Remove the "Article" node type since we aren't using it.
+  node_type_delete('article');
+
+  // Update the settings file to use shared database tables (unless this is the default site)
+  if (conf_path() != 'sites/default') {
     $parent_site_database_settings = unl_profile_get_default_site_db_settings();
-    $parent_site_prefix = $parent_site_database_settings['default']['default']['prefix'];
-    $results = db_query("SELECT * FROM {$parent_site_prefix}filter_format WHERE status=1 ORDER BY weight LIMIT 1");
-    foreach ($results as $result) {
-      $format = $result->format;
-    }
-    
-    db_insert('block_custom')
-        ->fields(array('bid', 'body', 'info', 'format'))
-        ->values(array(
-            'bid'    => 101,
-            'body'   => $block_contents['contactinfo'],
-            'info'   => 'Contact Info',
-            'format' => $format,
-        ))
-        ->values(array(
-            'bid'    => 102,
-            'body'   => $block_contents['leftcollinks'],
-            'info'   => 'Related Links',
-            'format' => $format,
-        ))
-        ->values(array(
-            'bid'    => 103,
-            'body'   => $block_contents['optionalfooter'],
-            'info'   => 'Optional Footer',
-            'format' => $format,
-        ))
-        ->values(array(
-            'bid'    => 104,
-            'body'   => $block_contents['footercontent'],
-            'info'   => 'Footer Content',
-            'format' => $format,
-        ))
-        ->execute();
-    
-    // End adding custom blocks
-    
-    
-    // Set the "Home" menu link to be expanded by default
-    $links = menu_load_links('main-menu');
-    $links[0]['expanded'] = 1;
-    menu_link_save($links[0]);
-    
-    
-    // Remove the "Article" node type since we aren't using it.
-    node_type_delete('article');
-    
 
-    // Update the settings file to use shared database tables (unless this is the default site)
-    if (conf_path() != 'sites/default') {
-        $parent_site_database_settings = unl_profile_get_default_site_db_settings();
-    
-        $new_prefix = $GLOBALS['databases']['default']['default']['prefix'];
-        $shared_prefix = $parent_site_database_settings['default']['default']['prefix'];
-        $short_prefix = substr($new_prefix, 0, 0 - (strlen($shared_prefix) + 1));
-        $new_prefixes = array(
-          // Localized tables, prefixed with site name
-          'default'       => $new_prefix,
+    $new_prefix = $GLOBALS['databases']['default']['default']['prefix'];
+    $shared_prefix = $parent_site_database_settings['default']['default']['prefix'];
+    $short_prefix = substr($new_prefix, 0, 0 - (strlen($shared_prefix) + 1));
+    $new_prefixes = array(
+      // Localized tables, prefixed with site name
+      'default'       => $new_prefix,
+      // shared tables across all sites
+      'filter'           => $shared_prefix,
+      'filter_format'    => $shared_prefix,
+      'unl_cas_settings' => $shared_prefix,
+      'wysiwyg'          => $shared_prefix,
+    );
 
-          // shared tables across all sites
-          'filter'           => $shared_prefix,
-          'filter_format'    => $shared_prefix,
-          'unl_cas_settings' => $shared_prefix,
-          'wysiwyg'          => $shared_prefix,
-        );
-        
-        $settings['databases'] = array(
-            'value'    => $parent_site_database_settings,
-            'required' => TRUE
-        );
-        
-        foreach ($settings['databases']['value'] as &$database) {
-          $database['default']['prefix'] = $new_prefixes;
-          if (!isset($database['slave'])) {
-            continue;
-          }
-          foreach ($database['slave'] as &$slave_database) {
-            $slave_database['prefix'] = $new_prefixes;
-          }
-        }
-        
-        $settings['drupal_hash_salt'] = array(
-          'value'    => 'FOOBAR' . $GLOBALS['drupal_hash_salt'],
-          'required' => TRUE,
-        );
-        
-        $settings_dir = DRUPAL_ROOT . DIRECTORY_SEPARATOR . conf_path();
-        $settings_file = $settings_dir . '/settings.php';
-        $writable = drupal_verify_install_file($settings_file, FILE_READABLE|FILE_WRITABLE);
-        
-        drupal_rewrite_settings($settings);
-        
-        // Only enable CAS on subsites until we get some sort of bootstrap setup.
-        module_enable(array('unl_cas'));
-        
-        
-        // Copy the anonymous/authenticated user roles' permissions for text formats from the default site.
-        db_query(
-       	  "REPLACE INTO {$new_prefix}role_permission (rid, permission, module) "
-          . "SELECT rid, permission, module "
-          . "FROM {$shared_prefix}role_permission "
-          . "WHERE rid IN(:rid) AND module='filter' ",
-          array(':rid' => array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID))
-        );
-        
-        db_query(
-          "REPLACE INTO {$new_prefix}variable (name, value) "
-          . "SELECT name, value "
-          . "FROM {$shared_prefix}variable "
-          . "WHERE name='filter_fallback_format' "
-        );
-        
-        // Create the Site Admin role
-        $site_admin_role = new stdClass();
-        $site_admin_role->name = 'Site Admin';
-        $site_admin_role->weight = 2;
-        user_role_save($site_admin_role);
-        
-        // Assign most permissions to the Site Admin role.
-        $all_permissions = module_invoke_all('permission');
-        unset($all_permissions['unl administer administrator permissions']);
-        unset($all_permissions['unl site creation']);
-        unset($all_permissions['administer modules']);
-        unset($all_permissions['administer themes']);
-        unset($all_permissions['administer software updates']);
-        unset($all_permissions['administer imce']);
-        unset($all_permissions['administer filters']);
-        foreach (array_keys(module_invoke('filter', 'permission')) as $permission) {
-          unset($all_permissions[$permission]);
-        }
-        user_role_grant_permissions($site_admin_role->rid, array_keys($all_permissions));
-        
-        // If a site admin has been specified, add that user and add them to the Site Admin role.
-        $data = db_query(
-          "SELECT * " 
-          . "FROM {$shared_prefix}variable "
-          . "WHERE name IN ('unl_frontier_username', 'unl_frontier_password')"
-        );
-        $frontier_config = array();
-        foreach ($data as $row) {
-          $frontier_config[$row->name] = unserialize($row->value);
-        }
-        
-        $data = db_query(
-          "SELECT * "
-          . "FROM {$shared_prefix}unl_sites "
-          . "WHERE db_prefix = :prefix ",
-          array(':prefix' => $short_prefix)
-        );
-        foreach ($data as $row) {
-          if ($row->site_admin) {
-            $userData = array(
-              'name'     => $row->site_admin,
-              'status'   => 1,
-              'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
-              'roles'    => array($site_admin_role->rid => $site_admin_role->name),
-            );
-            user_save(NULL, $userData);
-          }
-          
-          if ($row->migration_url) {
-            require_once DRUPAL_ROOT . '/sites/all/modules/unl/unl_migration.php';
-            $migration = new Unl_Migration_Tool(
-              $row->migration_url,
-              $row->migration_path,
-              $frontier_config['unl_frontier_username'],
-              $frontier_config['unl_frontier_password'],
-              FALSE
-            );
-            DrupalQueue::get('unl_migration', TRUE)
-              ->createItem(Unl_Migration_Tool::save_to_disk($migration));
-          }
-        }
+    $settings['databases'] = array(
+      'value'    => $parent_site_database_settings,
+      'required' => TRUE
+    );
+
+    foreach ($settings['databases']['value'] as &$database) {
+      $database['default']['prefix'] = $new_prefixes;
+      if (!isset($database['slave'])) {
+        continue;
+      }
+      foreach ($database['slave'] as &$slave_database) {
+        $slave_database['prefix'] = $new_prefixes;
+      }
     }
-    
-    
-    $files_dir = $settings_dir . '/files';
-    chmod($files_dir, 0777);
-    
-    return;
+
+    $settings['drupal_hash_salt'] = array(
+      'value'    => 'FOOBAR' . $GLOBALS['drupal_hash_salt'],
+      'required' => TRUE,
+    );
+
+    $settings_dir = DRUPAL_ROOT . DIRECTORY_SEPARATOR . conf_path();
+    $settings_file = $settings_dir . '/settings.php';
+    $writable = drupal_verify_install_file($settings_file, FILE_READABLE|FILE_WRITABLE);
+
+    drupal_rewrite_settings($settings);
+
+    // Only enable CAS on subsites until we get some sort of bootstrap setup.
+    module_enable(array('unl_cas'));
+
+    // Copy the anonymous/authenticated user roles' permissions for text formats from the default site.
+    db_query(
+      "REPLACE INTO {$new_prefix}role_permission (rid, permission, module) "
+      . "SELECT rid, permission, module "
+      . "FROM {$shared_prefix}role_permission "
+      . "WHERE rid IN(:rid) AND module='filter' ",
+      array(':rid' => array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID))
+    );
+
+    db_query(
+      "REPLACE INTO {$new_prefix}variable (name, value) "
+      . "SELECT name, value "
+      . "FROM {$shared_prefix}variable "
+      . "WHERE name='filter_fallback_format' "
+    );
+
+    // Create the Site Admin role
+    $site_admin_role = new stdClass();
+    $site_admin_role->name = 'Site Admin';
+    $site_admin_role->weight = 2;
+    user_role_save($site_admin_role);
+
+    // Assign most permissions to the Site Admin role.
+    $all_permissions = module_invoke_all('permission');
+    unset($all_permissions['unl site creation']);
+    unset($all_permissions['unl grant all permissions']);
+    unset($all_permissions['unl administer administrator permissions']);
+    unset($all_permissions['administer modules']);
+    unset($all_permissions['administer themes']);
+    unset($all_permissions['administer software updates']);
+    unset($all_permissions['administer imce']);
+    unset($all_permissions['administer filters']);
+    foreach (array_keys(module_invoke('filter', 'permission')) as $permission) {
+      unset($all_permissions[$permission]);
+    }
+    user_role_grant_permissions($site_admin_role->rid, array_keys($all_permissions));
+
+    // If a site admin has been specified, add that user and add them to the Site Admin role.
+    $data = db_query(
+      "SELECT * "
+      . "FROM {$shared_prefix}variable "
+      . "WHERE name IN ('unl_frontier_username', 'unl_frontier_password')"
+    );
+    $frontier_config = array();
+    foreach ($data as $row) {
+      $frontier_config[$row->name] = unserialize($row->value);
+    }
+
+    $data = db_query(
+      "SELECT * "
+      . "FROM {$shared_prefix}unl_sites "
+      . "WHERE db_prefix = :prefix ",
+      array(':prefix' => $short_prefix)
+    );
+    foreach ($data as $row) {
+      if ($row->site_admin) {
+        $userData = array(
+          'name'     => $row->site_admin,
+          'status'   => 1,
+          'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
+          'roles'    => array($site_admin_role->rid => $site_admin_role->name),
+        );
+        user_save(NULL, $userData);
+      }
+
+      if ($row->migration_url) {
+        require_once DRUPAL_ROOT . '/sites/all/modules/unl/unl_migration.php';
+        $migration = new Unl_Migration_Tool(
+          $row->migration_url,
+          $row->migration_path,
+          $frontier_config['unl_frontier_username'],
+          $frontier_config['unl_frontier_password'],
+          FALSE
+        );
+        DrupalQueue::get('unl_migration', TRUE)
+          ->createItem(Unl_Migration_Tool::save_to_disk($migration));
+      }
+    }
+  }
+
+  $files_dir = $settings_dir . '/files';
+  chmod($files_dir, 0777);
+
+  return;
 }
-
-
 
 /**
  * Load the default site's config file and return the db_prefix value from it.
  */
-function unl_profile_get_default_site_db_settings()
-{
-    $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
-    require $default_site_settings_file;
-    
-    return $databases;
+function unl_profile_get_default_site_db_settings() {
+  $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
+  require $default_site_settings_file;
+
+  return $databases;
 }
 
-function unl_profile_add_shortcut($title, $path)
-{
-    require_once 'modules/shortcut/shortcut.admin.inc';
-    
-    $link = array(
-        'link_title' => $title,
-        'link_path' => $path
-    );
-    $shortcut_set = shortcut_set_load('shortcut-set-1');
-    shortcut_admin_add_link($link, $shortcut_set, shortcut_max_slots());
-    shortcut_set_save($shortcut_set);
+function unl_profile_add_shortcut($title, $path) {
+  require_once 'modules/shortcut/shortcut.admin.inc';
+
+  $link = array(
+    'link_title' => $title,
+    'link_path' => $path
+  );
+  $shortcut_set = shortcut_set_load('shortcut-set-1');
+  shortcut_admin_add_link($link, $shortcut_set, shortcut_max_slots());
+  shortcut_set_save($shortcut_set);
 }
