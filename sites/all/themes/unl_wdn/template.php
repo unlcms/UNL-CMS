@@ -161,14 +161,31 @@ function unl_wdn_status_messages($variables) {
 
   $output = '';
   foreach (drupal_get_messages($display) as $type => $messages) {
+    switch ($type) {
+      case 'status':
+        $extra_class = ' affirm';
+        break;
+      
+      case 'warning':
+        $extra_class = ' alert';
+        break;
+      
+      case 'error':
+        $extra_class = ' negate';
+        break;
+        
+      default:
+        $extra_class = '';
+        break;
+    }
     $type = ucfirst($type);
     $output .= <<<EOF
-<div class="wdn_notice">
+<div class="wdn_notice$extra_class">
     <div class="close">
         <a href="#" title="Close this notice">Close this notice</a>
     </div>
     <div class="message">
-        <h3>$type</h3>
+        <h4>$type</h4>
 EOF;
     if (count($messages) > 1) {
       $output .= '<ul>' . PHP_EOL;
