@@ -446,13 +446,19 @@ function unl_cron() {
 
     $sites_to_create = array();
     foreach ($data as $site) {
-      $path = $site->department . '/' . $site->site_name;
-      $path = strtolower($path);
-      $path = strtr($path, array(' ' => ''));
+      $department = $site->department;
+      $department = strtr($department, array(' ' => ''));
+      $department = strtolower($department);
+      $department = preg_replace('/[^[a-z0-9]/', '', $department);
+       
+      $site_name = $site->site_name;
+      $site_name = strtr($site_name, array(' ' => ''));
+      $site_name = strtolower($site_name);
+      $site_name = preg_replace('/[^[a-z0-9]/', '', $site_name);
+      
+      $path = $department . '/' . $site_name;
 
-      $db_prefix = $site->site_name;
-      $db_prefix = strtolower($db_prefix);
-      $db_prefix = strtr($db_prefix, array(' ' => ''));
+      $db_prefix = unl_create_db_prefix($site);
 
       $path = 'incubator/' . $path;
 
@@ -461,9 +467,9 @@ function unl_cron() {
         'uri'            => url($path),
         'clean_url'      => TRUE,
         'db_prefix'      => $db_prefix,
-        'site_admin'     => $site->site_admin,
-        'migration_url'  => $site->migration_url,
-        'migration_path' => $site->migration_path,
+        'site_admin'     => $site->site_admin ? $site->site_admin : '',
+        'migration_url'  => $site->migration_url ? $site->migration_url : '',
+        'migration_path' => $site->migration_path ? $site->migration_path : '',
       );
 
       if (variable_get('unl_wdn_registry_production')) {
@@ -489,4 +495,29 @@ function unl_cron() {
     }
 
   }
+}
+
+// Creates a db_prefix short enough to not go over MySQL's max table name length
+function unl_create_db_prefix($site) {
+  $parent_prefix = '_' . $GLOBALS['databases']['default']['default']['prefix'];
+  
+  $site_name = strtolower($site->site_name);
+  $site_name = preg_replace('/[^[a-z0-9]/', '', $site_name);
+  $site_name = explode(' ', $site_name);
+  foreach ($site_name as $site_word) {
+    $site_words[$site_word] = strlen($site_word);
+  }
+  do {
+    $db_prefix = '';
+    $found = FALSE;
+    foreach ($site_words as $site_word => $length) {
+      $db_prefix .= substr($site_word, 0, $length);
+      if (max($site_words) == $length && !$found) {
+        $found = TRUE;
+        $site_words[$site_word] = $length-1;
+      }
+    }
+  } while (strlen($db_prefix . $parent_prefix) > 32);
+  
+  return $db_prefix;
 }
