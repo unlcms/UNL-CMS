@@ -1,12 +1,13 @@
-; $Id: imce.info,v 1.7.2.1 2010/12/27 20:10:34 ufku Exp $
+; $Id: imce.info,v 1.7.2.2 2011/01/13 09:09:40 ufku Exp $
 name = "IMCE"
 description = "An image/file uploader and browser supporting personal directories and user quota."
 core = "7.x"
 package = "Media"
+configure = "admin/config/media/imce"
 
-; Information added by drupal.org packaging script on 2010-12-27
-version = "7.x-1.1"
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-1.2"
 core = "7.x"
 project = "imce"
-datestamp = "1293481279"
+datestamp = "1296601518"
 
