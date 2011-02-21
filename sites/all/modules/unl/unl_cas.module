@@ -9,6 +9,10 @@ function unl_cas_init() {
   unl_load_zend_framework();
   drupal_session_start();
   
+  if (isset($_SESSION['unl_cas']['current_path'])) {
+    $_SESSION['unl_cas']['previous_path'] = $_SESSION['unl_cas']['current_path'];
+  }
+  $_SESSION['unl_cas']['current_path'] = request_path();
   $cas = unl_cas_get_adapter();
   
   // If this is a request to the validation URL, or if the CAS ticket is not expired, don't redirect.
@@ -19,7 +23,9 @@ function unl_cas_init() {
   // At this point, we know the ticket has expired.
   // If we think a user is supposed to be logged in, attempt to renew the service ticket.
   if (array_key_exists('unl_sso', $_COOKIE) || !user_is_anonymous()) {
-    $_SESSION['unl_cas']['previous_path'] = request_path();
+    if (isset($_SESSION['unl_cas']['previous_path'])) {
+      $_SESSION['unl_cas']['return_path'] = $_SESSION['unl_cas']['current_path'];
+    }
     $cas->setGateway();
     drupal_goto($cas->getLoginUrl());
   }
@@ -104,12 +110,18 @@ function unl_cas_validate() {
     setcookie('unl_sso', 'fake', time() - 60 * 60 * 24, '/', '.unl.edu');
   }
   
-  drupal_goto($_SESSION['unl_cas']['previous_path']);
+  if (isset($_SESSION['unl_cas']['return_path'])) {
+    drupal_goto($_SESSION['unl_cas']['return_path']);
+  } else {
+    drupal_goto('user');
+  }
 }
 
 function unl_cas_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'user_login') {
-    $_SESSION['unl_cas']['previous_path'] = request_path();
+    if (isset($_SESSION['unl_cas']['previous_path'])) {
+      $_SESSION['unl_cas']['return_path'] = $_SESSION['unl_cas']['previous_path'];
+    }
     $cas = unl_cas_get_adapter();
     drupal_goto($cas->getLoginUrl());
   }
