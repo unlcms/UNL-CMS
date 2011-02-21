@@ -169,13 +169,28 @@ function unl_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'menu_edit_item' && $form['mlid']['#value'] == 0) {
     $form['expanded']['#default_value'] = TRUE;
   }
+  
   if ($form_id == 'system_site_information_settings') {
     $form['site_information']['https'] = array(
       '#type' => 'checkbox',
       '#title' => 'SSL Enabled',
       '#default_value' => variable_get('https', FALSE),
     );
-    $form['#submit'][] = 'unl_system_settings_form_submit';
+    
+    if (conf_path() != 'sites/default') {
+      $alternate_uris = unl_get_alternate_base_uris();
+      $base_urls = array('_null' => '--Select One--');
+      foreach ($alternate_uris as $alternate_uri) {
+        $base_urls[$alternate_uri] = $alternate_uri;
+      };
+      $form['site_information']['unl_primary_base_url'] = array(
+        '#title' => 'Primary Base URL',
+        '#type' => 'select',
+        '#options' => $base_urls,
+        '#default_value' => variable_get('unl_primary_base_url'),
+      );
+      $form['#submit'][] = 'unl_system_settings_form_submit';
+    }
   }
 
   /**
@@ -340,6 +355,12 @@ function unl_node_form_submit($form, &$form_state) {
 
 function unl_system_settings_form_submit($form, &$form_state) {
   variable_set('https', (bool) $form_state['values']['https']);
+  if ($form_state['values']['unl_primary_base_url'] != '_null') {
+    variable_set('unl_primary_base_url', $form_state['values']['unl_primary_base_url']);
+  }
+  else {
+    variable_del('unl_primary_base_url');
+  }
 }
 
 function unl_theme() {
@@ -520,4 +541,57 @@ function unl_create_db_prefix($site) {
   } while (strlen($db_prefix . $parent_prefix) > 32);
   
   return $db_prefix;
+}
+
+function unl_get_shared_db_prefix() {
+  require 'sites/default/settings.php';
+  $shared_prefix = $databases['default']['default']['prefix'];
+  
+  return $shared_prefix;
+}
+
+function unl_get_alternate_base_uris() {
+  $shared_prefix = unl_get_shared_db_prefix();
+  if (is_array($GLOBALS['databases']['default']['default']['prefix'])) {
+    $db_prefix = $GLOBALS['databases']['default']['default']['prefix']['default'];
+    $db_prefix = substr($db_prefix, 0, 0 - strlen($shared_prefix) - 1);
+  }
+  else {
+    return array();
+  }
+  $rows = db_query(
+  	"SELECT s.uri AS uri, a.uri AS a_uri "
+    . "FROM {$shared_prefix}unl_sites AS s "
+    . "LEFT JOIN {$shared_prefix}unl_sites_aliases AS a "
+    . "  ON s.site_id = a.site_id "
+    . "WHERE db_prefix=:db_prefix", 
+    array(':db_prefix' => $db_prefix)
+  )->fetchAll();
+  
+  if (count($rows) < 1) {
+    return array();
+  }
+  
+  $uris = array($rows[0]->uri);
+  foreach ($rows as $row) {
+    if ($row->a_uri) {
+      $uris[] = $row->a_uri;
+    }
+  }
+  
+  return $uris;
+}
+
+function unl_init() {
+  $primary_base_url = variable_get('unl_primary_base_url');
+  if ($primary_base_url && substr($primary_base_url, -1) != '/') {
+    $primary_base_url .= '/';
+  }
+  
+  if (conf_path() != 'sites/default'
+      && $primary_base_url
+      && $primary_base_url != url()
+  ) {
+    drupal_goto($primary_base_url . current_path());
+  }
 }
