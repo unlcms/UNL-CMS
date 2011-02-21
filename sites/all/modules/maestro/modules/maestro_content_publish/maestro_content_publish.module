@@ -1,0 +1,155 @@
+<?php
+// $Id:
+
+/**
+ * @file
+ * maestro_content_publish.module
+ */
+
+
+
+/* Maestro HOOK to modules to return info on any new task handlers - ie functions for tasks */
+function maestro_content_publish_maestro_handler_options() {
+
+  $handlers = array(
+    'MaestroTaskTypeInteractiveFunction' => array(
+      'maestro_reviewContentType' => t('Generic Function to display a review form with link to content node. Requires that you use a process variables called "content_type" that is set to the content type this function will review.'),
+      'maestro_dummy' => t('Test interactive function - do nothing')
+      ),
+    'MaestroTaskTypeBatchFunction' => array(
+      'maestro_batch_dummy' => t('Test batch function - do nothing')
+      )
+    );
+    return $handlers;
+}
+
+
+function maestro_content_publish_theme() {
+  return array(
+    'maestro_content_publish_review' => array(
+      'template' => 'content_review',
+      'variables' => array('nid' => NULL, 'queue_id' => NULL, 'title' => NULL, 'data' => NULL),
+    )
+  );
+}
+
+
+function template_preprocess_maestro_content_publish_review(&$variables) {
+  global $base_url;
+
+  $node = node_load($variables['nid']);
+  if ($node !== FALSE) {
+    $variables['edit_content_link'] = l($node->title, "node/{$variables['nid']}/edit/maestro/edit/{$variables['queue_id']}");
+  } else {
+    $variables['edit_content_link'] = '';
+  }
+  $variables['radio1opt'] = '';
+  $variables['radio2opt'] = '';
+  if ($variables['data']['reviewstatus'] == 'accept') {
+    $variables['radio2opt'] = 'CHECKED=checked';
+  } elseif ($variables['data']['reviewstatus'] == 'reject') {
+    $variables['radio1opt'] = 'CHECKED=checked';
+  }
+}
+
+
+function maestro_reviewContentType($op,&$task,$parms) {
+  global $base_url;
+
+  $nid = maestro_getNodeId($task->_properties->process_id,$parms['content_type']);
+
+  if ($nid === FALSE) {
+    $retval->retcode = FALSE;
+    return $retval;
+  }
+
+  $node = node_load($nid);
+  if ($node === FALSE) {
+    $retval->retcode = TRUE;
+    $retval->html = t('Invalid Node: Content possibly has been deleted.');
+    return $retval;
+  }
+  $retval = new stdClass();
+  $retval->html = '';
+  $retval->retcode = FALSE;
+  $retval->engineop = '';  // Optionally set the engineop value if you want to complete the task
+
+  switch ($op) {
+    case 'display':
+      $data = $task->getTempData();
+      $retval->html = theme('maestro_content_publish_review',array(
+        'nid' => $nid,
+        'queue_id' => $task->_properties->queue_id,
+        'title' => $node->title,
+        'data' => $data));
+
+      $retval->retcode = TRUE;
+      $retval->engineop = '';
+      break;
+    case 'complete':
+      $data = $task->getTempData();
+      $tracking_id = maestro_getTaskTrackingId($task->_properties->queue_id);
+      if (empty($data['reviewstatus']) AND !isset($_POST['reviewstatus'])) {
+        $retval->retcode = FALSE;
+
+      } elseif ($data['reviewstatus'] == 'accept' OR $_POST['reviewstatus'] == 'yes') {
+        $data['reviewstatus'] = 'accept';
+        $task->saveTempData($data);
+        $retval->retcode = TRUE;
+        $retval->status = MaestroTaskStatusCodes::STATUS_COMPLETE;
+        $retval->engineop = 'completetask';
+        // Flag the content record as accepted
+        db_update('maestro_project_content')
+          ->fields(array( 'status' => MaestroContentStatusCodes::STATUS_UNDER_REVIEW))
+          ->condition('tracking_id', $tracking_id)
+          ->condition('nid', $nid)
+          ->execute();
+
+      } elseif ($data['reviewstatus'] == 'reject' OR $_POST['reviewstatus'] == 'no') {
+        $data['reviewstatus'] = 'reject';
+        $task->saveTempData($data);
+        $retval->retcode = TRUE;
+        $retval->status = MaestroTaskStatusCodes::STATUS_IF_CONDITION_FALSE;
+        $retval->engineop = 'completetask';
+        // Flag the content record as rejected
+        db_update('maestro_project_content')
+          ->fields(array( 'status' => MaestroContentStatusCodes::STATUS_REJECTED))
+          ->condition('tracking_id', $tracking_id)
+          ->condition('nid', $nid)
+          ->execute();
+
+      } else {
+        $retval->retcode = FALSE;
+      }
+      break;
+    case 'update':
+      if($_POST['reviewstatus'] == 'yes') {
+        $data['reviewstatus'] = 'accept';
+        $task->saveTempData($data);
+      } elseif ($_POST['reviewstatus'] == 'no') {
+        $data['reviewstatus'] = 'reject';
+        $task->saveTempData($data);
+      }
+      $retval->retcode = TRUE;
+      break;
+  }
+
+  return $retval;
+
+}
+
+/* Batch function called to publish article as final workflow task */
+function maestro_publishArticle($queue_id, $process_id) {
+  $nid = maestro_getNodeId($process_id,'article');
+  if ($nid > 0) {
+    $node = node_load($nid);
+    node_publish_action($node);
+    node_save($node);
+    drupal_set_message('New article has been published');
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
+
+?>

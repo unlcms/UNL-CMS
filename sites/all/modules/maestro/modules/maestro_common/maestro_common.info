@@ -1,0 +1,17 @@
+; $Id: maestro_common.info,v 1.1 2010/08/05 21:25:15 blainelang Exp $
+name = Common Functions
+description = Common batch and interactive workflow functions provided as part of the core Maestro module
+package = Maestro
+version = 7.x-1.0-dev
+core = 7.x
+dependencies[] = maestro
+files[] = common.module
+
+
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-1.0"
+core = "7.x"
+project = "maestro"
+datestamp = "1295363140"
+

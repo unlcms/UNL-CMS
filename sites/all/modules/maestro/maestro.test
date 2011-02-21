@@ -1,0 +1,109 @@
+<?php
+// $Id: maestro.test,v 1.4 2010/07/12 20:27:44 randy Exp $
+
+/**
+ * @file
+ * Tests for the Maestro module
+ */
+
+class MaestroTestInstance extends DrupalWebTestCase {
+  protected $admin_user;
+
+  protected $varID=0;
+  protected $varcount=0;
+
+  protected $appGroupID=0;
+  protected $appGroupCount=0;
+
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Test Maestro Instance functionality',
+      'description' => 'Test instantiating the Maestro objects.',
+      'group' => 'Maestro',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('maestro');
+    $this->admin_user = $this->drupalCreateUser(array( 'maestro admin'));
+  }
+
+  /**
+   * Test creating the Maestro singleton and ensuring that it is indeed a single instance.
+   */
+  function testCreatingMaestroInstance() {
+    include_once './' . drupal_get_path('module', 'maestro') . '/maestro.class.php';
+    $this->drupalLogin($this->admin_user);
+    $v1=Maestro::createMaestroObject(1);
+    $v2=Maestro::createMaestroObject(1);
+    $exp=var_export($v1,true);
+    $exp2=var_export($v2,true);
+    $this->assertTrue($exp == $exp2, t('Maestro Instantiation is a singleton'));
+    $this->drupalLogout();
+  }
+
+
+  function testMaestroStructurePage() {
+    $this->drupalGet('admin/structure/maestro');
+    $this->assertResponse(403,t('Non admin user should not be able to access the Maestro Structure menu.'));
+    $this->drupalLogin($this->admin_user);
+    $this->drupalGet('admin/structure/maestro');
+    $this->assertResponse(200, t('Admin User can access the Maestro Structure Page.'));
+    $this->drupalLogout();
+  }
+
+  function testCreateMaestroTemplate() {
+    include_once './' . drupal_get_path('module', 'maestro') . '/maestro.admin.inc';
+    $recID=0;
+    $recID=maestro_createNewTemplate('test new template');
+    $this->assertTrue($recID == 2,t('First new template must have an ID of 2.'),'Maestro');
+  }
+
+
+  function testCreateMaestroTemplateVariable() {
+    include_once './' . drupal_get_path('module', 'maestro') . '/maestro.admin.inc';
+    $query = db_select('maestro_template_variables', 'a');
+    $query->addExpression('count(a.id)','cnt');
+    $query->condition('a.template_id',1,'=');
+    $cnt=current($query->execute()->fetchAll());
+    $this->varcount = $cnt->cnt;
+    $this->varID=maestro_createTemplateVariable(1,'test variable','5');
+    $this->assertTrue($this->varID > 0,t('New Variable must have an ID greater than 0. New ID:' . $this->varID),'Maestro');
+
+  }
+
+  function testDeleteMaestroTemplateVariable(){
+    include_once './' . drupal_get_path('module', 'maestro') . '/maestro.admin.inc';
+    maestro_deleteTemplateVariable($this->varID);
+    $query = db_select('maestro_template_variables', 'a');
+    $query->addExpression('count(a.id)','cnt');
+    $query->condition('a.template_id',1,'=');
+    $cnt=current($query->execute()->fetchAll());
+    $this->assertTrue($cnt->cnt == $this->varcount,t('Deleting variable successful'),'Maestro');
+  }
+
+
+  function testCreateMaestroAppGroup() {
+    include_once './' . drupal_get_path('module', 'maestro') . '/maestro.admin.inc';
+    $query = db_select('maestro_app_groups', 'a');
+    $query->addExpression('count(a.id)','cnt');
+    $cnt=current($query->execute()->fetchAll());
+    $this->appGroupCount = $cnt->cnt;
+    $this->appGroupID=maestro_createAppGroup('Test App Group');
+    $this->assertTrue($this->appGroupID > 0,t('New App Group must have an ID greater than 0. New ID:' . $this->appGroupID),'Maestro');
+
+  }
+
+  function testDeleteMaestroAppGroup(){
+    include_once './' . drupal_get_path('module', 'maestro') . '/maestro.admin.inc';
+    maestro_deleteAppGroup($this->appGroupID);
+    $query = db_select('maestro_app_groups', 'a');
+    $query->addExpression('count(a.id)','cnt');
+    $cnt=current($query->execute()->fetchAll());
+    $this->assertTrue($cnt->cnt == $this->appGroupCount,t('Deleting App Group successful'),'Maestro');
+  }
+
+}
+
+

@@ -1,0 +1,40 @@
+<?php
+// $Id:
+
+/**
+ * @file
+ * maestro_test_flows.module
+ */
+
+
+function maestro_test_flows_menu() {
+  $items = array();
+  //We're implementing a single menu hook here for the sample Manual Web workflow template.
+  $items['maestro_manual_web_example'] = array(
+    'title' => 'Maestro Manual Web Example',
+    'description' => 'Manual Web example.',
+    'page callback' => 'maestro_manual_web_example',
+    'access arguments' => array('maestro user'),
+    'type' => MENU_CALLBACK,
+    );
+  return $items;
+}
+
+
+function maestro_test_flows_theme() {
+  //We require to theme the output of the manual web example page.
+  return array(
+  'maestro_manual_web_example' => array(
+      'template' => 'theme/maestro-manual-web-example',
+      'variables' => array('queue_id' => 0)
+    ),
+ );
+}
+
+function maestro_manual_web_example() {
+  global $base_url;
+  $maestro_path = $base_url . '/' . drupal_get_path('module', 'maestro');
+  drupal_add_css($maestro_path . '/css/maestro.css');
+  $queue_id=check_plain($_GET['queueid']);
+  return theme('maestro_manual_web_example', array('queue_id' => $queue_id));
+}

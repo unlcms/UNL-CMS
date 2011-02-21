@@ -1,0 +1,299 @@
+.aligntop {
+  vertical-align:top;
+}
+
+.alignright {
+  text-align:right;
+}
+.aligncenter {
+  text-align:center;
+}
+.valigncenter {
+  vertical-align: -30%;
+}
+.valigntop {
+  vertical-align: top;
+  margin: 3px 0px 0px 0px;
+}
+
+#maestro_workflow_container {
+  position: relative;
+  overflow: auto;
+}
+
+.maestro_heading {
+  font-size: 16pt;
+  font-weight: bold;
+  padding: 5px;
+}
+
+.maestro_tool_tip {
+  background: #F8EFA6;
+  z-index: 10000;
+  position: relative;
+}
+
+.maestro_tool_tip_inner {
+  padding: 5px;
+}
+
+.maestro_tool_tip input {
+  margin: 3px 3px 3px 3px;
+  padding: 1px 7px 1px 7px;
+  cursor: pointer;
+  border: 1px solid black;
+}
+
+.maestro_ajax_indicator {
+  float: right;
+}
+
+.maestro_context_menu {
+  display: none;
+}
+
+.maestro_task_container {
+  position: absolute;
+  background: #FFFFFF;
+  cursor: move;
+  z-index: 100;
+}
+
+.maestro_task {
+  cursor: move;
+}
+
+.maestro_task_body {
+  padding: 3px;
+  text-align: center;
+}
+
+.maestro_task_edit_panel {
+  background: #fff;
+  width: 600px;
+}
+
+.maestro_task_edit_panel table {
+  border: 0px;
+}
+.maestro_task_edit_panel .sticky-table {
+  border: 1px solid #BEBFB9;
+}
+
+.maestro_task_edit_panel input,
+.maestro_task_edit_panel select,
+.maestro_task_edit_panel textarea {
+  border: 1px solid #ccc;
+}
+.maestro_task_edit_panel input[type="checkbox"],
+.maestro_task_edit_panel input[type="radio"] {
+  border: 0px;
+}
+.maestro_task_edit_panel input[type="text"] {
+  width: 250px;
+}
+.maestro_task_edit_save_div {
+  text-align: center;
+  margin: 10px 0px 10px 0px;
+}
+
+.maestro_task_edit_tab {
+  float: left;
+  margin: 0px 0px 0px 5px;
+}
+.unactive .maestro_task_edit_tab {
+  background: #ccc;
+}
+.active .maestro_task_edit_tab {
+  background: #fff;
+}
+.maestro_task_edit_tab_close {
+  background: #c00;
+}
+
+.maestro_task_title {
+  height: 22px;
+  padding: 0px 3px 0px 3px;
+  color: #FFFFFF;
+  font-weight: bold;
+  text-align: center;
+}
+
+.maestro_taskname {
+  margin: 10px 0px 0px 0px;
+}
+
+.taskconsoleActionRec {
+  min-width:600px;
+  border:1px solid #D9EAF5;
+}
+
+.maestroDetailSubTable td {
+  font-size:92%;
+}
+
+.tl { background: url(../images/admin/corners/tl.png) 0 0 no-repeat; }
+.tr { background: url(../images/admin/corners/tr.png) 100% 0 no-repeat; padding: 10px; }
+.bl { background: url(../images/admin/corners/bl.png) 0 100% no-repeat; }
+.br { background: url(../images/admin/corners/br.png) 100% 100% no-repeat; }
+.tl-grn { background: url(../images/admin/corners/tl-grn.png) 0 0 no-repeat; }
+.tr-grn { background: url(../images/admin/corners/tr-grn.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.tm-grn { background: url(../images/admin/corners/tm-grn.png) repeat-x; }
+.tl-red { background: url(../images/admin/corners/tl-red.png) 0 0 no-repeat; }
+.tr-red { background: url(../images/admin/corners/tr-red.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.tm-red { background: url(../images/admin/corners/tm-red.png) repeat-x; }
+.tl-yel { background: url(../images/admin/corners/tl-yel.png) 0 0 no-repeat; }
+.tr-yel { background: url(../images/admin/corners/tr-yel.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.tm-yel { background: url(../images/admin/corners/tm-yel.png) repeat-x; }
+.tl-bl { background: url(../images/admin/corners/tl-bl.png) 0 0 no-repeat; }
+.tr-bl { background: url(../images/admin/corners/tr-bl.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.tm-bl { background: url(../images/admin/corners/tm-bl.png) repeat-x; }
+.tl-gry { background: url(../images/admin/corners/tl-gry.png) 0 0 no-repeat; }
+.tr-gry { background: url(../images/admin/corners/tr-gry.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.tm-gry { background: url(../images/admin/corners/tm-gry.png) repeat-x; }
+
+.tl-bge { background: url(../images/admin/corners/tl-bge.png) 0 0 no-repeat; }
+.tr-bge { background: url(../images/admin/corners/tr-bge.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.bl-bge { background: url(../images/admin/corners/bl-bge.png) 0 100% no-repeat; }
+.br-bge { background: url(../images/admin/corners/br-bge.png) 100% 100% no-repeat; }
+.tl-wht { background: url(../images/admin/corners/tl-wht.png) 0 0 no-repeat; }
+.tr-wht { background: url(../images/admin/corners/tr-wht.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.bl-wht { background: url(../images/admin/corners/bl-wht.png) 0 100% no-repeat; }
+.br-wht { background: url(../images/admin/corners/br-wht.png) 100% 100% no-repeat; }
+.unactive .tl-tab { background: url(../images/admin/corners/tl-wht2.png) 0 0 no-repeat; }
+.unactive .tr-tab { background: url(../images/admin/corners/tr-wht2.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.unactive .bl-tab { }
+.unactive .br-tab { }
+.active .tl-tab { background: url(../images/admin/corners/tl-wht.png) 0 0 no-repeat; }
+.active .tr-tab { background: url(../images/admin/corners/tr-wht.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.active .bl-tab { }
+.active .br-tab { }
+.tl-cl { background: url(../images/admin/corners/tl-cl.png) 0 0 no-repeat; }
+.tr-cl { background: url(../images/admin/corners/tr-cl.png) 100% 0 no-repeat; padding: 1px 10px 1px 10px; }
+.bl-cl { }
+.br-cl { }
+
+.t { background: url(../images/admin/corners/dot.png) 0 0 repeat-x; }
+.b { background: url(../images/admin/corners/dot.png) 0 100% repeat-x; }
+.l { background: url(../images/admin/corners/dot.png) 0 0 repeat-y; }
+.r { background: url(../images/admin/corners/dot.png) 100% 0 repeat-y; }
+
+span.maestro_working {
+  background:url(../images/admin/status-active.gif) no-repeat right center;
+  padding-right:18px;
+}
+
+.maestro_hide_item {
+	display: none;
+}
+
+.maestro_show_item {
+	display: ;
+}
+
+
+.focused_process {
+  font-weight: bold;
+}
+.blurred_process {
+  font-weight: normal;
+}
+.process_variables {
+  border-bottom: 1px solid #D3E7F4;
+}
+
+
+.maestro_comment {
+    padding: 2px;
+}
+div.maestro_boxed {
+    border: dashed 1px #CCC;
+    overflow: auto;
+}
+.maestro_boxed p {
+    padding: 5px;
+    margin: 0px;
+}
+.elementUpdated {
+    background-color: rgb(255, 255, 225);
+}
+
+
+
+/* Older tooltip or on-hover css styles */
+a.info{
+  position:relative; /*this is the key*/
+  z-index:24;
+  color:#000;
+  text-decoration:none
+}
+
+a.info:hover  {
+  z-index:25;
+  padding-top:5px;
+  padding-bottom:5px;
+  text-decoration:none
+}
+
+a.info span{display: none}
+
+a.info:hover span { /*the span will display just on :hover state*/
+  font-family:Verdana, Tahoma, Arial;
+  font-style:normal;
+  font-size: 7pt;
+  display:block !important;
+  position:absolute;
+  top:3em; left:-15em; width:22em;
+  border:1px solid #5D96B9;
+  background-color:#FFFFA0; color:#555;
+  padding:2px;
+  text-align: left;
+  text-decoration:none
+}
+/* End of older tooltip CSS styles */
+
+/* CSS for Maestro Views */
+.maestro_view_table {
+  padding:0 px;
+  margin: 0;
+  border-top-width: 0px;
+  width: 100%;
+}
+
+.maestro_view_50_percent {
+  width: 50%;
+}
+.maestro_view_25_percent {
+  width: 25%;
+}
+.maestro_view_10_percent {
+  width: 10%;
+}
+.maestro_view_5_percent {
+  width: 5%;
+}
+
+.views-row-even  {
+	border-top: 0px;
+	border-top-width: 0px;
+	background-color: #f0f0f0;
+	}
+
+/* End of CSS for Maestro Views */
+
+
+.maestroOddRow {
+  border-top: 0px;
+  border-top-width: 0px;
+  background-color: #f0f0f0;
+}
+
+.maestroEvenRow {
+  border-top: 0px;
+  border-top-width: 0px;
+  background-color: #ffffff;
+}
+
+.maestro_hide_secondary_row {
+  display: none;
+}

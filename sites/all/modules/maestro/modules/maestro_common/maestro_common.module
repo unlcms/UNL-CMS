@@ -1,0 +1,63 @@
+<?php
+// $Id:
+
+/**
+ * @file
+ * maestro__common.module
+ */
+
+/* Maestro HOOK to modules to return info on any new task handlers - ie functions for tasks */
+function maestro_common_maestro_handler_options() {
+
+  $handlers = array(
+    'MaestroTaskTypeInteractiveFunction' => array(
+      'maestro_show_message' => t('Generic Function to display a message. Requires that you use a process variables called "message" that is set to the message string you want displayed.')
+      )
+    );
+    return $handlers;
+}
+
+
+function maestro_common_theme() {
+  return array(
+    'maestro_common_show_message' => array(
+      'template' => 'show_message',
+      'variables' => array('messsage' => NULL),
+    )
+  );
+}
+
+function maestro_show_message($op,&$task,$parms) {
+  global $base_url;
+
+  $retval = new stdClass();
+  $retval->html = '';
+  $retval->retcode = FALSE;
+  $retval->engineop = '';
+
+  switch ($op) {
+    case 'display':
+      if (!isset($parms['message'])) {
+        $maestro = Maestro::createMaestroObject(1);
+        $parms['message'] = $maestro->engine()->getProcessVariable('message', $task->_properties->process_id);
+      }
+      $retval->html = theme('maestro_common_show_message',array('message' => $parms['message']));
+      $retval->retcode = TRUE;
+      $retval->engineop = '';
+      break;
+    case 'complete':
+      $retval->retcode = TRUE;
+      $retval->engineop = 'completetask';
+      break;
+  }
+
+  return $retval;
+
+}
+
+/* Batch function - dummy or test function returns TRUE */
+function maestro_batch_dummy($queue_id, $process_id) {
+  return TRUE;
+}
+
+?>

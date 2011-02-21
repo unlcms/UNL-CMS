@@ -1,0 +1,20 @@
+; $Id: maestro.info,v 1.16 2011/01/07 21:07:39 chevy Exp $
+name = Maestro
+description = Maestro workflow management system which lets you define processes and route tasks to different site users.
+package = Maestro
+version = 7.x-1.0-rc1
+core = 7.x
+dependencies[] = trigger
+files[] = maestro.module
+files[] = maestro.install
+files[] = maestro.test
+files[] = maestro.admin.inc
+files[] = maestro.views.inc
+configure = admin/structure/maestro
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-1.0"
+core = "7.x"
+project = "maestro"
+datestamp = "1295363140"
+
