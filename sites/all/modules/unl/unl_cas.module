@@ -8,18 +8,18 @@ function unl_cas_init() {
   require_once dirname(__FILE__) . '/unl_loader.php';
   unl_load_zend_framework();
   drupal_session_start();
-  
+
   if (isset($_SESSION['unl_cas']['current_path'])) {
     $_SESSION['unl_cas']['previous_path'] = $_SESSION['unl_cas']['current_path'];
   }
   $_SESSION['unl_cas']['current_path'] = request_path();
   $cas = unl_cas_get_adapter();
-  
+
   // If this is a request to the validation URL, or if the CAS ticket is not expired, don't redirect.
   if (request_path() == 'user/cas' || !$cas->isTicketExpired()) {
     return;
   }
-  
+
   // At this point, we know the ticket has expired.
   // If we think a user is supposed to be logged in, attempt to renew the service ticket.
   if (array_key_exists('unl_sso', $_COOKIE) || !user_is_anonymous()) {
@@ -53,7 +53,7 @@ function unl_cas_menu() {
     'page callback'   => 'unl_cas_validate',
     'access callback' => TRUE,
   );
-  
+
   $items['admin/people/import'] = array(
     'title'            => 'Import User from People Finder',
     'description'      => 'Import a user from UNL People Finder',
@@ -64,7 +64,7 @@ function unl_cas_menu() {
     'file'             => 'unl_cas.admin.inc',
     'weight'	       => 1,
   );
-  
+
   $items['admin/config/people/unl_cas'] = array(
     'title'            => 'UNL CAS',
     'description'      => 'Configure the UNL CAS module',
@@ -74,29 +74,28 @@ function unl_cas_menu() {
     'file'             => 'unl_cas.admin.inc',
     'weight'	       => 1,
   );
-  
+
   return $items;
 }
 
-function unl_cas_menu_alter(&$items)
-{
+function unl_cas_menu_alter(&$items) {
   $items['admin/people/create']['weight'] = 2;
   $items['admin/people/create']['title'] .= ' manually';
 }
 
 function unl_cas_validate() {
   $cas = unl_cas_get_adapter();
-  
+
   if (array_key_exists('logoutRequest', $_POST)) {
     $cas->handleLogoutRequest($_POST['logoutRequest']);
   }
-  
+
   $auth = $cas->validateTicket();
-  
+
   if ($auth) {
     $username = $cas->getUsername();
     $user = unl_cas_import_user($username);
-    
+
     if ($GLOBALS['user']->uid != $user->uid) {
       $GLOBALS['user'] = $user;
       user_login_finalize();
@@ -109,7 +108,7 @@ function unl_cas_validate() {
     }
     setcookie('unl_sso', 'fake', time() - 60 * 60 * 24, '/', '.unl.edu');
   }
-  
+
   if (isset($_SESSION['unl_cas']['return_path'])) {
     drupal_goto($_SESSION['unl_cas']['return_path']);
   } else {
@@ -119,50 +118,53 @@ function unl_cas_validate() {
 
 function unl_cas_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'user_login') {
-    if (isset($_SESSION['unl_cas']['previous_path'])) {
+    if (isset($_GET['destination'])) {
+      $_SESSION['unl_cas']['return_path'] = $_GET['destination'];
+      unset($_GET['destination']);
+    }
+    else if (isset($_SESSION['unl_cas']['previous_path'])) {
       $_SESSION['unl_cas']['return_path'] = $_SESSION['unl_cas']['previous_path'];
     }
     $cas = unl_cas_get_adapter();
     drupal_goto($cas->getLoginUrl());
   }
-  
+
   if ($form_id == 'user_profile_form') {
     if (isset($form['account']['name'])) {
       $form['account']['name']['#type'] = 'hidden';
     }
-    
+
     $form['account']['pass']['#type'] = 'hidden';
     $form['account']['current_pass_required_values']['#type'] = 'hidden';
     $form['account']['current_pass']['#type'] = 'hidden';
-    
+
     $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $GLOBALS['user']->name . '">Planet Red</a>.';
     $form['picture']['picture_delete']['#type'] = 'hidden';
     $form['picture']['picture_upload']['#type'] = 'hidden';
-    
+
     // Disable checking the current password when changing email.
     if ($validate_password_index = array_search('user_validate_current_pass', $form['#validate']) !== FALSE) {
       unset($form['#validate'][$validate_password_index]);
     }
-    
+
     $form['#validate'][] = 'unl_cas_user_profile_form_validate';
   }
-  
+
   if ($form_id == 'user_pass') {
     $form['message'] = array(
       '#prefix' => '<p>',
       '#markup' => t('To reset your password, go somewhere else!'),
       '#suffix' => '</p>'
     );
-    
+
     unset($form['name']);
     unset($form['mail']);
     unset($form['actions']);
     $form['#validate'] = array();
     $form['#submit'] = array();
-    
+
     drupal_goto('https://id.unl.edu/user/userForgotPassword.jsp');
   }
-
 }
 
 /**
@@ -181,8 +183,8 @@ function unl_cas_user_logout($account) {
 }
 
 function unl_cas_import_user($username) {
-  $user = array(); 
-  
+  $user = array();
+
   // First, try getting the info from LDAP.
   try {
     $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
@@ -190,7 +192,7 @@ function unl_cas_import_user($username) {
     $results = $ldap->search('dc=unl,dc=edu', 'uid=' . $username);
     if (count($results) > 0) {
       $result = $results[0];
-      
+
       $user['firstName'] = $result['givenname'][0];
       $user['lastName'] = $result['sn'][0];
       $user['email'] = $result['mail'][0];
@@ -200,7 +202,7 @@ function unl_cas_import_user($username) {
   catch (Exception $e) {
     // don't do anything, just go on to try the people finder method
   }
-  
+
   // Next, if LDAP didn't work, try peoplefinder.
   if (!isset($user['email'])) {
     $xml = @file_get_contents('http://peoplefinder.unl.edu/service.php?format=xml&uid=' . $username);
@@ -213,27 +215,27 @@ function unl_cas_import_user($username) {
       $user['displayName'] = $dom->getElementsByTagName('displayName')->item(0)->textContent;
     }
   }
-  
+
   // Finally, if peoplefinder didn't work either, just guess.
   if (!isset($user['email'])) {
     $user['email'] = $username . '@unl.edu';
   }
-  
+
   $userData = array(
     'name'     => $username,
     'mail'     => $user['email'],
     'status'   => 1,
     'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
   );
-  
+
   $account = user_load_by_name($username);
-  
+
   return user_save($account, $userData);
 }
 
 /**
  * Implements hook_user_presave()
- * 
+ *
  * On non-default sites, only allow users who are administrators on the default
  * to be administrators.  Also, automatically make users who are administrators
  * on the default site an administrator on non-default sites.
@@ -242,7 +244,7 @@ function unl_cas_user_presave(&$edit, $account, $category) {
   if (conf_path() == 'sites/default') {
     return;
   }
-  
+
   if (isset($account->name)) {
     $username = $account->name;
   }
@@ -251,7 +253,7 @@ function unl_cas_user_presave(&$edit, $account, $category) {
   }
 
   $local_admin_role_id = variable_get('user_admin_role');
-  
+
   if (_unl_cas_is_user_default_site_administrator($username)) {
     $local_admin_role = user_role_load($local_admin_role_id);
     $edit['roles'][$local_admin_role_id] = $local_admin_role->name;
@@ -263,7 +265,7 @@ function unl_cas_user_presave(&$edit, $account, $category) {
 
 /**
  * Implements hook_user_login()
- * 
+ *
  * On non-default sites, if a user with the administrator role logs in, verify
  * that they are still an admin in the default site.  If not, remove them from
  * the role.
@@ -272,11 +274,11 @@ function unl_cas_user_login(&$edit, $account) {
   if (conf_path() == 'sites/default') {
     return;
   }
-  
+
   if (!in_array(variable_get('user_admin_role'), array_keys($account->roles))) {
     return;
   }
-  
+
   $edit = array(
     'roles' => $account->roles,
   );
@@ -286,10 +288,10 @@ function unl_cas_user_login(&$edit, $account) {
 function _unl_cas_is_user_default_site_administrator($username) {
   require 'sites/default/settings.php';
   $shared_prefix = $databases['default']['default']['prefix'];
-  
+
   $data = db_query("SELECT value FROM {$shared_prefix}variable WHERE name='user_admin_role'")->fetchCol();
   $shared_admin_role_id = unserialize($data[0]);
-  
+
   $shared_admin_usernames = db_query("SELECT u.name FROM {$shared_prefix}users AS u JOIN {$shared_prefix}users_roles AS r ON u.uid = r.uid WHERE name=:name AND rid=:rid", array(':name' => $username, ':rid' => $shared_admin_role_id))->fetchCol();
   return count($shared_admin_usernames) > 0;
 }
@@ -333,8 +335,7 @@ function unl_cas_set_setting($name, $value) {
   }
 }
 
-function unl_cas_user_is_administrator()
-{
+function unl_cas_user_is_administrator() {
   $user = $GLOBALS['user'];
   if ($user && in_array(variable_get('user_admin_role'), array_keys($user->roles))) {
     return TRUE;
