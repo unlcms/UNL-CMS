@@ -387,6 +387,10 @@ function unl_url_outbound_alter(&$path, &$options, $original_path) {
     $generic_user = FALSE;
   }
 
+  if (isset($options['https'])) {
+    return;
+  }
+  
   $options['https'] = (bool) (variable_get('https', 0) && !$generic_user);
 }
 
@@ -560,7 +564,7 @@ function unl_get_alternate_base_uris() {
     return array();
   }
   $rows = db_query(
-  	"SELECT s.uri AS uri, a.uri AS a_uri "
+  	"SELECT s.uri, a.base_uri, a.path "
     . "FROM {$shared_prefix}unl_sites AS s "
     . "LEFT JOIN {$shared_prefix}unl_sites_aliases AS a "
     . "  ON s.site_id = a.site_id "
@@ -574,8 +578,8 @@ function unl_get_alternate_base_uris() {
   
   $uris = array($rows[0]->uri);
   foreach ($rows as $row) {
-    if ($row->a_uri) {
-      $uris[] = $row->a_uri;
+    if ($row->base_uri . $row->path) {
+      $uris[] = $row->base_uri . $row->path;
     }
   }
   

@@ -66,7 +66,7 @@ function unl_site_create_submit($form, &$form_state) {
   $site_path = $form_state['values']['site_path'];
   $clean_url = $form_state['values']['clean_url'];
   
-  $uri = url($site_path, array('absolute' => TRUE));
+  $uri = url($site_path, array('absolute' => TRUE, 'https' => FALSE));
   
   $clean_url = intval($clean_url);
   
@@ -293,13 +293,19 @@ function unl_alias_create($form, &$form_state) {
     '#options' => $site_list,
     '#required' => TRUE,
   );
-    
-  $form['root']['alias_uri'] = array(
+  
+  $form['root']['base_uri'] = array(
     '#type'          => 'textfield',
-    '#title'         => t('Alias URL'),
-    '#description'   => t('Full URL for the new alias.'),
-    '#default_value' => t('http://newsite.example.com/'),
+    '#title'         => t('Alias Base URL'),
+    '#description'   => t('The base URL for the new alias.'),
+    '#default_value' => url('', array('https' => FALSE)),
     '#required'      => TRUE,
+  );
+  
+  $form['root']['path'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Path'),
+    '#description'   => t('Path for the new alias.'),
   );
   
   $form['root']['submit'] = array(
@@ -312,8 +318,9 @@ function unl_alias_create($form, &$form_state) {
 
 function unl_alias_create_submit($form, &$form_state) {
   db_insert('unl_sites_aliases')->fields(array(
-    'site_id' => $form_state['values']['site'],
-    'uri'     => $form_state['values']['alias_uri'],
+    'site_id'  => $form_state['values']['site'],
+    'base_uri' => $form_state['values']['base_uri'],
+    'path'     => $form_state['values']['path'],
   ))->execute();
 }
 
@@ -351,13 +358,13 @@ function unl_alias_list($form, &$form_state) {
     ->orderByHeader($headers);
   $query->join('unl_sites', 's', 's.site_id = a.site_id');
   $query->fields('s', array('uri'));
-  $query->fields('a', array('site_alias_id', 'uri', 'installed'));
+  $query->fields('a', array('site_alias_id', 'base_uri', 'path', 'installed'));
   $sites = $query->execute()->fetchAll();
   
   foreach ($sites as $site) {
     $form['root']['alias_list']['rows'][$site->site_alias_id] = array(
       'site_uri' => array('#prefix'  => $site->uri),
-      'alias_uri' => array('#prefix' => $site->a_uri),
+      'alias_uri' => array('#prefix' => $site->base_uri . $site->path),
       'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
       'remove'    => array(
         '#type'          => 'checkbox',

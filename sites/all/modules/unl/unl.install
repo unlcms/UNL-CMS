@@ -77,7 +77,12 @@ function unl_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
-      'uri' => array(
+      'base_uri' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+      ),
+      'path' => array(
         'type'     => 'varchar',
         'length'   => 255,
         'not null' => TRUE,
@@ -90,7 +95,7 @@ function unl_schema() {
     ),
     'primary key' => array('site_alias_id'),
     'unique keys' => array(
-      'alias_uri' => array('uri'),
+      'alias_uri' => array('base_uri', 'path'),
     ),
     'foreign keys' => array(
       'aliased_site' => array(
@@ -230,4 +235,23 @@ function unl_update_7105() {
     'not null' => TRUE,
     'default'  => '',
   ));
+}
+
+function unl_update_7106() {
+  db_drop_unique_key('unl_sites_aliases', 'alias_uri');
+  
+  db_change_field('unl_sites_aliases', 'uri', 'base_uri', array(
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+  ));
+  
+  db_add_field('unl_sites_aliases', 'path', array(
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+    'default'  => '',
+  ));
+  
+  db_add_unique_key('unl_sites_aliases', 'alias_uri', array('base_uri', 'path'));
 }
