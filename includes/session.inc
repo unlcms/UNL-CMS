@@ -100,6 +100,10 @@ function _drupal_session_read($sid) {
   else {
     $user = db_query("SELECT u.*, s.* FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE s.sid = :sid", array(':sid' => $sid))->fetchObject();
   }
+  $session_data = @gzinflate($user->session);
+  if ($session_data !== FALSE) {
+    $user->session = $session_data;
+  }
 
   // We found the client's session record and they are an authenticated,
   // active user.
@@ -176,7 +180,7 @@ function _drupal_session_write($sid, $value) {
         'uid' => $user->uid,
         'cache' => isset($user->cache) ? $user->cache : 0,
         'hostname' => ip_address(),
-        'session' => $value,
+        'session' => gzdeflate($value, 9),
         'timestamp' => REQUEST_TIME,
       );
 
