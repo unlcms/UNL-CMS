@@ -71,6 +71,10 @@ function unl_profile_install() {
 
   module_disable(array('overlay'));
 
+  // Pathauto setup
+  variable_set('pathauto_node_pattern', '[node:title]');
+  variable_set('pathauto_update_action', 1);
+  
   // Add custom blocks for extra sections of the UNL Template (ie: Contact Us, Footer)
   $block_contents = array();
   $block_contents['contactinfo'] = <<<EOF

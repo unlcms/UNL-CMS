@@ -21,6 +21,9 @@ dependencies[] = field_ui
 dependencies[] = file
 dependencies[] = rdf
 
+dependencies[] = token
+dependencies[] = pathauto
+dependencies[] = pagepreview
 dependencies[] = wysiwyg
 dependencies[] = imce
 dependencies[] = imce_wysiwyg
