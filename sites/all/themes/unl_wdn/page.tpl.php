@@ -91,9 +91,15 @@ if (isset($title) && $title) {
 
 
 
-$t->maincontentarea = $messages . PHP_EOL
-                    . render($tabs) . PHP_EOL
-                    . render($action_links) . PHP_EOL;
+$format = filter_input(INPUT_GET, 'format', FILTER_SANITIZE_STRING);
+if ($format == 'partial') {
+  $t->maincontentarea = '';
+}
+else {
+  $t->maincontentarea = $messages . PHP_EOL
+                      . render($tabs) . PHP_EOL
+                      . render($action_links) . PHP_EOL;
+}
 
 if ($page['sidebar_first']) {
     $t->maincontentarea .= '<div id="sidebar-first" class="sidebar col left">' . PHP_EOL

@@ -69,4 +69,11 @@ $html = strtr($html, array(
   '</body>'              => $page_bottom . PHP_EOL . '</body>',
 ));
 
-echo $html;
+
+$format = filter_input(INPUT_GET, 'format', FILTER_SANITIZE_STRING);
+if ($format == 'partial') {
+  echo $t->maincontentarea;
+}
+else {
+  echo $html;
+}
