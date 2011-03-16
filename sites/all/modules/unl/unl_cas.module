@@ -23,9 +23,7 @@ function unl_cas_init() {
   // At this point, we know the ticket has expired.
   // If we think a user is supposed to be logged in, attempt to renew the service ticket.
   if (array_key_exists('unl_sso', $_COOKIE) || !user_is_anonymous()) {
-    if (isset($_SESSION['unl_cas']['previous_path'])) {
-      $_SESSION['unl_cas']['return_path'] = $_SESSION['unl_cas']['current_path'];
-    }
+    $_SESSION['unl_cas']['return_path'] = $_SESSION['unl_cas']['current_path'];
     $cas->setGateway();
     drupal_goto($cas->getLoginUrl());
   }
