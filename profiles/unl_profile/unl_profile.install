@@ -71,27 +71,6 @@ function unl_profile_install() {
 
   module_disable(array('overlay'));
 
-  // IMCE setup (currently cannot be shared between sites)
-  // We set every role but the anonymous role to use the "User-1" profile.
-  $roles = array();
-  foreach (user_roles() as $role_id => $role) {
-    if ($role_id == DRUPAL_ANONYMOUS_RID) {
-      $roles[$role_id] = array(
-        'public_pid' => 0,
-        'temporary_pid' => 0
-      );
-    }
-    else {
-      $roles[$role_id] = array(
-        'public_pid' => 1,
-        'temporary_pid' => 1
-      );
-    }
-  }
-  krsort($roles);
-  variable_set('imce_roles_profiles', $roles);
-  // End IMCE setup.
-
   // Add custom blocks for extra sections of the UNL Template (ie: Contact Us, Footer)
   $block_contents = array();
   $block_contents['contactinfo'] = <<<EOF
@@ -339,6 +318,29 @@ EOF;
   $files_dir = $settings_dir . '/files';
   chmod($files_dir, 0777);
 
+  
+  // IMCE setup (currently cannot be shared between sites)
+  // We set every role but the anonymous role to use the "User-1" profile.
+  $roles = array();
+  foreach (user_roles() as $role_id => $role) {
+    if (in_array($role_id, array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID))) {
+      $roles[$role_id] = array(
+        'public_pid' => 0,
+        'temporary_pid' => 0
+      );
+    }
+    else {
+      $roles[$role_id] = array(
+        'public_pid' => 1,
+        'temporary_pid' => 1
+      );
+    }
+  }
+  krsort($roles);
+  variable_set('imce_roles_profiles', $roles);
+  // End IMCE setup.
+  
+  
   return;
 }
 
