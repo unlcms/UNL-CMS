@@ -46,7 +46,7 @@ function unl_wysiwyg_plugin($editor) {
           'options' => array(
             'skin' => 'unl',
             'table_styles' => 'ZenTable Bright (yellow)=zentable bright;ZenTable Cool (blue)=zentable cool;ZenTable Energetic (orange)=zentable energetic;ZenTable Soothing (green)=zentable soothing;ZenTable Primary (red)=zentable primary;ZenTable Neutral (gray)=zentable neutral;', 'doctype' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
-            'valid_elements' => '*[*]',
+            'valid_elements' => '*[*],script[src|type=text/javascript]',
           ),
         )
         // Wysiwyg wrapper plugin AJAX callback.
@@ -486,7 +486,7 @@ function unl_cron() {
       $path = $department . '/' . $site_name;
 
       $db_prefix = unl_create_db_prefix($site);
-      
+
       $sites_to_create[] = array(
         'site_path'      => $path,
         'uri'            => url($path),
@@ -617,7 +617,7 @@ function unl_send_site_created_email($site = NULL) {
     if (!is_array($GLOBALS['databases']['default']['default']['prefix'])) {
       return;
     }
-    
+
     $db_prefix = $GLOBALS['databases']['default']['default']['prefix']['default'];
     $db_prefix = substr($db_prefix, 0, 0 - strlen($shared_prefix) - 1);
     $data = db_query(
@@ -631,23 +631,23 @@ function unl_send_site_created_email($site = NULL) {
     }
     $site = $data[0];
   }
-  
+
   $unl_site_created_email_address = unl_shared_variable_get('unl_site_created_email_address');
   $unl_site_created_alert_admins = unl_shared_variable_get('unl_site_created_alert_admins');
-  
+
   $recipients = array();
-  
+
   if ($unl_site_created_email_address) {
     $recipients[] = $unl_site_created_email_address;
   }
-  
+
   if ($unl_site_created_alert_admins) {
     $role = user_role_load_by_name('Site Admin');
     $select = db_select('users_roles', 'r');
     $select->fields('r', array('uid'));
     $select->condition('r.rid', $role->rid);
     $uids = $select->execute()->fetchCol();
-    
+
     $users = user_load_multiple($uids);
     foreach ($users as $user) {
       if (!$user->mail) {
@@ -670,10 +670,10 @@ function unl_shared_variable_get($name, $default = NULL) {
     . "WHERE name = :name",
     array(':name' => $name)
   )->fetchAll();
-  
+
   if (count($data) == 0) {
     return $default;
   }
-  
+
   return unserialize($data[0]->value);
 }
