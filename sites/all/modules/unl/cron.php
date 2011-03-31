@@ -14,8 +14,10 @@ drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
 unl_remove_aliases();
 unl_remove_sites();
+unl_remove_page_aliases();
 unl_add_sites();
 unl_add_aliases();
+unl_add_page_aliases();
 
 function unl_add_sites() {
   $query = db_query('SELECT * FROM {unl_sites} WHERE installed=0');
@@ -109,6 +111,57 @@ function unl_remove_aliases() {
       db_update('unl_sites_aliases')
         ->fields(array('installed' => 5))
         ->condition('site_alias_id', $row->site_alias_id)
+        ->execute();
+    }
+  }
+}
+
+function unl_add_page_aliases() {
+  $query = db_select('unl_page_aliases', 'a');
+  $query->fields('a', array('page_alias_id', 'from_uri', 'to_uri'));
+  $query->condition('a.installed', 0);
+  $results = $query->execute()->fetchAll();
+  
+  foreach ($results as $row) {
+    db_update('unl_page_aliases')
+      ->fields(array('installed' => 1))
+      ->condition('page_alias_id', $row->page_alias_id)
+      ->execute();
+    if (unl_add_page_alias($row->from_uri, $row->to_uri, $row->page_alias_id)) {
+      db_update('unl_page_aliases')
+        ->fields(array('installed' => 2))
+        ->condition('page_alias_id', $row->page_alias_id)
+        ->execute();
+    }
+    else {
+      db_update('unl_sites_aliases')
+        ->fields(array('installed' => 5))
+        ->condition('site_alias_id', $row->page_alias_id)
+        ->execute();
+    }
+  }
+}
+
+function unl_remove_page_aliases() {
+  $query = db_select('unl_page_aliases', 'a');
+  $query->fields('a', array('page_alias_id'));
+  $query->condition('a.installed', 3);
+  $results = $query->execute()->fetchAll();
+  
+  foreach ($results as $row) {
+    db_update('unl_page_aliases')
+      ->fields(array('installed' => 4))
+      ->condition('page_alias_id', $row->page_alias_id)
+      ->execute();
+    if (unl_remove_page_alias($row->page_alias_id)) {
+      db_delete('unl_page_aliases')
+        ->condition('page_alias_id', $row->page_alias_id)
+        ->execute();
+    }
+    else {
+      db_update('unl_page_aliases')
+        ->fields(array('installed' => 5))
+        ->condition('page_alias_id', $row->page_alias_id)
         ->execute();
     }
   }
@@ -251,6 +304,21 @@ function unl_remove_alias($base_uri, $path, $alias_id) {
   return TRUE;
 }
 
+function unl_add_page_alias($from_uri, $to_uri, $alias_id) {
+  $host = parse_url($from_uri, PHP_URL_HOST);
+  $path = parse_url($from_uri, PHP_URL_PATH);
+  
+  unl_add_page_alias_to_htaccess($alias_id, $host, $path, $to_uri);
+  
+  return TRUE;
+}
+
+function unl_remove_page_alias($alias_id) {
+  unl_remove_page_alias_from_htaccess($alias_id);
+  
+  return TRUE;
+}
+
 function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
   if ($is_alias) {
     $site_or_alias = 'ALIAS';
@@ -288,6 +356,42 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $site_start_token = "\n  # %UNL_START_{$site_or_alias}_ID_{$site_id}%";
   $site_end_token = "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n";
+  
+  $start_pos = strpos($htaccess, $site_start_token);
+  $end_pos = strpos($htaccess, $site_end_token);
+  
+  if ($start_pos === FALSE || $end_pos === FALSE) {
+    return FALSE;
+  }
+  $new_htaccess = substr($htaccess, 0, $start_pos)
+                . substr($htaccess, $end_pos + strlen($site_end_token))
+                ;
+  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+}
+
+function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
+  $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
+  $stub_pos = strpos($htaccess, $stub_token);
+  if ($stub_pos === FALSE) {
+    return FALSE;
+  }
+  $new_htaccess = substr($htaccess, 0, $stub_pos)
+                . "  # %UNL_START_PAGE_ALIAS_ID_{$site_id}%\n"
+                . "  RewriteCond %{HTTP_HOST} ^{$host}$\n"
+                . "  RewriteCond %{REQUEST_URI} ^{$path}$\n"
+                . "  RewriteRule (.*) {$to_uri} [R,L]\n"
+  				. "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n\n" 
+                . $stub_token
+                . substr($htaccess, $stub_pos + strlen($stub_token));
+  
+  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+}
+
+function unl_remove_page_alias_from_htaccess($site_id) {
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
+  $site_start_token = "\n  # %UNL_START_PAGE_ALIAS_ID_{$site_id}%";
+  $site_end_token = "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n";
   
   $start_pos = strpos($htaccess, $site_start_token);
   $end_pos = strpos($htaccess, $site_end_token);

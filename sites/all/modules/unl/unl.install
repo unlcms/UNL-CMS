@@ -56,14 +56,14 @@ function unl_schema() {
         'not null' => TRUE,
         'default'  => '',
       ),
-  
+
     ),
     'primary key' => array('site_id'),
     'unique keys' => array(
       'sub_site' => array('site_path'),
     ),
   );
-  
+
   $schema['unl_sites_aliases'] = array(
     'description' => 'Table of URL aliases for UNL sites.',
     'fields' => array(
@@ -104,7 +104,37 @@ function unl_schema() {
       ),
     ),
   );
-  
+
+  $schema['unl_page_aliases'] = array(
+    'description' => 'Table of URL aliases for UNL pages.',
+    'fields' => array(
+      'page_alias_id' => array(
+        'type'     => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'from_uri' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+      ),
+      'to_uri' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+      ),
+      'installed' => array(
+        'type'     => 'int',
+        'not null' => TRUE,
+        'default'  => 0,
+      ),
+    ),
+    'primary key' => array('page_alias_id'),
+    'unique keys' => array(
+      'from_uri' => array('from_uri'),
+    ),
+  );
+
   return $schema;
 }
 
@@ -149,7 +179,7 @@ function unl_update_7100() {
       'sub_site' => array('site_path_prefix', 'site_path'),
     )
   );
-  
+
   db_create_table('unl_sites', $table);
 }
 
@@ -209,7 +239,7 @@ function unl_update_7103() {
       ),
     ),
   );
-  
+
   db_create_table('unl_sites_aliases', $table);
 }
 
@@ -239,19 +269,53 @@ function unl_update_7105() {
 
 function unl_update_7106() {
   db_drop_unique_key('unl_sites_aliases', 'alias_uri');
-  
+
   db_change_field('unl_sites_aliases', 'uri', 'base_uri', array(
     'type'     => 'varchar',
     'length'   => 255,
     'not null' => TRUE,
   ));
-  
+
   db_add_field('unl_sites_aliases', 'path', array(
     'type'     => 'varchar',
     'length'   => 255,
     'not null' => TRUE,
     'default'  => '',
   ));
-  
+
   db_add_unique_key('unl_sites_aliases', 'alias_uri', array('base_uri', 'path'));
+}
+
+function unl_update_7107() {
+  $table = array(
+    'description' => 'Table of URL aliases for UNL pages.',
+    'fields' => array(
+      'page_alias_id' => array(
+        'type'     => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'from_uri' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+      ),
+      'to_uri' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+      ),
+      'installed' => array(
+        'type'     => 'int',
+        'not null' => TRUE,
+        'default'  => 0,
+      ),
+    ),
+    'primary key' => array('page_alias_id'),
+    'unique keys' => array(
+      'from_uri' => array('from_uri'),
+    ),
+  );
+
+  db_create_table('unl_page_aliases', $table);
 }

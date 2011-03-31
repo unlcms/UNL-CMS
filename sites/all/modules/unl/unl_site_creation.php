@@ -299,14 +299,16 @@ function _unl_get_sites_subdir($uri) {
 
 function unl_aliases_page() {
   $page = array();
-  $page[] = drupal_get_form('unl_alias_create');
-  $page[] = drupal_get_form('unl_alias_list');
+  $page[] = drupal_get_form('unl_site_alias_create');
+  $page[] = drupal_get_form('unl_site_alias_list');
+  $page[] = drupal_get_form('unl_page_alias_create');
+  $page[] = drupal_get_form('unl_page_alias_list');
   
   return $page;
 }
 
 
-function unl_alias_create($form, &$form_state) {
+function unl_site_alias_create($form, &$form_state) {
   
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'uri'))
@@ -318,7 +320,7 @@ function unl_alias_create($form, &$form_state) {
   
   $form['root'] = array(
     '#type'  => 'fieldset',
-    '#title' => 'Create New Alias',
+    '#title' => 'Create New Site Alias',
   );
   
   $form['root']['site'] = array(
@@ -351,7 +353,7 @@ function unl_alias_create($form, &$form_state) {
   return $form;
 }
 
-function unl_alias_create_submit($form, &$form_state) {
+function unl_site_alias_create_submit($form, &$form_state) {
   db_insert('unl_sites_aliases')->fields(array(
     'site_id'  => $form_state['values']['site'],
     'base_uri' => $form_state['values']['base_uri'],
@@ -360,11 +362,11 @@ function unl_alias_create_submit($form, &$form_state) {
 }
 
 
-function unl_alias_list($form, &$form_state) {
+function unl_site_alias_list($form, &$form_state) {
 
   $form['root'] = array(
     '#type'  => 'fieldset',
-    '#title' => 'Existing Aliases',
+    '#title' => 'Existing Site Aliases',
   );
   
   $headers = array(
@@ -417,7 +419,7 @@ function unl_alias_list($form, &$form_state) {
   return $form;
 }
 
-function unl_alias_list_submit($form, &$form_state) {
+function unl_site_alias_list_submit($form, &$form_state) {
   $site_alias_ids = array();
   foreach ($form_state['values']['aliases'] as $site_alias_id => $alias) {
     if ($alias['remove']) {
@@ -428,6 +430,115 @@ function unl_alias_list_submit($form, &$form_state) {
   db_update('unl_sites_aliases')
     ->fields(array('installed' => 3))
     ->condition('site_alias_id', $site_alias_ids, 'IN')
+    ->execute();
+}
+
+
+function unl_page_alias_create($form, &$form_state) {
+  
+  $form['root'] = array(
+    '#type'  => 'fieldset',
+    '#title' => 'Create New Page Alias',
+  );
+  
+  $form['root']['from_uri'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('From URL'),
+    '#description'   => 'The URL that users will visit.',
+    '#default_value' => url('', array('https' => FALSE)),
+    '#required'      => TRUE,
+  );
+  
+  $form['root']['to_uri'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('To URL'),
+    '#description'   => t('The URL users will be redirected to.'),
+    '#default_value' => url('', array('https' => FALSE)),
+    '#required'      => TRUE,
+  );
+  
+  $form['root']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => 'Create Alias',
+  );
+  
+  return $form;
+}
+
+function unl_page_alias_create_submit($form, &$form_state) {
+  db_insert('unl_page_aliases')->fields(array(
+    'from_uri'  => $form_state['values']['from_uri'],
+    'to_uri'    => $form_state['values']['to_uri'],
+  ))->execute();
+}
+
+
+function unl_page_alias_list($form, &$form_state) {
+
+  $form['root'] = array(
+    '#type'  => 'fieldset',
+    '#title' => 'Existing Page Aliases',
+  );
+  
+  $headers = array(
+    'site_uri' => array(
+      'data' => 'From URI',
+      'field' => 'a.from_uri',
+    ),
+    'alias_uri' => array(
+      'data' => 'To URI',
+      'field' => 'a.to_uri',
+    ),
+    'installed' => array(
+      'data' => 'Status',
+      'field' => 'a.installed',
+    ),
+    'remove'    => 'Remove (can not undo!)'
+  );
+  
+  $form['root']['alias_list'] = array(
+    '#theme'  => 'unl_table',
+    '#header' => $headers,
+  );
+  
+  $query = db_select('unl_page_aliases', 'a')
+    ->extend('TableSort')
+    ->orderByHeader($headers);
+  $query->fields('a', array('page_alias_id', 'from_uri', 'to_uri', 'installed'));
+  $sites = $query->execute()->fetchAll();
+  
+  foreach ($sites as $site) {
+    $form['root']['alias_list']['rows'][$site->page_alias_id] = array(
+      'site_uri' => array('#prefix'  => $site->from_uri),
+      'alias_uri' => array('#prefix' => $site->to_uri),
+      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
+      'remove'    => array(
+        '#type'          => 'checkbox',
+        '#parents'       => array('aliases', $site->page_alias_id, 'remove'),
+        '#default_value' => 0
+      ),
+    );
+  }
+  
+  $form['root']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => 'Delete Selected Aliases',
+  );
+  
+  return $form;
+}
+
+function unl_page_alias_list_submit($form, &$form_state) {
+  $page_alias_ids = array();
+  foreach ($form_state['values']['aliases'] as $page_alias_id => $alias) {
+    if ($alias['remove']) {
+      $page_alias_ids[] = $page_alias_id;
+    }
+  }
+  
+  db_update('unl_page_aliases')
+    ->fields(array('installed' => 3))
+    ->condition('page_alias_id', $page_alias_ids, 'IN')
     ->execute();
 }
 
