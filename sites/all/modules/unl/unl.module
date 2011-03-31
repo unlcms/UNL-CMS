@@ -437,7 +437,9 @@ function unl_cron() {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
     $item = $queue->claimItem(120);
     $queue->deleteItem($item);
-    unl_migration_queue_step($item->data);
+    if (unl_migration_queue_step($item->data)) {
+      unl_send_site_created_email();
+    }
   }
 
   if (conf_path() == 'sites/default') {
@@ -484,9 +486,7 @@ function unl_cron() {
       $path = $department . '/' . $site_name;
 
       $db_prefix = unl_create_db_prefix($site);
-
-      $path = 'incubator/' . $path;
-
+      
       $sites_to_create[] = array(
         'site_path'      => $path,
         'uri'            => url($path),
@@ -598,4 +598,82 @@ function unl_init() {
   ) {
     drupal_goto($primary_base_url . current_path());
   }
+}
+
+function unl_mail($key, &$message, $params) {
+  if ($key == 'site_created') {
+    $site = $params['site'];
+    $message['subject'] = 'New Site!';
+    $message['body'][] = 'A site has been set up!';
+    $message['body'][] = print_r($site, TRUE);
+  }
+}
+
+function unl_send_site_created_email($site = NULL) {
+  $shared_prefix = unl_get_shared_db_prefix();
+
+  // If no site was specified, get the current site.
+  if (!$site) {
+    if (!is_array($GLOBALS['databases']['default']['default']['prefix'])) {
+      return;
+    }
+    
+    $db_prefix = $GLOBALS['databases']['default']['default']['prefix']['default'];
+    $db_prefix = substr($db_prefix, 0, 0 - strlen($shared_prefix) - 1);
+    $data = db_query(
+      "SELECT * "
+      . "FROM {$shared_prefix}unl_sites "
+      . "WHERE db_prefix = :prefix ",
+      array(':prefix' => $db_prefix)
+    )->fetchAll();
+    if (count($data) == 0) {
+      return;
+    }
+    $site = $data[0];
+  }
+  
+  $unl_site_created_email_address = unl_shared_variable_get('unl_site_created_email_address');
+  $unl_site_created_alert_admins = unl_shared_variable_get('unl_site_created_alert_admins');
+  
+  $recipients = array();
+  
+  if ($unl_site_created_email_address) {
+    $recipients[] = $unl_site_created_email_address;
+  }
+  
+  if ($unl_site_created_alert_admins) {
+    $role = user_role_load_by_name('Site Admin');
+    $select = db_select('users_roles', 'r');
+    $select->fields('r', array('uid'));
+    $select->condition('r.rid', $role->rid);
+    $uids = $select->execute()->fetchCol();
+    
+    $users = user_load_multiple($uids);
+    foreach ($users as $user) {
+      if (!$user->mail) {
+        continue;
+      }
+      $recipients[] = $user->mail;
+    }
+  }
+
+  foreach ($recipients as $recipient) {
+    drupal_mail('unl', 'site_created', $recipient, language_default(), array('site' => $site), unl_shared_variable_get('site_mail'));
+  }
+}
+
+function unl_shared_variable_get($name, $default = NULL) {
+  $shared_prefix = unl_get_shared_db_prefix();
+  $data = db_query(
+    "SELECT * "
+    . "FROM {$shared_prefix}variable "
+    . "WHERE name = :name",
+    array(':name' => $name)
+  )->fetchAll();
+  
+  if (count($data) == 0) {
+    return $default;
+  }
+  
+  return unserialize($data[0]->value);
 }

@@ -108,10 +108,11 @@ function unl_migration_step($migration, &$context)
 function unl_migration_queue_step($migration_storage_file) {
   $migration = Unl_Migration_Tool::load_from_disk($migration_storage_file);
   if ($migration->migrate(30)) {
-    return;
+    return TRUE;
   }
   DrupalQueue::get('unl_migration', TRUE)
     ->createItem(Unl_Migration_Tool::save_to_disk($migration));
+  return FALSE;
 }
 
 

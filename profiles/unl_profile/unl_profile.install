@@ -295,16 +295,15 @@ EOF;
     );
     foreach ($data as $row) {
       if ($row->site_admin) {
+        $account = unl_cas_import_user($row->site_admin);
         $userData = array(
-          'name'     => $row->site_admin,
-          'status'   => 1,
-          'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
           'roles'    => array($site_admin_role->rid => $site_admin_role->name),
         );
-        user_save(NULL, $userData);
+        user_save($account, $userData);
       }
 
       if ($row->migration_url) {
+        // If there's a site to migrate, add the job to the queue.
         require_once DRUPAL_ROOT . '/sites/all/modules/unl/unl_migration.php';
         $migration = new Unl_Migration_Tool(
           $row->migration_url,
@@ -315,6 +314,10 @@ EOF;
         );
         DrupalQueue::get('unl_migration', TRUE)
           ->createItem(Unl_Migration_Tool::save_to_disk($migration));
+      }
+      else {
+        // If there's no migration to be done, we can send the site created email now.
+        unl_send_site_created_email($row);
       }
     }
   }
