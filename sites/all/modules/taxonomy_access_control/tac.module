@@ -134,6 +134,7 @@ function tac_form_alter(&$form, &$form_state, $form_id) {
           }
           if (!isset($grants[$tid]['list']) || !$grants[$tid]['list']) {
             $form[$field]['und'][$tid]['#type'] = 'hidden';
+            $form[$field]['und'][$tid]['#disabled'] = 'TRUE';
             $form_state['storage']['tac'][$field][$tid] = $tid;
             $hidden_checkboxes++;
           }
