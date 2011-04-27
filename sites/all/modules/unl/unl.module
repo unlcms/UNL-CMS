@@ -87,7 +87,11 @@ function unl_permission() {
     'unl theme settings' => array(
       'title' => t('Change Theme Settings'),
       'description' => t('Allow this role to change the current theme settings.'),
-    )
+    ),
+
+    'unl imce javascript upload' => array(
+      'title'       => t('Upload Javascript Files Through IMCE'),
+    ),
   );
 }
 
@@ -162,6 +166,20 @@ function unl_menu_alter(&$items) {
   }
 
   return $items;
+}
+
+/**
+ * Implementation of hook_file_validate()
+ * Fires when files are uploaded after Drupal Core sanitization but before saving to file system or db
+ */
+function unl_file_validate($file) {
+  // For IMCE uploads only, check if Drupal core just altered a *.js upload to *.js.txt and correct if permitted
+  if ($file->source == 'imce' && substr($file->filename, -7) == '.js.txt' && user_access('unl imce javascript upload')) {
+    // Chop off the .txt extesnsion that's been added
+    $file->destination = substr($file->destination, 0, -4);
+    $file->filename = substr($file->filename, 0, -4);
+  }
+  return;
 }
 
 function unl_form_alter(&$form, $form_state, $form_id) {
