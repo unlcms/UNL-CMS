@@ -119,6 +119,12 @@ function unl_menu() {
     'position' => 'left',
     'weight' => -6,
   );
+  
+  $items['_status'] = array(
+    'title'           => 'Still Alive',
+    'page callback'   => 'unl_still_alive',
+    'access callback' => TRUE,
+  );
 
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
@@ -694,4 +700,11 @@ function unl_shared_variable_get($name, $default = NULL) {
   }
 
   return unserialize($data[0]->value);
+}
+
+// A simple "I'm still alive" page to check to see that drupal is working.
+function unl_still_alive()
+{
+  header('Content-type: text/plain');
+  echo '200 Still Alive';
 }
