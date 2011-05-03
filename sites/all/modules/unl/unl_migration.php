@@ -564,7 +564,12 @@ class Unl_Migration_Tool
         }
     
         if (!$maincontentarea) {
-            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.');
+            $maincontentarea = $this->_get_text_between_tokens($html, '<body>', '</body>');
+        }
+        
+        if (!$maincontentarea) {
+            $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.');
             return;
         }
         
@@ -597,6 +602,9 @@ class Unl_Migration_Tool
             if (count($titleParts) > 2) {
                 $pageTitle = trim(array_pop($titleParts));
             }
+            else {
+                $pageTitle = $titleText;
+            }
         }
         
         if (!$pageTitle) {
@@ -606,8 +614,13 @@ class Unl_Migration_Tool
         
         $maincontentNode = $dom->getElementById('maincontent');
         if (!$maincontentNode) {
-            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Ignoring.');
-            return;
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.');
+            $bodyNodes = $dom->getElementsByTagName('body');
+            if ($bodyNodes->length == 0) {
+                $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.');
+                return;
+            }
+            $maincontentNode = $bodyNodes->item(0);
         }
         
         $linkNodes = $maincontentNode->getElementsByTagName('a');
