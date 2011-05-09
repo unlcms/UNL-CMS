@@ -1,8 +1,9 @@
-name = UNL WDN
-description = Adds features to allow wysiwyg editing of WDN Templated sites.
+name = UNL
+description = Adds various needed features to support the UNL templates including wysiwyg editing of WDN Templated sites.
+package = UNL
+dependencies[] = wysiwyg
 core = 7.x
 version = "7.x-1.0-20100920"
 
-dependencies[] = wysiwyg
 files[] = unl.install
 files[] = unl.module

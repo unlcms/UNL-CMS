@@ -1,6 +1,8 @@
 ; $Id$
 name = UNL CAS
-description = Enables UNL CAS authentication/registration of users.
+description = Enables CAS authentication/registration of users through login.unl.edu.
+package = UNL
+dependencies[] = unl
 core = 7.x
 version = "7.x-1.0-20101129"
 configure = admin/config/people/unl_cas

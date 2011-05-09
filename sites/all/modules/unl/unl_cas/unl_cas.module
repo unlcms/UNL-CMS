@@ -2,7 +2,7 @@
 
 require_once dirname(__FILE__) . '/unl_loader.php';
 unl_load_zend_framework();
-  
+
 function unl_cas_enable() {
   variable_set('user_register', 0);
 }
@@ -204,7 +204,7 @@ function unl_cas_import_user($username) {
 
   // Next, if LDAP didn't work, try peoplefinder.
   if (!isset($user['email'])) {
-    $xml = @file_get_contents('http://peoplefinder.unl.edu/service.php?format=xml&uid=' . $username);
+    $xml = @file_get_contents('http://directory.unl.edu/service.php?format=xml&uid=' . $username);
     if ($xml) {
       $dom = new DOMDocument();
       $dom->loadXML($xml);
