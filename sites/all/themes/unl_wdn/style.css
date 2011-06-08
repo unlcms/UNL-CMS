@@ -3,17 +3,22 @@
    that need to be made for WDN styles to work with CMS DOM structure.
 */
 body.fixed #maincontent {
-  min-width:940px;
-  overflow:visible !important;
+  min-width: 940px;
+  overflow: visible !important;
 }
 #maincontent ul.wdn_tabs.cms_tabs {
-  position:absolute;
-  right:0;
-  top:-60px;
+  position: absolute;
+  right: 0;
+  top: -60px;
 }
 
 /* Remove border found in system.theme.css
    http://drupal.org/node/93357 */
 tbody {
   border-top: none;
+}
+
+/* Hide the contextual links in the UNL nav */
+#navigation div.contextual-links-wrapper {
+  display: none;
 }
