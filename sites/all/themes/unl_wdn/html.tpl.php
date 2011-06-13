@@ -35,9 +35,9 @@
 $t = unl_wdn_get_instance();
 
 if (theme_get_setting('use_base')) {
-    $t->head = PHP_EOL
-             . '<base href="' . url('<front>', array('absolute' => TRUE)) . '" />' . PHP_EOL
-             . $t->head;
+  $t->head = PHP_EOL
+           . '<base href="' . url('<front>', array('absolute' => TRUE)) . '" />' . PHP_EOL
+           . $t->head;
 }
 
 $t->head .= PHP_EOL
@@ -49,7 +49,6 @@ $t->head .= PHP_EOL
           . '<link rel="login" href="user" />' . PHP_EOL
           . theme_get_setting('head_html') . PHP_EOL
           ;
-
 
 $t->doctitle = '<title>'.$head_title.'</title>';
 
@@ -67,19 +66,24 @@ if (theme_get_setting('wdn_beta')) {
 }
 
 if (module_exists('rdf')) {
-  $html = strtr($html, array(
-    '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' => '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>',
-    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN" "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">',
-    '<head>' => '<head profile="'.$grddl_profile.'">',
-  ));
+  $html = str_replace(
+            array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">',
+                  '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
+                  '<head>'),
+            array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>'.PHP_EOL,
+                  '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN" "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">',
+                  '<head profile="'.$grddl_profile.'">'),
+            $html);
 }
 
-$html = strtr($html, array(
-  '<body class="fixed">' => '<body class="fixed '.$classes.'" '.$attributes.'>',
-  '<p class="skipnav">'  => $page_top . PHP_EOL . '<p class="skipnav">',
-  '</body>'              => $page_bottom . PHP_EOL . '</body>',
-));
-
+$html = str_replace(
+          array('<body class="fixed">',
+                '<p class="skipnav">',
+                '</body>'),
+          array('<body class="fixed '.$classes.'" '.$attributes.'>',
+                $page_top . PHP_EOL . '<p class="skipnav">',
+                $page_bottom . PHP_EOL . '</body>'),
+          $html);
 
 $format = filter_input(INPUT_GET, 'format', FILTER_SANITIZE_STRING);
 if ($format == 'partial') {

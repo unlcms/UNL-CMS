@@ -1,11 +1,9 @@
 We need to output something to make drupal think this file actually does something.
 Any real output is being deferred to html.tpl.php
 <?php
-// $Id: page.tpl.php,v 1.43 2010/01/30 07:59:25 dries Exp $
-
 /**
  * @file
- * Default theme implementation to display a single Drupal page.
+ * unl_wdn theme implementation to display a single Drupal page.
  *
  * Available variables:
  *
@@ -72,25 +70,23 @@ Any real output is being deferred to html.tpl.php
 
 $t = unl_wdn_get_instance();
 
-
+// Breadcrumbs
 if (isset($breadcrumb)) {
-    $t->breadcrumbs = $breadcrumb;
+  $t->breadcrumbs = PHP_EOL.$breadcrumb.PHP_EOL;
 }
 
-$t->navlinks = render($page['navlinks']);
+// Navigation
+$t->navlinks = PHP_EOL.render($page['navlinks']);
 
-
+// Site Title and Page Title
 if (isset($site_name) && $site_name) {
-    $t->titlegraphic = '<h1>' . $site_name . '</h1>';
+  $t->titlegraphic = '<h1>' . $site_name . '</h1>';
 }
 if (isset($title) && $title) {
-    $t->pagetitle = '<h2>' . render($title_prefix) . $title . render($title_suffix) . '</h2>';
+  $t->pagetitle = '<h2>' . render($title_prefix) . $title . render($title_suffix) . '</h2>';
 }
 
-
-
-
-
+// Main Content Area
 $format = filter_input(INPUT_GET, 'format', FILTER_SANITIZE_STRING);
 if ($format == 'partial') {
   $t->maincontentarea = '';
@@ -102,66 +98,67 @@ else {
 }
 
 if ($page['sidebar_first']) {
-    $t->maincontentarea .= '<div id="sidebar-first" class="sidebar col left">' . PHP_EOL
-                         . render($page['sidebar_first']) . PHP_EOL
-                         . '</div>';
+  $t->maincontentarea .= '<div id="sidebar-first" class="sidebar col left">' . PHP_EOL
+                       . render($page['sidebar_first']) . PHP_EOL
+                       . '</div>';
 }
 
 if ($page['sidebar_first'] && !$page['sidebar_second']) {
-    $t->maincontentarea .= '<div class="three_col right">' . PHP_EOL;
-} else if ($page['sidebar_first'] && $page['sidebar_second']) {
-    $t->maincontentarea .= '<div class="two_col">' . PHP_EOL;
-} else if (!$page['sidebar_first'] && $page['sidebar_second']) {
-    $t->maincontentarea .= '<div class="three_col left">' . PHP_EOL;
+  $t->maincontentarea .= '<div class="three_col right">' . PHP_EOL;
+}
+else if ($page['sidebar_first'] && $page['sidebar_second']) {
+  $t->maincontentarea .= '<div class="two_col">' . PHP_EOL;
+}
+else if (!$page['sidebar_first'] && $page['sidebar_second']) {
+  $t->maincontentarea .= '<div class="three_col left">' . PHP_EOL;
 }
 
 $t->maincontentarea .= strtr(render($page['content']), array('sticky-enabled' => 'zentable cool')) . PHP_EOL;
 
 if ($page['sidebar_second']) {
-    $t->maincontentarea .= '</div>' . PHP_EOL
-                         . '<div id="sidebar-second" class="sidebar col right">' . PHP_EOL
-                         . render($page['sidebar_second']) . PHP_EOL
-                         . '</div>' . PHP_EOL;
+  $t->maincontentarea .= '</div>' . PHP_EOL
+                       . '<div id="sidebar-second" class="sidebar col right">' . PHP_EOL
+                       . render($page['sidebar_second']) . PHP_EOL
+                       . '</div>' . PHP_EOL;
 }
 
 if ($page['sidebar_first'] && !$page['sidebar_second']) {
-    $t->maincontentarea .= '</div>' . PHP_EOL;
+  $t->maincontentarea .= '</div>' . PHP_EOL;
 } 
 
-
-
-
+// Related Links
 $leftcollinks = '';
 if ($page['leftcollinks']) {
-    $leftcollinks = render($page['leftcollinks']);
+  $leftcollinks = render($page['leftcollinks']);
 }
 
 $t->leftcollinks = <<<EOF
+
 <h3>Related Links</h3>
 $leftcollinks
 EOF;
 
-
+// Contacting Us
 $contactinfo = '';
 if ($page['contactinfo']) {
-    $contactinfo = render($page['contactinfo']);
+  $contactinfo = render($page['contactinfo']);
 }
 
 $t->contactinfo = <<<EOF
+
 <h3>Contacting Us</h3>
 $contactinfo
 EOF;
 
 
-
+// Optional Footer
 if ($page['optionalfooter']) {
-    $t->optionalfooter = render($page['optionalfooter']);
+  $t->optionalfooter = render($page['optionalfooter']);
 }
 
-
-
+// Copyright Area
 if ($page['footercontent']) {
-    $t->footercontent = render($page['footercontent']);
+  $t->footercontent = PHP_EOL.render($page['footercontent']);
 }
 $t->footercontent = preg_replace('/&copy;\s*[0-9]{4}/', '&copy; ' . date('Y'), $t->footercontent);
-$t->footercontent .= '<p style="margin:0.5em 0 -1.4em 0">This site is an instance of <a href="http://unlcms.unl.edu/" title="Go to the UNL CMS website">UNL CMS</a> powered by <a href="http://drupal.org/" title="Go to the official website of Drupal">Drupal</a></p>';
+$t->footercontent .= '<p style="margin:0.5em 0 -1.4em 0">This site is an instance of <a href="http://unlcms.unl.edu/" title="Go to the UNLcms website">UNLcms</a> powered by <a href="http://drupal.org/" title="Go to the Drupal website">Drupal</a></p>';
