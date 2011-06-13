@@ -55,6 +55,17 @@ $t->doctitle = '<title>'.$head_title.'</title>';
 
 $html = $t->toHtml();
 
+if (theme_get_setting('wdn_beta')) {
+  $html = str_replace(
+            array('/wdn/templates',
+                  'css/all.css',
+                  'scripts/all.js'),
+            array('/wdntemplates-dev/wdn/templates',
+                  'css/debug.css',
+                  'scripts/debug.js'),
+            $html);
+}
+
 if (module_exists('rdf')) {
   $html = strtr($html, array(
     '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">' => '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>',
