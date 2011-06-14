@@ -88,10 +88,6 @@ function unl_site_create_submit($form, &$form_state) {
 
 
 function unl_site_list($form, &$form_state) {
-  $form['root'] = array(
-    '#type'  => 'fieldset',
-    '#title' => 'Existing Sites',
-  );
   
   $headers = array(
     'site_path' => array(
@@ -112,18 +108,26 @@ function unl_site_list($form, &$form_state) {
     ),
     'remove'    => 'Remove (can not undo!)'
   );
-  
-  $form['root']['site_list'] = array(
-    '#theme' => 'unl_table',
-    '#header' => $headers,
-  );
-  
+    
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
     ->extend('TableSort')
     ->orderByHeader($headers)
     ->execute()
     ->fetchAll();
+  
+  $total_no_of_sites = count($sites);
+
+  $form['root'] = array(
+    '#type'  => 'fieldset',
+    '#title' => 'Existing Sites ' . '(total: ' . $total_no_of_sites . ')',
+  );
+  
+  $form['root']['site_list'] = array(
+    '#theme' => 'unl_table',
+    '#header' => $headers,
+  );
+
   
   foreach ($sites as $site) {
     unset($checkbox);
