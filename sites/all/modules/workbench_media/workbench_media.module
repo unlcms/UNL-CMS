@@ -1,0 +1,97 @@
+<?php
+
+/**
+ * @file
+ * Workbench Media module file for workbench-specific media features.
+ */
+
+/**
+ * Implements hook_menu().
+ *
+ * Provide a UI for uploading media.
+ */
+function workbench_media_menu() {
+  $items = array();
+
+  $items['admin/workbench/media/add'] = array(
+    'title' => 'Add Media',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('workbench_media_add'),
+    'access arguments' => array('use workbench_media add form'),
+    'file' => 'includes/media.pages.inc',
+    'file path' => drupal_get_path('module', 'media'),
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function workbench_media_permission() {
+  return array(
+    'use workbench_media add form' => array(
+      'title' => t('Use the media add form'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_workbench_create_alter().
+ *
+ * Add a media creation section to the workbench "Create Content" tab.
+ */
+function workbench_media_workbench_create_alter(&$output) {
+  if (user_access('use workbench_media add form')) {
+   // Mimic node_add_page() theming.
+    $items = array(
+      array(
+        'title' => t('Upload Media'),
+        'href' => 'admin/workbench/media/add',
+        'localized_options' => array(),
+        'description' => t('Add photos, videos, audio, or other files to the site.'),
+      )
+    );
+    $output['field_workbench_create_media'] = array(
+      '#title' => t('Create media'),
+      '#markup' => theme('node_add_list', array('content' => $items)),
+      '#theme' => 'workbench_element',
+      '#weight' => -1,
+    );
+  }
+}
+
+/**
+ * Form callback for adding media.
+ *
+ * Uses Media's own upload form and adds a submit function.
+ *
+ * A wrapper function is used because:
+ *   1. Using hook_form_alter() would require fragile logic to figure out when
+ *   to alter the upload form.
+ *   2. We may want to extend the media form functionality in the future.
+ */
+function workbench_media_add($form, &$form_state) {
+  $form = drupal_get_form('media_add_upload', $form, $form_state);
+  $form['#submit'][] = 'workbench_media_add_submit';
+  return $form;
+}
+
+/**
+ * Submit function for the media add form.
+ *
+ * Redirects to the uploaded media's edit form so that you can intuitively edit
+ * fields on the new media item.
+ */
+function workbench_media_add_submit($form, &$form_state) {
+  $dest = 'admin/workbench/files';
+
+  // Was a file successfully uploaded?
+  if (!empty($form_state['values']['upload']->fid)) {
+    $form_state['redirect'] = array('media/' . $form_state['values']['upload']->fid . '/edit', array('query' => array('destination' => $dest)));
+  }
+  else {
+    $form_state['redirect'] = array($dest);
+  }
+}

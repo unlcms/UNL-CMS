@@ -1,0 +1,13 @@
+name = Workbench Media
+description = Media features for the Workbench editorial suite.
+package = Workbench
+core = 7.x
+dependencies[] = workbench
+dependencies[] = media
+
+; Information added by drupal.org packaging script on 2011-05-25
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "workbench_media"
+datestamp = "1306285347"
+
