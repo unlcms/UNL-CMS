@@ -46,7 +46,7 @@ $t->head .= PHP_EOL
           . $scripts . PHP_EOL
           . '<link href="' . url('<front>', array('absolute' => TRUE)) . '" rel="home" />' . PHP_EOL
           . '<link rel="logout" href="user/logout" />' . PHP_EOL
-          . '<link rel="login" href="user" />' . PHP_EOL
+          . '<link rel="login" href="' . url('user', array('query' => drupal_get_destination())) . '" />' . PHP_EOL
           . theme_get_setting('head_html') . PHP_EOL
           ;
 
