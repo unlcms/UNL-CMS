@@ -129,7 +129,7 @@ function unl_cas_form_alter(&$form, $form_state, $form_id) {
     $form['account']['current_pass_required_values']['#type'] = 'hidden';
     $form['account']['current_pass']['#type'] = 'hidden';
 
-    $form['picture']['#description'] = 'To change your picture, visit <a href="http://planetred.unl.edu/pg/profile/unl_' . $GLOBALS['user']->name . '">Planet Red</a>.';
+    $form['picture']['#description'] = 'To change your picture, visit <a href="https://planetred.unl.edu/pg/profile/unl_' . $GLOBALS['user']->name . '">Planet Red</a>.';
     $form['picture']['picture_delete']['#type'] = 'hidden';
     $form['picture']['picture_upload']['#type'] = 'hidden';
 
@@ -291,15 +291,14 @@ function _unl_cas_is_user_default_site_administrator($username) {
 }
 
 function unl_cas_preprocess_user_picture(&$variables) {
-  //Default image: http://planetred.unl.edu/mod/profile/graphics/defaultmedium.gif
+  //Default image: https://planetred.unl.edu/mod/profile/graphics/defaultmedium.gif
   if ($variables['account']->uid == 0) {
-    $variables['user_picture'] = 'http://planetred.unl.edu/mod/profile/graphics/defaultmedium.gif';
+    $variables['user_picture'] = '<img class="profile_pic medium" src="http://planetred.unl.edu/mod/profile/graphics/defaultmedium.gif" alt="Photo placeholder for unspecified user" />';
     return;
   }
   $username = $variables['account']->name;
-  $variables['user_picture'] = '<img class="profile_pic medium" src="http://planetred.unl.edu/pg/icon/unl_' . $username . '/medium" alt="' . $username . '\'s photo" />';
+  $variables['user_picture'] = '<img class="profile_pic medium" src="https://planetred.unl.edu/pg/icon/unl_' . $username . '/medium" alt="' . $username . '\'s photo" />';
 }
-
 
 function unl_cas_get_setting($name, $default = NULL) {
   $data = db_select('unl_cas_settings', 's')
