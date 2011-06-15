@@ -12,6 +12,12 @@ body.fixed #maincontent {
   top: -60px;
 }
 
+/* Remove border found in system.theme.css
+   http://drupal.org/node/93357 */
+tbody {
+  border-top: none;
+}
+
 /* Hide the contextual links in the UNL nav */
 #navigation div.contextual-links-wrapper {
   display: none;
