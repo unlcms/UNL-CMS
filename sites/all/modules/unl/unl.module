@@ -497,7 +497,9 @@ function unl_cron() {
 
     $sites_to_create = array();
     foreach ($data as $site) {
-      $department = $site->department;
+      $full_department = $site->department;
+      
+      $department = $full_department;
       $department = strtr($department, array(' ' => ''));
       $department = strtolower($department);
       $department = preg_replace('/[^[a-z0-9]/', '', $department);
@@ -519,6 +521,7 @@ function unl_cron() {
         'site_admin'     => $site->site_admin ? $site->site_admin : '',
         'migration_url'  => $site->migration_url ? $site->migration_url : '',
         'migration_path' => $site->migration_path ? $site->migration_path : '',
+        'department'     => $full_department,
       );
 
       if (variable_get('unl_wdn_registry_production')) {
@@ -630,9 +633,32 @@ function unl_init() {
 function unl_mail($key, &$message, $params) {
   if ($key == 'site_created') {
     $site = $params['site'];
-    $message['subject'] = 'New Site!';
-    $message['body'][] = 'A site has been set up!';
-    $message['body'][] = print_r($site, TRUE);
+    $uri = $site->uri;
+    $site_admin = $site->site_admin;
+    $department = $site->department;
+    
+    $message['subject'] = 'New UNLcms site for ' . $department;
+    $message['body'][] = <<<EOF
+To $site_admin,
+
+Thank you for registering your site at UNLcms. You may now log in using your myUNL information by clicking the link below or copying and pasting it to your browser:
+   
+$uri
+You must log in in order manage your web site and edit the content. The "Login" link is at the top of the page and you log in using your myUNL information.
+ 
+For information on how to manage your site & content, please view the online how-to videos found in the menu at the top of the following page, within the category of "Get Help":
+    
+http://unlcms.unl.edu
+
+When this new site was created, an attempt was made to copy the content from your current site to this new site. You will want to review all of the content to verify that it is complete and that it is presented correctly.  This import process is dependent on the current's site using and adherence to UNL Templates.
+
+Once your content has been finalized and your are ready to go public with your new site, please contact us to activate the proper public URL (cleaner and shorter). This current URL you've been given will not be indexed or found in search engines until the proper public URL has been established.
+
+Please let us know if you have suggestions or questions.
+
+Thank you,
+EOF;
+
   }
 }
 

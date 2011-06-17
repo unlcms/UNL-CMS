@@ -56,6 +56,12 @@ function unl_schema() {
         'not null' => TRUE,
         'default'  => '',
       ),
+      'department' => array(
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
 
     ),
     'primary key' => array('site_id'),
@@ -318,4 +324,13 @@ function unl_update_7107() {
   );
 
   db_create_table('unl_page_aliases', $table);
+}
+
+function unl_update_7108() {
+  db_add_field('unl_sites', 'department', array(
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+    'default'  => '',
+  ));
 }
