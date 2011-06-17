@@ -1,5 +1,4 @@
 <?php
-// $Id: imce-content.tpl.php,v 1.12 2010/10/06 04:42:57 ufku Exp $
 $imce =& $imce_ref['imce'];//keep this line.
 ?>
 

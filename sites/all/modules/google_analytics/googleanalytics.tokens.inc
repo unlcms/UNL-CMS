@@ -1,5 +1,4 @@
 <?php
-// $Id: googleanalytics.tokens.inc,v 1.1.2.4 2011/02/07 15:33:38 hass Exp $
 
 /**
  * @file

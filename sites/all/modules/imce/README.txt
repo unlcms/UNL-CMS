@@ -1,4 +1,3 @@
-// $Id: README.txt,v 1.18.2.1 2010/11/08 04:37:21 ufku Exp $
 
 IMCE
 http://drupal.org/project/imce

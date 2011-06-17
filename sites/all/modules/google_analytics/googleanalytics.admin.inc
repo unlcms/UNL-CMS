@@ -1,5 +1,4 @@
 <?php
-// $Id: googleanalytics.admin.inc,v 1.24.2.28 2011/02/07 14:41:11 hass Exp $
 
 /**
  * @file
@@ -87,7 +86,7 @@ function googleanalytics_admin_settings_form($form_state) {
   // Page specific visibility configurations.
   $php_access = user_access('use PHP for tracking visibility');
   $visibility = variable_get('googleanalytics_visibility_pages', 0);
-  $pages = variable_get('googleanalytics_pages', '');
+  $pages = variable_get('googleanalytics_pages', GOOGLEANALYTICS_PAGES);
 
   $form['tracking']['page_vis_settings'] = array(
     '#type' => 'fieldset',
@@ -198,8 +197,8 @@ function googleanalytics_admin_settings_form($form_state) {
     '#title' => t('List of download file extensions'),
     '#title_display' => 'invisible',
     '#type' => 'textfield',
-    '#default_value' => variable_get('googleanalytics_trackfiles_extensions', GA_TRACKFILES_EXTENSIONS),
-    '#description' => t('A file extension list separated by the | character that will be tracked as download when clicked. Regular expressions are supported. For example: !extensions', array('!extensions' => GA_TRACKFILES_EXTENSIONS)),
+    '#default_value' => variable_get('googleanalytics_trackfiles_extensions', GOOGLEANALYTICS_TRACKFILES_EXTENSIONS),
+    '#description' => t('A file extension list separated by the | character that will be tracked as download when clicked. Regular expressions are supported. For example: !extensions', array('!extensions' => GOOGLEANALYTICS_TRACKFILES_EXTENSIONS)),
     '#maxlength' => 255,
   );
   $form['tracking']['linktracking']['googleanalytics_trackoutboundaspageview'] = array(
@@ -235,6 +234,24 @@ function googleanalytics_admin_settings_form($form_state) {
     '#default_value' => variable_get('googleanalytics_trackadsense', FALSE),
   );
 
+  // Privacy specific configurations.
+  $form['tracking']['privacy'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Privacy'),
+  );
+  $form['tracking']['privacy']['googleanalytics_tracker_anonymizeip'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Anonymize visitors IP address'),
+    '#description' => t('Tell Google Analytics to anonymize the information sent by the tracker objects by removing the last octet of the IP address prior to its storage. Note that this will slightly reduce the accuracy of geographic reporting. In some countries it is not allowed to collect personally identifying information for privacy reasons and this setting may help you to comply with the local laws.'),
+    '#default_value' => variable_get('googleanalytics_tracker_anonymizeip', 0),
+  );
+  $form['tracking']['privacy']['googleanalytics_privacy_donottrack'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Universal web tracking opt-out'),
+    '#description' => t('If enabled and your server receives the <a href="http://donottrack.us/">Do-Not-Track</a> header from the client browser, the Google Analytics module will not embed any tracking code into your site. Compliance with Do Not Track could be purely voluntary, enforced by industry self-regulation, or mandated by state or federal law. Please accept your visitors privacy. If they have opt-out from tracking and advertising, you should accept their personal decision. This feature is currently limited to logged in users and disabled page caching.'),
+    '#default_value' => variable_get('googleanalytics_privacy_donottrack', 1),
+  );
+
   // Backward compatibility only.
   // TODO: If currently not in use, hide the UI and later remove the code.
   $segmentation = variable_get('googleanalytics_segmentation', array());
@@ -268,6 +285,7 @@ function googleanalytics_admin_settings_form($form_state) {
   }
 
   $form['googleanalytics_custom_var'] = array(
+  	'#collapsed' => TRUE,
     '#collapsible' => TRUE,
     '#description' => t('You can add Google Analytics <a href="!custom_var_documentation">Custom Variables</a> here. These will be added to every page that Google Analytics tracking code appears on. Google Analytics will only accept custom variables if the <em>name</em> and <em>value</em> combined are less than 64 bytes after URL encoding. Keep the names as short as possible and expect long values to get trimmed. You may use tokens in custom variable values. Global and user tokens are always available; on node pages, node tokens are also available.', array('!custom_var_documentation' => 'http://code.google.com/intl/en/apis/analytics/docs/tracking/gaTrackingCustomVariables.html')),
     '#theme' => 'googleanalytics_admin_custom_var_table',
@@ -339,13 +357,6 @@ function googleanalytics_admin_settings_form($form_state) {
     '#title' => t('Advanced settings'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
-  );
-
-  $form['advanced']['googleanalytics_tracker_anonymizeip'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Anonymize visitors IP address'),
-    '#description' => t('Tell Google Analytics to anonymize the information sent by the tracker objects by removing the last octet of the IP address prior to its storage. Note that this will slightly reduce the accuracy of geographic reporting. In some countries it is not allowed to collect personally identifying information for privacy reasons and this setting may help you to comply with the local laws.'),
-    '#default_value' => variable_get('googleanalytics_tracker_anonymizeip', 0),
   );
 
   $form['advanced']['googleanalytics_cache'] = array(

@@ -1,4 +1,3 @@
-// $Id: googleanalytics.js,v 1.11.2.8 2011/02/06 19:22:05 hass Exp $
 (function ($) {
 
 $(document).ready(function() {
@@ -8,13 +7,13 @@ $(document).ready(function() {
   // characters are [ ] { } ( ) * + ? - . , \ ^ $ # and whitespace. The character | is excluded
   // in this function as it's used to separate the domains names.
   RegExp.escapeDomains = function(text) {
-    return text.replace(/[-[\]{}()*+?.,\\^$#\s]/g, "\\$&");
+    return (text) ? text.replace(/[-[\]{}()*+?.,\\^$#\s]/g, "\\$&") : '';
   }
 
   // Attach onclick event to document only and catch clicks on all elements.
   $(document.body).click(function(event) {
-    // Catch only the first parent link of a clicked element.
-    $(event.target).parents("a:first,area:first").andSelf().filter("a,area").each(function() {
+    // Catch the closest surrounding link of a clicked element.
+    $(event.target).closest("a,area").each(function() {
 
       var ga = Drupal.settings.googleanalytics;
       // Expression to check for absolute internal links.
@@ -37,7 +36,6 @@ $(document).ready(function() {
         else if (isInternalSpecial.test(this.href)) {
           // Keep the internal URL for Google Analytics website overlay intact.
           _gaq.push(["_trackPageview", this.href.replace(isInternal, '')]);
-          setTimeout('document.location = "' + this.href + '"', 100);
         }
       }
       else {
@@ -47,26 +45,17 @@ $(document).ready(function() {
         }
         else if (ga.trackOutbound && this.href) {
           if (ga.trackDomainMode == 2 && isCrossDomain.test(this.href)) {
-            // Top-level cross domain clicked.
+            // Top-level cross domain clicked. document.location is handled by _link internally.
             _gaq.push(["_link", this.href]);
           }
           else if (ga.trackOutboundAsPageview) {
             // Track all external links as page views after URL cleanup.
             // Currently required, if click should be tracked as goal.
             _gaq.push(["_trackPageview", '/outbound/' + this.href.replace(/^(https?|ftp|news|nntp|telnet|irc|ssh|sftp|webcal):\/\//i, '').split('/').join('--')]);
-            setTimeout('document.location = "' + this.href + '"', 100);
           }
           else {
             // External link clicked.
             _gaq.push(["_trackEvent", "Outbound links", "Click", this.href]);
-
-            // First, delay the outbound click by a fraction of a second.
-            // This delay will hardly be noticeable by the user, but it will provide the
-            // browser more time load the tracking code. Without this method, it's possible
-            // that a user can click on the outbound link before the tracking code loads,
-            // in which case the event will not be recorded.
-            // See http://www.google.com/support/analytics/bin/answer.py?hl=en&answer=55527
-            setTimeout('document.location = "' + this.href + '"', 100);
           }
         }
       }

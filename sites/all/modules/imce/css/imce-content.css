@@ -1,10 +1,10 @@
-/* $Id: imce-content.css,v 1.9 2010/10/09 05:47:47 ufku Exp $ */
 
 /*Body*/
 body.imce {
   padding: 2px;
   background: none;
   text-align: left;
+  height: auto;
 }
 
 /*Main container*/
@@ -253,6 +253,9 @@ body.imce {
   background-color: #07f;
   color: #fff;
 }
+#file-list tr.selected span {
+  color: #fff;
+}
 #file-list td.name img {
   vertical-align: middle;
   margin-right: 3px;
@@ -305,6 +308,7 @@ body.imce {
 #ops-list a span {
   display: inline-block;
   color: #0e1f43;
+  padding-left: 1px;
 }
 #ops-list li.loading a {
   background-image: url(loading.gif);

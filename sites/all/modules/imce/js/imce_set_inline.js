@@ -1,11 +1,10 @@
-// $Id: imce_set_inline.js,v 1.5 2010/06/02 08:29:40 ufku Exp $
-
 (function($) {
 
 var ii = window.imceInline = {};
 
-ii.initiate = function() {
-  $('div.imce-inline-wrapper').show().find('a').click(function() {
+// Drupal behavior
+Drupal.behaviors.imceInline = {attach: function(context, settings) {
+  $('div.imce-inline-wrapper', context).not('.processed').addClass('processed').show().find('a').click(function() {
     var i = this.name.indexOf('-IMCE-');
     ii.activeTextarea = $('#'+ this.name.substr(0, i)).get(0);
     ii.activeType = this.name.substr(i+6);
@@ -17,7 +16,7 @@ ii.initiate = function() {
     ii.pop.focus();
     return false;
   });
-};
+}};
 
 //function to be executed when imce loads.
 ii.load = function(win) {
@@ -55,7 +54,5 @@ ii.insert = function (file, win) {
   win.blur();
   ii.insertAtCursor(ii.activeTextarea, html, type);
 };
-
-$(document).ready(ii.initiate);
 
 })(jQuery);

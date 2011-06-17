@@ -1,4 +1,3 @@
-// $Id: googleanalytics.admin.js,v 1.1.2.7 2011/02/07 15:20:57 hass Exp $
 (function ($) {
 
 /**
@@ -97,6 +96,20 @@ Drupal.behaviors.trackingSettingsSummary = {
       else {
         return Drupal.t('Multiple top-level domains');
       }
+    });
+
+    $('fieldset#edit-privacy', context).drupalSetSummary(function (context) {
+      var vals = [];
+      if ($('input#edit-googleanalytics-tracker-anonymizeip', context).is(':checked')) {
+        vals.push('Anonymize IP');
+      }
+      if ($('input#edit-googleanalytics-privacy-donottrack', context).is(':checked')) {
+        vals.push('Universal web tracking opt-out');
+      }
+      if (!vals.length) {
+        return Drupal.t('No privacy');
+      }
+      return Drupal.t('@items enabled', {'@items' : vals.join(', ')});
     });
   }
 };

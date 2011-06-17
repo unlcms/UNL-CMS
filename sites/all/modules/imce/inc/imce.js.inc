@@ -1,5 +1,4 @@
 <?php
-// $Id: imce.js.inc,v 1.2 2010/03/17 21:36:38 ufku Exp $
 
 /**
  * @file

@@ -1,5 +1,4 @@
 <?php
-// $Id: imce.core.profiles.inc,v 1.3 2010/05/14 19:57:24 ufku Exp $
 
 /**
  * @file

@@ -1,4 +1,3 @@
-// $Id: imce_extras.js,v 1.9 2010/10/06 04:42:57 ufku Exp $
 //This pack implemets: keyboard shortcuts, file sorting, resize bars, and inline thumbnail preview.
 
 (function($) {

@@ -1,5 +1,4 @@
 <?php
-// $Id: googleanalytics.test,v 1.2.2.8 2011/02/07 14:11:43 hass Exp $
 
 /**
  * @file
@@ -44,7 +43,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
     variable_set('googleanalytics_account', $ua_code);
 
     // Show tracking on "every page except the listed pages".
-    variable_set('googleanalytics_visibility', 0);
+    variable_set('googleanalytics_visibility_pages', 0);
     // Disable tracking one "admin*" pages only.
     variable_set('googleanalytics_pages', "admin\nadmin/*");
     // Enable tracking only for authenticated users only.
@@ -62,7 +61,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
     $this->assertNoRaw('google-analytics.com/ga.js', '[testGoogleAnalyticsPageVisibility]: Tracking code is not displayed on admin subpage.');
 
     // Test whether tracking code display is properly flipped.
-    variable_set('googleanalytics_visibility', 1);
+    variable_set('googleanalytics_visibility_pages', 1);
     $this->drupalGet('admin');
     $this->assertRaw($ua_code, '[testGoogleAnalyticsPageVisibility]: Tracking code is displayed on admin page.');
     $this->drupalGet('admin/config/system/googleanalytics');
@@ -77,7 +76,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
     $this->assertNoRaw($ua_code, '[testGoogleAnalyticsPageVisibility]: Tracking code is NOT displayed for anonymous.');
 
     // Switch back to every page except the listed pages.
-    variable_set('googleanalytics_visibility', 0);
+    variable_set('googleanalytics_visibility_pages', 0);
     // Enable tracking code for all user roles.
     variable_set('googleanalytics_roles', array());
 
@@ -95,7 +94,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
     variable_set('googleanalytics_account', $ua_code);
 
     // Show tracking code on every page except the listed pages.
-    variable_set('googleanalytics_visibility', 0);
+    variable_set('googleanalytics_visibility_pages', 0);
     // Enable tracking code for all user roles.
     variable_set('googleanalytics_roles', array());
 

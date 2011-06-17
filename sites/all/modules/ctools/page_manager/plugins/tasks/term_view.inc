@@ -1,5 +1,4 @@
 <?php
-// $Id: term_view.inc,v 1.10 2011/01/06 00:16:28 merlinofchaos Exp $
 
 /**
  * @file
@@ -23,7 +22,7 @@ function page_manager_term_view_page_manager_tasks() {
       'title' => t('Taxonomy term template'),
       'admin title' => t('Taxonomy term template'),
       'admin description' => t('When enabled, this overrides the default Drupal behavior for displaying taxonomy terms at <em>taxonomy/term/%term</em>. If you add variants, you may use selection criteria such as vocabulary or user access to provide different displays of the taxonomy term and associated nodes. If no variant is selected, the default Drupal taxonomy term display will be used. This page only affects items actually displayed ad taxonomy/term/%term. Some taxonomy terms, such as forums, have their displays moved elsewhere. Also please note that if you are using pathauto, aliases may make a taxonomy terms appear somewhere else, but as far as Drupal is concerned, they are still at taxonomy/term/%term.'),
-      'admin path' => 'taxonomy/term/%term',
+      'admin path' => 'taxonomy/term/%taxonomy_term',
       'admin summary' => 'page_manager_term_view_admin_summary',
 
       // Menu hooks so that we can alter the term/%term menu entry to point to us.
@@ -71,11 +70,6 @@ function page_manager_term_view_menu_alter(&$items, $task) {
     return;
   }
 
-  // @todo --fix.
-  variable_set('page_manager_term_view_disabled', TRUE);
-  drupal_set_message(t('Due to changes in taxonomy, the taxonomy integration with Page Manager is currently not implemented. See <a href="http://drupal.org/node/1016510">.'), 'error');
-  return;
-
   // Override the term view handler for our purpose, but only if someone else
   // has not already done so.
   if (isset($items['taxonomy/term/%taxonomy_term']) && $items['taxonomy/term/%taxonomy_term']['page callback'] == 'taxonomy_term_page' || variable_get('page_manager_override_anyway', FALSE)) {
@@ -86,8 +80,20 @@ function page_manager_term_view_menu_alter(&$items, $task) {
   else {
     // automatically disable this task if it cannot be enabled.
     variable_set('page_manager_term_view_disabled', TRUE);
+
+    if (isset($items['taxonomy/term/%taxonomy_term']['page callback'])) {
+      $callback = $items['taxonomy/term/%taxonomy_term']['page callback'];
+    }
+    // Because Views changes %taxonomy_term to %views_arg, check to see if that
+    // is why we can't enable:
+    else if (isset($items['taxonomy/term/%views_arg']['page callback'])) {
+      $callback = $items['taxonomy/term/%views_arg']['page callback'];
+    }
+    else {
+      $callback = t('an unknown callback');
+    }
     if (!empty($GLOBALS['page_manager_enabling_term_view'])) {
-      drupal_set_message(t('Page manager module is unable to enable taxonomy/term/%term because some other module already has overridden with %callback.', array('%callback' => $items['taxonomy/term/%taxonomy_term']['page callback'])), 'error');
+      drupal_set_message(t('Page manager module is unable to enable taxonomy/term/%taxonomy_term because some other module already has overridden with %callback.', array('%callback' => $callback)), 'error');
     }
   }
 }
@@ -102,39 +108,37 @@ function page_manager_term_view_menu_alter(&$items, $task) {
 function page_manager_term_view_page($term) {
   // While we ordinarily should never actually get feeds through here,
   // just in case
-  if ($op != 'feed') {
-    // Load my task plugin
-    $task = page_manager_get_task('term_view');
+  // Load my task plugin
+  $task = page_manager_get_task('term_view');
 
-    // Load the term into a context.
-    ctools_include('context');
-    ctools_include('context-task-handler');
-    $contexts = ctools_context_handler_get_task_contexts($task, '', array($terms, $depth));
+  // Load the term into a context.
+  ctools_include('context');
+  ctools_include('context-task-handler');
+  $contexts = ctools_context_handler_get_task_contexts($task, '', array($term));
 
-    if (empty($contexts)) {
-      return drupal_not_found();
-    }
+  if (empty($contexts)) {
+    return drupal_not_found();
+  }
 
-    // Add a fake tab for 'View' so that edit tabs can be added.
-    if (user_access('administer page manager')) {
-      ctools_include('menu');
-      ctools_menu_add_tab(array(
-        'title' => t('View'),
-        'href' => $_GET['q'],
-        'type' => MENU_DEFAULT_LOCAL_TASK,
-        'weight' => -10,
-      ));
-    }
+  $output = ctools_context_handler_render($task, '', $contexts, array($term->tid));
+  if ($output !== FALSE) {
+    return $output;
+  }
 
-    $output = ctools_context_handler_render($task, '', $contexts, array($terms, $depth, $op));
-    if ($output !== FALSE) {
-      return $output;
+  $function = 'taxonomy_term_page';
+  foreach (module_implements('page_manager_override') as $module) {
+    $call = $module . '_page_manager_override';
+    if (($rc = $call('term_view')) && function_exists($rc)) {
+      $function = $rc;
+      break;
     }
   }
 
   // Otherwise, fall back.
-  module_load_include('inc', 'taxonomy', 'taxonomy.pages');
-  return taxonomy_term_page($terms, $depth, $op);
+  if ($function == 'taxonomy_term_page') {
+    module_load_include('inc', 'taxonomy', 'taxonomy.pages');
+  }
+  return $function($term);
 }
 
 /**
@@ -147,9 +151,9 @@ function page_manager_term_view_get_arguments($task, $subtask_id) {
   return array(
     array(
       'keyword' => 'term',
-      'identifier' => variable_get('page_manager_term_view_type', 'multiple') == 'multiple' ? t('Term(s) being viewed') : t('Term being viewed'),
+      'identifier' => page_manager_term_view_get_type() == 'multiple' ? t('Term(s) being viewed') : t('Term being viewed'),
       'id' => 1,
-      'name' => variable_get('page_manager_term_view_type', 'multiple') == 'multiple' ? 'terms' : 'term',
+      'name' => page_manager_term_view_get_type() == 'multiple' ? 'terms' : 'term',
       'settings' => array('input_form' => 'tid', 'breadcrumb' => variable_get('page_manager_taxonomy_breadcrumb', TRUE)),
       'default' => '404',
     ),
@@ -173,11 +177,11 @@ function page_manager_term_view_get_contexts($task, $subtask_id) {
 /**
  * Settings page for this item.
  */
-function page_manager_term_view_settings(&$form, &$form_state) {
+function page_manager_term_view_settings($form, &$form_state) {
   // This passes thru because the setting can also appear on the main Panels
   // settings form. If $settings is an array it will just pick up the default.
   $settings = isset($form_state->update_values) ? $form_state->update_values : array();
-  page_manager_term_view_admin_settings($form, $settings);
+  return page_manager_term_view_admin_settings($form, $settings);
 }
 
 /**
@@ -200,10 +204,10 @@ function page_manager_term_view_save($subtask, $cache) {
 /**
  * Provide a setting to the Panels administrative form.
  */
-function page_manager_term_view_admin_settings(&$form, $settings = array()) {
+function page_manager_term_view_admin_settings($form, $settings = array()) {
   if (empty($settings)) {
     $settings = array(
-      'page_manager_term_view_type' => variable_get('page_manager_term_view_type', 'multiple'),
+      'page_manager_term_view_type' => page_manager_term_view_get_type(),
       'page_manager_taxonomy_breadcrumb' => variable_get('page_manager_taxonomy_breadcrumb', TRUE),
     );
   }
@@ -212,8 +216,10 @@ function page_manager_term_view_admin_settings(&$form, $settings = array()) {
     '#type' => 'radios',
     '#title' => t('Allow multiple terms on taxonomy/term/%term'),
     '#options' => array('single' => t('Single term'), 'multiple' => t('Multiple terms')),
-    '#description' => t('By default, Drupal allows multiple terms as an argument by separating them with commas or plus signs. If you set this to single, that feature will be disabled.'),
+    '#description' => t('By default, Drupal allows multiple terms as an argument by separating them with commas or plus signs. If you set this to single, that feature will be disabled.') . ' ' . t('This feature does not currently work and is disabled.'),
     '#default_value' => $settings['page_manager_term_view_type'],
+    // @todo -- fix this
+    '#disabled' => TRUE,
   );
   $form['page_manager_taxonomy_breadcrumb'] = array(
     '#title' => t('Inject hierarchy of first term into breadcrumb trail'),
@@ -221,6 +227,8 @@ function page_manager_term_view_admin_settings(&$form, $settings = array()) {
     '#default_value' => $settings['page_manager_taxonomy_breadcrumb'],
     '#description' => t('If checked, taxonomy term parents will appear in the breadcrumb trail.'),
   );
+
+  return $form;
 }
 
 /**
@@ -234,6 +242,14 @@ function page_manager_term_view_enable($cache, $status) {
   if (!$status) {
     $GLOBALS['page_manager_enabling_term_view'] = TRUE;
   }
+}
+
+function page_manager_term_view_get_type() {
+//  $view_type = variable_get('page_manager_term_view_type', 'multiple');
+  // Revert to just allowing single.
+  $view_type = 'single';
+
+  return $view_type;
 }
 
 /**
@@ -263,7 +279,7 @@ function page_manager_term_view_admin_summary($task, $subtask) {
     array('class' => array('page-summary-operation'), 'data' => ''),
   );
 
-  if (variable_get('page_manager_term_view_type', 'multiple') == 'multiple') {
+  if (page_manager_term_view_get_type() == 'multiple') {
     $message = t('Multiple terms may be used, separated by , or +.');
   }
   else {
@@ -292,3 +308,4 @@ function page_manager_term_view_admin_summary($task, $subtask) {
   $output = theme('table', array(), $rows, array('id' => 'page-manager-page-summary'));
   return $output;
 }
+

@@ -1,5 +1,4 @@
 <?php
-// $Id: googleanalytics.install,v 1.22.2.16 2011/02/07 14:29:06 hass Exp $
 
 /**
  * @file
@@ -10,19 +9,6 @@
  * Implements hook_install().
  */
 function googleanalytics_install() {
-  variable_set('googleanalytics_visibility_roles', 0);
-  variable_set('googleanalytics_visibility_pages', 0);
-
-  // Remove tracking from all administrative pages, see http://drupal.org/node/34970.
-  $pages = array(
-    'admin',
-    'admin/*',
-    'user/*/*',
-    'node/add*',
-    'node/*/*',
-  );
-  variable_set('googleanalytics_pages', implode("\n", $pages));
-
   // By German laws it's always best to enable the anonymizing of IP addresses.
   // NOTE: If this is also an important default setting in other countries, please let us know!
   $countries = array(
@@ -43,7 +29,7 @@ function googleanalytics_uninstall() {
   variable_del('googleanalytics_codesnippet_after');
   variable_del('googleanalytics_cross_domains');
   variable_del('googleanalytics_custom');
-  variable_del('googleanalytics_custom_vars');
+  variable_del('googleanalytics_custom_var');
   variable_del('googleanalytics_domain_mode');
   variable_del('googleanalytics_js_scope');
   variable_del('googleanalytics_last_cache');
@@ -395,4 +381,36 @@ function googleanalytics_update_7004() {
   variable_del('googleanalytics_visibility');
 
   return t('Renamed "googleanalytics_visibility" settings variable to googleanalytics_visibility_pages.');
+}
+
+/**
+ * Path visibility filter setting should hide "batch" path.
+ */
+function googleanalytics_update_7005() {
+  // Current pages setting.
+  $pages = array(
+    'admin',
+    'admin/*',
+    'user/*/*',
+    'node/add*',
+    'node/*/*',
+  );
+
+  $diff = array_diff($pages, preg_split('/(\r\n?|\n)/', variable_get('googleanalytics_pages', implode("\n", $pages))));
+  if (empty($diff)) {
+    // No diff to previous settings found. Update with new settings.
+    $pages = array(
+      'admin',
+      'admin/*',
+      'batch',
+      'node/add*',
+      'node/*/*',
+      'user/*/*',
+    );
+    variable_set('googleanalytics_pages', implode("\n", $pages));
+    return t('Added "batch" to path visibility filter setting.');
+  }
+  else {
+    return t('Custom path visibility filter setting found. Update skipped!');
+  }
 }

@@ -1,4 +1,3 @@
-// $Id: README.txt,v 1.10.2.4 2011/02/07 16:56:27 hass Exp $
 
 Module: Google Analytics
 Author: Alexander Hass <http://drupal.org/user/85918>
@@ -39,9 +38,10 @@ default the following pages are listed for exclusion:
 
 admin
 admin/*
-user/*/*
+batch
 node/add*
 node/*/*
+user/*/*
 
 These defaults are changeable by the website administrator or any other
 user with 'administer google analytics' permission.

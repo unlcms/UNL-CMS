@@ -1,5 +1,4 @@
 <?php
-// $Id: imce.page.inc,v 1.10.2.4 2011/01/10 13:03:02 ufku Exp $
 
 /**
  * @file
@@ -876,11 +875,14 @@ function imce_directory_info($dirname, $imce) {
   }
 
   $info = FALSE;
-  if (imce_reg_dir($dirname) && file_prepare_directory(imce_dir_uri($imce, $dirname))) {
-    foreach ($imce['directories'] as $name => $prop) {
-      if ($prop['subnav'] && ($name == '.' || strpos($dirname . '/', $name . '/') === 0)) {
-        $info = $prop;
-        $info['name'] = $dirname;
+  if (imce_reg_dir($dirname)) {
+    $diruri = imce_dir_uri($imce, $dirname);
+    if (file_prepare_directory($diruri)) {
+      foreach ($imce['directories'] as $name => $prop) {
+        if ($prop['subnav'] && ($name == '.' || strpos($dirname . '/', $name . '/') === 0)) {
+          $info = $prop;
+          $info['name'] = $dirname;
+        }
       }
     }
   }
