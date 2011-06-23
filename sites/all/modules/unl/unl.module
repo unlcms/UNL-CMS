@@ -481,14 +481,15 @@ function unl_cron() {
     }
 
     Database::addConnectionInfo('wdn_registry', 'default', $wdn_registry_info);
-    db_set_active('wdn_registry');
 
     try {
+      db_set_active('wdn_registry');
       $data = db_select('site_request', 'r')
         ->fields('r')
         ->where('`url` IS NULL')
         ->execute()
         ->fetchAll();
+      db_set_active();
     }
     catch (Exception $e) {
       db_set_active();
@@ -524,15 +525,16 @@ function unl_cron() {
         'department'     => $full_department,
       );
 
+      db_set_active('wdn_registry');
       if (variable_get('unl_wdn_registry_production')) {
         db_update('site_request')
           ->fields(array('url' => url($path)))
           ->condition('id', $site->id)
           ->execute();
       }
+      db_set_active();
     }
 
-    db_set_active();
 
     foreach ($sites_to_create as $site_to_create) {
       try {
