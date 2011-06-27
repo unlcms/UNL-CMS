@@ -361,6 +361,10 @@ class Unl_Migration_Tool
                     continue;
                 }
                 $childLinkNode = $childLinkLiNode->getElementsByTagName('a')->item(0);
+                // If somebody left this menu item empty, skip it.  Liferay, I'm looking at you!
+                if (!$childLinkNode || !$childLinkNode->hasAttribute('href')) {
+                    continue;
+                }
                 $childMenu[] = array('text' => trim($childLinkNode->textContent),
                                      'href' => $this->_makeLinkAbsolute($childLinkNode->getAttribute('href'), ''));
             }
@@ -547,7 +551,11 @@ class Unl_Migration_Tool
             if (!mb_check_encoding($path, 'UTF-8')) {
                 $path = iconv('ISO-8859-1', 'UTF-8', $path); 
             }
-            $file = file_save_data($data['content'], 'public://' . urldecode($path), FILE_EXISTS_REPLACE);
+            try {
+              $file = file_save_data($data['content'], 'public://' . urldecode($path), FILE_EXISTS_REPLACE);
+            } catch (Exception $e) {
+              $this->_log('Could not migrate file "' . $path . '"! File name too long?');
+            }
             $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
             return;
         }
