@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Implements hook_css_alter().
+ */
+function unl_wdn_css_alter(&$css) {
+  // Turn off some styles from the system module.
+  // If some of this is later found desireable, add "stylesheets[all][] = css/unl_wdn.menus.css" to unl_wdn.info and copy these files to that locaiton with edits.
+  $path = drupal_get_path('module','system');
+  unset($css[$path.'/system.menus.css']);
+  unset($css[$path.'/system.theme.css']);
+}
+
 function unl_wdn_preprocess_html(&$vars, $hook) {
   /**
    * Change the <title> tag to UNL format: UNL | Department | Section | Page
@@ -49,15 +60,20 @@ function unl_wdn_preprocess_page(&$vars, $hook) {
 function unl_wdn_get_instance() {
   static $instance;
   if (!$instance) {
-    set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/lib/php');
+    set_include_path(dirname(__FILE__) . '/lib/php');
     require_once "UNL/Templates.php";
 
     UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
+
     if (theme_get_setting('toggle_main_menu')) {
       $instance = UNL_Templates::factory('Fixed');
     }
     else {
       $instance = UNL_Templates::factory('Document');
+    }
+
+    if (theme_get_setting('wdn_beta')) {
+      UNL_Templates::$options['templatedependentspath'] = $_SERVER['DOCUMENT_ROOT'].'/wdntemplates-dev';
     }
   }
 
