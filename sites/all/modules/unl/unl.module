@@ -100,6 +100,24 @@ function unl_permission() {
  */
 function unl_menu() {
   $access = array();
+  // Returns confirmation 'user_loggedin' if user is logged into the system
+   $items['user/unl/whoami'] = array(
+  	'title' 			=> 'UNL Whoami Tool',
+  	'access callback'   => TRUE,
+  	'page callback'		=> 'unl_whoami',
+  	'file'				=> 'unl_whoami.php',
+  );
+  
+  // Returns html technical feedback form 
+  $items['user/unl/technical_feedback'] = array(
+  	'title'				=> 'Technical Feedback',
+  	'description'		=> 'Returns a form to fill out to give technical feedback',
+  	'access callback'   => TRUE,
+  	'page callback'		=> 'technical_feedback',
+  	'file'				=> 'technical_feedback.php'
+  	
+  );
+  
   $items['admin/content/unl/migration'] = array(
     'title'            => 'UNL Migration Tool',
     'description'      => 'Migrate a static UNL template page into drupal',
