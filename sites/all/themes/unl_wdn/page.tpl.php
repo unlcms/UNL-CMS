@@ -127,29 +127,14 @@ if ($page['sidebar_first'] && !$page['sidebar_second']) {
 } 
 
 // Related Links
-$leftcollinks = '';
 if ($page['leftcollinks']) {
-  $leftcollinks = render($page['leftcollinks']);
+  $t->leftcollinks = render($page['leftcollinks']);
 }
 
-$t->leftcollinks = <<<EOF
-
-<h3>Related Links</h3>
-$leftcollinks
-EOF;
-
-// Contacting Us
-$contactinfo = '';
+// Contact Us
 if ($page['contactinfo']) {
-  $contactinfo = render($page['contactinfo']);
+  $t->contactinfo = render($page['contactinfo']);
 }
-
-$t->contactinfo = <<<EOF
-
-<h3>Contacting Us</h3>
-$contactinfo
-EOF;
-
 
 // Optional Footer
 if ($page['optionalfooter']) {

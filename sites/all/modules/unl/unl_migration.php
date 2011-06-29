@@ -482,9 +482,10 @@ class Unl_Migration_Tool
       $this->_blocks['contact_info'] = $this->_get_instance_editable_content($html, 'contactinfo');
       $this->_blocks['optional_footer'] = $this->_get_instance_editable_content($html, 'optionalfooter');
       $this->_blocks['footer_content'] = $this->_get_instance_editable_content($html, 'footercontent');
-      
+      // @TODO replace these with str_replace calls
       $this->_blocks['related_links'] = trim(strtr($this->_blocks['related_links'], array('<h3>Related Links</h3>' => '')));
       $this->_blocks['contact_info'] = trim(strtr($this->_blocks['contact_info'], array('<h3>Contacting Us</h3>' => '')));
+      $this->_blocks['contact_info'] = trim(strtr($this->_blocks['contact_info'], array('<h3>Contact Us</h3>' => '')));
     }
     
     private function _create_blocks() {

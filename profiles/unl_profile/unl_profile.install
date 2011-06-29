@@ -105,7 +105,7 @@ EOF;
   // Enable some standard blocks.
 
   db_insert('block')
-    ->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'cache'))
+    ->fields(array('module', 'delta', 'theme', 'status', 'weight', 'region', 'pages', 'title', 'cache'))
     ->values(array(
       'module' => 'block',
       'delta'  => 101,
@@ -114,6 +114,7 @@ EOF;
       'weight' => 0,
       'region' => 'contactinfo',
       'pages'  => '',
+      'title'  => 'Contact Us',
       'cache'  => DRUPAL_CACHE_GLOBAL,
     ))
     ->values(array(
@@ -124,6 +125,7 @@ EOF;
       'weight' => 0,
       'region' => 'leftcollinks',
       'pages'  => '',
+      'title'  => 'Related Links',
       'cache'  => DRUPAL_CACHE_GLOBAL,
     ))
     ->values(array(
@@ -134,6 +136,7 @@ EOF;
       'weight' => 0,
       'region' => 'optionalfooter',
       'pages'  => '',
+      'title'  => '<none>',
       'cache'  => DRUPAL_CACHE_GLOBAL,
     ))
     ->values(array(
@@ -144,6 +147,7 @@ EOF;
       'weight' => 0,
       'region' => 'footercontent',
       'pages'  => '',
+      'title'  => '<none>',
       'cache'  => DRUPAL_CACHE_GLOBAL,
     ))
     ->execute();

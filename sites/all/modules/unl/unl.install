@@ -334,3 +334,27 @@ function unl_update_7108() {
     'default'  => '',
   ));
 }
+
+// Update blocks to have correct titles, to correspond to a profile/theme update.
+function unl_update_7109() {
+  db_update('block')
+    ->condition('title', '')
+    ->condition('region', 'leftcollinks')
+    ->fields(array('title' => 'Related Links'))
+    ->execute();
+  db_update('block')
+    ->condition('title', '')
+    ->condition('region', 'contactinfo')
+    ->fields(array('title' => 'Contact Us'))
+    ->execute();
+  db_update('block')
+    ->condition('title', '')
+    ->condition('region', 'optionalfooter')
+    ->fields(array('title' => '<none>'))
+    ->execute();
+  db_update('block')
+    ->condition('title', '')
+    ->condition('region', 'footercontent')
+    ->fields(array('title' => '<none>'))
+    ->execute();
+}
