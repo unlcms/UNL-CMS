@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__FILE__) . '/includes/common.php';
+
 /**
  * Implements hook_field_attach_view_alter().
  */
@@ -304,7 +306,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
   /**
    * Modify the Permissions and Roles forms for non-administrators
    */
-  $admin_role_id = variable_get('user_admin_role', -1);
+  $admin_role_id = unl_shared_variable_get('user_admin_role', -1);
   if (!in_array($admin_role_id, array_keys($GLOBALS['user']->roles))) {
     switch ($form_id) {
       // Add additional validation on admin/people/permissions/roles/edit/%
@@ -534,7 +536,7 @@ function unl_user_access($permissions, $account = NULL) {
  * to prevent a user from deleting the administrator role. (This is not needed if permissions are shared and only administrators can edit roles.)
  */
 function unl_user_admin_role_validate($form, &$form_state) {
-  $admin_role_id = variable_get('user_admin_role', -1);
+  $admin_role_id = unl_shared_variable_get('user_admin_role', -1);
 
   if ($form_state['values']['op'] == t('Delete role')) {
     $role = user_role_load_by_name($form_state['values']['name']);
@@ -669,13 +671,6 @@ function unl_create_db_prefix($site) {
   return $db_prefix;
 }
 
-function unl_get_shared_db_prefix() {
-  require 'sites/default/settings.php';
-  $shared_prefix = $databases['default']['default']['prefix'];
-
-  return $shared_prefix;
-}
-
 function unl_get_alternate_base_uris() {
   $shared_prefix = unl_get_shared_db_prefix();
   if (is_array($GLOBALS['databases']['default']['default']['prefix'])) {
@@ -808,22 +803,6 @@ function unl_send_site_created_email($site = NULL) {
   foreach ($recipients as $recipient) {
     drupal_mail('unl', 'site_created', $recipient, language_default(), array('site' => $site), unl_shared_variable_get('site_mail'));
   }
-}
-
-function unl_shared_variable_get($name, $default = NULL) {
-  $shared_prefix = unl_get_shared_db_prefix();
-  $data = db_query(
-    "SELECT * "
-    . "FROM {$shared_prefix}variable "
-    . "WHERE name = :name",
-    array(':name' => $name)
-  )->fetchAll();
-
-  if (count($data) == 0) {
-    return $default;
-  }
-
-  return unserialize($data[0]->value);
 }
 
 // A simple "I'm still alive" page to check to see that drupal is working.

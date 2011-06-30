@@ -1,7 +1,6 @@
 <?php
 
-require_once dirname(__FILE__) . '/unl_loader.php';
-unl_load_zend_framework();
+require_once dirname(__FILE__) . '/../includes/common.php';
 
 function unl_cas_enable() {
   variable_set('user_register', 0);
@@ -31,6 +30,8 @@ function unl_cas_init() {
  * @return Unl_Cas
  */
 function unl_cas_get_adapter() {
+  unl_load_zend_framework();
+  
   // Start the session because if drupal doesn't then Zend_Session will. 
   drupal_session_start();
   static $adapter;
@@ -243,7 +244,7 @@ function unl_cas_user_presave(&$edit, $account, $category) {
     $username = $edit['name'];
   }
 
-  $local_admin_role_id = variable_get('user_admin_role');
+  $local_admin_role_id = unl_shared_variable_get('user_admin_role');
 
   if (_unl_cas_is_user_default_site_administrator($username)) {
     $local_admin_role = user_role_load($local_admin_role_id);
@@ -269,7 +270,7 @@ function unl_cas_user_login(&$edit, $account) {
     return;
   }
 
-  if (!in_array(variable_get('user_admin_role'), array_keys($account->roles))) {
+  if (!in_array(unl_shared_variable_get('user_admin_role'), array_keys($account->roles))) {
     return;
   }
 
@@ -280,12 +281,8 @@ function unl_cas_user_login(&$edit, $account) {
 }
 
 function _unl_cas_is_user_default_site_administrator($username) {
-  require 'sites/default/settings.php';
-  $shared_prefix = $databases['default']['default']['prefix'];
-
-  $data = db_query("SELECT value FROM {$shared_prefix}variable WHERE name='user_admin_role'")->fetchCol();
-  $shared_admin_role_id = unserialize($data[0]);
-
+  $shared_prefix = unl_get_shared_db_prefix();
+  $shared_admin_role_id = unl_shared_variable_get('user_admin_role');
   $shared_admin_usernames = db_query("SELECT u.name FROM {$shared_prefix}users AS u JOIN {$shared_prefix}users_roles AS r ON u.uid = r.uid WHERE name=:name AND rid=:rid", array(':name' => $username, ':rid' => $shared_admin_role_id))->fetchCol();
   return count($shared_admin_usernames) > 0;
 }
@@ -330,7 +327,7 @@ function unl_cas_set_setting($name, $value) {
 
 function unl_cas_user_is_administrator() {
   $user = $GLOBALS['user'];
-  if ($user && in_array(variable_get('user_admin_role'), array_keys($user->roles))) {
+  if ($user && in_array(unl_shared_variable_get('user_admin_role'), array_keys($user->roles))) {
     return TRUE;
   }
   return FALSE;
