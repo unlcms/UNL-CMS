@@ -434,7 +434,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
   }
 
   // Add the Roles checkboxes to the user edit form for users with ability to 'Administer users' but not 'Administer permissions' (Code below partially taken from user.module)
-  if (in_array($form_id, array('user_register_form', 'user_profile_form')) && !user_access('administer permissions')) {
+  if (in_array($form_id, array('user_register_form', 'user_profile_form')) && user_access('administer users') && !user_access('administer permissions')) {
     $register = ($form['#user']->uid > 0 ? FALSE : TRUE);
     $account = $form['#user'];
     $roles = array_map('check_plain', user_roles(TRUE));

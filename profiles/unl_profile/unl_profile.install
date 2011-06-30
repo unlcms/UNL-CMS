@@ -216,6 +216,8 @@ EOF;
       // shared tables across all sites
       'filter'           => $shared_prefix,
       'filter_format'    => $shared_prefix,
+      'role'             => $shared_prefix,
+      'role_permission'  => $shared_prefix,
       'unl_cas_settings' => $shared_prefix,
       'wysiwyg'          => $shared_prefix,
     );
@@ -267,43 +269,6 @@ EOF;
       . "WHERE name='filter_fallback_format' "
     );
 
-    // Create the Site Admin role
-    $site_admin_role = new stdClass();
-    $site_admin_role->name = 'Site Admin';
-    $site_admin_role->weight = 2;
-    user_role_save($site_admin_role);
-
-    // Assign most permissions to the Site Admin role.
-    $all_permissions = module_invoke_all('permission');
-    $all_filter_permissions = array_keys(module_invoke('filter', 'permission'));
-    unset($all_permissions['unl site creation']);
-    unset($all_permissions['unl grant all permissions']);
-    unset($all_permissions['unl administer administrator permissions']);
-    unset($all_permissions['administer modules']);
-    unset($all_permissions['administer themes']);
-    unset($all_permissions['administer software updates']);
-    unset($all_permissions['administer imce']);
-    unset($all_permissions['administer filters']);
-    foreach ($all_filter_permissions as $permission) {
-      unset($all_permissions[$permission]);
-    }
-    user_role_grant_permissions($site_admin_role->rid, array_keys($all_permissions));
-    
-    // Text Format/WYSIWYG specific permissions.
-    db_query("DELETE FROM {$new_prefix}role_permission WHERE permission LIKE :permission", array('permission' => 'use text format%'));
-    
-    $wysiwyg_permissions = array();
-    $data = db_query("SELECT DISTINCT permission FROM {$shared_prefix}role_permission WHERE permission LIKE :permission", array('permission' => 'use text format%'));
-    foreach ($data as $row) {
-      if (!in_array($row->permission, $all_filter_permissions)) {
-        continue;
-      }
-      $wysiwyg_permissions[] = $row->permission;
-    }
-    user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, $wysiwyg_permissions);
-    user_role_grant_permissions(variable_get('user_admin_role'), $wysiwyg_permissions);
-    user_role_grant_permissions($site_admin_role->rid, $wysiwyg_permissions);
-
     // If a site admin has been specified, add that user and add them to the Site Admin role.
     $data = db_query(
       "SELECT * "
@@ -323,6 +288,7 @@ EOF;
     );
     foreach ($data as $row) {
       if ($row->site_admin) {
+        $site_admin_role = user_role_load_by_name('Site Admin');
         $account = unl_cas_import_user($row->site_admin);
         $userData = array(
           'roles'    => array($site_admin_role->rid => $site_admin_role->name),
