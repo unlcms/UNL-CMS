@@ -1,5 +1,63 @@
 <?php
 
+/**
+ * Implements hook_field_attach_view_alter().
+ */
+function unl_field_attach_view_alter(&$output, $context) {
+  // Replace the field named field_hrorgunit containing an org unit number with that unit's listing from the UNL directory
+  foreach (element_children($output) as $field_name) {
+    $element = &$output[$field_name];
+    switch ($element['#field_name']) {
+      case 'field_hrorgunit':
+        $result = file_get_contents('http://directory.unl.edu/departments/?view=deptlistings&org_unit='.$element['#items'][0]['value'].'&format=partial');
+        if (!empty($result) && $result != '<div id="all_employees"></div>') {
+          drupal_add_css('http://directory.unl.edu/css/peoplefinder_default.css', 'external');
+          drupal_add_js('http://directory.unl.edu/scripts/peoplefinder.js', 'external');
+          drupal_add_js('var PF_URL = "http://directory.unl.edu/", ANNOTATE_URL = "http://annotate.unl.edu/";', 'inline');
+          // Need to check to see if directory.unl.edu only returned a partial result. If so, result will have a message in between the closing ul and div tags like so: </ul><p>Try refining your search.</p></div></div>
+          if (!preg_match('/<\/ul>\s*\n*\s*<\/div><\/div>/', $result)) {
+            // Extra message at the bottom indicating not all results returned - hide it
+            drupal_add_css('#all_employees > * > p {display:none;}', 'inline');
+            // Alert the user to visit the directory site
+            drupal_add_js('jQuery(document).ready(function(){jQuery("#all_employees .result_head").css("font-size","13px").html("We\'re a big department! Partial listing shown below, please visit <a href=\"http://directory.unl.edu/departments/'.$element['#items'][0]['value'].'#all_employees\">our department lisiting on the UNL Directory</a> to see everyone.");});', 'inline');
+          }
+        }
+        else {
+          $result = '<p>Please visit the <a href="http://directory.unl.edu/">UNL Directory</a> for listings.</p>';
+        }
+        foreach ($element['#items'] as $delta => $item) {
+          $element[$delta]['#markup'] = $result;
+        }
+        break;
+      default:
+    }
+  }
+}
+
+/**
+ * Implementation of hook_node_access().
+ */
+function unl_node_access($node, $op, $account) {
+  // When content types are created they have blank permissions so base access on the 'Basic page' type. This is done because with shared permissions subsites can't edit permissions.
+  //@TODO Make this configureable i.e. make it possible to opt-out certain types from this.
+  switch($op) {
+    case 'view':
+      break;
+    case 'create':
+      return user_access('create page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+    case 'update':
+      if (isset($node->uid) && $node->uid == $account->uid) {
+        return user_access('edit own page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+      }
+      return user_access('edit any page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+    case 'delete':
+      if (isset($node->uid) && $node->uid == $account->uid) {
+        return user_access('delete own page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+      }
+      return user_access('delete any page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+  }
+}
+
 function unl_node_prepare($node) {
   $node->menu['expanded'] = 1;
 }
@@ -85,7 +143,7 @@ function unl_permission() {
     ),
 
     'unl theme settings' => array(
-      'title' => t('Change Theme Settings'),
+      'title'       => t('Change Theme Settings'),
       'description' => t('Allow this role to change the current theme settings.'),
     ),
 
@@ -201,7 +259,7 @@ function unl_menu_alter(&$items) {
 }
 
 /**
- * Implementation of hook_file_validate()
+ * Implementation of hook_file_validate().
  * Fires when files are uploaded after Drupal Core sanitization but before saving to file system or db
  */
 function unl_file_validate($file) {
@@ -374,6 +432,31 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     $form['options']['sticky']['#prefix'] = '<div style="display:none;">';
     $form['options']['sticky']['#suffix'] = '</div>';
   }
+
+  // Add the Roles checkboxes to the user edit form for users with ability to 'Administer users' but not 'Administer permissions' (Code below partially taken from user.module)
+  if (in_array($form_id, array('user_register_form', 'user_profile_form')) && !user_access('administer permissions')) {
+    $register = ($form['#user']->uid > 0 ? FALSE : TRUE);
+    $account = $form['#user'];
+    $roles = array_map('check_plain', user_roles(TRUE));
+
+    $checkbox_authenticated = array(
+      '#type' => 'checkbox',
+      '#title' => $roles[DRUPAL_AUTHENTICATED_RID],
+      '#default_value' => TRUE,
+      '#disabled' => TRUE,
+    );
+    unset($roles[DRUPAL_AUTHENTICATED_RID]);
+    // Unset the adminsitrator checkbox, validation code (for someone who defeats this) that prevents a user who is not an administrator from granting the administrator role is in the unl_cas module
+    unset($roles[$admin_role_id]);
+    $form['account']['roles'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Roles'),
+      '#default_value' => (!$register && isset($account->roles) ? array_keys($account->roles) : array()),
+      '#options' => $roles,
+      '#access' => $roles,
+      DRUPAL_AUTHENTICATED_RID => $checkbox_authenticated,
+    );
+  }
 }
 
 /**
@@ -464,7 +547,7 @@ function unl_user_access($permissions, $account = NULL) {
 
 /**
  * Additional validation on the user_admin_role form (admin/people/permissions/roles/edit/%)
- * to prevent a user from deleting the administrator role.
+ * to prevent a user from deleting the administrator role. (This is not needed if permissions are shared and only administrators can edit roles.)
  */
 function unl_user_admin_role_validate($form, &$form_state) {
   $admin_role_id = variable_get('user_admin_role', -1);
@@ -525,7 +608,7 @@ function unl_cron() {
     $sites_to_create = array();
     foreach ($data as $site) {
       $full_department = $site->department;
-      
+
       $department = $full_department;
       $department = strtr($department, array(' ' => ''));
       $department = strtolower($department);
@@ -664,18 +747,18 @@ function unl_mail($key, &$message, $params) {
     $uri = $site->uri;
     $site_admin = $site->site_admin;
     $department = $site->department;
-    
+
     $message['subject'] = 'New UNLcms site for ' . $department;
     $message['body'][] = <<<EOF
 To $site_admin,
 
 Thank you for registering your site at UNLcms. You may now log in using your myUNL information by clicking the link below or copying and pasting it to your browser:
-   
+
 $uri
 You must log in in order manage your web site and edit the content. The "Login" link is at the top of the page and you log in using your myUNL information.
- 
+
 For information on how to manage your site & content, please view the online how-to videos found in the menu at the top of the following page, within the category of "Get Help":
-    
+
 http://unlcms.unl.edu
 
 When this new site was created, an attempt was made to copy the content from your current site to this new site. You will want to review all of the content to verify that it is complete and that it is presented correctly.  This import process is dependent on the current's site using and adherence to UNL Templates.
