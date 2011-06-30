@@ -433,29 +433,13 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     $form['options']['sticky']['#suffix'] = '</div>';
   }
 
-  // Add the Roles checkboxes to the user edit form for users with ability to 'Administer users' but not 'Administer permissions' (Code below partially taken from user.module)
+  // Add the Roles checkboxes to the user edit form for users with ability to 'Administer users' but not 'Administer permissions'
   if (in_array($form_id, array('user_register_form', 'user_profile_form')) && user_access('administer users') && !user_access('administer permissions')) {
-    $register = ($form['#user']->uid > 0 ? FALSE : TRUE);
-    $account = $form['#user'];
     $roles = array_map('check_plain', user_roles(TRUE));
-
-    $checkbox_authenticated = array(
-      '#type' => 'checkbox',
-      '#title' => $roles[DRUPAL_AUTHENTICATED_RID],
-      '#default_value' => TRUE,
-      '#disabled' => TRUE,
-    );
-    unset($roles[DRUPAL_AUTHENTICATED_RID]);
-    // Unset the adminsitrator checkbox, validation code (for someone who defeats this) that prevents a user who is not an administrator from granting the administrator role is in the unl_cas module
+    // Unset the adminsitrator checkbox, validation code that prevents a user who is not an administrator from granting the administrator role is in the unl_cas module
     unset($roles[$admin_role_id]);
-    $form['account']['roles'] = array(
-      '#type' => 'checkboxes',
-      '#title' => t('Roles'),
-      '#default_value' => (!$register && isset($account->roles) ? array_keys($account->roles) : array()),
-      '#options' => $roles,
-      '#access' => $roles,
-      DRUPAL_AUTHENTICATED_RID => $checkbox_authenticated,
-    );
+    $form['account']['roles']['#options'] = $roles;
+    $form['account']['roles']['#access'] = !empty($roles);
   }
 }
 
