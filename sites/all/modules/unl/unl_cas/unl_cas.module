@@ -175,6 +175,7 @@ function unl_cas_user_logout($account) {
 }
 
 function unl_cas_import_user($username) {
+  unl_load_zend_framework();
   $user = array();
 
   // First, try getting the info from LDAP.
