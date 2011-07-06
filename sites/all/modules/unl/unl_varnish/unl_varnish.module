@@ -1,0 +1,41 @@
+<?php
+
+/**
+ * Modifies the system performance settings form to add a button to purge the varnish cache.
+ */
+function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state, $form_id) {
+  $form['clear_cache']['#weight'] = -2;
+  $form['purge_varnish'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Purge Varnish',
+    '#access' => user_access('administer varnish'),
+    '#weight' => -1,
+  
+    'varnish_path' => array(
+      '#type' => 'radios',
+      '#required' => TRUE,
+      '#options' => array(
+        '^/wdn' => 'Just WDN template files (/wdn)',
+        '^/'	=> 'Everything',
+      ),
+      '#default_value' => '^/wdn',
+    ),
+    
+    'purge' => array(
+      '#type' => 'submit',
+      '#value' => 'Purge varnish cache',
+      '#submit' => array('unl_varnish_purge_submit'),
+    ),
+  );
+  
+  return $form;
+}
+
+/**
+ * Uses the varnish module to purge varnish at the requested path.
+ */
+function unl_varnish_purge_submit($form, &$form_state) {
+  $path = $form_state['values']['varnish_path'];
+  _varnish_terminal_run("purge.url $path");
+  drupal_set_message("Varnish purged paths matching $path.", 'status');
+}
