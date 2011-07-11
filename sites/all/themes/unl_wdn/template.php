@@ -11,6 +11,23 @@ function unl_wdn_css_alter(&$css) {
   unset($css[$path.'/system.theme.css']);
 }
 
+/**
+ * Implements template_preprocess_field().
+ */
+function unl_wdn_preprocess_field(&$vars, $hook) {
+  $element = $vars['element'];
+  // Set the field label tag to a header or default to div
+  if (strlen($element['#label_display']) == 2 && substr($element['#label_display'], 0, 1) == 'h') {
+    $vars['label_html_tag'] = $element['#label_display'];
+  }
+  else {
+    $vars['label_html_tag'] = 'div';
+  }
+}
+
+/**
+ * Implements template_preprocess_html().
+ */
 function unl_wdn_preprocess_html(&$vars, $hook) {
   /**
    * Change the <title> tag to UNL format: UNL | Department | Section | Page

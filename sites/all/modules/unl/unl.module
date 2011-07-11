@@ -274,7 +274,89 @@ function unl_file_validate($file) {
   return;
 }
 
-function unl_form_alter(&$form, $form_state, $form_id) {
+/**
+ * Implementation of hook_form_BASE_FORM_ID_alter().
+ */
+function unl_form_node_form_alter(&$form, &$form_state, $form_id) {
+  /**
+   * On the node edit form, hide the "Provide a menu link" checkbox since we'll
+   * be using the menu to build a site hierarchy.  Instead, add a button that will
+   * determine whether or not the menu link is visible or not.
+   */
+  $form['menu']['#title'] = 'Site hierachy';
+
+  $form['menu']['enabled']['#default_value'] = TRUE;
+  $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
+  $form['menu']['enabled']['#suffix'] = '</div>';
+
+  $form['menu']['link']['link_title']['#required'] = TRUE;
+
+  $mlid = $form['menu']['link']['mlid']['#value'];
+  if ($mlid) {
+    $menu_link = menu_link_load($mlid);
+    $default_visible = ($menu_link['hidden'] ? 0 : 1);
+  }
+  else {
+    $default_visible = 0;
+  }
+  $form['menu']['visible'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Display in menu',
+    '#default_value' => $default_visible,
+    '#weight' => 0,
+  );
+
+  $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
+
+  // Also turn on revisioning by default
+  $form['revision_information']['revision']['#default_value'] = TRUE;
+  unset($form['revision_information']['revision']['#states']);
+
+  // Also hide the "Promoted to front page" option
+  $form['options']['promote']['#prefix'] = '<div style="display:none;">';
+  $form['options']['promote']['#suffix'] = '</div>';
+
+  // Also hide the "Sticky at top of lists" option
+  $form['options']['sticky']['#prefix'] = '<div style="display:none;">';
+  $form['options']['sticky']['#suffix'] = '</div>';
+
+  /*
+   * Add user-added menus to the Parent Item select box since sub-sites do not have access to edit Available Menus of shared/features Content types.
+   * @see menu_form_node_form_alter() for what this is replacing
+   */
+  $type = $form['#node']->type;
+  // Get the menus selected in Available Menus from the Content Type edit form (admin/structure/types/manage/%)
+  $options = menu_parent_options(menu_get_menus(), $type);
+  // This line below is the addition to what menu_form_node_form_alter() does. Get only user-added menus and use them in their entirety.
+  $options_custom = menu_parent_options(menu_get_menus(FALSE), array('mlid' => 0));
+  $link = $form['#node']->menu;
+  $default = ($link['mlid'] ? $link['menu_name'] . ':' . $link['plid'] : variable_get('menu_parent_' . $type, 'main-menu:0'));
+  if (!isset($options[$default])) {
+    $default = 'navigation:0';
+  }
+  $form['menu']['link']['parent'] = array(
+    '#type' => 'select',
+    '#title' => t('Parent item'),
+    '#default_value' => $default,
+    '#options' => array_merge($options, $options_custom),
+    '#attributes' => array('class' => array('menu-parent-select')),
+  );
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter() for field_ui_display_overview_form.
+ */
+function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $form_id) {
+  // Add additional label display options in Manage Display section of content type editing (admin/structure/types/manage/content-type/display)
+  foreach ($form['#fields'] as $key => $field) {
+    $form['fields'][$field]['label']['#options'] += array('h2'=>'Block: h2','h3'=>'Block: h3','h4'=>'Block: h4','h5'=>'Block: h5','h6'=>'Block: h6');
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function unl_form_alter(&$form, &$form_state, $form_id) {
   // Make new menu items expanded by default.
   if ($form_id == 'menu_edit_item' && $form['mlid']['#value'] == 0) {
     $form['expanded']['#default_value'] = TRUE;
