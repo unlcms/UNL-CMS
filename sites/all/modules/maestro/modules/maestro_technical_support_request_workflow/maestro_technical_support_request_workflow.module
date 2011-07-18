@@ -1,5 +1,0 @@
-<?php
-
-include_once('maestro_technical_support_request_workflow.features.inc');
-include_once('maestro_technical_support_request_workflow.features.field');
-
