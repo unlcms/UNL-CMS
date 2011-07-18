@@ -16,3 +16,13 @@ body.fixed #maincontent {
 #navigation div.contextual-links-wrapper {
   display: none;
 }
+
+/* Overrides of system.menus.css */
+#navigation ul li.expanded, #navigation ul li.collapsed , #navigation ul li.leaf {
+  list-style-image: none;
+  list-style-type: none;
+}
+#navigation li.expanded, #navigation li.collapsed, #navigation li.leaf {
+  margin: 0;
+  padding: 0;
+}

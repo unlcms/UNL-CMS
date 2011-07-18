@@ -5,9 +5,8 @@
  */
 function unl_wdn_css_alter(&$css) {
   // Turn off some styles from the system module.
-  // If some of this is later found desireable, add "stylesheets[all][] = css/unl_wdn.menus.css" to unl_wdn.info and copy these files to that locaiton with edits.
+  // If some of this is later found desireable, add "stylesheets[all][] = css/unl_wdn.theme.css" to unl_wdn.info and copy these files to that locaiton with edits.
   $path = drupal_get_path('module','system');
-  unset($css[$path.'/system.menus.css']);
   unset($css[$path.'/system.theme.css']);
 }
 
