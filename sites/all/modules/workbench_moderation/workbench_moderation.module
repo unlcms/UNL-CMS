@@ -128,8 +128,9 @@ function workbench_moderation_menu_alter(&$items) {
   $items['node/%node/revisions']['page callback'] = 'workbench_moderation_node_revisions_redirect';
   $items['node/%node/revisions']['page arguments'] = array(1);
 
-  // For revert operations, use our own access check.
-  $items['node/%node/revisions/%/revert']['access callback'] = '_workbench_moderation_revert_access';
+  // For revert and delete operations, use our own access check.
+  $items['node/%node/revisions/%/revert']['access callback'] = '_workbench_moderation_revision_access';
+  $items['node/%node/revisions/%/delete']['access callback'] = '_workbench_moderation_revision_access';
 
   // Provide a container administration menu item, if one doesn't already exist.
   if (!isset($items['admin/config/workbench'])) {
@@ -414,27 +415,38 @@ function _workbench_moderation_access($op, $node) {
 }
 
 /**
- * Wrapper function for the 'revert' operation of _node_revision_access().
+ * Wrapper for the 'revert' and 'delete' operations of _node_revision_access().
  *
  * Drupal core's "current revision" of a node is the version in {node}; for
  * Workbench Moderation, latest revision in {node_revision} is the current
  * revision. For nodes with a published revision, Workbench Moderation keeps
  * that revision in {node}, whether or not it is the current revision.
  */
-function _workbench_moderation_revert_access($node, $op = 'revert') {
+function _workbench_moderation_revision_access($node, $op) {
   // Normal behavior for unmoderated nodes.
   if (!workbench_moderation_node_type_moderated($node->type)) {
     return _node_revision_access($node, $op);
   }
 
-  // Prevent reverting to the current revision.
+  // Prevent reverting to or deleting the current revision.
   if ($node->workbench_moderation['current']->vid == $node->workbench_moderation['my_revision']->vid) {
     return FALSE;
   }
 
   // Temporarily give the node an impossible revision.
+  // _node_revision_access() keeps access check results in a static variable
+  // indexed by revision only, not by op. Thus, subsequent checks on the same
+  // vid for different ops yield the same result, regardless of permissions.
+  // Setting a fake vid here allows us to store different static results per op.
   $tmp = $node->vid;
-  $node->vid = -1;
+  switch ($op) {
+    case 'update':
+      $node->vid = -1;
+      break;
+    case 'delete':
+      $node->vid = -2;
+      break;
+  }
 
   // Check access.
   $access = _node_revision_access($node, $op);
@@ -568,11 +580,10 @@ function workbench_moderation_views_default_views() {
  */
 function workbench_moderation_node_presave($node) {
   global $user;
-  // Set the published status when a node is set to live
-  // Is this a node that is controlled by content moderation?
   if (isset($node->workbench_moderation_state_new)) {
-    // Is the new state live or is there an existing published revision?
-    if ($node->workbench_moderation_state_new == workbench_moderation_state_published() || !empty($node->workbench_moderation['published']->nid)) {
+    // If the new moderation state is published, or if this revision is the
+    // published revision, set the node status to published.
+    if ($node->workbench_moderation_state_new == workbench_moderation_state_published() || (!empty($node->workbench_moderation['published']) && $node->vid == $node->workbench_moderation['published']->vid)) {
       $node->status = 1;
     }
     else {
@@ -779,29 +790,31 @@ function workbench_moderation_form_alter(&$form, $form_state, $form_id) {
     );
   }
 
-  // Move the Revision log under publishing to make things pretty
-  $form['options']['log'] = $form['revision_information']['log'];
-  $form['options']['log']['#title'] = t('Moderation notes');
-  // Unset the old placement of the Revision log.
-  unset($form['revision_information']['log']);
-
-  // Log the proper user name or anonymous name.
-  if (user_is_anonymous()) {
-    $logged_name = variable_get('anonymous', t('Anonymous'));
-  }
-  else {
-    $logged_name = $user->name;
-  }
-  $action = !empty($form['#node']->nid) ? t('Edited') : t('Created');
-  $form['options']['log']['#default_value'] = t('!action by @user.', array('!action' => $action, '@user' => $logged_name));
-
   // Always create new revisions for nodes that are moderated
-  $form['revision_information']['revision']['#default_value'] = TRUE;
-  // Do not allow users to change the revision status
-  $form['revision_information']['#access'] = FALSE;
+  $form['revision_information']['revision'] = array(
+    '#type' => 'value',
+    '#value' => TRUE,
+  );
 
-  // User has no ability to choose if this content is published or not. If the
-  // moderation status is live, then it will be published, otherwise not.
+  // Set a default revision log message.
+  $logged_name = (user_is_anonymous() ? variable_get('anonymous', t('Anonymous')) : $user->name);
+  $logged_action = !empty($form['#node']->nid) ? t('Edited') : t('Created');
+  $form['revision_information']['log']['#default_value'] = t('!action by @user.', array('!action' => $logged_action, '@user' => $logged_name));
+
+  // Move the revision log into the publishing options to make things pretty.
+  if ($form['options']['#access']) {
+    $form['options']['log'] = $form['revision_information']['log'];
+    $form['options']['log']['#title'] = t('Moderation notes');
+
+    // Unset the old placement of the Revision log.
+    unset($form['revision_information']['log']);
+
+    // The revision information section should now be empty.
+    $form['revision_information']['#access'] = FALSE;
+  }
+
+  // Users can not choose to publish content; content can only be published by
+  // setting the content's moderation state to "Published".
   $form['options']['status']['#access'] = FALSE;
   $form['actions']['submit']['#submit'][] = 'workbench_moderation_node_form_submit';
   workbench_moderation_messages('edit', $form['#node']);
@@ -1389,8 +1402,16 @@ function workbench_moderation_moderate($node, $state) {
   if ($new_revision->current) {
     $node->workbench_moderation['current'] = $new_revision;
   }
+  // Handle the published revision.
   if ($new_revision->published) {
+    // If we're moderating a revision to the published state, mark the new
+    // revision as the published revision.
     $node->workbench_moderation['published'] = $new_revision;
+  }
+  elseif (isset($node->workbench_moderation['published']) && $new_revision->vid == $node->workbench_moderation['published']->vid && $new_revision->from_state == workbench_moderation_state_published()) {
+    // If we're moderating the published revision to a non-published state,
+    // remove the workbench moderation 'published' property.
+    unset($node->workbench_moderation['published']);
   }
 
   // If we're moderating an unpublished revision and there is an existing
