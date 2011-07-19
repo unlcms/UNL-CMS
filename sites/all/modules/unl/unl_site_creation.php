@@ -63,12 +63,16 @@ function unl_site_create_submit($form, &$form_state) {
   $site_path = $form_state['values']['site_path'];
   $clean_url = $form_state['values']['clean_url'];
 
+  $db_prefix = unl_create_db_prefix($site_path);
+  
+  $site_path = explode('/', $site_path);
+  foreach (array_keys($site_path) as $i) {
+    $site_path[$i] = unl_sanitize_url_part($site_path[$i]);
+  }
+  $site_path = implode('/', $site_path);
   $uri = url($site_path, array('absolute' => TRUE, 'https' => FALSE));
 
   $clean_url = intval($clean_url);
-
-  $db_prefix = explode('/', $site_path);
-  $db_prefix = implode('_', $db_prefix);
 
   db_insert('unl_sites')->fields(array(
     'site_path' => $site_path,
@@ -262,8 +266,7 @@ function unl_site_remove($site_id) {
   }
   $uri = $uri[0];
 
-  $sites_subdir = _unl_get_sites_subdir($uri);
-  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
+  $sites_subdir = unl_get_sites_subdir($uri);
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
 
@@ -290,17 +293,6 @@ function unl_site_remove($site_id) {
     ->execute();
 
   return TRUE;
-}
-
-function _unl_get_sites_subdir($uri) {
-  $path_parts = parse_url($uri);
-  if (substr($path_parts['host'], -7) == 'unl.edu') {
-    $path_parts['host'] = 'unl.edu';
-  }
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
-
-  return $sites_subdir;
 }
 
 function unl_aliases_page() {

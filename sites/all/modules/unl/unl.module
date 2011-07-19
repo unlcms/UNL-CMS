@@ -606,21 +606,8 @@ function unl_cron() {
 
     $sites_to_create = array();
     foreach ($data as $site) {
-      $full_department = $site->department;
-
-      $department = $full_department;
-      $department = strtr($department, array(' ' => ''));
-      $department = strtolower($department);
-      $department = preg_replace('/[^[a-z0-9]/', '', $department);
-
-      $site_name = $site->site_name;
-      $site_name = strtr($site_name, array(' ' => ''));
-      $site_name = strtolower($site_name);
-      $site_name = preg_replace('/[^[a-z0-9]/', '', $site_name);
-
-      $path = $department . '/' . $site_name;
-
-      $db_prefix = unl_create_db_prefix($site);
+      $path = unl_sanitize_url_part($site->department) . '/' . unl_sanitize_url_part($site->site_name);
+      $db_prefix = unl_create_db_prefix($site->site_name);
 
       $sites_to_create[] = array(
         'site_path'      => $path,
@@ -630,7 +617,7 @@ function unl_cron() {
         'site_admin'     => $site->site_admin ? $site->site_admin : '',
         'migration_url'  => $site->migration_url ? $site->migration_url : '',
         'migration_path' => $site->migration_path ? $site->migration_path : '',
-        'department'     => $full_department,
+        'department'     => $site->department,
       );
 
       db_set_active('wdn_registry');
@@ -660,28 +647,42 @@ function unl_cron() {
 }
 
 // Creates a db_prefix short enough to not go over MySQL's max table name length
-function unl_create_db_prefix($site) {
+function unl_create_db_prefix($site_name) {
   $parent_prefix = '_' . $GLOBALS['databases']['default']['default']['prefix'];
 
-  $site_name = strtolower($site->site_name);
-  $site_name = preg_replace('/[^[a-z0-9]/', '', $site_name);
-  $site_name = explode(' ', $site_name);
+  $site_name = strtolower($site_name);
+  $site_name = preg_replace('/[^[a-z0-9]/', '_', $site_name);
+  $site_name = explode('_', $site_name);
   foreach ($site_name as $site_word) {
     $site_words[$site_word] = strlen($site_word);
   }
   do {
-    $db_prefix = '';
+    $db_prefix = array();
     $found = FALSE;
     foreach ($site_words as $site_word => $length) {
-      $db_prefix .= substr($site_word, 0, $length);
+      $db_prefix[] = substr($site_word, 0, $length);
       if (max($site_words) == $length && !$found) {
         $found = TRUE;
         $site_words[$site_word] = $length-1;
       }
     }
-  } while (strlen($db_prefix . $parent_prefix) > 32);
+    $db_prefix = implode('_', $db_prefix);
+    $db_prefix = preg_replace('/_+/', '_', $db_prefix);
+    $db_prefix = preg_replace('/(^_)|(_$)/', '', $db_prefix);
+  } while (strlen($db_prefix . '_' . $parent_prefix) > 32);
 
   return $db_prefix;
+}
+
+/**
+ * Custom function to sanitize user created URLs
+ */
+function unl_sanitize_url_part($url_part) {
+  $url_part = preg_replace('/[^a-z0-9]/', '-', $url_part);
+  $url_part = preg_replace('/-+/', '-', $url_part);
+  $url_part = preg_replace('/(^-)|(-$)/', '', $url_part);
+  
+  return $url_part;
 }
 
 function unl_get_alternate_base_uris() {
