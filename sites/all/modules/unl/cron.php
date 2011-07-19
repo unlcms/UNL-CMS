@@ -219,7 +219,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   if ($site_mail) {
     $command .= " --site-mail=$site_mail"; 
   }
-  shell_exec($command);
+  echo shell_exec($command);
   
   unl_add_site_to_htaccess($site_id, $site_path, FALSE);
   
@@ -227,7 +227,8 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
 }
 
 function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
-  $schema = drupal_get_schema();
+  // Grab the list of tables we need to drop.
+  $schema = drupal_get_schema(NULL, TRUE);
   $tables = array_keys($schema);
   sort($tables);
     
@@ -248,6 +249,7 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
     return FALSE;
   }
 
+  // Drop the site's tables
   foreach ($tables as $table) {
     $table = $db_prefix . $table;
     try {
@@ -257,26 +259,17 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
     }
   }
   
+  // Do our best to remove the sites
   shell_exec('chmod -R u+w ' . escapeshellarg($sites_subdir));
   shell_exec('rm -rf ' . escapeshellarg($sites_subdir));
   
   // Remove the rewrite rules from .htaccess for this site.
-  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
-  $site_start_token = "\n  # %UNL_START_SITE_ID_$site_id%";
-  $site_end_token = "  # %UNL_END_SITE_ID_$site_id%\n";
-  
-  $start_pos = strpos($htaccess, $site_start_token);
-  $end_pos = strpos($htaccess, $site_end_token);
-  
-  if ($start_pos === FALSE || $end_pos === FALSE) {
-    return FALSE;
-  }
-  $new_htaccess = substr($htaccess, 0, $start_pos)
-                . substr($htaccess, $end_pos + strlen($site_end_token))
-                ;
-  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
-  
   unl_remove_site_from_htaccess($site_id, FALSE);
+  
+  // If we were using memcache, flush its cache so new sites don't have stale data.
+  if (class_exists('MemCacheDrupal', FALSE)) {
+    dmemcache_flush();
+  }
   
   return TRUE;
 }
