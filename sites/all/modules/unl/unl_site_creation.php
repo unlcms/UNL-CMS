@@ -316,6 +316,7 @@ function unl_aliases_page() {
 function unl_site_alias_create($form, &$form_state) {
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'uri'))
+    ->orderBy('uri')
     ->execute()
     ->fetchAll();
   foreach ($sites as $site) {
