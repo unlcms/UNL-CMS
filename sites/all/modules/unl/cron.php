@@ -327,6 +327,10 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
     $site_or_alias = 'SITE';
   }
   
+  if (substr($site_path, -1) != '/') {
+    $site_path .= '/';
+  }
+
   $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $stub_pos = strpos($htaccess, $stub_token);
@@ -336,7 +340,7 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
   $new_htaccess = substr($htaccess, 0, $stub_pos)
                 . "  # %UNL_START_{$site_or_alias}_ID_{$site_id}%\n";
   foreach (array('misc', 'modules', 'sites', 'themes') as $drupal_dir) {
-    $new_htaccess .=  "  RewriteRule $site_path/$drupal_dir/(.*) $drupal_dir/$1\n";
+    $new_htaccess .=  "  RewriteRule $site_path$drupal_dir/(.*) $drupal_dir/$1\n";
   }
   $new_htaccess .= "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n" 
                  . $stub_token

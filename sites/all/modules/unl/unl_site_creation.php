@@ -46,8 +46,8 @@ function unl_site_create_validate($form, &$form_state) {
   if (substr($site_path, 0, 1) == '/') {
     $site_path = substr($site_path, 1);
   }
-  if (substr($site_path, -1) == '/') {
-    $site_path = substr($site_path, 0, -1);
+  if (substr($site_path, -1) != '/') {
+    $site_path .= '/';
   }
 
   $site_path_parts = explode('/', $site_path);
@@ -312,7 +312,7 @@ function unl_site_alias_create($form, &$form_state) {
     ->execute()
     ->fetchAll();
   foreach ($sites as $site) {
-    $site_list[$site->site_id] = $site->uri . '/';
+    $site_list[$site->site_id] = $site->uri;
   }
 
   $form['root'] = array(
@@ -331,7 +331,7 @@ function unl_site_alias_create($form, &$form_state) {
   $form['root']['base_uri'] = array(
     '#type' => 'textfield',
     '#title' => t('Alias Base URL'),
-    '#description' => t('The base URL for the new alias.'),
+    '#description' => t('The base URL for the new alias. (This should resolve to the directory containing drupal\'s .htaccess file'),
     '#default_value' => url('', array('https' => FALSE)),
     '#required' => TRUE,
   );
@@ -348,6 +348,23 @@ function unl_site_alias_create($form, &$form_state) {
   );
 
   return $form;
+}
+
+function unl_site_alias_create_validate($form, &$form_state) {
+  $form_state['values']['base_uri'] = trim($form_state['values']['base_uri']);
+  $form_state['values']['path']     = trim($form_state['values']['path']);
+
+  if (substr($form_state['values']['base_uri'], -1) != '/') {
+    $form_state['values']['base_uri'] .= '/';
+  }
+
+  if (substr($form_state['values']['path'], -1) != '/') {
+    $form_state['values']['path'] .= '/';
+  }
+  
+  if (substr($form_state['values']['path'], 0, 1) == '/') {
+    $form_state['values']['path'] = substr($form_state['values']['path'], 1);
+  }
 }
 
 function unl_site_alias_create_submit($form, &$form_state) {
