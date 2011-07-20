@@ -159,23 +159,25 @@ function unl_permission() {
  * Adds UNL Migration Tool to the Content menu for admin
  */
 function unl_menu() {
-  $access = array();
+  global $user;
+
+  $items = array();
+
   // Returns confirmation 'user_loggedin' if user is logged into the system
    $items['user/unl/whoami'] = array(
-  	'title' 			=> 'UNL Whoami Tool',
-  	'access callback'   => TRUE,
-  	'page callback'		=> 'unl_whoami',
-  	'file'				=> 'unl_whoami.php',
+    'title' => 'UNL Whoami Tool',
+    'access callback' => TRUE,
+    'page callback' => 'unl_whoami',
+    'file' => 'unl_whoami.php',
   );
 
   // Returns html technical feedback form
   $items['user/unl/technical_feedback'] = array(
-  	'title'				=> 'Technical Feedback',
-  	'description'		=> 'Returns a form to fill out to give technical feedback',
-  	'access callback'   => TRUE,
-  	'page callback'		=> 'technical_feedback',
-  	'file'				=> 'technical_feedback.php'
-
+    'title' => 'Technical Feedback',
+    'description' => 'Returns a form to fill out to give technical feedback',
+    'access callback' => TRUE,
+    'page callback' => 'technical_feedback',
+    'file' => 'technical_feedback.php'
   );
 
   $items['admin/content/unl/migration'] = array(
@@ -188,6 +190,7 @@ function unl_menu() {
     'file'             => 'unl_migration.php',
   );
 
+  // Redirect the Appearance link away from admin/appearance for users who can't Administer themes but can Change Theme Settings
   $items['admin/themes'] = array(
     'title' => 'Appearance',
     'description' => 'Configure your theme.',
@@ -198,11 +201,37 @@ function unl_menu() {
     'weight' => -6,
   );
 
+  // Hello world type page for performance/uptime monitoring
   $items['_status'] = array(
     'title'           => 'Still Alive',
     'page callback'   => 'unl_still_alive',
     'access callback' => TRUE,
   );
+
+  if (module_exists('imce')) {
+    // Add IMCE file browser to Content section
+    $items['admin/content/imce-file-browser'] = array(
+      'title' => 'File browser',
+      'page callback' => 'imce_user_page',
+      'page arguments' => array($user->uid),
+      'access callback' => '_unl_imce_file_browser_access',
+      'file' => 'inc/imce.page.inc',
+      'file path' => drupal_get_path('module', 'imce'),
+      'type' => MENU_LOCAL_TASK,
+      'weight' => -10,
+    );
+    // Add IMCE file browser to Add content list
+    $items['node/add/imce-file-upload'] = array(
+      'title' => 'File upload',
+      'description' => 'Upload files from your computer, such as PDF documents, to the file system.',
+      'page callback' => 'imce_user_page',
+      'page arguments' => array($user->uid),
+      'access callback' => '_unl_imce_file_browser_access',
+      'file' => 'inc/imce.page.inc',
+      'file path' => drupal_get_path('module', 'imce'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
 
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
@@ -256,8 +285,13 @@ function unl_menu_alter(&$items) {
   foreach (array('module', 'file', 'page arguments') as $key) {
     $items['admin/themes'][$key] = $items['admin/appearance/settings/' . variable_get('theme_default')][$key];
   }
-
-  return $items;
+  // Put all user pages in the admin theme
+  $items['user']['theme callback'] = '_unl_get_admin_theme';
+  // Make sure all Workbench Moderation admin pages are in the admin theme
+  if (module_exists('workbench_moderation')) {
+    $items['node/%node/moderation']['theme callback'] = '_unl_get_admin_theme';
+    $items['node/%node/moderation/%/unpublish']['theme callback'] = '_unl_get_admin_theme';
+  }
 }
 
 /**
@@ -592,7 +626,7 @@ function _unl_cron_import_wdn_registry_sites() {
   if (PHP_SAPI == 'cli') {
     return;
   }
-  
+
   // We don't want this running on sub-sites.
   if (conf_path() != 'sites/default') {
     return;
@@ -655,8 +689,8 @@ function _unl_cron_import_wdn_registry_sites() {
       }
       continue;
     }
-    
-    db_set_active('wdn_registry'); 
+
+    db_set_active('wdn_registry');
     if (variable_get('unl_wdn_registry_production')) {
       db_update('site_request')
         ->fields(array('url' => $site_to_create['uri']))
@@ -703,7 +737,7 @@ function unl_sanitize_url_part($url_part) {
   $url_part = preg_replace('/[^a-z0-9]/', '-', $url_part);
   $url_part = preg_replace('/-+/', '-', $url_part);
   $url_part = preg_replace('/(^-)|(-$)/', '', $url_part);
-  
+
   return $url_part;
 }
 
@@ -846,4 +880,69 @@ function unl_still_alive()
 {
   header('Content-type: text/plain');
   echo '200 Still Alive';
+}
+
+/**
+ * Implementation of hook_filter_info().
+ */
+function unl_filter_info() {
+  return array(
+    'unl_embed' => array(
+      'title' => 'UNL Node Embed',
+      'description' => "Allow a node's body to be embedded into another node by using tags.",
+      'process callback' => 'unl_filter_embed_process',
+      'cache' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_filter_FILTER_process pseudo-hook
+ *
+ * Replace any instances of [[node:X]] in the $text with the content of node X's body.
+ */
+function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $cache_id) {
+  static $processed_hashes = array();
+
+  $text_hash = hash('sha256', $text);
+  if (in_array($text_hash, array_keys($processed_hashes))) {
+    // Possible recursion detected, return the cache result.
+    return $processed_hashes[$text_hash];
+  }
+
+  // In case of recursion, set the cached result to this until we have the real result.
+  $processed_hashes[$text_hash] = 'Error: Cannot embed a node in itself..';
+
+  $matches = NULL;
+  preg_match_all('/\[\[node:([0-9]+)\]\]/', $text, $matches);
+  $node_ids = $matches[1];
+  $nodes = entity_load('node', $node_ids);
+  $replace_array = array();
+  foreach ($node_ids as $node_id) {
+    $content = node_view($nodes[$node_id]);
+    $replace_array["[[node:$node_id]]"] = PHP_EOL . "<!-- Node $node_id start -->" . PHP_EOL
+                      . render($content['body'])
+                      . PHP_EOL . "<!-- Node $node_id end -->" . PHP_EOL;
+  }
+  $text = strtr($text, $replace_array);
+  // Set the cached result to the real result.
+  $processed_hashes[$text_hash] = $text;
+  return $text;
+}
+
+/**
+ * Custom function to return the current admin theme for use with hook_menu_alter().
+ */
+function _unl_get_admin_theme(){
+  return variable_get('admin_theme', '0');
+}
+
+/**
+ * Custom function for imce access on content administration pages since imce_user_page_access()
+ * can't be used because only one file can be included in a hook_menu item ($items['admin/content/filebrowser'])
+ */
+function _unl_imce_file_browser_access() {
+  global $user;
+  $profile = imce_user_profile($user);
+  return $profile['usertab'];
 }
