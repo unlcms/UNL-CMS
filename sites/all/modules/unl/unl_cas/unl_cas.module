@@ -7,12 +7,12 @@ function unl_cas_enable() {
 }
 
 function unl_cas_init() {
-  
+
   // If no one is claiming to be logged in while no one is actually logged in, we don't need CAS.
   if (!array_key_exists('unl_sso', $_COOKIE) && user_is_anonymous()) {
     return;
   }
-  
+
   // The current request is to the validation URL, we don't want to redirect while a login is pending.
   if (request_path() == 'user/cas') {
     return;
@@ -31,8 +31,8 @@ function unl_cas_init() {
  */
 function unl_cas_get_adapter() {
   unl_load_zend_framework();
-  
-  // Start the session because if drupal doesn't then Zend_Session will. 
+
+  // Start the session because if drupal doesn't then Zend_Session will.
   drupal_session_start();
   static $adapter;
   if (!$adapter) {
@@ -55,8 +55,8 @@ function unl_cas_menu() {
   );
 
   $items['admin/people/import'] = array(
-    'title'            => 'Import User from People Finder',
-    'description'      => 'Import a user from UNL People Finder',
+    'title'            => 'Import User from UNL Directory',
+    'description'      => 'Import a user from the UNL Directory',
     'access arguments' => array('administer users'),
     'page callback'    => 'drupal_get_form',
     'page arguments'   => array('unl_cas_user_import'),
@@ -193,10 +193,10 @@ function unl_cas_import_user($username) {
     }
   }
   catch (Exception $e) {
-    // don't do anything, just go on to try the people finder method
+    // don't do anything, just go on to try the peoplefinder method
   }
 
-  // Next, if LDAP didn't work, try peoplefinder.
+  // Next, if LDAP didn't work, try peoplefinder/directory service.
   if (!isset($user['email'])) {
     $xml = @file_get_contents('http://directory.unl.edu/service.php?format=xml&uid=' . $username);
     if ($xml) {

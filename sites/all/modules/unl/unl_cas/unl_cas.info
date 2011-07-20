@@ -1,4 +1,3 @@
-; $Id$
 name = UNL CAS
 description = Enables CAS authentication/registration of users through login.unl.edu.
 package = UNL
