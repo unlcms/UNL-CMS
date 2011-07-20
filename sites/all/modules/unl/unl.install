@@ -66,7 +66,9 @@ function unl_schema() {
     ),
     'primary key' => array('site_id'),
     'unique keys' => array(
-      'sub_site' => array('site_path'),
+      'sub_site'  => array('site_path'),
+      'uri'       => array('uri'),
+      'db_prefix' => array('db_prefix'),
     ),
   );
 
@@ -368,4 +370,9 @@ function unl_update_7110()
   db_query("UPDATE {unl_sites} SET uri = CONCAT(uri, '/') WHERE SUBSTRING(uri, -1) != '/'");
   db_query("UPDATE {unl_sites_aliases} SET base_uri = CONCAT(base_uri, '/') WHERE SUBSTRING(base_uri, -1) != '/'");
   db_query("UPDATE {unl_sites_aliases} SET path = CONCAT(path, '/') WHERE SUBSTRING(path, -1) != '/' AND path != ''");
+}
+
+function unl_update_7111() {
+  db_add_unique_key('unl_sites', 'uri', array('uri'));
+  db_add_unique_key('unl_sites', 'db_prefix', array('db_prefix'));
 }
