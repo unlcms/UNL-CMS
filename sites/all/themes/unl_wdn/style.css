@@ -1,10 +1,12 @@
-/* Most unl_wdn css comes from all.css in the WDNTemplates project.
-   CSS that does appear here is for CMS specific items or modifications
-   that need to be made for WDN styles to work with CMS DOM structure.
-*/
+/* 
+ * Most unl_wdn css comes from all.css in the WDNTemplates project.
+ * CSS that does appear here is for CMS specific items or modifications
+ * that need to be made for WDN styles to work with CMS DOM structure.
+ */
+ 
+/* Position tabs at the top right of maincontent */
 body.fixed #maincontent {
-  min-width: 940px;
-  overflow: visible !important;
+  min-width: 960px;
 }
 #maincontent ul.wdn_tabs.cms_tabs {
   position: absolute;
@@ -16,8 +18,12 @@ body.fixed #maincontent {
 #navigation div.contextual-links-wrapper {
   display: none;
 }
+/* UNL css displays all ul in copyright area as inline, need to hide this */
+#wdn_copyright ul.contextual-links {
+  display: none;
+}
 
-/* Overrides of system.menus.css */
+/* Overrides of system.menus.css due to conflicts with UNL navigation */
 #navigation ul li.expanded, #navigation ul li.collapsed , #navigation ul li.leaf {
   list-style-image: none;
   list-style-type: none;
@@ -25,4 +31,9 @@ body.fixed #maincontent {
 #navigation li.expanded, #navigation li.collapsed, #navigation li.leaf {
   margin: 0;
   padding: 0;
+}
+
+/* Override for unl #maincontent specificity */
+ul.links.inline {
+  padding-left: 0 !important;
 }
