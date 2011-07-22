@@ -36,8 +36,12 @@ function drush_core_site_install_version($profile) {
           ),
         ),
         'update_status_module' => array(
+          /*
+          UNL change! Setting this to FALSE because we don't want them and they're hard coded.
           1 => TRUE,
           2 => TRUE,
+          End UNL Change!
+          */
         ),
         'clean_url' => drush_get_option('clean-url', TRUE),
       ),
