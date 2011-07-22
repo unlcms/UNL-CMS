@@ -3,7 +3,94 @@
 require_once dirname(__FILE__) . '/includes/common.php';
 
 /**
- * Implements hook_field_attach_view_alter().
+ * Implementation of hook_html_head_alter().
+ */
+function unl_html_head_alter(&$head_elements) {
+  // If <link rel="home"> has already been set elsewhere (in a Context for example) then return...
+  foreach ($head_elements as $key => $element) {
+    if ($element["#tag"] == 'link' && isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'home') {
+      return;
+    }
+  }
+  // ...otherwise add a <link rel="home"> tag with the front page as the href attribute
+  $element = array(
+    '#tag' => 'link',
+    '#attributes' => array(
+      'rel' => 'home',
+      'href' => url('<front>', array('absolute' => TRUE)),
+    ),
+    '#type' => 'html_tag'
+  );
+  $head_elements['drupal_add_html_head_link:home'] = $element;
+}
+
+/**
+ * Implementation of hook_context_plugins(). (Context module)
+ */
+function unl_context_plugins() {
+  $plugins = array();
+  $plugins['unl_context_reaction_linkrelhome'] = array(
+    'handler' => array(
+      'path' => drupal_get_path('module', 'unl') .'/plugins',
+      'file' => 'unl_context_reaction_linkrelhome.inc',
+      'class' => 'unl_context_reaction_linkrelhome',
+      'parent' => 'context_reaction',
+    ),
+  );
+  $plugins['unl_context_reaction_blockremove'] = array(
+    'handler' => array(
+      'path' => drupal_get_path('module', 'unl') .'/plugins',
+      'file' => 'unl_context_reaction_blockremove.inc',
+      'class' => 'unl_context_reaction_blockremove',
+      'parent' => 'context_reaction',
+    ),
+  );
+  return $plugins;
+}
+
+/**
+ * Implementation of hook_context_registry(). (Context module)
+ */
+function unl_context_registry() {
+  return array(
+    'reactions' => array(
+      'linkrelhome' => array(
+        'title' => t('link rel="home" tag'),
+        'plugin' => 'unl_context_reaction_linkrelhome',
+      ),
+      'blockremove' => array(
+        'title' => t('Block Remove'),
+        'plugin' => 'unl_context_reaction_blockremove',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_context_page_reaction(). (Context module)
+ */
+function unl_context_page_reaction() {
+  if ($plugin = context_get_plugin('reaction', 'linkrelhome')) {
+    $plugin->execute();
+  }
+}
+
+/**
+ * Implementation of hook_page_build().
+ */
+function unl_page_build(&$page) {
+  if (module_exists('context')) {
+    if ($plugin = context_get_plugin('reaction', 'blockremove')) {
+      $plugin->execute($page);
+    }
+    // See block_page_build. Clear static cache b/c in overlay form submissions
+    // hook_page_build can get called more than once per page load.
+    drupal_static_reset('context_reaction_block_list');
+  }
+}
+
+/**
+ * Implementation of hook_field_attach_view_alter().
  */
 function unl_field_attach_view_alter(&$output, $context) {
   // Replace the field named field_hrorgunit containing an org unit number with that unit's listing from the UNL directory

@@ -1,8 +1,7 @@
 <?php
 /**
  * @file
- * Default theme implementation to display the basic html structure of a single
- * Drupal page.
+ * unl_wdn theme implementation to display the basic html structure of a single Drupal page.
  *
  * Variables:
  * - $css: An array of CSS files for the current page.
@@ -44,7 +43,6 @@ $t->head .= PHP_EOL
           . $head . PHP_EOL
           . $styles . PHP_EOL
           . $scripts . PHP_EOL
-          . '<link href="' . url('<front>', array('absolute' => TRUE)) . '" rel="home" />' . PHP_EOL
           . '<link rel="logout" href="user/logout" />' . PHP_EOL
           . '<link rel="login" href="' . url('user', array('query' => drupal_get_destination())) . '" />' . PHP_EOL
           . theme_get_setting('head_html') . PHP_EOL
