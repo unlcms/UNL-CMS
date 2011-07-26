@@ -3,7 +3,7 @@
  * CSS that does appear here is for CMS specific items or modifications
  * that need to be made for WDN styles to work with CMS DOM structure.
  */
- 
+
 /* Position tabs at the top right of maincontent */
 body.fixed #maincontent {
   min-width: 960px;
@@ -14,10 +14,16 @@ body.fixed #maincontent {
   top: -60px;
 }
 
+/* Fix for a Views page */
+#wdn_content_wrapper.contextual-links-region {
+  position: static;
+}
+
 /* Hide the contextual links in the UNL nav */
 #navigation div.contextual-links-wrapper {
   display: none;
 }
+
 /* UNL css displays all ul in copyright area as inline, need to hide this */
 #wdn_copyright ul.contextual-links {
   display: none;
