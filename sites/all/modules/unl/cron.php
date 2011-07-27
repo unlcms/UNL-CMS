@@ -9,6 +9,7 @@ chdir(dirname(__FILE__) . '/../../../..');
 define('DRUPAL_ROOT', getcwd());
 
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
+require_once dirname(__FILE__) . '/includes/common.php';
 drupal_override_server_variables();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
@@ -167,26 +168,6 @@ function unl_remove_page_aliases() {
   }
 }
 
-
-function _unl_get_sites_subdir($uri, $trim_subdomain = TRUE) {
-  $path_parts = parse_url($uri);
-  if ($trim_subdomain && substr($path_parts['host'], -7) == 'unl.edu') {
-    $path_parts['host'] = 'unl.edu';
-  }
-  $sites_subdir = $path_parts['host'] . $path_parts['path'];
-  $sites_subdir = strtr($sites_subdir, array('/' => '.'));
-
-  while (substr($sites_subdir, 0, 1) == '.') {
-    $sites_subdir = substr($sites_subdir, 1);
-  }
-  while (substr($sites_subdir, -1) == '.') {
-    $sites_subdir = substr($sites_subdir, 0, -1);
-  }
-  
-  return $sites_subdir;
-}
-
-
 function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   if (substr($site_path, 0, 1) == '/') {
     $site_path = substr($site_path, 1);
@@ -195,7 +176,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
     $site_path = substr($site_path, 0, -1);
   }
   
-  $sites_subdir = _unl_get_sites_subdir($uri);
+  $sites_subdir = unl_get_sites_subdir($uri);
   
   $database = $GLOBALS['databases']['default']['default'];
   $db_url = $database['driver']
@@ -236,7 +217,7 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   $db_prefix .= '_' . $database['prefix'];
   
   
-  $sites_subdir = _unl_get_sites_subdir($uri);
+  $sites_subdir = unl_get_sites_subdir($uri);
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
   
@@ -276,8 +257,8 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
 
 function unl_add_alias($site_uri, $base_uri, $path, $alias_id) {
   $alias_uri = $base_uri . $path;
-  $real_config_dir = _unl_get_sites_subdir($site_uri);
-  $alias_config_dir = _unl_get_sites_subdir($alias_uri, FALSE);
+  $real_config_dir = unl_get_sites_subdir($site_uri);
+  $alias_config_dir = unl_get_sites_subdir($alias_uri, FALSE);
   $result = symlink($real_config_dir, DRUPAL_ROOT . '/sites/' . $alias_config_dir);
   
   if ($path) {
@@ -289,7 +270,7 @@ function unl_add_alias($site_uri, $base_uri, $path, $alias_id) {
 
 function unl_remove_alias($base_uri, $path, $alias_id) {
   $alias_uri = $base_uri . $path;
-  $alias_config_dir = _unl_get_sites_subdir($alias_uri, FALSE);
+  $alias_config_dir = unl_get_sites_subdir($alias_uri, FALSE);
   unlink(DRUPAL_ROOT . '/sites/' . $alias_config_dir);
   
   unl_remove_site_from_htaccess($alias_id, TRUE);

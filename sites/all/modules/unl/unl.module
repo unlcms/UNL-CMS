@@ -354,6 +354,16 @@ function unl_menu() {
       'file'             => 'unl_site_creation.php',
     );
 
+    $items['admin/sites/unl/user-audit'] = array(
+      'title'            => 'User Audit',
+      'description'      => 'Find out which sites users have access to.',
+      'access arguments' => array('unl site creation'),
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('unl_user_audit'),
+      'type'             => MENU_LOCAL_TASK,
+      'file'             => 'unl_site_creation.php',
+    );
+
     $items['admin/sites/unl/wdn_registry'] = array(
       'title'            => 'WDN Registry',
       'description'      => 'Settings for the connection to the WDN Registry.',

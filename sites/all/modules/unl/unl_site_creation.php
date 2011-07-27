@@ -657,6 +657,121 @@ function _unl_get_install_status_text($id) {
   return $installed;
 }
 
+/**
+ * Callback for the path admin/sites/unl/user-audit
+ * Presents a form to query what roles (if any) a user has on each site.
+ */
+
+function unl_user_audit($form, &$form_state) {
+  $form['root'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'User Audit',
+  );
+  
+  $form['root']['username'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Username',
+    '#required' => TRUE,
+  );
+  
+  /*
+  $form['root']['ignore_shared_roles'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Ignore Shared Roles',
+  );
+  */
+  
+  $form['root']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Search',
+  );
+  
+  // If no user input has been received yet, return the base form. 
+  if (!isset($form_state['values']) || !$form_state['values']['username']) {
+    return $form;
+  }
+  
+  
+  // Otherwise, since we have a username, we can query the sub-sites and return a list of roles for each.
+  $username = $form_state['values']['username'];
+  
+  $sites = db_select('unl_sites', 's')
+    ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
+    ->execute()
+    ->fetchAll();
+  
+  $audit_map = array();
+  foreach ($sites as $site) {
+    $shared_prefix = unl_get_shared_db_prefix();
+    $prefix = $site->db_prefix;
+    
+    try {
+      $site_settings = unl_get_site_settings($site->uri);
+      $site_db_config = $site_settings['databases']['default']['default'];
+      $roles_are_shared = is_array($site_db_config['prefix']) && array_key_exists('role', $site_db_config['prefix']);
+      
+      /*
+      // If the site uses shared roles, ignore it if the user wants us to.
+      if ($roles_are_shared && $form_state['values']['ignore_shared_roles']) {
+        continue;
+      }
+      */
+      
+      $role_names = db_query(
+        "SELECT r.name "
+        . "FROM {$prefix}_{$shared_prefix}users AS u "
+        . "JOIN {$prefix}_{$shared_prefix}users_roles AS m "
+        . "  ON u.uid = m.uid "
+        . 'JOIN ' . ($roles_are_shared ? '' : $prefix . '_') . $shared_prefix . 'role AS r '
+        . "  ON m.rid = r.rid "
+        . "WHERE u.name = :name",
+        array(':name' => $username)
+      )->fetchCol();
+      
+      if (count($role_names) == 0) {
+        continue;
+      }
+      
+      $audit_map[] = array(
+        'data' => l($site->uri, $site->uri),
+        'children' => $role_names,
+      );
+    } catch (Exception $e) {
+      // Either the site has no settings.php or the db_prefix is wrong.
+      drupal_set_message('Error querying database for site ' . $site->uri, 'warning');
+    } 
+  }
+  
+  $form['results'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Results',
+  );
+  
+  if (count($audit_map) > 0) {
+    $form['results']['roles'] = array(
+      '#theme' => 'item_list',
+      '#title' => 'The user "' . $username . '" belongs to the following sites as a member of the listed roles.',
+      '#type'  => 'ul',
+      '#items' => $audit_map,
+    );
+  } else {
+    $form['results']['roles'] = array(
+      '#type' => 'item',
+      '#title' => 'The user "' . $username . '" does not belong to any roles on any sites.',
+    );
+  }
+  
+  return $form;
+}
+
+/**
+ * Submit handler for unl_user_audit form.
+ * Simply tells the form to rebuild itself with the user supplied data.
+ */
+function unl_user_audit_submit($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+}
+
 function theme_unl_table($variables) {
   $form = $variables['form'];
   foreach (element_children($form['rows']) as $row_index) {
