@@ -576,6 +576,18 @@ class Unl_Migration_Tool
             $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.');
             $maincontentarea = $this->_get_text_between_tokens($html, '<body>', '</body>');
         }
+    
+        if (!$maincontentarea) {
+            // its possible the body tag has attributes.  Check for this and filter them out.
+            $maincontentarea = $this->_get_text_between_tokens($html, '<body', '</body>');
+            // As long as we find a closing bracket before the next opening bracket, its probably safe to assume the body tag is intact. 
+            if (strpos($maincontentarea, '>') < strpos($maincontentarea, '<')) {
+              $maincontentarea = trim(substr($maincontentarea, strpos($maincontentarea, '>') + 1));
+            // Otherwise, ignore it all. (Will be an issue if the body has no other tags, but how likely is this?)
+            } else {
+              $maincontentarea = '';
+            }
+        }
         
         if (!$maincontentarea) {
             $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.');
