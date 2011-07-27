@@ -784,13 +784,15 @@ class Unl_Migration_Tool
         if (module_exists('pathauto')) {
           $node->path['pathauto'] = FALSE;
         }
+        
+        $filter_format_keys = array_keys(filter_formats());
         $node->body = array(
-            'und' => array(
-                array(
-                    'value' => $content,
-                    'format' => array_shift(array_keys(filter_formats()))
-                )
-            )
+          'und' => array(
+            array(
+              'value' => $content,
+              'format' => array_shift($filter_format_keys),
+            ),
+          ),
         );
         
         node_submit($node);
