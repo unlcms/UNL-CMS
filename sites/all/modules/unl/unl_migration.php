@@ -373,7 +373,7 @@ class Unl_Migration_Tool
         }
         
         if (count($this->_menu) == 0) {
-            $this->_log('Could not find the navigation menu for your site!');
+            $this->_log('Could not find the navigation menu for your site!', WATCHDOG_ERROR);
         }
     }
 
@@ -424,7 +424,7 @@ class Unl_Migration_Tool
                 menu_link_save($item);
                 $this->_log('Created menu item "' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
             } else {
-                $this->_log('Error: could not find a node to link to the ' . $item['link_title'] . ' menu item.');
+                $this->_log('Could not find a node to link to the ' . $item['link_title'] . ' menu item.', WATCHDOG_ERROR);
                 continue;
             }
             
@@ -468,7 +468,7 @@ class Unl_Migration_Tool
                     menu_link_save($item);
                     $this->_log('Created menu item "' . $parentTitle . ' / ' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
                 } else {
-                    $this->_log('Error: could not find a node to link to the "' . $parentTitle . ' / ' . $item['link_title'] . '" menu.');
+                    $this->_log('Could not find a node to link to the "' . $parentTitle . ' / ' . $item['link_title'] . '" menu.', WATCHDOG_ERROR);
                 }
             }
         }
@@ -524,7 +524,7 @@ class Unl_Migration_Tool
     
         $data = $this->_getUrl($url);
         if (!$data['content']) {
-            $this->_log('The file at ' . $fullPath . ' was empty! Ignoring.');
+            $this->_log('The file at ' . $fullPath . ' was empty! Ignoring.', WATCHDOG_ERROR);
             return;
         }
         
@@ -532,10 +532,10 @@ class Unl_Migration_Tool
         if (($matchingPath = array_search($pageHash, $this->_processedPageHashes)) !== FALSE) {
             $logMessage = "The file found at $fullPath was a duplicate of the file at {$this->_baseUrl}$matchingPath !";
             if ($this->_ignoreDuplicates) {
-                $this->_log($logMessage . ' Ignoring.');
+                $this->_log($logMessage . ' Ignoring.', WATCHDOG_WARNING);
                 return;
             } else {
-                $this->_log($logMessage);
+                $this->_log($logMessage, WATCHDOG_WARNING);
             }
         }
         $this->_processedPageHashes[$path] = $pageHash; 
@@ -545,7 +545,7 @@ class Unl_Migration_Tool
         }
         if (strpos($data['contentType'], 'html') === FALSE) {
             if (!$data['contentType']) {
-                $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.');
+                $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.', WATCHDOG_ERROR);
                 return;
             }
             @drupal_mkdir('public://' . urldecode(dirname($path)), NULL, TRUE);
@@ -555,7 +555,7 @@ class Unl_Migration_Tool
             try {
               $file = file_save_data($data['content'], 'public://' . urldecode($path), FILE_EXISTS_REPLACE);
             } catch (Exception $e) {
-              $this->_log('Could not migrate file "' . $path . '"! File name too long?');
+              $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
             }
             $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
             return;
@@ -573,7 +573,7 @@ class Unl_Migration_Tool
         }
     
         if (!$maincontentarea) {
-            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.');
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.', WATCHDOG_WARNING);
             $maincontentarea = $this->_get_text_between_tokens($html, '<body>', '</body>');
         }
     
@@ -590,7 +590,7 @@ class Unl_Migration_Tool
         }
         
         if (!$maincontentarea) {
-            $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.');
+            $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.', WATCHDOG_ERROR);
             return;
         }
         
@@ -629,16 +629,16 @@ class Unl_Migration_Tool
         }
         
         if (!$pageTitle) {
-            $this->_log('No page title was found at ' . $fullPath . '.');
+            $this->_log('No page title was found at ' . $fullPath . '.', WATCHDOG_ERROR);
             $pageTitle = 'Untitled';
         }
         
         $maincontentNode = $dom->getElementById('maincontent');
         if (!$maincontentNode) {
-            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.');
+            $this->_log('The file at ' . $fullPath . ' has no valid maincontentarea. Using entire body.', WATCHDOG_WARNING);
             $bodyNodes = $dom->getElementsByTagName('body');
             if ($bodyNodes->length == 0) {
-                $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.');
+                $this->_log('The file at ' . $fullPath . ' has no valid body. Ignoring.', WATCHDOG_ERROR);
                 return;
             }
             $maincontentNode = $bodyNodes->item(0);
@@ -797,7 +797,7 @@ class Unl_Migration_Tool
         try {
             node_save($node);
         } catch (Exception $e) {
-            $this->_log('Error saving page at ' . $alias . '. This is probably a case sensitivity conflict.');
+            $this->_log('Could not save page at ' . $alias . '. This is probably a case sensitivity conflict.', WATCHDOG_ERROR);
             return;
         }
         
@@ -852,7 +852,7 @@ class Unl_Migration_Tool
         // don't copy files greater than 10MB in size
         if (isset($headers['Content-Length']) && $headers['Content-Length'] > (10 * 1024 * 1024)) {
             $size = floor($headers['Content-Length'] / (1024 * 1024)); 
-            $this->_log("The file at $url is $size MB!  Ignoring.");
+            $this->_log("The file at $url is $size MB!  Ignoring.", WATCHDOG_ERROR);
             $content = '';
         } else {
             curl_setopt($this->_curl, CURLOPT_NOBODY, FALSE);
@@ -873,10 +873,10 @@ class Unl_Migration_Tool
                 $this->_redirects[substr($url, strlen($this->_baseUrl))] = $location;
             }
             
-            $this->_log('Found a redirect from ' . $url . ' to ' . $location . '. Some links may need to be updated.');
+            $this->_log('Found a redirect from ' . $url . ' to ' . $location . '. Some links may need to be updated.', WATCHDOG_WARNING);
             return FALSE;
         } else if ($meta['http_code'] != 200) {
-            $this->_log('Error: HTTP ' . $meta['http_code'] . ' while fetching ' . $url . '. Possible dead link.');
+            $this->_log('HTTP ' . $meta['http_code'] . ' while fetching ' . $url . '. Possible dead link.', WATCHDOG_ERROR);
             return FALSE;
         }
         
@@ -947,7 +947,7 @@ class Unl_Migration_Tool
             $login = ftp_login($this->_frontier, $this->_frontierUser, $this->_frontierPass);
             if (!$login) {
                 $this->_frontier = NULL;
-                $this->_log('Error: could not connect to frontier with user ' . $this->_frontierUser . '.');
+                $this->_log('Could not connect to frontier with user ' . $this->_frontierUser . '.', WATCHDOG_ERROR);
             }
             ftp_pasv($this->_frontier, TRUE);
         }
@@ -1000,10 +1000,22 @@ class Unl_Migration_Tool
         return TRUE;
     }
     
-    private function _log($message)
+    private function _log($message, $severity = WATCHDOG_INFO)
     {
-        $this->_log[] = $message;
-        drupal_set_message($message, 'status');
+      $this->_log[] = $message;
+      
+      if ($severity == WATCHDOG_INFO) {
+        $type = 'status';
+      }
+      else if ($severity == WATCHDOG_WARNING) {
+        $type = 'warning';
+      }
+      else {
+        $type = 'error';
+      }
+      drupal_set_message($message, $type, FALSE);
+      
+      watchdog('unl migration', $message, NULL, $severity);
     }
 
   private function _get_instance_editable_content($html, $name) {
