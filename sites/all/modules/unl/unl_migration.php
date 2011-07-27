@@ -97,7 +97,7 @@ function unl_migration_step($migration, &$context)
   }
   
   $finished += 0.01;
-  if ($finished == 1.0) {
+  if ($finished > 0.99) {
     $finished = 0.99;
   }
   $context['finished'] = $finished;
