@@ -73,6 +73,10 @@ function unl_get_site_settings($uri) {
     throw new Exception('No settings.php exists for site at ' . $uri);
   }
   
+  if (is_readable(DRUPAL_ROOT . '/sites/all/settings.php')) {
+    require DRUPAL_ROOT . '/sites/all/settings.php';
+  }
+  
   require $settings_file;
   unset($uri);
   unset($settings_file);
