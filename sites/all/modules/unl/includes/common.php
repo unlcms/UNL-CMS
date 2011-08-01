@@ -43,6 +43,22 @@ function unl_shared_variable_get($name, $default = NULL) {
   return unserialize($data[0]->value);
 }
 
+function unl_site_variable_get($db_prefix, $name, $default = NULL) {
+  $shared_prefix = unl_get_shared_db_prefix();
+  $data = db_query(
+    "SELECT * "
+    . "FROM {$db_prefix}_{$shared_prefix}variable "
+    . "WHERE name = :name",
+    array(':name' => $name)
+  )->fetchAll();
+
+  if (count($data) == 0) {
+    return $default;
+  }
+
+  return unserialize($data[0]->value);
+}
+
 /**
  * Given a URI, will return the name of the directory for that site in the sites directory.
  */

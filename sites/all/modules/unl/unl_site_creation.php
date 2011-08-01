@@ -695,51 +695,12 @@ function unl_user_audit($form, &$form_state) {
   // Otherwise, since we have a username, we can query the sub-sites and return a list of roles for each.
   $username = $form_state['values']['username'];
   
-  $sites = db_select('unl_sites', 's')
-    ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
-    ->execute()
-    ->fetchAll();
-  
   $audit_map = array();
-  foreach ($sites as $site) {
-    $shared_prefix = unl_get_shared_db_prefix();
-    $prefix = $site->db_prefix;
-    
-    try {
-      $site_settings = unl_get_site_settings($site->uri);
-      $site_db_config = $site_settings['databases']['default']['default'];
-      $roles_are_shared = is_array($site_db_config['prefix']) && array_key_exists('role', $site_db_config['prefix']);
-      
-      /*
-      // If the site uses shared roles, ignore it if the user wants us to.
-      if ($roles_are_shared && $form_state['values']['ignore_shared_roles']) {
-        continue;
-      }
-      */
-      
-      $role_names = db_query(
-        "SELECT r.name "
-        . "FROM {$prefix}_{$shared_prefix}users AS u "
-        . "JOIN {$prefix}_{$shared_prefix}users_roles AS m "
-        . "  ON u.uid = m.uid "
-        . 'JOIN ' . ($roles_are_shared ? '' : $prefix . '_') . $shared_prefix . 'role AS r '
-        . "  ON m.rid = r.rid "
-        . "WHERE u.name = :name",
-        array(':name' => $username)
-      )->fetchCol();
-      
-      if (count($role_names) == 0) {
-        continue;
-      }
-      
-      $audit_map[] = array(
-        'data' => l($site->uri, $site->uri),
-        'children' => $role_names,
-      );
-    } catch (Exception $e) {
-      // Either the site has no settings.php or the db_prefix is wrong.
-      drupal_set_message('Error querying database for site ' . $site->uri, 'warning');
-    } 
+  foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
+    $audit_map[] = array(
+      'data' => l($site['uri'], $site['uri']),
+      'children' => $site['roles'],
+    );
   }
   
   $form['results'] = array(
@@ -781,4 +742,104 @@ function theme_unl_table($variables) {
   }
 
   return theme('table', $form);
+}
+
+/**
+ * Callback for URI admin/sites/unl/feed
+ */
+function unl_sites_feed() {
+  $data = unl_get_site_user_map('role', 'Site Admin', TRUE);
+  
+  header('Content-type: application/json');
+  echo json_encode($data);
+}
+
+/**
+ * Returns an array of lists of either roles a user belongs to or users belonging to a role.
+ * Each key is the URI of a site and the value is the list.
+ * If $list_empty_sites is set to TRUE, all sites will be listed, even if they have empty lists.
+ * 
+ * @param string $search_by (Either 'username' or 'role')
+ * @param mixed $username_or_role
+ * @param bool $list_empty_sites
+ * @throws Exception
+ */
+function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites = FALSE) {
+  if (!in_array($search_by, array('username', 'role'))) {
+    throw new Exception('Invalid argument for $search_by');
+  }
+  
+  $sites = db_select('unl_sites', 's')
+    ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
+    ->execute()
+    ->fetchAll();
+  
+  $audit_map = array();
+  foreach ($sites as $site) {
+    $shared_prefix = unl_get_shared_db_prefix();
+    $prefix = $site->db_prefix;
+    
+    try {
+      $site_settings = unl_get_site_settings($site->uri);
+      $site_db_config = $site_settings['databases']['default']['default'];
+      $roles_are_shared = is_array($site_db_config['prefix']) && array_key_exists('role', $site_db_config['prefix']);
+      
+      /*
+      // If the site uses shared roles, ignore it if the user wants us to.
+      if ($roles_are_shared && $form_state['values']['ignore_shared_roles']) {
+        continue;
+      }
+      */
+      
+      $bound_params = array();
+      $where = array();
+      
+      if ($search_by == 'username') {
+        $return_label = 'roles';
+        $select = 'r.name';
+        $where[] = 'u.name = :name';
+        $bound_params[':name'] = $username_or_role;
+      }
+      else {
+        $return_label = 'users';
+        $select = 'u.name';
+        $where[] = 'r.name = :role';
+        $bound_params[':role'] = $username_or_role;
+      }
+      
+      $query = "SELECT {$select} "
+             . "FROM {$prefix}_{$shared_prefix}users AS u "
+             . "JOIN {$prefix}_{$shared_prefix}users_roles AS m "
+             . "  ON u.uid = m.uid "
+             . 'JOIN ' . ($roles_are_shared ? '' : $prefix . '_') . $shared_prefix . 'role AS r '
+             . "  ON m.rid = r.rid ";
+      
+      if (count($where) > 0) {
+        $query .= 'WHERE ' . implode(' AND ', $where) . ' ';
+      }
+      
+      $role_names = db_query($query, $bound_params)->fetchCol();
+      
+      if (count($role_names) == 0 && !$list_empty_sites) {
+        continue;
+      }
+      
+      $primary_base_url = unl_site_variable_get($prefix, 'unl_primary_base_url');
+      if ($primary_base_url) {
+        $uri = $primary_base_url;
+      }
+      else {
+        $uri = $site->uri;
+      }
+      $audit_map[$site->site_id] = array(
+        'uri' => $uri,
+        $return_label => $role_names,
+      );
+    } catch (Exception $e) {
+      // Either the site has no settings.php or the db_prefix is wrong.
+      drupal_set_message('Error querying database for site ' . $site->uri, 'warning');
+    }
+  }
+  
+  return $audit_map;
 }
