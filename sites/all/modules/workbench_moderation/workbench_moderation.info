@@ -13,9 +13,9 @@ files[] = includes/workbench_moderation_handler_filter_user_can_moderate.inc
 files[] = tests/workbench_moderation.test
 files[] = tests/workbench_moderation.files.test
 
-; Information added by drupal.org packaging script on 2011-07-15
-version = "7.x-1.x-dev"
+; Information added by drupal.org packaging script on 2011-07-23
+version = "7.x-1.0-beta8"
 core = "7.x"
 project = "workbench_moderation"
-datestamp = "1310691021"
+datestamp = "1311431220"
 

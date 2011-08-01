@@ -10,11 +10,11 @@
 $view = new view;
 $view->name = 'workbench_moderation';
 $view->description = '';
-$view->tag = 'Workbench';
+$view->tag = 'Workbench Moderation';
 $view->base_table = 'node_revision';
 $view->human_name = 'workbench_moderation';
 $view->core = 7;
-$view->api_version = '3.0-alpha1';
+$view->api_version = '3.0';
 $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
 
 /* Display: Defaults */
@@ -27,6 +27,7 @@ $handler->display->display_options['access']['type'] = 'perm';
 $handler->display->display_options['access']['perm'] = 'use workbench_moderation my drafts tab';
 $handler->display->display_options['cache']['type'] = 'none';
 $handler->display->display_options['query']['type'] = 'views_query';
+$handler->display->display_options['query']['options']['query_comment'] = FALSE;
 $handler->display->display_options['exposed_form']['type'] = 'basic';
 $handler->display->display_options['pager']['type'] = 'full';
 $handler->display->display_options['pager']['options']['items_per_page'] = '25';
@@ -107,18 +108,18 @@ $handler->display->display_options['style_options']['info'] = array(
 $handler->display->display_options['style_options']['override'] = 1;
 $handler->display->display_options['style_options']['sticky'] = 0;
 $handler->display->display_options['style_options']['order'] = 'desc';
-/* Empty text: Global: Text area */
+/* No results behavior: Global: Text area */
 $handler->display->display_options['empty']['area']['id'] = 'area';
 $handler->display->display_options['empty']['area']['table'] = 'views';
 $handler->display->display_options['empty']['area']['field'] = 'area';
 $handler->display->display_options['empty']['area']['empty'] = FALSE;
 $handler->display->display_options['empty']['area']['content'] = 'You haven\'t created or edited any content.';
 $handler->display->display_options['empty']['area']['format'] = '1';
-/* Relationship: Node revision: User */
+/* Relationship: Content revision: User */
 $handler->display->display_options['relationships']['uid']['id'] = 'uid';
 $handler->display->display_options['relationships']['uid']['table'] = 'node_revision';
 $handler->display->display_options['relationships']['uid']['field'] = 'uid';
-/* Field: Node: Nid */
+/* Field: Content: Nid */
 $handler->display->display_options['fields']['nid_1']['id'] = 'nid_1';
 $handler->display->display_options['fields']['nid_1']['table'] = 'node';
 $handler->display->display_options['fields']['nid_1']['field'] = 'nid';
@@ -126,17 +127,17 @@ $handler->display->display_options['fields']['nid_1']['exclude'] = TRUE;
 $handler->display->display_options['fields']['nid_1']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['nid_1']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['nid_1']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['nid_1']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['nid_1']['alter']['word_boundary'] = 1;
 $handler->display->display_options['fields']['nid_1']['alter']['ellipsis'] = 1;
 $handler->display->display_options['fields']['nid_1']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['nid_1']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['nid_1']['alter']['html'] = 0;
 $handler->display->display_options['fields']['nid_1']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['nid_1']['element_default_classes'] = 1;
 $handler->display->display_options['fields']['nid_1']['hide_empty'] = 0;
 $handler->display->display_options['fields']['nid_1']['empty_zero'] = 0;
 $handler->display->display_options['fields']['nid_1']['link_to_node'] = 1;
-/* Field: Node revision: Log message */
+/* Field: Content revision: Log message */
 $handler->display->display_options['fields']['log']['id'] = 'log';
 $handler->display->display_options['fields']['log']['table'] = 'node_revision';
 $handler->display->display_options['fields']['log']['field'] = 'log';
@@ -144,10 +145,10 @@ $handler->display->display_options['fields']['log']['exclude'] = TRUE;
 $handler->display->display_options['fields']['log']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['log']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['log']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['log']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['log']['alter']['word_boundary'] = 1;
 $handler->display->display_options['fields']['log']['alter']['ellipsis'] = 1;
 $handler->display->display_options['fields']['log']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['log']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['log']['alter']['html'] = 0;
 $handler->display->display_options['fields']['log']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['log']['element_default_classes'] = 1;
@@ -162,10 +163,10 @@ $handler->display->display_options['fields']['nothing']['alter']['text'] = 'View
 $handler->display->display_options['fields']['nothing']['alter']['make_link'] = 1;
 $handler->display->display_options['fields']['nothing']['alter']['path'] = 'node/[nid_1]/moderation';
 $handler->display->display_options['fields']['nothing']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['nothing']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['nothing']['alter']['word_boundary'] = 1;
 $handler->display->display_options['fields']['nothing']['alter']['ellipsis'] = 1;
 $handler->display->display_options['fields']['nothing']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['nothing']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['nothing']['alter']['html'] = 0;
 $handler->display->display_options['fields']['nothing']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['nothing']['element_default_classes'] = 1;
@@ -181,10 +182,10 @@ $handler->display->display_options['fields']['state']['alter']['alter_text'] = 1
 $handler->display->display_options['fields']['state']['alter']['text'] = '<div>[state]</div><div>[nothing]</div>';
 $handler->display->display_options['fields']['state']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['state']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['state']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['state']['alter']['word_boundary'] = 1;
 $handler->display->display_options['fields']['state']['alter']['ellipsis'] = 1;
 $handler->display->display_options['fields']['state']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['state']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['state']['alter']['html'] = 0;
 $handler->display->display_options['fields']['state']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['state']['element_default_classes'] = 1;
@@ -198,41 +199,41 @@ $handler->display->display_options['fields']['moderation_actions']['label'] = 'M
 $handler->display->display_options['fields']['moderation_actions']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['moderation_actions']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['moderation_actions']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['moderation_actions']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['moderation_actions']['alter']['word_boundary'] = 1;
 $handler->display->display_options['fields']['moderation_actions']['alter']['ellipsis'] = 1;
 $handler->display->display_options['fields']['moderation_actions']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['moderation_actions']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['moderation_actions']['alter']['html'] = 0;
 $handler->display->display_options['fields']['moderation_actions']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['moderation_actions']['element_default_classes'] = 1;
 $handler->display->display_options['fields']['moderation_actions']['hide_empty'] = 0;
 $handler->display->display_options['fields']['moderation_actions']['empty_zero'] = 0;
-/* Field: Node: Title */
+/* Field: Content: Title */
 $handler->display->display_options['fields']['title']['id'] = 'title';
 $handler->display->display_options['fields']['title']['table'] = 'node';
 $handler->display->display_options['fields']['title']['field'] = 'title';
 $handler->display->display_options['fields']['title']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['title']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['title']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['title']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['title']['alter']['word_boundary'] = 0;
 $handler->display->display_options['fields']['title']['alter']['ellipsis'] = 0;
 $handler->display->display_options['fields']['title']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['title']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['title']['alter']['html'] = 0;
 $handler->display->display_options['fields']['title']['hide_empty'] = 0;
 $handler->display->display_options['fields']['title']['empty_zero'] = 0;
 $handler->display->display_options['fields']['title']['link_to_node'] = 1;
-/* Field: Node: Type */
+/* Field: Content: Type */
 $handler->display->display_options['fields']['type']['id'] = 'type';
 $handler->display->display_options['fields']['type']['table'] = 'node';
 $handler->display->display_options['fields']['type']['field'] = 'type';
 $handler->display->display_options['fields']['type']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['type']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['type']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['type']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['type']['alter']['word_boundary'] = 0;
 $handler->display->display_options['fields']['type']['alter']['ellipsis'] = 0;
 $handler->display->display_options['fields']['type']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['type']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['type']['alter']['html'] = 0;
 $handler->display->display_options['fields']['type']['hide_empty'] = 0;
 $handler->display->display_options['fields']['type']['empty_zero'] = 0;
@@ -247,10 +248,10 @@ $handler->display->display_options['fields']['name']['label'] = 'Revised by';
 $handler->display->display_options['fields']['name']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['name']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['name']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['name']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['name']['alter']['word_boundary'] = 1;
 $handler->display->display_options['fields']['name']['alter']['ellipsis'] = 1;
 $handler->display->display_options['fields']['name']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['name']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['name']['alter']['html'] = 0;
 $handler->display->display_options['fields']['name']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['name']['element_default_classes'] = 1;
@@ -258,7 +259,7 @@ $handler->display->display_options['fields']['name']['hide_empty'] = 0;
 $handler->display->display_options['fields']['name']['empty_zero'] = 0;
 $handler->display->display_options['fields']['name']['link_to_user'] = 1;
 $handler->display->display_options['fields']['name']['overwrite_anonymous'] = 0;
-/* Field: Node: Updated date */
+/* Field: Content: Updated date */
 $handler->display->display_options['fields']['changed']['id'] = 'changed';
 $handler->display->display_options['fields']['changed']['table'] = 'node';
 $handler->display->display_options['fields']['changed']['field'] = 'changed';
@@ -266,50 +267,52 @@ $handler->display->display_options['fields']['changed']['label'] = 'Last updated
 $handler->display->display_options['fields']['changed']['alter']['alter_text'] = 0;
 $handler->display->display_options['fields']['changed']['alter']['make_link'] = 0;
 $handler->display->display_options['fields']['changed']['alter']['absolute'] = 0;
-$handler->display->display_options['fields']['changed']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['changed']['alter']['word_boundary'] = 0;
 $handler->display->display_options['fields']['changed']['alter']['ellipsis'] = 0;
 $handler->display->display_options['fields']['changed']['alter']['strip_tags'] = 0;
+$handler->display->display_options['fields']['changed']['alter']['trim'] = 0;
 $handler->display->display_options['fields']['changed']['alter']['html'] = 0;
 $handler->display->display_options['fields']['changed']['element_label_colon'] = 1;
 $handler->display->display_options['fields']['changed']['element_default_classes'] = 1;
 $handler->display->display_options['fields']['changed']['hide_empty'] = 0;
 $handler->display->display_options['fields']['changed']['empty_zero'] = 0;
 $handler->display->display_options['fields']['changed']['date_format'] = 'time ago';
-/* Sort criterion: Node: Updated date */
+/* Sort criterion: Content: Updated date */
 $handler->display->display_options['sorts']['changed']['id'] = 'changed';
 $handler->display->display_options['sorts']['changed']['table'] = 'node';
 $handler->display->display_options['sorts']['changed']['field'] = 'changed';
 $handler->display->display_options['sorts']['changed']['order'] = 'DESC';
-/* Filter: User: Current */
+/* Filter criterion: User: Current */
 $handler->display->display_options['filters']['uid_current']['id'] = 'uid_current';
 $handler->display->display_options['filters']['uid_current']['table'] = 'users';
 $handler->display->display_options['filters']['uid_current']['field'] = 'uid_current';
 $handler->display->display_options['filters']['uid_current']['relationship'] = 'uid';
 $handler->display->display_options['filters']['uid_current']['value'] = '1';
-/* Filter: Node: Title */
+/* Filter criterion: Content: Title */
 $handler->display->display_options['filters']['title']['id'] = 'title';
 $handler->display->display_options['filters']['title']['table'] = 'node';
 $handler->display->display_options['filters']['title']['field'] = 'title';
 $handler->display->display_options['filters']['title']['operator'] = 'contains';
 $handler->display->display_options['filters']['title']['exposed'] = TRUE;
-$handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
+$handler->display->display_options['filters']['title']['expose']['operator_id'] = 'title_op';
 $handler->display->display_options['filters']['title']['expose']['label'] = 'Title';
 $handler->display->display_options['filters']['title']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
 $handler->display->display_options['filters']['title']['expose']['identifier'] = 'title';
 $handler->display->display_options['filters']['title']['expose']['remember'] = 1;
-/* Filter: Node: Type */
+/* Filter criterion: Content: Type */
 $handler->display->display_options['filters']['type']['id'] = 'type';
 $handler->display->display_options['filters']['type']['table'] = 'node';
 $handler->display->display_options['filters']['type']['field'] = 'type';
 $handler->display->display_options['filters']['type']['exposed'] = TRUE;
-$handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
+$handler->display->display_options['filters']['type']['expose']['operator_id'] = 'type_op';
 $handler->display->display_options['filters']['type']['expose']['label'] = 'Type';
 $handler->display->display_options['filters']['type']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
 $handler->display->display_options['filters']['type']['expose']['identifier'] = 'type';
 $handler->display->display_options['filters']['type']['expose']['remember'] = 1;
 $handler->display->display_options['filters']['type']['expose']['reduce'] = 0;
-/* Filter: Workbench Moderation: State */
+/* Filter criterion: Workbench Moderation: State */
 $handler->display->display_options['filters']['state']['id'] = 'state';
 $handler->display->display_options['filters']['state']['table'] = 'workbench_moderation_node_history';
 $handler->display->display_options['filters']['state']['field'] = 'state';
@@ -318,14 +321,14 @@ $handler->display->display_options['filters']['state']['value'] = array(
   'Needs Review' => 'Needs Review',
 );
 $handler->display->display_options['filters']['state']['exposed'] = TRUE;
-$handler->display->display_options['filters']['state']['expose']['operator'] = 'state_op';
+$handler->display->display_options['filters']['state']['expose']['operator_id'] = 'state_op';
 $handler->display->display_options['filters']['state']['expose']['label'] = 'State';
 $handler->display->display_options['filters']['state']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['state']['expose']['operator'] = 'state_op';
 $handler->display->display_options['filters']['state']['expose']['identifier'] = 'state';
-$handler->display->display_options['filters']['state']['expose']['optional'] = 0;
 $handler->display->display_options['filters']['state']['expose']['remember'] = 1;
 $handler->display->display_options['filters']['state']['expose']['reduce'] = 1;
-/* Filter: Workbench Moderation: Current */
+/* Filter criterion: Workbench Moderation: Current */
 $handler->display->display_options['filters']['current']['id'] = 'current';
 $handler->display->display_options['filters']['current']['table'] = 'workbench_moderation_node_history';
 $handler->display->display_options['filters']['current']['field'] = 'current';
@@ -338,7 +341,7 @@ $handler->display->display_options['defaults']['access'] = FALSE;
 $handler->display->display_options['access']['type'] = 'perm';
 $handler->display->display_options['access']['perm'] = 'use workbench_moderation needs review tab';
 $handler->display->display_options['defaults']['empty'] = FALSE;
-/* Empty text: Global: Text area */
+/* No results behavior: Global: Text area */
 $handler->display->display_options['empty']['area']['id'] = 'area';
 $handler->display->display_options['empty']['area']['table'] = 'views';
 $handler->display->display_options['empty']['area']['field'] = 'area';
@@ -346,44 +349,44 @@ $handler->display->display_options['empty']['area']['empty'] = FALSE;
 $handler->display->display_options['empty']['area']['content'] = 'This list displays content in the "Needs Review" state that you can moderate. Currently there is no such content.';
 $handler->display->display_options['empty']['area']['format'] = 'plain_text';
 $handler->display->display_options['defaults']['filters'] = FALSE;
-/* Filter: Workbench Moderation: Current */
+/* Filter criterion: Workbench Moderation: Current */
 $handler->display->display_options['filters']['current']['id'] = 'current';
 $handler->display->display_options['filters']['current']['table'] = 'workbench_moderation_node_history';
 $handler->display->display_options['filters']['current']['field'] = 'current';
 $handler->display->display_options['filters']['current']['value'] = '1';
-/* Filter: Workbench Moderation: State */
+/* Filter criterion: Workbench Moderation: State */
 $handler->display->display_options['filters']['state']['id'] = 'state';
 $handler->display->display_options['filters']['state']['table'] = 'workbench_moderation_node_history';
 $handler->display->display_options['filters']['state']['field'] = 'state';
 $handler->display->display_options['filters']['state']['value'] = array(
   'Needs Review' => 'Needs Review',
 );
-$handler->display->display_options['filters']['state']['expose']['operator'] = 'state_op';
 $handler->display->display_options['filters']['state']['expose']['label'] = 'Workbench Moderation: State';
 $handler->display->display_options['filters']['state']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['state']['expose']['operator'] = 'state_op';
 $handler->display->display_options['filters']['state']['expose']['identifier'] = 'state';
-$handler->display->display_options['filters']['state']['expose']['optional'] = TRUE;
 $handler->display->display_options['filters']['state']['expose']['remember'] = FALSE;
-$handler->display->display_options['filters']['state']['expose']['single'] = TRUE;
-/* Filter: Node: Title */
+/* Filter criterion: Content: Title */
 $handler->display->display_options['filters']['title']['id'] = 'title';
 $handler->display->display_options['filters']['title']['table'] = 'node';
 $handler->display->display_options['filters']['title']['field'] = 'title';
 $handler->display->display_options['filters']['title']['operator'] = 'contains';
 $handler->display->display_options['filters']['title']['exposed'] = TRUE;
-$handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
+$handler->display->display_options['filters']['title']['expose']['operator_id'] = 'title_op';
 $handler->display->display_options['filters']['title']['expose']['label'] = 'Title';
 $handler->display->display_options['filters']['title']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
 $handler->display->display_options['filters']['title']['expose']['identifier'] = 'title';
 $handler->display->display_options['filters']['title']['expose']['remember'] = 1;
-/* Filter: Node: Type */
+/* Filter criterion: Content: Type */
 $handler->display->display_options['filters']['type']['id'] = 'type';
 $handler->display->display_options['filters']['type']['table'] = 'node';
 $handler->display->display_options['filters']['type']['field'] = 'type';
 $handler->display->display_options['filters']['type']['exposed'] = TRUE;
-$handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
+$handler->display->display_options['filters']['type']['expose']['operator_id'] = 'type_op';
 $handler->display->display_options['filters']['type']['expose']['label'] = 'Type';
 $handler->display->display_options['filters']['type']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
 $handler->display->display_options['filters']['type']['expose']['identifier'] = 'type';
 $handler->display->display_options['filters']['type']['expose']['remember'] = 1;
 $handler->display->display_options['filters']['type']['expose']['reduce'] = 0;
@@ -397,7 +400,7 @@ $handler = $view->new_display('page', 'Drafts Page', 'drafts_page');
 $handler->display->display_options['defaults']['title'] = FALSE;
 $handler->display->display_options['title'] = 'My Drafts';
 $handler->display->display_options['defaults']['empty'] = FALSE;
-/* Empty text: Global: Text area */
+/* No results behavior: Global: Text area */
 $handler->display->display_options['empty']['area']['id'] = 'area';
 $handler->display->display_options['empty']['area']['table'] = 'views';
 $handler->display->display_options['empty']['area']['field'] = 'area';
@@ -405,40 +408,42 @@ $handler->display->display_options['empty']['area']['empty'] = FALSE;
 $handler->display->display_options['empty']['area']['content'] = 'This list displays content you have created that is not published. Currently there is no such content.';
 $handler->display->display_options['empty']['area']['format'] = 'plain_text';
 $handler->display->display_options['defaults']['filters'] = FALSE;
-/* Filter: User: Current */
+/* Filter criterion: User: Current */
 $handler->display->display_options['filters']['uid_current']['id'] = 'uid_current';
 $handler->display->display_options['filters']['uid_current']['table'] = 'users';
 $handler->display->display_options['filters']['uid_current']['field'] = 'uid_current';
 $handler->display->display_options['filters']['uid_current']['relationship'] = 'uid';
 $handler->display->display_options['filters']['uid_current']['value'] = '1';
-/* Filter: Workbench Moderation: Current */
+/* Filter criterion: Workbench Moderation: Current */
 $handler->display->display_options['filters']['current']['id'] = 'current';
 $handler->display->display_options['filters']['current']['table'] = 'workbench_moderation_node_history';
 $handler->display->display_options['filters']['current']['field'] = 'current';
 $handler->display->display_options['filters']['current']['value'] = '1';
-/* Filter: Node: Title */
+/* Filter criterion: Content: Title */
 $handler->display->display_options['filters']['title']['id'] = 'title';
 $handler->display->display_options['filters']['title']['table'] = 'node';
 $handler->display->display_options['filters']['title']['field'] = 'title';
 $handler->display->display_options['filters']['title']['operator'] = 'contains';
 $handler->display->display_options['filters']['title']['exposed'] = TRUE;
-$handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
+$handler->display->display_options['filters']['title']['expose']['operator_id'] = 'title_op';
 $handler->display->display_options['filters']['title']['expose']['label'] = 'Title';
 $handler->display->display_options['filters']['title']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['title']['expose']['operator'] = 'title_op';
 $handler->display->display_options['filters']['title']['expose']['identifier'] = 'title';
 $handler->display->display_options['filters']['title']['expose']['remember'] = 1;
-/* Filter: Node: Type */
+/* Filter criterion: Content: Type */
 $handler->display->display_options['filters']['type']['id'] = 'type';
 $handler->display->display_options['filters']['type']['table'] = 'node';
 $handler->display->display_options['filters']['type']['field'] = 'type';
 $handler->display->display_options['filters']['type']['exposed'] = TRUE;
-$handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
+$handler->display->display_options['filters']['type']['expose']['operator_id'] = 'type_op';
 $handler->display->display_options['filters']['type']['expose']['label'] = 'Type';
 $handler->display->display_options['filters']['type']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['type']['expose']['operator'] = 'type_op';
 $handler->display->display_options['filters']['type']['expose']['identifier'] = 'type';
 $handler->display->display_options['filters']['type']['expose']['remember'] = 1;
 $handler->display->display_options['filters']['type']['expose']['reduce'] = 0;
-/* Filter: Workbench Moderation: State */
+/* Filter criterion: Workbench Moderation: State */
 $handler->display->display_options['filters']['state']['id'] = 'state';
 $handler->display->display_options['filters']['state']['table'] = 'workbench_moderation_node_history';
 $handler->display->display_options['filters']['state']['field'] = 'state';
@@ -447,11 +452,11 @@ $handler->display->display_options['filters']['state']['value'] = array(
   'Needs Review' => 'Needs Review',
 );
 $handler->display->display_options['filters']['state']['exposed'] = TRUE;
-$handler->display->display_options['filters']['state']['expose']['operator'] = 'state_op';
+$handler->display->display_options['filters']['state']['expose']['operator_id'] = 'state_op';
 $handler->display->display_options['filters']['state']['expose']['label'] = 'State';
 $handler->display->display_options['filters']['state']['expose']['use_operator'] = FALSE;
+$handler->display->display_options['filters']['state']['expose']['operator'] = 'state_op';
 $handler->display->display_options['filters']['state']['expose']['identifier'] = 'state';
-$handler->display->display_options['filters']['state']['expose']['optional'] = 0;
 $handler->display->display_options['filters']['state']['expose']['remember'] = 1;
 $handler->display->display_options['filters']['state']['expose']['reduce'] = 1;
 $handler->display->display_options['path'] = 'admin/workbench/drafts';
@@ -464,7 +469,7 @@ $translatables['workbench_moderation'] = array(
   t('view all'),
   t('Apply'),
   t('Reset'),
-  t('Sort By'),
+  t('Sort by'),
   t('Asc'),
   t('Desc'),
   t('Items per page'),

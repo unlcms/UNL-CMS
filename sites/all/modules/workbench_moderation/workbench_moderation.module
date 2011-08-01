@@ -1421,6 +1421,9 @@ function workbench_moderation_moderate($node, $state) {
   if (!empty($node->workbench_moderation['published'])) {
     drupal_register_shutdown_function('workbench_moderation_store', $node);
   }
+
+  /** UNL CHANGE/ADDITION - SEE workbench_moderation/README-UNL.txt **/
+  workbench_moderation_trigger_transition($node, $old_revision->state, $state);
 }
 
 /**
@@ -1790,4 +1793,70 @@ function workbench_moderation_workbench_block() {
   }
 
   return $output;
+}
+
+
+/** UNL CHANGE/ADDITION - SEE workbench_moderation/README-UNL.txt **/
+
+/**
+ * Implements hook_trigger_info().
+ *
+ * Creates a trigger for each transition.
+ */
+function workbench_moderation_trigger_info() {
+  $output = array(
+    'workbench_moderation' => array(
+      'workbench_moderation_transition' => array(
+        'label' => t('After any transition between states occurs.'),
+      ),
+    ),
+  );
+
+  // Get all transitions.
+  $transitions = workbench_moderation_transitions();
+
+  // Add a trigger for each trasnistion.
+  foreach ($transitions as $transition_definition) {
+    $transition_string = 'wmt_' . $transition_definition->from_name . '__' . $transition_definition->to_name;
+
+    $output['workbench_moderation'][$transition_string] = array(
+      'label' => t('Transition from the state %from_name to %to_name occurs.', array('%from_name' => $transition_definition->from_name, '%to_name' => $transition_definition->to_name)),
+    );
+  }
+
+  return $output;
+}
+
+/**
+ * transition trigger: Run actions associated with an arbitrary event.
+ *
+ * This function is executed after a transition takes place.
+ *
+ * @param $node
+ *   The node undergoing the transition.
+ * @param $from_state
+ *   The previous workbench moderation state.
+ * @param $state
+ *   The new workbench moderation state.
+ */
+function workbench_moderation_trigger_transition($node, $from_state, $state, $a3 = NULL, $a4 = NULL) {
+  // Ask the trigger module for all actions enqueued for the 'transition' trigger.
+  $aids = trigger_get_assigned_actions('workbench_moderation_transition');
+  // prepare a basic context, indicating group and "hook", and call all the
+  // actions with this context as arguments.
+  $context = array(
+    'group' => 'workbench_moderation',
+    'hook' => 'transition',
+    'from_state' => $from_state,
+    'state' => $state,
+  );
+  actions_do(array_keys($aids), $node, $context, $a3, $a4);
+
+
+  // Ask the trigger module for all actions enqueued for this specific transition.
+  $transition_string = 'wmt_' . $from_state . '__' . $state;
+  $aids = trigger_get_assigned_actions($transition_string);
+  $context['hook'] = $transition_string;
+
+  actions_do(array_keys($aids), $node, $context, $a3, $a4);
 }
