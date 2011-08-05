@@ -1,0 +1,4 @@
+name = Action email role
+description = "Provides an action to email all users in selected role(s)"
+package = Actions
+core = 7.x
