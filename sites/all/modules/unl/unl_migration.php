@@ -183,7 +183,7 @@ class Unl_Migration_Tool
         // Add trailing slash if necessary
         $baseUrl = trim($baseUrl);
         if (substr($baseUrl, -1) != '/') {
-            //$baseUrl .= '/';
+            $baseUrl .= '/';
         }
 
         $this->_frontierPath = $frontierPath;
