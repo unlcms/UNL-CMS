@@ -1423,7 +1423,9 @@ function workbench_moderation_moderate($node, $state) {
   }
 
   /** UNL CHANGE/ADDITION - SEE workbench_moderation/README-UNL.txt **/
-  workbench_moderation_trigger_transition($node, $old_revision->state, $state);
+  if (module_exists('trigger')) {
+    workbench_moderation_trigger_transition($node, $old_revision->state, $state);
+  }
 }
 
 /**
@@ -1809,7 +1811,7 @@ function workbench_moderation_trigger_info() {
       'workbench_moderation_transition' => array(
         'label' => t('After any transition between states occurs.'),
       ),
-    ),
+     ),
   );
 
   // Get all transitions.
@@ -1818,6 +1820,10 @@ function workbench_moderation_trigger_info() {
   // Add a trigger for each trasnistion.
   foreach ($transitions as $transition_definition) {
     $transition_string = 'wmt_' . $transition_definition->from_name . '__' . $transition_definition->to_name;
+    // Hash this string if it's longer than the db field size
+    if (strlen($transition_string) > 32) {
+      $transition_string = md5($transition_string);
+    }
 
     $output['workbench_moderation'][$transition_string] = array(
       'label' => t('Transition from the state %from_name to %to_name occurs.', array('%from_name' => $transition_definition->from_name, '%to_name' => $transition_definition->to_name)),
@@ -1852,9 +1858,12 @@ function workbench_moderation_trigger_transition($node, $from_state, $state, $a3
   );
   actions_do(array_keys($aids), $node, $context, $a3, $a4);
 
-
   // Ask the trigger module for all actions enqueued for this specific transition.
   $transition_string = 'wmt_' . $from_state . '__' . $state;
+  // Hash this string if it's longer than the db field size
+  if (strlen($transition_string) > 32) {
+    $transition_string = md5($transition_string);
+  }
   $aids = trigger_get_assigned_actions($transition_string);
   $context['hook'] = $transition_string;
 
