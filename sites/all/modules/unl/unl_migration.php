@@ -613,19 +613,29 @@ class Unl_Migration_Tool
             }
         }
         
+        // If there is no WDN compliant title, search for others
         if (!$pageTitle) {
-            $titleText = '';
-            $titleNodes = $dom->getElementsByTagName('title');
-            if ($titleNodes->length > 0) {
-                $titleText = $titleNodes->item(0)->textContent; 
+          // First, check for a WDN compliant <title>
+          $titleText = '';
+          $titleNodes = $dom->getElementsByTagName('title');
+          if ($titleNodes->length > 0) {
+            $titleText = $titleNodes->item(0)->textContent; 
+          }
+          $titleParts = explode('|', $titleText);
+          if (count($titleParts) > 2) {
+            $pageTitle = trim(array_pop($titleParts));
+          }
+          // Finally, combine what title does exist with the last part of the path
+          else {
+            $filename = trim($path, '/');
+            $filename = explode('/', $filename);
+            $filename = array_pop($filename);
+            // Strip off a file extension if it exists.
+            if (strrpos($filename, '.') !== FALSE) {
+              $filename = substr($filename, 0, strrpos($filename, '.'));
             }
-            $titleParts = explode('|', $titleText);
-            if (count($titleParts) > 2) {
-                $pageTitle = trim(array_pop($titleParts));
-            }
-            else {
-                $pageTitle = $titleText;
-            }
+            $pageTitle = "$titleText ($filename)";
+          }
         }
         
         if (!$pageTitle) {
