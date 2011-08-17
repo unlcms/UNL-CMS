@@ -11,3 +11,8 @@ function drush_core_site_install_version()
  * UNL change! Setting this to FALSE because we don't want them and they're hard coded.
 
 ------------------------------------
+
+rewrite.php
+used to allow public files to be accessed without the sites/<site_dir>/files prefix
+
+------------------------------------

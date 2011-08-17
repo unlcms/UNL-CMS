@@ -113,6 +113,13 @@ DirectoryIndex index.php index.html index.htm
   # uncomment the following line:
   # RewriteBase /
 
+  # Allow public files to be accessed without the sites/<site_dir>/files prefix
+  # The following line must be added to your apache configuration for this context:
+  # RewriteMap drupal prg:<DRUPAL_ROOT>/rewrite.php
+  # Do not uncomment the previous line.  Only the next two.
+  # RewriteCond %{REQUEST_FILENAME} !-f
+  # RewriteRule (.*) ${drupal:%{HTTP_HOST};delim;%{REQUEST_URI};delim;$1}
+
   # Pass all requests not referring directly to files in the filesystem to
   # index.php. Clean URLs are handled in drupal_environment_initialize().
   RewriteCond %{REQUEST_FILENAME} !-f
