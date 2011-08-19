@@ -55,7 +55,7 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
     array_unshift($head_title, 'UNL');
   }
 
-  $vars['head_title'] = implode(' | ', $head_title);
+  $vars['head_title'] = check_plain(implode(' | ', $head_title));
 }
 
 function unl_wdn_preprocess_node(&$vars) {
@@ -102,12 +102,12 @@ function unl_wdn_breadcrumb($variables) {
   $breadcrumbs = $variables['breadcrumb'];
 
   if (count($breadcrumbs) == 0) {
-    $breadcrumbs[] = '<a href="">' . unl_get_site_name_abbreviated() . '</a>';
+    $breadcrumbs[] = '<a href="">' . check_plain(unl_wdn_get_site_name_abbreviated()) . '</a>';
   }
   else {
     //Change 'Home' to be $site_name
     array_unshift($breadcrumbs,
-                  str_replace('Home', unl_get_site_name_abbreviated(),
+                  str_replace('Home', check_plain(unl_wdn_get_site_name_abbreviated()),
                   array_shift($breadcrumbs)));
   }
 
@@ -117,7 +117,7 @@ function unl_wdn_breadcrumb($variables) {
     krsort($intermediateBreadcrumbs);
     foreach ($intermediateBreadcrumbs as $intermediateBreadcrumb) {
       if ($intermediateBreadcrumb['text'] && $intermediateBreadcrumb['href']) {
-        array_unshift($breadcrumbs, '<a href="' . $intermediateBreadcrumb['href'] . '">' . $intermediateBreadcrumb['text'] . '</a>');
+        array_unshift($breadcrumbs, '<a href="' . $intermediateBreadcrumb['href'] . '">' . check_plain($intermediateBreadcrumb['text']) . '</a>');
       }
     }
   }
@@ -253,7 +253,7 @@ EOF;
  * Return the abbreviated site name, assuming it has been set and we're not on the front page.
  * Otherwise, it returns the full site name.
  */
-function unl_get_site_name_abbreviated() {
+function unl_wdn_get_site_name_abbreviated() {
   if (!drupal_is_front_page() && theme_get_setting('site_name_abbreviation')) {
     return theme_get_setting('site_name_abbreviation');
   }
