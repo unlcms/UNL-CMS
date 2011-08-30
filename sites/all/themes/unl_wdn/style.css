@@ -43,3 +43,26 @@ body.fixed #maincontent {
 ul.links.inline {
   padding-left: 0 !important;
 }
+
+/* Book
+*********/
+.book-navigation ul {
+  border-top: 1px solid #E1E1DB;
+  padding: 1em 0 1em 3em !important;
+}
+.book-navigation .page-links {
+  border-bottom: 1px solid #E1E1DB;
+  border-top: 1px solid #E1E1DB;
+  margin-bottom: 20px;
+}
+#block-book-navigation {
+  background-color: #f6f6f2;
+  padding: 1em;
+}
+#block-book-navigation ul {
+  padding: 0 0 0.25em 1em;
+}
+#block-book-navigation ul li,
+#wdn_content_wrapper #block-book-navigation .first {
+  margin: 0 0 0 0.5em;
+}
