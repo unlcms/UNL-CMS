@@ -1,4 +1,13 @@
 <?php
+/**
+ * 'installed' database number codes (also seen in modules/unl/unl_site_creation.php)
+ *  0: 'Scheduled for creation.'
+ *  1: 'Curently being created.'
+ *  2: 'In production.'
+ *  3: 'Scheduled for removal.'
+ *  4: 'Currently being removed.'
+ *  5: 'Failure/Unknown.'
+ */
 
 if (PHP_SAPI != 'cli') {
   echo 'This script must be run from the shell!';
@@ -22,7 +31,7 @@ unl_add_page_aliases();
 
 function unl_add_sites() {
   $query = db_query('SELECT * FROM {unl_sites} WHERE installed=0');
-  
+
   while ($row = $query->fetchAssoc()) {
     db_update('unl_sites')
       ->fields(array('installed' => 1))
@@ -71,7 +80,7 @@ function unl_add_aliases() {
   $query->fields('a', array('site_alias_id', 'base_uri', 'path'));
   $query->condition('a.installed', 0);
   $results = $query->execute()->fetchAll();
-  
+
   foreach ($results as $row) {
     db_update('unl_sites_aliases')
       ->fields(array('installed' => 1))
@@ -97,7 +106,7 @@ function unl_remove_aliases() {
   $query->fields('a', array('site_alias_id', 'base_uri', 'path'));
   $query->condition('a.installed', 3);
   $results = $query->execute()->fetchAll();
-  
+
   foreach ($results as $row) {
     db_update('unl_sites_aliases')
       ->fields(array('installed' => 4))
@@ -122,7 +131,7 @@ function unl_add_page_aliases() {
   $query->fields('a', array('page_alias_id', 'from_uri', 'to_uri'));
   $query->condition('a.installed', 0);
   $results = $query->execute()->fetchAll();
-  
+
   foreach ($results as $row) {
     db_update('unl_page_aliases')
       ->fields(array('installed' => 1))
@@ -148,7 +157,7 @@ function unl_remove_page_aliases() {
   $query->fields('a', array('page_alias_id'));
   $query->condition('a.installed', 3);
   $results = $query->execute()->fetchAll();
-  
+
   foreach ($results as $row) {
     db_update('unl_page_aliases')
       ->fields(array('installed' => 4))
@@ -175,19 +184,19 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   if (substr($site_path, -1) == '/') {
     $site_path = substr($site_path, 0, -1);
   }
-  
+
   $sites_subdir = unl_get_sites_subdir($uri);
-  
+
   $database = $GLOBALS['databases']['default']['default'];
   $db_url = $database['driver']
           . '://' . $database['username']
           . ':'   . $database['password']
           . '@'   . $database['host']
-          . ($database['port'] ? ':' . $database['port'] : '') 
+          . ($database['port'] ? ':' . $database['port'] : '')
           . '/'   . $database['database']
           ;
   $db_prefix .= '_' . $database['prefix'];
-  
+
   $php_path = escapeshellarg($_SERVER['_']);
   $drupal_root = escapeshellarg(DRUPAL_ROOT);
   $uri = escapeshellarg($uri);
@@ -195,15 +204,15 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   $db_url = escapeshellarg($db_url);
   $db_prefix = escapeshellarg($db_prefix);
   $site_mail    = escapeshellarg(variable_get('site_mail'));
-  
+
   $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url";
   if ($site_mail) {
-    $command .= " --site-mail=$site_mail"; 
+    $command .= " --site-mail=$site_mail";
   }
   echo shell_exec($command);
-  
+
   unl_add_site_to_htaccess($site_id, $site_path, FALSE);
-  
+
   return TRUE;
 }
 
@@ -212,20 +221,20 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   $schema = drupal_get_schema(NULL, TRUE);
   $tables = array_keys($schema);
   sort($tables);
-    
+
   $database = $GLOBALS['databases']['default']['default'];
   $db_prefix .= '_' . $database['prefix'];
-  
-  
+
+
   $sites_subdir = unl_get_sites_subdir($uri);
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
-  
+
   // A couple checks to make sure we aren't deleting something we shouldn't be.
   if (substr($sites_subdir, 0, strlen(DRUPAL_ROOT . '/sites/')) != DRUPAL_ROOT . '/sites/') {
     return FALSE;
   }
-  
+
   if (strlen($sites_subdir) <= strlen(DRUPAL_ROOT . '/sites/')) {
     return FALSE;
   }
@@ -239,19 +248,19 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
       // probably already gone?
     }
   }
-  
+
   // Do our best to remove the sites
   shell_exec('chmod -R u+w ' . escapeshellarg($sites_subdir));
   shell_exec('rm -rf ' . escapeshellarg($sites_subdir));
-  
+
   // Remove the rewrite rules from .htaccess for this site.
   unl_remove_site_from_htaccess($site_id, FALSE);
-  
+
   // If we were using memcache, flush its cache so new sites don't have stale data.
   if (class_exists('MemCacheDrupal', FALSE)) {
     dmemcache_flush();
   }
-  
+
   return TRUE;
 }
 
@@ -260,11 +269,11 @@ function unl_add_alias($site_uri, $base_uri, $path, $alias_id) {
   $real_config_dir = unl_get_sites_subdir($site_uri);
   $alias_config_dir = unl_get_sites_subdir($alias_uri, FALSE);
   $result = symlink($real_config_dir, DRUPAL_ROOT . '/sites/' . $alias_config_dir);
-  
+
   if ($path) {
     unl_add_site_to_htaccess($alias_id, $path, TRUE);
   }
-  
+
   return TRUE;
 }
 
@@ -272,24 +281,24 @@ function unl_remove_alias($base_uri, $path, $alias_id) {
   $alias_uri = $base_uri . $path;
   $alias_config_dir = unl_get_sites_subdir($alias_uri, FALSE);
   unlink(DRUPAL_ROOT . '/sites/' . $alias_config_dir);
-  
+
   unl_remove_site_from_htaccess($alias_id, TRUE);
-  
+
   return TRUE;
 }
 
 function unl_add_page_alias($from_uri, $to_uri, $alias_id) {
   $host = parse_url($from_uri, PHP_URL_HOST);
   $path = parse_url($from_uri, PHP_URL_PATH);
-  
+
   unl_add_page_alias_to_htaccess($alias_id, $host, $path, $to_uri);
-  
+
   return TRUE;
 }
 
 function unl_remove_page_alias($alias_id) {
   unl_remove_page_alias_from_htaccess($alias_id);
-  
+
   return TRUE;
 }
 
@@ -300,7 +309,7 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
   else {
     $site_or_alias = 'SITE';
   }
-  
+
   if (substr($site_path, -1) != '/') {
     $site_path .= '/';
   }
@@ -316,10 +325,10 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
   foreach (array('misc', 'modules', 'sites', 'themes') as $drupal_dir) {
     $new_htaccess .=  "  RewriteRule $site_path$drupal_dir/(.*) $drupal_dir/$1\n";
   }
-  $new_htaccess .= "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n" 
+  $new_htaccess .= "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n"
                  . $stub_token
                  . substr($htaccess, $stub_pos + strlen($stub_token));
-  
+
   file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
@@ -330,14 +339,14 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
   else {
     $site_or_alias = 'SITE';
   }
-  
+
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $site_start_token = "\n  # %UNL_START_{$site_or_alias}_ID_{$site_id}%";
   $site_end_token = "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n";
-  
+
   $start_pos = strpos($htaccess, $site_start_token);
   $end_pos = strpos($htaccess, $site_end_token);
-  
+
   if ($start_pos === FALSE || $end_pos === FALSE) {
     return FALSE;
   }
@@ -359,10 +368,10 @@ function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
                 . "  RewriteCond %{HTTP_HOST} ^{$host}$\n"
                 . "  RewriteCond %{REQUEST_URI} ^{$path}$\n"
                 . "  RewriteRule (.*) {$to_uri} [R,L]\n"
-  				. "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n\n" 
+                . "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n\n"
                 . $stub_token
                 . substr($htaccess, $stub_pos + strlen($stub_token));
-  
+
   file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
@@ -370,10 +379,10 @@ function unl_remove_page_alias_from_htaccess($site_id) {
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $site_start_token = "\n  # %UNL_START_PAGE_ALIAS_ID_{$site_id}%";
   $site_end_token = "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n";
-  
+
   $start_pos = strpos($htaccess, $site_start_token);
   $end_pos = strpos($htaccess, $site_end_token);
-  
+
   if ($start_pos === FALSE || $end_pos === FALSE) {
     return FALSE;
   }
@@ -382,15 +391,3 @@ function unl_remove_page_alias_from_htaccess($site_id) {
                 ;
   file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
-
-
-
-
-
-
-
-
-
-
-
-

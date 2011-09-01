@@ -206,6 +206,9 @@ function unl_wysiwyg_plugin($editor) {
   }
 }
 
+/**
+ * Implementation of hook_permission().
+ */
 function unl_permission() {
   return array(
     'unl migration' => array(
@@ -243,7 +246,7 @@ function unl_permission() {
 }
 
 /**
- * Adds UNL Migration Tool to the Content menu for admin
+ * Implementation of hook_menu().
  */
 function unl_menu() {
   global $user;
@@ -267,6 +270,7 @@ function unl_menu() {
     'file' => 'technical_feedback.php'
   );
 
+  // Adds UNL Migration Tool to the Content menu for admin
   $items['admin/content/unl/migration'] = array(
     'title'            => 'UNL Migration Tool',
     'description'      => 'Migrate a static UNL template page into drupal',
@@ -384,7 +388,12 @@ function unl_menu() {
   return $items;
 }
 
+/**
+ * Implementation of hook_menu_alter().
+ */
 function unl_menu_alter(&$items) {
+  // This duplicates the form at admin/appearance/settings/unl_wdn for roles that can't 'administer themes' but have 'unl theme settings' permission.
+  // For these users the Appearance link is changed to point to admin/themes
   foreach (array('module', 'file', 'page arguments') as $key) {
     $items['admin/themes'][$key] = $items['admin/appearance/settings/' . variable_get('theme_default')][$key];
   }
@@ -453,9 +462,7 @@ function unl_form_alter(&$form, &$form_state, $form_id) {
     }
   }
 
-  /**
-   * Modify the Permissions and Roles forms for non-administrators
-   */
+  // Modifications for non-administrators
   $admin_role_id = unl_shared_variable_get('user_admin_role', -1);
   if (!in_array($admin_role_id, array_keys($GLOBALS['user']->roles))) {
     switch ($form_id) {
@@ -596,9 +603,10 @@ function unl_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
- * When a node is modified, update its menu link to be hidden or not based on the user input.
+ * Implementation of hook_node_form_submit().
  */
 function unl_node_form_submit($form, &$form_state) {
+  // When a node is modified, update its menu link to be hidden or not based on the user input.
   $menu_data = $form_state['values']['menu'];
 
   if ($menu_data['mlid']) {
@@ -622,6 +630,9 @@ function unl_node_form_submit($form, &$form_state) {
   menu_link_save($menu_link);
 }
 
+/**
+ * Implementation of hook_system_settings_form_submit().
+ */
 function unl_system_settings_form_submit($form, &$form_state) {
   variable_set('https', (bool) $form_state['values']['https']);
   if ($form_state['values']['unl_primary_base_url'] != '_null') {
@@ -632,6 +643,9 @@ function unl_system_settings_form_submit($form, &$form_state) {
   }
 }
 
+/**
+ * Implementation of hook_theme().
+ */
 function unl_theme() {
   return array(
     'unl_table' => array(
@@ -640,6 +654,9 @@ function unl_theme() {
   );
 }
 
+/**
+ * Implementation of hook_url_outbound_alter().
+ */
 function unl_url_outbound_alter(&$path, &$options, $original_path) {
   $path_parts = parse_url($path);
   if (isset($path_parts['scheme']) || $path == 'user/cas') {
@@ -663,6 +680,10 @@ function unl_url_outbound_alter(&$path, &$options, $original_path) {
   $options['https'] = (bool) (variable_get('https', 0) && !$generic_user);
 }
 
+/**
+ * Custom function for implementing user_access for multiple permissions.
+ * Feature request: http://drupal.org/node/216897
+ */
 function unl_user_access($permissions, $account = NULL) {
   foreach ($permissions as $permission) {
     if (substr($permission, 0, 1) == '!') {
@@ -672,17 +693,15 @@ function unl_user_access($permissions, $account = NULL) {
     else {
       $result = user_access($permission, $account);
     }
-
     if (!$result) {
       return FALSE;
     }
   }
-
   return TRUE;
 }
 
 /**
- * Additional validation on the user_admin_role form (admin/people/permissions/roles/edit/%)
+ * Custom function for additional validation on the user_admin_role form (admin/people/permissions/roles/edit/%)
  * to prevent a user from deleting the administrator role. (This is not needed if permissions are shared and only administrators can edit roles.)
  */
 function unl_user_admin_role_validate($form, &$form_state) {
@@ -696,6 +715,9 @@ function unl_user_admin_role_validate($form, &$form_state) {
   }
 }
 
+/**
+ * Implementation of hook_cron().
+ */
 function unl_cron() {
   _unl_cron_migration_step();
   _unl_cron_import_wdn_registry_sites();
@@ -804,7 +826,9 @@ function _unl_cron_import_wdn_registry_sites() {
   }
 }
 
-// Creates a db_prefix short enough to not go over MySQL's max table name length
+/**
+ * Custom function that creates a db_prefix short enough to not go over MySQL's max table name length.
+ */
 function unl_create_db_prefix($site_name) {
   $parent_prefix = '_' . $GLOBALS['databases']['default']['default']['prefix'];
 
@@ -844,6 +868,9 @@ function unl_sanitize_url_part($url_part) {
   return $url_part;
 }
 
+/**
+ * Custom function.
+ */
 function unl_get_alternate_base_uris() {
   $shared_prefix = unl_get_shared_db_prefix();
   if (is_array($GLOBALS['databases']['default']['default']['prefix'])) {
@@ -854,7 +881,7 @@ function unl_get_alternate_base_uris() {
     return array();
   }
   $rows = db_query(
-  	"SELECT s.uri, a.base_uri, a.path "
+    "SELECT s.uri, a.base_uri, a.path "
     . "FROM {$shared_prefix}unl_sites AS s "
     . "LEFT JOIN {$shared_prefix}unl_sites_aliases AS a "
     . "  ON s.site_id = a.site_id "
@@ -876,6 +903,9 @@ function unl_get_alternate_base_uris() {
   return $uris;
 }
 
+/**
+ * Implementation of hook_init().
+ */
 function unl_init() {
   $primary_base_url = variable_get('unl_primary_base_url');
   if ($primary_base_url) {
@@ -893,6 +923,9 @@ function unl_init() {
   }
 }
 
+/**
+ * Implementation of hook_mail().
+ */
 function unl_mail($key, &$message, $params) {
   if ($key == 'site_created') {
     $site = $params['site'];
@@ -925,6 +958,9 @@ EOF;
   }
 }
 
+/**
+ * Custom function.
+ */
 function unl_send_site_created_email($site = NULL) {
   $shared_prefix = unl_get_shared_db_prefix();
 
@@ -978,9 +1014,10 @@ function unl_send_site_created_email($site = NULL) {
   }
 }
 
-// A simple "I'm still alive" page to check to see that drupal is working.
-function unl_still_alive()
-{
+/**
+ * Custom function that outputs a simple "I'm still alive" page to check to see that drupal is working.
+ */
+function unl_still_alive() {
   header('Content-type: text/plain');
   echo '200 Still Alive';
 }
