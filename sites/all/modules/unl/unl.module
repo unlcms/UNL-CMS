@@ -553,7 +553,7 @@ function unl_form_alter(&$form, &$form_state, $form_id) {
    * determine whether or not the menu link is visible or not.
    */
   if (substr($form_id, -10) == '_node_form') {
-    $form['menu']['#title'] = 'Site hierachy';
+    $form['menu']['#title'] = 'Site hierarchy';
 
     $form['menu']['enabled']['#default_value'] = TRUE;
     $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
