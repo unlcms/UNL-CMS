@@ -21,6 +21,7 @@ dependencies[] = field_ui
 dependencies[] = file
 dependencies[] = rdf
 
+dependencies[] = book
 dependencies[] = token
 dependencies[] = pathauto
 dependencies[] = pagepreview
