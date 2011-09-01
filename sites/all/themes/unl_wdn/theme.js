@@ -3,37 +3,35 @@ WDN.jQuery(document).ready(function () {
 	if (WDN.jQuery('base').length == 0) {
 		return;
 	}
-	WDN.jQuery('a').click(function(e){
+	WDN.jQuery('a').click(function(e) {
 		// if this link has a hash tag
-	    if (this.href.split('#')[1] == '') {
-	        return;
-	    }
-	    // and it is specifically for this page
-	    if (this.getAttribute('href').split('#')[0] != '') {
-	    	return;
-	    }
-	    // and something else hasn't already customized the link
-	    if (e.isDefaultPrevented()) {
-	    	return;
-	    }
-	    
-	    // fix clicking the link so that it ignores the base tag
-	    e.preventDefault();
-	    document.location.hash = this.href.split('#')[1];
+		if (!this.href.split('#')[1]) {
+			return;
+		}
+		// and it is specifically for this page
+		if (this.getAttribute('href').split('#')[0] != '') {
+			return;
+		}
+		// and something else hasn't already customized the link
+		if (e.isDefaultPrevented()) {
+			return;
+		}
+		
+		// fix clicking the link so that it ignores the base tag
+		e.preventDefault();
+		document.location.hash = this.href.split('#')[1];
 	});
 	
-	// checking using ajax if user is logged in. then the technical feedback div is shown	
+	// checking using ajax if user is logged in. then the technical feedback div is shown
 	var userLoggedIn = '';
 	
 	WDN.jQuery.ajax({
 		url: "user/unl/whoami",
 		dataType: "text",
-		success: function(data){
-			
+		success: function(data) {
 			userLoggedIn = String(data);
-	
-			if(userLoggedIn =='user_loggedin') {
-					
+			
+			if (userLoggedIn =='user_loggedin') {
 				var technicalFeedbackHtml = WDN.jQuery.ajax({
 					url: "user/unl/technical_feedback",
 					dataType: "html",
@@ -44,19 +42,12 @@ WDN.jQuery(document).ready(function () {
 						
 						WDN.jQuery("#footer>div:nth-child(2)").append(technicalFeedback);
 						
-						WDN.jQuery("#technicalFeedbackLink").click(function(){
-							
+						WDN.jQuery("#technicalFeedbackLink").click(function() {
 							WDN.jQuery("#technicalFeedbackForm").append(data);
-							
 						});
-						
 					}
-
 				});
-				
-			}	// end of if userLoggedIn == 'user_loggedin'
-
-		} // end of success: function(data)					
-	});	
-	
+			} // end of if userLoggedIn == 'user_loggedin'
+		} // end of success: function(data)
+	});
 });
