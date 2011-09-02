@@ -147,6 +147,7 @@ class Unl_Migration_Tool
     private $_hrefTransform       = array();
     private $_hrefTransformFiles  = array();
     private $_menu                = array();
+    private $_breadcrumbs         = array();
     private $_nodeMap             = array();
     private $_pageTitles          = array();
     private $_log                 = array();
@@ -220,6 +221,7 @@ class Unl_Migration_Tool
             // Parse the menu
             $this->_processMenu();
             $this->_process_blocks();
+            $this->_process_breadcrumbs();
             $this->_state = self::STATE_PROCESSING_PAGES;
         }
         
@@ -277,6 +279,7 @@ class Unl_Migration_Tool
             
             $this->_createMenu();
             $this->_create_blocks();
+            $this->_create_breadcrumbs();
             
             $this->_state = self::STATE_DONE;
         }
@@ -513,6 +516,40 @@ class Unl_Migration_Tool
         ))
         ->condition('bid', 104)
         ->execute();
+    }
+    
+    private function _process_breadcrumbs() {
+      $content = $this->_getUrl($this->_baseUrl);
+      $html = $content['content'];
+      
+      $dom = new DOMDocument();
+      $dom->loadHTML($html);
+      $breadcrumbs_node = $dom->getElementById('breadcrumbs');
+      if (!$breadcrumbs_node) {
+        return;
+      }
+      
+      $link_nodes = $breadcrumbs_node->getElementsByTagName('a');
+      $list_nodes = $breadcrumbs_node->getElementsByTagName('li');
+      $unlinked_node = FALSE;
+      if ($list_nodes->length > $link_nodes->length) {
+        $unlinked_node = TRUE;
+      }
+      
+      // Scan each of the breadcrumb links, skipping the first and the last (but only if there's an un-linked "true" last breadcrumb)
+      for ($i = 1; $i < $link_nodes->length - ($unlinked_node ? 1 : 0); $i++) {
+        $link_node = $link_nodes->item($i);
+        $this->_breadcrumbs[] = array(
+          'text' => trim($link_node->textContent),
+          'href' => $this->_makeLinkAbsolute($link_node->getAttribute('href', ''))
+        );
+      }
+    }
+    
+    private function _create_breadcrumbs() {
+      $current_settings = variable_get('theme_unl_wdn_settings', array());
+      $current_settings['intermediate_breadcrumbs'] = $this->_breadcrumbs;
+      variable_set('theme_unl_wdn_settings', $current_settings);
     }
     
     private function _processPage($path)
