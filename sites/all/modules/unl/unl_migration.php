@@ -485,10 +485,11 @@ class Unl_Migration_Tool
       $this->_blocks['contact_info'] = $this->_get_instance_editable_content($html, 'contactinfo');
       $this->_blocks['optional_footer'] = $this->_get_instance_editable_content($html, 'optionalfooter');
       $this->_blocks['footer_content'] = $this->_get_instance_editable_content($html, 'footercontent');
-      // @TODO replace these with str_replace calls
-      $this->_blocks['related_links'] = trim(strtr($this->_blocks['related_links'], array('<h3>Related Links</h3>' => '')));
-      $this->_blocks['contact_info'] = trim(strtr($this->_blocks['contact_info'], array('<h3>Contacting Us</h3>' => '')));
-      $this->_blocks['contact_info'] = trim(strtr($this->_blocks['contact_info'], array('<h3>Contact Us</h3>' => '')));
+      
+      // Filter out the existing headers.
+      $this->_blocks['related_links'] = preg_replace('/\s*<h3>\s*Related Links\s*<\/h3>\s*/', '', $this->_blocks['related_links']);
+      $this->_blocks['contact_info'] = preg_replace('/\s*<h3>\sContacting Us*\s*<\/h3>\s*/', '', $this->_blocks['contact_info']);
+      $this->_blocks['contact_info'] = preg_replace('/\s*<h3>\s*Contact Us\s*<\/h3>\s*/', '', $this->_blocks['contact_info']);
     }
     
     private function _create_blocks() {
@@ -599,11 +600,6 @@ class Unl_Migration_Tool
         }
         $html = $data['content'];
         
-        if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
-            $charset = $matches[1];
-            $html = iconv($charset, 'UTF-8', $html);
-        }
-        
         $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
         if (!$maincontentarea) {
             $maincontentarea = $this->_get_old_main_content_area($html);
@@ -616,10 +612,12 @@ class Unl_Migration_Tool
     
         if (!$maincontentarea) {
             // its possible the body tag has attributes.  Check for this and filter them out.
-            $maincontentarea = $this->_get_text_between_tokens($html, '<body', '</body>');
+            $maincontentarea = $this->_get_text_between_tokens($html, '<body', '</body>', FALSE);
             // As long as we find a closing bracket before the next opening bracket, its probably safe to assume the body tag is intact. 
             if (strpos($maincontentarea, '>') < strpos($maincontentarea, '<')) {
               $maincontentarea = trim(substr($maincontentarea, strpos($maincontentarea, '>') + 1));
+              // Tidy the output here, otherwise tidy would see HTML starting in the middle of a <body key="val"> tag.
+              $maincontentarea = $this->_tidy_html_fragment($maincontentarea);
             // Otherwise, ignore it all. (Will be an issue if the body has no other tags, but how likely is this?)
             } else {
               $maincontentarea = '';
@@ -942,6 +940,12 @@ class Unl_Migration_Tool
                 $data['lastModified'] = strtotime($headers['Last-Modified']);
             }
         }
+    
+        // Convert non-UTF-8 data to UTF-8.
+        if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
+            $charset = $matches[1];
+            $data['content'] = iconv($charset, 'UTF-8', $data['content']);
+        }
         
         return $data;
     }
@@ -1100,7 +1104,7 @@ class Unl_Migration_Tool
     return $content;
   }
   
-  private function _get_text_between_tokens($text, $start_token, $end_token) {
+  private function _get_text_between_tokens($text, $start_token, $end_token, $tidy_output = TRUE) {
     $content_start = strpos($text, $start_token);
     $content_end = strpos($text, $end_token, $content_start);
     $content = substr($text,
@@ -1109,10 +1113,28 @@ class Unl_Migration_Tool
     $content = trim($content);
   
     if ($content && $content_start !== FALSE && $content_end !== FALSE) {
+      if ($tidy_output) {
+        $content = $this->_tidy_html_fragment($content);
+      }
       return $content;
     }
     
     return FALSE;
+  }
+  
+  private function _tidy_html_fragment($html) {
+    $config = array(
+      'doctype' => 'transitional',
+      'indent' => TRUE,
+      'output-xhtml' => TRUE,
+      'show-body-only' => TRUE,
+      'wrap' => 0,
+    );
+    $tidy = new Tidy();
+    $tidy->parseString($html, $config, 'utf8');
+    $tidy->cleanRepair();
+    
+    return (string) $tidy;
   }
   
   static public function save_to_disk(Unl_Migration_Tool $instance)
