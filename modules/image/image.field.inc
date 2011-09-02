@@ -539,6 +539,12 @@ function theme_image_formatter($variables) {
     $image['title'] = $item['title'];
   }
 
+  /* UNL change: patch http://drupal.org/files/issues/1025796.patch http://drupal.org/node/1025796#comment-4298698 */
+  // Load the attributes into the image.
+  if (isset($item['attributes'])) {
+    $image['attributes'] = $item['attributes'];
+  }
+
   if ($variables['image_style']) {
     $image['style_name'] = $variables['image_style'];
     $output = theme('image_style', $image);
