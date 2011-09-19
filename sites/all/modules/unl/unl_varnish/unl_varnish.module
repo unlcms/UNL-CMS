@@ -39,3 +39,32 @@ function unl_varnish_purge_submit($form, &$form_state) {
   _varnish_terminal_run("purge.url $path");
   drupal_set_message("Varnish purged paths matching $path.", 'status');
 }
+
+/**
+ * Implements hook_file_insert().
+ */
+function unl_varnish_file_insert($file) {
+  _unl_varnish_purge_file($file);
+}
+
+/**
+ * Implements hook_file_update().
+ */
+function unl_varnish_file_update($file) {
+  _unl_varnish_purge_file($file);
+}
+
+/**
+ * Instructs varnish to purge the given file from its cache.
+ * @param stdClass $file as provided by hook_file_[insert,update]
+ */
+function _unl_varnish_purge_file($file) {
+  $url = parse_url(file_create_url($file->uri));
+  $host = $url['host'];
+  $path = $url['path'];
+  
+  $command = "purge req.http.host == $host && req.url ~ ^$path\$";
+  _varnish_terminal_run($command);
+}
+
+
