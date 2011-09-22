@@ -41,3 +41,13 @@
  */
 # $sites['devexample.com'] = 'example.com';
 # $sites['localhost.example'] = 'example.com';
+
+
+/**
+ * Default domains
+ * 
+ * Used to specify which domains are allowed to use "universal" site dirs
+ * (starting with unl.edu).  The purpose is to prevent sites like
+ * unlcms.unl.edu/ncard from showing up at bike.unl.edu/ncard.
+ */
+# $default_domains = array('example.unl.edu', 'example-test.unl.edu');

@@ -363,6 +363,9 @@ function conf_path($require_settings = TRUE, $reset = FALSE) {
   $confdir = 'sites';
 
   $sites = array();
+  // UNL Change
+  $default_domains = array();
+  // End UNL Change
   if (file_exists(DRUPAL_ROOT . '/' . $confdir . '/sites.php')) {
     // This will overwrite $sites with the desired mappings.
     include(DRUPAL_ROOT . '/' . $confdir . '/sites.php');
@@ -373,6 +376,21 @@ function conf_path($require_settings = TRUE, $reset = FALSE) {
   for ($i = count($uri) - 1; $i > 0; $i--) {
     for ($j = count($server); $j > 0; $j--) {
       $dir = implode('.', array_slice($server, -$j)) . implode('.', array_slice($uri, 0, $i));
+      // UNL Change
+      // Since we're truncating site_dir domains to just unl.edu, we need to skip any site_dir that
+      // Starts with "unl.edu" unless we're on the default site's domain (ie: unlcms.unl.edu)
+      if (substr($dir, 0, 7) == 'unl.edu' && count($default_domains) > 0) {
+        $is_primary_domain = FALSE;
+        foreach ($default_domains as $default_domain) {
+          if (substr($_SERVER['HTTP_HOST'], 0, strlen($default_domain)) == $default_domain) {
+            $is_primary_domain = TRUE;
+          }
+        }
+        if (!$is_primary_domain) {
+          continue;
+        }
+      }
+      // End UNL Change
       if (isset($sites[$dir]) && file_exists(DRUPAL_ROOT . '/' . $confdir . '/' . $sites[$dir])) {
         $dir = $sites[$dir];
       }
