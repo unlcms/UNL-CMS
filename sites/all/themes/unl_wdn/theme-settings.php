@@ -51,6 +51,18 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
   $form['advanced_settings'] = array(
     '#type' => 'fieldset',
     '#title' => t('Advanced Settings'),
+    'sidebar_first_width' => array(
+      '#type' => 'textfield',
+      '#title' => t('Sidebar first Grid Size'),
+      '#default_value' => theme_get_setting('sidebar_first_width'),
+      '#description' => t('Enter only the numeral, for grid4 just enter 4.'),
+    ),
+    'sidebar_second_width' => array(
+      '#type' => 'textfield',
+      '#title' => t('Sidebar second Grid Size'),
+      '#default_value' => theme_get_setting('sidebar_second_width'),
+      '#description' => t('Enter only the numeral, for grid4 just enter 4.'),
+    ),
     'zen_forms' => array(
       '#type' => 'checkbox',
       '#title' => t('Use Zen Forms'),

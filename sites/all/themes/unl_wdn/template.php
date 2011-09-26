@@ -58,6 +58,41 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
   $vars['head_title'] = check_plain(implode(' | ', $head_title));
 }
 
+/**
+ * Implements template_preprocess_region().
+ * Adds grid classes for sidebar_first, sidebar_second, and content regions.
+ */
+function unl_wdn_preprocess_region(&$vars) {
+  static $grid;
+  if (!isset($grid)) {
+    $grid = _unl_wdn_grid_info();
+  }
+
+  $vars['region_name'] = str_replace('_', '-', $vars['region']);
+  $vars['classes_array'][] = $vars['region_name'];
+
+  if (in_array($vars['region'], array_keys($grid['regions']))) {
+    $vars['classes_array'][] = 'grid' . $grid['regions'][$vars['region']]['width'];
+  }
+
+  // Sidebar regions receive common 'sidebar' class
+  $sidebar_regions = array('sidebar_first', 'sidebar_second');
+  if (in_array($vars['region'], $sidebar_regions)) {
+    $vars['classes_array'][] = 'sidebar';
+  }
+
+  // Determine which region needs the 'first' class
+  if ($vars['region'] == 'content' && $grid['regions']['sidebar_first']['width'] == 0) {
+    $vars['classes_array'][] = 'first';
+  }
+  else if ($vars['region'] == 'sidebar_first') {
+    $vars['classes_array'][] = 'first';
+  }
+}
+
+/**
+ * Implements template_preprocess_node().
+ */
 function unl_wdn_preprocess_node(&$vars) {
   // Drupal doesn't correctly set the $page flag for the preview on node/add/page which results in the <h2> being displayed in modules/node/node.tpl.php
   if (isset($vars['elements']['#node']->op) && $vars['elements']['#node']->op == 'Preview') {
@@ -260,4 +295,31 @@ function unl_wdn_get_site_name_abbreviated() {
   else {
     return variable_get('site_name', 'Department');
   }
+}
+
+/**
+ * Generate grid numbers for sidebar_first, sidebar_second, and content regions.
+ * Based on work in the Fusion theme (fusion_core_grid_info()).
+ */
+function _unl_wdn_grid_info() {
+  static $grid;
+  if (!isset($grid)) {
+    $grid = array();
+    $grid['width'] = 12;
+    $sidebar_first_width = (block_list('sidebar_first')) ? theme_get_setting('sidebar_first_width') : 0;
+    $sidebar_second_width = (block_list('sidebar_second')) ? theme_get_setting('sidebar_second_width') : 0;
+    $grid['regions'] = array();
+
+    $regions = array('sidebar_first', 'sidebar_second', 'content');
+    foreach ($regions as $region) {
+      if ($region == 'content') {
+        $region_width = $grid['width'] - $sidebar_first_width - $sidebar_second_width;
+      }
+      if ($region == 'sidebar_first' || $region == 'sidebar_second') {
+        $region_width = ($region == 'sidebar_first') ? $sidebar_first_width : $sidebar_second_width;
+      }
+      $grid['regions'][$region] = array('width' => $region_width);
+    }
+  }
+  return $grid;
 }

@@ -195,6 +195,7 @@ function unl_wysiwyg_plugin($editor) {
           'buttons' => array(
             'unlZenBox'   => 'UNL Zen Box',
             'unlZenTable' => 'UNL Zen Table',
+            'unlGrid'   => 'UNL Grid',
             'unlLayout'   => 'UNL Layout',
             'unlTooltip'  => 'UNL Tooltip',
           ),

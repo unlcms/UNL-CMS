@@ -33,3 +33,5 @@ settings[toggle_favicon] = 0
 settings[zen_forms] = 0
 settings[use_base] = 1
 settings[wdn_beta] = 0
+settings[sidebar_first_width] = 3
+settings[sidebar_second_width] = 3

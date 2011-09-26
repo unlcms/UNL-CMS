@@ -1,9 +1,8 @@
 <?php
-// $Id: region.tpl.php,v 1.1 2009/10/05 02:43:01 webchick Exp $
 
 /**
  * @file
- * Default theme implementation to display a region.
+ * unl_wdn theme implementation to display a region.
  *
  * Available variables:
  * - $content: The content for this region, typically blocks.
@@ -14,6 +13,7 @@
  *   - region-[name]: The name of the region with underscores replaced with
  *     dashes. For example, the page_top region would have a region-page-top class.
  * - $region: The name of the region variable as defined in the theme's .info file.
+ * - $region_name: The name of the region variable with '_' replaced with '-'.
  *
  * Helper variables:
  * - $classes_array: Array of html class attribute values. It is flattened
@@ -26,5 +26,12 @@
  * @see template_preprocess_region()
  * @see template_process()
  */
+?>
 
-echo $content;
+<?php if ($region != 'navlinks'): ?>
+<div id="<?php print $region_name; ?>" class="<?php print $classes; ?>">
+<?php endif;?>
+  <?php print $content; ?>
+<?php if ($region != 'navlinks'): ?>
+</div>
+<?php endif;?>
