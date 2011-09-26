@@ -1144,5 +1144,48 @@ function _unl_limit_menu_depth($menu_links, $depth) {
 
 
 
+/**
+ * Implements hook_block_info()
+ */
+function unl_block_info() {
+  $blocks = array();
+  
+  $blocks['my_sites'] = array(
+    'info' => 'My Sites',
+  );
+  
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view()
+ */
+function unl_block_view($delta = '') {
+  switch ($delta) {
+    case 'my_sites':
+      return unl_block_view_my_sites();
+      break;
+    default:
+      return array();
+  }
+}
+
+/**
+ * Implements hook_block_view('my_sites').
+ * Displays the list of sites/roles for the current user.
+ */
+function unl_block_view_my_sites()
+{
+  require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_site_creation.php';
+
+  $block = array();
+  $block['content'] = _unl_get_user_audit_content($GLOBALS['user']->name);
+  
+  return $block;
+}
+
+
+
+
 
 

@@ -695,34 +695,54 @@ function unl_user_audit($form, &$form_state) {
   // Otherwise, since we have a username, we can query the sub-sites and return a list of roles for each.
   $username = $form_state['values']['username'];
   
-  $audit_map = array();
-  foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
-    $audit_map[] = array(
-      'data' => l($site['uri'], $site['uri']),
-      'children' => $site['roles'],
-    );
-  }
   
   $form['results'] = array(
     '#type' => 'fieldset',
     '#title' => 'Results',
   );
   
+  $form['results']['roles'] = _unl_get_user_audit_content($username);
+  
+  return $form;
+}
+
+/**
+ * Returns an array that can be passed to drupal_render() of the given user's sites/roles.
+ * @param string $username
+ */
+function _unl_get_user_audit_content($username) {
+  $audit_map = array();
+  
+  foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
+    $audit_map[] = array(
+      'data' => l($site['uri'], $site['uri']),
+      'children' => $site['roles'],
+    );
+  }
+
   if (count($audit_map) > 0) {
-    $form['results']['roles'] = array(
+    $content = array(
       '#theme' => 'item_list',
-      '#title' => 'The user "' . $username . '" belongs to the following sites as a member of the listed roles.',
       '#type'  => 'ul',
       '#items' => $audit_map,
     );
+    if ($username == $GLOBALS['user']->name) {
+      $content['#title'] = 'You belong to the following sites as a member of the listed roles.';
+    } else {
+      $content['#title'] = 'The user "' . $username . '" belongs to the following sites as a member of the listed roles.';
+    }
   } else {
-    $form['results']['roles'] = array(
+    $content = array(
       '#type' => 'item',
-      '#title' => 'The user "' . $username . '" does not belong to any roles on any sites.',
     );
+    if ($username == $GLOBALS['user']->name) {
+      $content['#title'] = 'You do not belong to any roles on any sites.';
+    } else {
+      $content['#title'] = 'The user "' . $username . '" does not belong to any roles on any sites.';
+    }
   }
   
-  return $form;
+  return $content;
 }
 
 /**
