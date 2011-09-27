@@ -1156,6 +1156,7 @@ function unl_block_info() {
   
   $blocks['my_sites'] = array(
     'info' => 'My Sites',
+    'cache' => DRUPAL_CACHE_PER_USER,
   );
   
   return $blocks;
