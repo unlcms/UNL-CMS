@@ -1180,6 +1180,10 @@ function unl_block_view($delta = '') {
  */
 function unl_block_view_my_sites()
 {
+  if (user_is_anonymous()) {
+    return array();
+  }
+  
   require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_site_creation.php';
 
   $block = array();

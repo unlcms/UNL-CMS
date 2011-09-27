@@ -711,6 +711,10 @@ function unl_user_audit($form, &$form_state) {
  * @param string $username
  */
 function _unl_get_user_audit_content($username) {
+  if (user_is_anonymous()) {
+    return array();
+  }
+  
   $audit_map = array();
   
   foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
