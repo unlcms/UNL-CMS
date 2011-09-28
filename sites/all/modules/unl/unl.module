@@ -932,6 +932,33 @@ function unl_init() {
       drupal_goto($primary_base_url . current_path());
     }
   }
+  _unl_handle_directory_index();
+}
+
+/**
+ * Custom function called by unl_init() to redirect users from
+ * a non-existant some/path/index.html to an existing some/path.
+ */
+function _unl_handle_directory_index() {
+  $path = current_path();
+  
+  if (!in_array(basename($path), array('index.html', 'index.htm', 'index.shtml'))) {
+    return;
+  }
+  
+  if (drupal_lookup_path('source', $path)) {
+    return;
+  }
+  
+  if (drupal_lookup_path('source', dirname($path))) {
+    drupal_goto(dirname($path));
+    return;
+  }
+  
+  if (dirname($path) == '.') {
+    drupal_goto('<front>');
+    return;
+  }
 }
 
 /**
