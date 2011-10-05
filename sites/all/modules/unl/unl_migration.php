@@ -804,8 +804,13 @@ class Unl_Migration_Tool
           substr($absoluteUrl, 0, strlen($this->_baseUrl)) == $this->_baseUrl &&
           in_array(basename($parts['path']), $this->_frontierIndexFiles)
         ) {
+            $parts['path'] = isset($parts['path']) ? dirname($parts['path']) . '/' : '';
+            if (substr($parts['path'], 0, 1) == '/') {
+              $parts['path'] = substr($parts['path'], 1);
+            }
+            
             $absoluteUrl = $parts['scheme'] . '://' . $parts['host'];
-            $absoluteUrl .= isset($parts['path']) ? dirname($parts['path']) . '/' : '';
+            $absoluteUrl .= $parts['path'];
             $absoluteUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
             $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
         }
