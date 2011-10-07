@@ -1,36 +1,4 @@
 <?php
-/**
- * Implementation of hook_field_attach_view_alter().
- */
-function unl_field_attach_view_alter(&$output, $context) {
-  foreach (element_children($output) as $field_name) {
-    $element = &$output[$field_name];
-    switch ($element['#field_name']) {
-      case 'field_hrorgunit':
-        $result = file_get_contents('http://directory.unl.edu/departments/?view=deptlistings&org_unit='.$element['#items'][0]['value'].'&format=partial');
-        if (!empty($result) && trim($result) != '<div id="all_employees"></div>') {
-          drupal_add_css('http://directory.unl.edu/css/peoplefinder_default.css', 'external');
-          drupal_add_js('http://directory.unl.edu/scripts/peoplefinder.js', 'external');
-          drupal_add_js('var PF_URL = "http://directory.unl.edu/", ANNOTATE_URL = "http://annotate.unl.edu/";', 'inline');
-          // Need to check to see if directory.unl.edu only returned a partial result. If so, result will have a message in between the closing ul and div tags like so: </ul><p>Try refining your search.</p></div></div>
-          if (!preg_match('/<\/ul>\s*\n*\s*<\/div><\/div>/', $result)) {
-            // Extra message at the bottom indicating not all results returned - hide it
-            drupal_add_css('#all_employees > * > p {display:none;}', 'inline');
-            // Alert the user to visit the directory site
-            drupal_add_js('jQuery(document).ready(function(){jQuery("#all_employees .result_head").css("font-size","13px").html("We\'re a big department! Partial listing shown below, please visit <a href=\"http://directory.unl.edu/departments/'.$element['#items'][0]['value'].'#all_employees\">our department lisiting on the UNL Directory</a> to see everyone.");});', 'inline');
-          }
-        }
-        else {
-          $result = '<p>Please visit the <a href="http://directory.unl.edu/">UNL Directory</a> for listings.</p>';
-        }
-        foreach ($element['#items'] as $delta => $item) {
-          $element[$delta]['#markup'] = $result;
-        }
-        break;
-      default:
-    }
-  }
-}
 
 require_once dirname(__FILE__) . '/includes/common.php';
 
@@ -55,7 +23,7 @@ function unl_html_head_alter(&$head_elements) {
       return;
     }
   }
-  
+
   // If we are in a drilled down menu, change the home link to the drilled down item.
   $current_menu_link = _unl_get_current_menu_link();
   if ($current_menu_link && $current_menu_link->depth > 1) {
@@ -64,7 +32,7 @@ function unl_html_head_alter(&$head_elements) {
   else {
     $home_path = '<front>';
   }
-  
+
   // ...otherwise add a <link rel="home"> tag with the front page as the href attribute
   $element = array(
     '#tag' => 'link',
@@ -616,7 +584,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
    * determine whether or not the menu link is visible or not.
    */
   if (substr($form_id, -10) == '_node_form') {
-    $form['menu']['#title'] = 'Site hierachy';
+    $form['menu']['#title'] = 'Site hierarchy';
 
     $form['menu']['enabled']['#default_value'] = TRUE;
     $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
@@ -992,20 +960,20 @@ function unl_init() {
  */
 function _unl_handle_directory_index() {
   $path = current_path();
-  
+
   if (!in_array(basename($path), array('index.html', 'index.htm', 'index.shtml'))) {
     return;
   }
-  
+
   if (drupal_lookup_path('source', $path)) {
     return;
   }
-  
+
   if (drupal_lookup_path('source', dirname($path))) {
     drupal_goto(dirname($path));
     return;
   }
-  
+
   if (dirname($path) == '.') {
     drupal_goto('<front>');
     return;
@@ -1169,11 +1137,11 @@ function _unl_get_current_menu_link() {
     ->condition('link_path', current_path())
     ->execute()
     ->fetch();
-    
+
   if (!$result) {
     return FALSE;
   }
-  
+
   while (($result->hidden || $result->depth % 2 !== 0 || !$result->has_children) && $result->depth > 1) {
     $result = db_select('menu_links')
       ->fields('menu_links')
@@ -1182,7 +1150,7 @@ function _unl_get_current_menu_link() {
       ->execute()
       ->fetch();
   }
-  
+
   return $result;
 }
 
@@ -1236,7 +1204,7 @@ function unl_block_info() {
     'info' => 'My Sites',
     'cache' => DRUPAL_CACHE_PER_USER,
   );
-  
+
   return $blocks;
 }
 
@@ -1262,12 +1230,12 @@ function unl_block_view_my_sites()
   if (user_is_anonymous()) {
     return array();
   }
-  
+
   require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_site_creation.php';
 
   $block = array();
   $block['content'] = _unl_get_user_audit_content($GLOBALS['user']->name);
-  
+
   return $block;
 }
 
