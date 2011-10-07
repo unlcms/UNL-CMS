@@ -98,10 +98,44 @@ function unl_wdn_preprocess_node(&$vars) {
   if (isset($vars['elements']['#node']->op) && $vars['elements']['#node']->op == 'Preview') {
     $vars['page'] = true;
   }
+  // Change the format of the byline
+  if ($vars['uid']) {
+    $vars['submitted'] =  t('By !username <span class="datetime">!datetime</span>', array('!username' => $vars['name'], '!datetime' => $vars['date']));
+  } else {
+    $vars['submitted'] =  t('!datetime ', array('!datetime' => $vars['date']));
+  }
 }
 
+/**
+ * Implements template_preprocess_username().
+ */
+function unl_wdn_preprocess_username(&$vars) {
+  // Link the displayed name to UNL Directory rather than Drupal user page
+  $vars['link_path'] = 'http://directory.unl.edu/?uid=' . user_load($vars['account']->uid)->name;
+  $vars['link_attributes'] = array('title' => t('View user in the UNL Directory.'));
+}
+
+/**
+ * Implements hook_username_alter().
+ */
+function unl_wdn_username_alter(&$name, $account) {
+  // Drupal does not support "display names" so convert the user name (jdoe2 to Jane Doe) using UNL Directory service
+  $context = stream_context_create(array(
+    'http' => array('timeout' => 1)
+  ));
+  $result = json_decode(@file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
+  if (!empty($result) && $result->sn) {
+    $zero = '0';
+    $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);
+    $name = $firstname . ' ' . $result->sn->$zero;
+  }
+}
+
+/**
+ * Implements template_preprocess_page().
+ */
 function unl_wdn_preprocess_page(&$vars, $hook) {
-  //Unset the sidebars if on a user page (i.e. user profile or imce file browser)
+  // Unset the sidebars if on a user page (i.e. user profile or imce file browser)
   if (arg(0) == 'user') {
     $vars['page']['sidebar_first'] = array();
     $vars['page']['sidebar_second'] = array();

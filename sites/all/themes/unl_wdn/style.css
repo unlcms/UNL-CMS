@@ -1,50 +1,26 @@
-/* 
+/**
  * Most unl_wdn css comes from all.css in the WDNTemplates project.
  * CSS that does appear here is for CMS specific items or modifications
  * that need to be made for WDN styles to work with CMS DOM structure.
  */
 
 /* Position tabs at the top right of maincontent */
-body.fixed #maincontent {
-  min-width: 960px;
-}
-#maincontent ul.wdn_tabs.cms_tabs {
-  position: absolute;
-  right: 0;
-  top: -60px;
-}
-
+body.fixed #maincontent {min-width: 960px;}
+#maincontent ul.wdn_tabs.cms_tabs {position: absolute; right: 0; top: -60px;}
 /* Fix for a Views page */
-#wdn_content_wrapper.contextual-links-region {
-  position: static;
-}
-
+#pagetitle {position: relative;}
+#wdn_content_wrapper.contextual-links-region {position: static;}
 /* Hide the contextual links in the UNL nav */
-#navigation div.contextual-links-wrapper {
-  display: none;
-}
-
+#navigation div.contextual-links-wrapper {display: none;}
 /* UNL css displays all ul in copyright area as inline, need to hide this */
-#wdn_copyright ul.contextual-links {
-  display: none;
-}
-
+#wdn_copyright ul.contextual-links {display: none;}
 /* Overrides of system.menus.css due to conflicts with UNL navigation */
-#navigation ul li.expanded, #navigation ul li.collapsed , #navigation ul li.leaf {
-  list-style-image: none;
-  list-style-type: none;
-}
-#navigation li.expanded, #navigation li.collapsed, #navigation li.leaf {
-  margin: 0;
-  padding: 0;
-}
-
+#navigation ul li.expanded, #navigation ul li.collapsed , #navigation ul li.leaf {list-style-image: none; list-style-type: none;}
+#navigation li.expanded, #navigation li.collapsed, #navigation li.leaf {margin: 0; padding: 0;}
 /* Override for unl #maincontent specificity */
-ul.links.inline {
-  padding-left: 0 !important;
-}
+ul.links.inline {padding-left: 0 !important;}
 
-/* Book
+/* book
 *********/
 .book-navigation ul {
   border-top: 1px solid #E1E1DB;
@@ -65,4 +41,153 @@ ul.links.inline {
 #block-book-navigation ul li,
 #wdn_content_wrapper #block-book-navigation .first {
   margin: 0 0 0 0.5em;
+}
+
+/* unl_newsitem full page
+*********/
+.page-node .node-unl-newsitem .submitted {
+  border-color: #F2EDDE;
+  border-width:  0 0 2px 0;
+  border-style: solid;
+  margin: 0 0 15px 0;
+  padding: 3px 0;
+  color: #666;
+}
+.page-node .node-unl-newsitem .submitted .username {
+  color: #666 !important;
+}
+.page-node .node-unl-newsitem .submitted .username:hover {
+  text-decoration: underline !important;
+}
+.page-node .node-unl-newsitem .submitted .datetime {
+  font-style: italic;
+  margin-left: 10px;
+}
+.page-node .node-unl-newsitem .field-name-field-unl-newsimg {
+  border-color: #F2EDDE;
+  border-width: 1px 0;
+  border-style: solid;
+  margin: 0 0 15px 0;
+  padding: 3px 0;
+}
+.page-node .node-unl-newsitem .primary-image {
+  float: right;
+  margin-left: 10px;
+  width: 50%;
+}
+.page-node .node-unl-newsitem .primary-image img,
+.page-node .node-unl-newsitem .primary-image .caption {
+  width: 96%;
+}
+.page-node .node-unl-newsitem .field-name-field-unl-newsimg .field-item {
+  display: inline;
+}
+.page-node .node-unl-newsitem .field-name-field-unl-newsimg .field-item img {
+  max-height: 120px;
+  margin: 0 10px 10px 0;
+}
+
+/* sidebar blocks
+*********/
+.sidebar .block {
+  padding-bottom: 30px;
+  margin-bottom: 30px;
+}
+.sidebar .block:after {
+  clear: both;
+  content: ".";
+  display: block;
+  height: 0;
+  visibility: hidden;
+}
+.sidebar .block-views {
+  padding: 10px;
+  box-shadow: 0 1px 3px #999;
+}
+.sidebar .block-views .view-teaser-abbr .feed-icon {
+  top: 8px;
+}
+
+/* .view-teaser-abbr
+*********/
+.view-teaser-abbr .feed-icon {
+  position: absolute;
+  right: 5px;
+  top: 3px;
+}
+.view-teaser-abbr ul {
+  list-style: none !important;
+  padding: 0 !important;
+}
+.view-teaser-abbr ul li:first-child {
+  border-top: 3px solid #444;
+}
+.view-teaser-abbr ul li {
+  border-top: 1px solid #aaa;
+  padding: 5px 0 10px 0;
+}
+.view-teaser-abbr ul h4 a.imagelink {
+  float: right;
+  margin-left: 10px;
+}
+.view-teaser-abbr ul h4 img {
+  border: 1px solid #ccc;
+  padding: 1px;
+}
+.view-teaser-abbr ul h4 a {
+  font-size: 14px;
+  color: #555 !important;
+}
+.view-teaser-abbr .more-link a {
+  float: right;
+  background: #3388bb;
+  padding: 3px 8px;
+  color: #eee !important;
+} 
+
+/* .view-teaser
+*********/
+.view-teaser .views-row {
+  margin-bottom: 5px; 
+  padding: 10px;
+}
+.view-teaser .views-row-even {
+  background-color: #f7f7f7;
+}
+.view-teaser .content {
+  margin-bottom: 5px;
+}
+.view-teaser .node-teaser h2 a, .view-teaser .node-teaser h3 a, .view-teaser .node-teaser h4 a, .view-teaser .node-teaser h5 a, .view-teaser .node-teaser h6 a {
+  color: #444 !important;
+  font-size: 18px !important;
+}
+.view-teaser .node-teaser h2 a:hover, .view-teaser .node-teaser h3 a:hover, .view-teaser .node-teaser h4 a:hover, .view-teaser .node-teaser h5 a:hover, .view-teaser .node-teaser h6 a:hover {
+  text-decoration: underline !important;
+}
+.view-teaser .meta.submitted {
+  font-size: .95em;
+  color: #888;
+  margin-bottom: 15px;
+}
+.view-teaser .meta.submitted .username {
+  color: #888 !important;
+}
+.view-teaser .meta.submitted .username:hover {
+  text-decoration: underline !important;
+}
+.view-teaser .meta.submitted .datetime {
+  font-style: italic;
+  margin-left: 10px;
+}
+.view-teaser .links {
+  float: right;
+}
+.view-teaser .node-readmore a {
+  background: #3388bb;
+  padding: 3px 8px;
+  color: #eee !important;
+} 
+.view-teaser .field-type-image .field-item {
+  float: left;
+  margin-right: 20px;
 }

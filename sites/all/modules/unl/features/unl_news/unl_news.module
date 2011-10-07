@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the UNL News feature.
+ */
+
+include_once('unl_news.features.inc');
