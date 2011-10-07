@@ -1,4 +1,36 @@
 <?php
+/**
+ * Implementation of hook_field_attach_view_alter().
+ */
+function unl_field_attach_view_alter(&$output, $context) {
+  foreach (element_children($output) as $field_name) {
+    $element = &$output[$field_name];
+    switch ($element['#field_name']) {
+      case 'field_hrorgunit':
+        $result = file_get_contents('http://directory.unl.edu/departments/?view=deptlistings&org_unit='.$element['#items'][0]['value'].'&format=partial');
+        if (!empty($result) && trim($result) != '<div id="all_employees"></div>') {
+          drupal_add_css('http://directory.unl.edu/css/peoplefinder_default.css', 'external');
+          drupal_add_js('http://directory.unl.edu/scripts/peoplefinder.js', 'external');
+          drupal_add_js('var PF_URL = "http://directory.unl.edu/", ANNOTATE_URL = "http://annotate.unl.edu/";', 'inline');
+          // Need to check to see if directory.unl.edu only returned a partial result. If so, result will have a message in between the closing ul and div tags like so: </ul><p>Try refining your search.</p></div></div>
+          if (!preg_match('/<\/ul>\s*\n*\s*<\/div><\/div>/', $result)) {
+            // Extra message at the bottom indicating not all results returned - hide it
+            drupal_add_css('#all_employees > * > p {display:none;}', 'inline');
+            // Alert the user to visit the directory site
+            drupal_add_js('jQuery(document).ready(function(){jQuery("#all_employees .result_head").css("font-size","13px").html("We\'re a big department! Partial listing shown below, please visit <a href=\"http://directory.unl.edu/departments/'.$element['#items'][0]['value'].'#all_employees\">our department lisiting on the UNL Directory</a> to see everyone.");});', 'inline');
+          }
+        }
+        else {
+          $result = '<p>Please visit the <a href="http://directory.unl.edu/">UNL Directory</a> for listings.</p>';
+        }
+        foreach ($element['#items'] as $delta => $item) {
+          $element[$delta]['#markup'] = $result;
+        }
+        break;
+      default:
+    }
+  }
+}
 
 require_once dirname(__FILE__) . '/includes/common.php';
 
@@ -477,6 +509,15 @@ function unl_form_alter(&$form, &$form_state, $form_id) {
   $admin_role_id = unl_shared_variable_get('user_admin_role', -1);
   if (!in_array($admin_role_id, array_keys($GLOBALS['user']->roles))) {
     switch ($form_id) {
+      // Don't allow editing of non-custom content types on admin/structure/types, i.e. don't allow subsites to edit the content types coming from modules or the UNL shared content types
+      case 'node_type_form' :
+      case 'field_ui_field_overview_form' :
+      case 'field_ui_display_overview_form' :
+        if (!$form['custom']['#value']) {
+          drupal_access_denied();
+          exit;
+        }
+        break;
       // Add additional validation on admin/people/permissions/roles/edit/%
       case 'user_admin_role' :
         $form['#validate'][] = 'unl_user_admin_role_validate';
@@ -571,7 +612,6 @@ function unl_form_alter(&$form, &$form_state, $form_id) {
     $form['menu']['enabled']['#suffix'] = '</div>';
 
     $form['menu']['link']['link_title']['#required'] = TRUE;
-
 
     $mlid = $form['menu']['link']['mlid']['#value'];
     if ($mlid) {
@@ -1163,11 +1203,11 @@ function _unl_limit_menu_depth($menu_links, $depth) {
   if ($depth == 0) {
     return array();
   }
-  
+
   foreach (element_children($menu_links) as $index) {
     $menu_links[$index]['#below'] = _unl_limit_menu_depth($menu_links[$index]['#below'], $depth - 1);
   }
-  
+
   return $menu_links;
 }
 
@@ -1180,7 +1220,7 @@ function _unl_limit_menu_depth($menu_links, $depth) {
  */
 function unl_block_info() {
   $blocks = array();
-  
+
   $blocks['my_sites'] = array(
     'info' => 'My Sites',
     'cache' => DRUPAL_CACHE_PER_USER,

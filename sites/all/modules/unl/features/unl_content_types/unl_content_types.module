@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the UNL Content Types feature.
+ */
+
+include_once('unl_content_types.features.inc');
