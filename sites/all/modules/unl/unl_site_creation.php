@@ -64,7 +64,7 @@ function unl_site_create_submit($form, &$form_state) {
   $clean_url = $form_state['values']['clean_url'];
 
   $db_prefix = unl_create_db_prefix($site_path);
-  
+
   $site_path = explode('/', $site_path);
   foreach (array_keys($site_path) as $i) {
     $site_path[$i] = unl_sanitize_url_part($site_path[$i]);
@@ -361,7 +361,7 @@ function unl_site_alias_create_validate($form, &$form_state) {
   if (substr($form_state['values']['path'], -1) != '/') {
     $form_state['values']['path'] .= '/';
   }
-  
+
   if (substr($form_state['values']['path'], 0, 1) == '/') {
     $form_state['values']['path'] = substr($form_state['values']['path'], 1);
   }
@@ -388,7 +388,7 @@ function unl_site_alias_list($form, &$form_state) {
     ),
     'alias_uri' => array(
       'data' => 'Alias URI',
-      'field' => 'a.uri',
+      'field' => 'a.path',
     ),
     'installed' => array(
       'data' => 'Status',
@@ -667,42 +667,42 @@ function unl_user_audit($form, &$form_state) {
     '#type' => 'fieldset',
     '#title' => 'User Audit',
   );
-  
+
   $form['root']['username'] = array(
     '#type' => 'textfield',
     '#title' => 'Username',
     '#required' => TRUE,
   );
-  
+
   /*
   $form['root']['ignore_shared_roles'] = array(
     '#type' => 'checkbox',
     '#title' => 'Ignore Shared Roles',
   );
   */
-  
+
   $form['root']['submit'] = array(
     '#type' => 'submit',
     '#value' => 'Search',
   );
-  
-  // If no user input has been received yet, return the base form. 
+
+  // If no user input has been received yet, return the base form.
   if (!isset($form_state['values']) || !$form_state['values']['username']) {
     return $form;
   }
-  
-  
+
+
   // Otherwise, since we have a username, we can query the sub-sites and return a list of roles for each.
   $username = $form_state['values']['username'];
-  
-  
+
+
   $form['results'] = array(
     '#type' => 'fieldset',
     '#title' => 'Results',
   );
-  
+
   $form['results']['roles'] = _unl_get_user_audit_content($username);
-  
+
   return $form;
 }
 
@@ -714,9 +714,9 @@ function _unl_get_user_audit_content($username) {
   if (user_is_anonymous()) {
     return array();
   }
-  
+
   $audit_map = array();
-  
+
   foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
     $audit_map[] = array(
       'data' => l($site['uri'], $site['uri']),
@@ -745,7 +745,7 @@ function _unl_get_user_audit_content($username) {
       $content['#title'] = 'The user "' . $username . '" does not belong to any roles on any sites.';
     }
   }
-  
+
   return $content;
 }
 
@@ -773,7 +773,7 @@ function theme_unl_table($variables) {
  */
 function unl_sites_feed() {
   $data = unl_get_site_user_map('role', 'Site Admin', TRUE);
-  
+
   header('Content-type: application/json');
   echo json_encode($data);
 }
@@ -782,7 +782,7 @@ function unl_sites_feed() {
  * Returns an array of lists of either roles a user belongs to or users belonging to a role.
  * Each key is the URI of a site and the value is the list.
  * If $list_empty_sites is set to TRUE, all sites will be listed, even if they have empty lists.
- * 
+ *
  * @param string $search_by (Either 'username' or 'role')
  * @param mixed $username_or_role
  * @param bool $list_empty_sites
@@ -792,32 +792,32 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
   if (!in_array($search_by, array('username', 'role'))) {
     throw new Exception('Invalid argument for $search_by');
   }
-  
+
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
     ->execute()
     ->fetchAll();
-  
+
   $audit_map = array();
   foreach ($sites as $site) {
     $shared_prefix = unl_get_shared_db_prefix();
     $prefix = $site->db_prefix;
-    
+
     try {
       $site_settings = unl_get_site_settings($site->uri);
       $site_db_config = $site_settings['databases']['default']['default'];
       $roles_are_shared = is_array($site_db_config['prefix']) && array_key_exists('role', $site_db_config['prefix']);
-      
+
       /*
       // If the site uses shared roles, ignore it if the user wants us to.
       if ($roles_are_shared && $form_state['values']['ignore_shared_roles']) {
         continue;
       }
       */
-      
+
       $bound_params = array();
       $where = array();
-      
+
       if ($search_by == 'username') {
         $return_label = 'roles';
         $select = 'r.name';
@@ -830,24 +830,24 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
         $where[] = 'r.name = :role';
         $bound_params[':role'] = $username_or_role;
       }
-      
+
       $query = "SELECT {$select} "
              . "FROM {$prefix}_{$shared_prefix}users AS u "
              . "JOIN {$prefix}_{$shared_prefix}users_roles AS m "
              . "  ON u.uid = m.uid "
              . 'JOIN ' . ($roles_are_shared ? '' : $prefix . '_') . $shared_prefix . 'role AS r '
              . "  ON m.rid = r.rid ";
-      
+
       if (count($where) > 0) {
         $query .= 'WHERE ' . implode(' AND ', $where) . ' ';
       }
-      
+
       $role_names = db_query($query, $bound_params)->fetchCol();
-      
+
       if (count($role_names) == 0 && !$list_empty_sites) {
         continue;
       }
-      
+
       $primary_base_url = unl_site_variable_get($prefix, 'unl_primary_base_url');
       if ($primary_base_url) {
         $uri = $primary_base_url;
@@ -864,6 +864,6 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       drupal_set_message('Error querying database for site ' . $site->uri, 'warning');
     }
   }
-  
+
   return $audit_map;
 }
