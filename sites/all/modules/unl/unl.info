@@ -4,6 +4,7 @@ package = UNL
 dependencies[] = wysiwyg
 core = 7.x
 version = "7.x-1.0-20100920"
+configure = admin/config/system/unl
 
 files[] = unl.install
 files[] = unl.module

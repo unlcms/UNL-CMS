@@ -33,12 +33,6 @@
 
 $t = unl_wdn_get_instance();
 
-if (theme_get_setting('use_base')) {
-  $t->head = PHP_EOL
-           . '<base href="' . url('<front>', array('absolute' => TRUE)) . '" />' . PHP_EOL
-           . $t->head;
-}
-
 $t->head .= PHP_EOL
           . $head . PHP_EOL
           . $styles . PHP_EOL

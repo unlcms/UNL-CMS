@@ -330,6 +330,17 @@ function unl_menu() {
     'page callback'   => 'unl_still_alive',
     'access callback' => TRUE,
   );
+  
+  // UNL 
+  $items['admin/config/system/unl'] = array(
+    'title'            => 'UNL',
+    'description'      => 'Configure UNL System Settings',
+    'access callback'  => 'unl_user_is_administrator',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('unl_config'),
+    'file'             => 'includes/unl.admin.inc',
+    'weight'	       => 1,
+  );
 
   if (module_exists('imce')) {
     // Add IMCE file browser to Content section
@@ -961,6 +972,18 @@ function unl_init() {
       drupal_goto($primary_base_url . current_path());
     }
   }
+  
+  if (variable_get('unl_use_base_tag', TRUE)) {
+    $base_tag = array(
+      '#type' => 'html_tag',
+      '#tag' => 'base',
+      '#attributes' => array(
+        'href' => url('<front>', array('absoule' => TRUE)),
+      ),
+    );
+    drupal_add_html_head($base_tag, 'base');
+  }
+  
   _unl_handle_directory_index();
 }
 
@@ -1248,7 +1271,6 @@ function unl_block_view_my_sites()
 
   return $block;
 }
-
 
 
 
