@@ -99,3 +99,37 @@ function unl_get_site_settings($uri) {
   
   return get_defined_vars();
 } 
+
+/**
+ * Custom function that returns TRUE if the given table is shared with another site.
+ * @param string $table_name
+ */
+function unl_table_is_shared($table_name) {
+  $db_config = $GLOBALS['databases']['default']['default'];
+  if (is_array($db_config['prefix']) &&
+      isset($db_config['prefix']['role']) &&
+      $db_config['prefix']['default'] != $db_config['prefix'][$table_name]) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * A shared-table safe method that returns TRUE if the user is a member of the super-admin role.
+ */
+function unl_user_is_administrator() {
+  $user = $GLOBALS['user'];
+  
+  // If the role table is shared, use parent site's user_admin role, otherwise use the local value.
+  if (unl_table_is_shared('role')) {
+    $admin_role_id = unl_shared_variable_get('user_admin_role');
+  } else {
+    $admin_role_id = variable_get('user_admin_role'); 
+  }
+  
+  if ($user && in_array($admin_role_id, array_keys($user->roles))) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}

@@ -70,7 +70,7 @@ function unl_cas_menu() {
   $items['admin/config/people/unl_cas'] = array(
     'title'            => 'UNL CAS',
     'description'      => 'Configure the UNL CAS module',
-    'access callback'  => 'unl_cas_user_is_administrator',
+    'access callback'  => 'unl_user_is_administrator',
     'page callback'    => 'drupal_get_form',
     'page arguments'   => array('unl_cas_config'),
     'file'             => 'unl_cas.admin.inc',
@@ -326,12 +326,4 @@ function unl_cas_set_setting($name, $value) {
       ->condition('name', $name)
       ->execute();
   }
-}
-
-function unl_cas_user_is_administrator() {
-  $user = $GLOBALS['user'];
-  if ($user && in_array(unl_shared_variable_get('user_admin_role'), array_keys($user->roles))) {
-    return TRUE;
-  }
-  return FALSE;
 }
