@@ -595,7 +595,7 @@ class Unl_Migration_Tool
             } catch (Exception $e) {
               $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
             }
-            $this->_hrefTransformFiles[$path] = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath() . '/' . $path;
+            $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $path));
             return;
         }
         $html = $data['content'];
@@ -816,6 +816,30 @@ class Unl_Migration_Tool
         }
         
         return $absoluteUrl;
+    }
+    
+    /**
+     * Given an absolute URL $href, returns a URL that is relative to $baseUrl
+     * @param string $href
+     * @param string[optional] $baseUrl
+     */
+    private function _makeRelativeUrl($href, $baseUrl = '') {
+      if (!$baseUrl) {
+        $baseUrl = url('<front>', array('absolute' => TRUE));
+      }
+      
+      if (substr($href, 0, strlen($baseUrl)) == $baseUrl) {
+        if (variable_get('unl_use_base_tag', TRUE)) {
+          return substr($href, strlen($baseUrl));
+        } else {
+          $parts = parse_url($href);
+          $relativeUrl = $parts['path'];
+          $relativeUrl .= isset($parts['query']) ? '?' . $parts['query'] : '';
+          $relativeUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+          return $relativeUrl;
+        }
+      }
+      return $href;
     }
     
     private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)

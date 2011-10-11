@@ -983,6 +983,7 @@ function unl_init() {
     );
     drupal_add_html_head($base_tag, 'base');
   }
+  drupal_add_js(array('unl' => array('use_base_tag' => variable_get('unl_use_base_tag', TRUE))), 'setting');
   
   _unl_handle_directory_index();
 }
@@ -1272,7 +1273,27 @@ function unl_block_view_my_sites()
   return $block;
 }
 
+/**
+ * Implements hook_stream_wrappers_alter().
+ */
+function unl_stream_wrappers_alter(&$wrappers) {
+  if (variable_get('unl_clean_file_url')) {
+    $wrappers['public']['class'] = 'UnlPublicStreamWrapper';
+  }
+}
 
-
+class UnlPublicStreamWrapper extends DrupalPublicStreamWrapper {
+  function getExternalUrl() {
+    $url = $GLOBALS['base_url'];
+    
+    if (!variable_get('unl_clean_file_url')) {
+      $url .= '/' . self::getDirectoryPath();
+    }
+    
+    $path = str_replace('\\', '/', $this->getTarget());
+    $url .= '/' . drupal_encode_path($path);
+    return $url;
+  }
+}
 
 
