@@ -125,6 +125,7 @@ ul.links.inline {padding-left: 0 !important;}
 .view-teaser-abbr ul li {
   border-top: 1px solid #aaa;
   padding: 5px 0 10px 0;
+  margin: 0;
 }
 .view-teaser-abbr ul h4 a.imagelink {
   float: right;
