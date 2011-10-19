@@ -190,5 +190,5 @@ ul.links.inline {padding-left: 0 !important;}
 } 
 .view-teaser .field-type-image .field-item {
   float: left;
-  margin-right: 20px;
+  margin: 0 20px 30px 0;
 }

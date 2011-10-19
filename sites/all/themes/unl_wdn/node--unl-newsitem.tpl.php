@@ -52,15 +52,17 @@
       // We hide the comments and links now so that we can render them later.
       hide($content['comments']);
       hide($content['links']);
-      print render($content["body"]);
 
       // If more than one image is available, show the addtional images
       if ($view_mode == 'full' && isset($content["field_unl_newsimg"][1])) {
+        print render($content["body"]);
         unset($content["field_unl_newsimg"][0]);
         print render($content["field_unl_newsimg"]);
       } else if ($view_mode == 'teaser') {
         print render($content["field_unl_newsimg"]);
+        print render($content["body"]);
       }
+
     ?>
   </div>
 

@@ -302,7 +302,7 @@ function unl_menu() {
     'type'             => MENU_LOCAL_TASK,
     'file'             => 'unl_migration.php',
   );
-  
+
   $items['admin/content/unl/reset'] = array(
     'title'            => 'Reset Site',
     'description'      => 'Remove all nodes, menu items, etc from this site.',
@@ -330,8 +330,8 @@ function unl_menu() {
     'page callback'   => 'unl_still_alive',
     'access callback' => TRUE,
   );
-  
-  // UNL 
+
+  // UNL
   $items['admin/config/system/unl'] = array(
     'title'            => 'UNL',
     'description'      => 'Configure UNL System Settings',
@@ -637,10 +637,6 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     // Also hide the "Promoted to front page" option
     $form['options']['promote']['#prefix'] = '<div style="display:none;">';
     $form['options']['promote']['#suffix'] = '</div>';
-
-    // Also hide the "Sticky at top of lists" option
-    $form['options']['sticky']['#prefix'] = '<div style="display:none;">';
-    $form['options']['sticky']['#suffix'] = '</div>';
   }
 
   // Add the Roles checkboxes to the user edit form for users with ability to 'Administer users' but not 'Administer permissions' (Code below partially taken from user.module)
@@ -972,7 +968,7 @@ function unl_init() {
       drupal_goto($primary_base_url . current_path());
     }
   }
-  
+
   if (variable_get('unl_use_base_tag', TRUE)) {
     $base_tag = array(
       '#type' => 'html_tag',
@@ -984,7 +980,7 @@ function unl_init() {
     drupal_add_html_head($base_tag, 'base');
   }
   drupal_add_js(array('unl' => array('use_base_tag' => variable_get('unl_use_base_tag', TRUE))), 'setting');
-  
+
   _unl_handle_directory_index();
 }
 
@@ -1285,11 +1281,11 @@ function unl_stream_wrappers_alter(&$wrappers) {
 class UnlPublicStreamWrapper extends DrupalPublicStreamWrapper {
   function getExternalUrl() {
     $url = $GLOBALS['base_url'];
-    
+
     if (!variable_get('unl_clean_file_url')) {
       $url .= '/' . self::getDirectoryPath();
     }
-    
+
     $path = str_replace('\\', '/', $this->getTarget());
     $url .= '/' . drupal_encode_path($path);
     return $url;
