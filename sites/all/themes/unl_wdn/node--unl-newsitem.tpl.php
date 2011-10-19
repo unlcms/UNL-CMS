@@ -54,10 +54,12 @@
       hide($content['links']);
 
       // If more than one image is available, show the addtional images
-      if ($view_mode == 'full' && isset($content["field_unl_newsimg"][1])) {
+      if ($view_mode == 'full') {
         print render($content["body"]);
-        unset($content["field_unl_newsimg"][0]);
-        print render($content["field_unl_newsimg"]);
+        if (isset($content["field_unl_newsimg"][1])) {
+          unset($content["field_unl_newsimg"][0]);
+          print render($content["field_unl_newsimg"]);
+        }
       } else if ($view_mode == 'teaser') {
         print render($content["field_unl_newsimg"]);
         print render($content["body"]);
