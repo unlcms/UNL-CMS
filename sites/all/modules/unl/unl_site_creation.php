@@ -432,13 +432,34 @@ function unl_site_alias_list($form, &$form_state) {
 }
 
 function unl_site_alias_list_submit($form, &$form_state) {
-  $site_alias_ids = array();
+  $site_alias_ids = array(-1);
   foreach ($form_state['values']['aliases'] as $site_alias_id => $alias) {
     if ($alias['remove']) {
       $site_alias_ids[] = $site_alias_id;
     }
   }
 
+  $query = db_select('unl_sites_aliases', 'a');
+  $query->join('unl_sites', 's', 'a.site_id = s.site_id');
+  $data = $query
+    ->fields('a', array('site_alias_id', 'base_uri', 'path'))
+    ->fields('s', array('db_prefix'))
+    ->condition('site_alias_id', $site_alias_ids, 'IN')
+    ->execute()
+    ->fetchAll();
+  
+  $site_alias_ids = array(-1);
+  foreach ($data as $row) {
+    $alias_url = $row->base_uri . $row->path;
+    $primary_base_url = unl_site_variable_get($row->db_prefix, 'unl_primary_base_url', '');
+    if ($primary_base_url == $alias_url) {
+      drupal_set_message("Cannot delete the alias $alias_url.  It is currently the Primary Base URL for a site.", 'error');
+      continue;
+    }
+    $site_alias_ids[] = $row->site_alias_id;
+    drupal_set_message("The alias $alias_url was scheduled for removal.");
+  }
+  
   db_update('unl_sites_aliases')
     ->fields(array('installed' => 3))
     ->condition('site_alias_id', $site_alias_ids, 'IN')
