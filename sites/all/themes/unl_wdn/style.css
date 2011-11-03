@@ -160,11 +160,11 @@ ul.links.inline {padding-left: 0 !important;}
 .view-teaser .content {
   margin-bottom: 5px;
 }
-.view-teaser .node-teaser h2 a, .view-teaser .node-teaser h3 a, .view-teaser .node-teaser h4 a, .view-teaser .node-teaser h5 a, .view-teaser .node-teaser h6 a {
+.view-teaser h2 a, .view-teaser h3 a, .view-teaser h4 a, .view-teaser h5 a, .view-teaser h6 a {
   color: #444 !important;
   font-size: 18px !important;
 }
-.view-teaser .node-teaser h2 a:hover, .view-teaser .node-teaser h3 a:hover, .view-teaser .node-teaser h4 a:hover, .view-teaser .node-teaser h5 a:hover, .view-teaser .node-teaser h6 a:hover {
+.view-teaser h2 a:hover, .view-teaser h3 a:hover, .view-teaser h4 a:hover, .view-teaser h5 a:hover, .view-teaser h6 a:hover {
   text-decoration: underline !important;
 }
 .view-teaser .meta.submitted {
