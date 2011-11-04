@@ -148,49 +148,50 @@ ul.links.inline {padding-left: 0 !important;}
   color: #eee !important;
 } 
 
-/* .view-teaser
+/* .node-teaser
 *********/
-.view-teaser .views-row {
+.node-teaser {
   margin-bottom: 5px; 
   padding: 10px;
 }
-.view-teaser .views-row-even {
+.content > .node-teaser:nth-child(odd),
+.views-row-even .node-teaser {
   background-color: #f7f7f7;
 }
-.view-teaser .content {
+.node-teaser .content {
   margin-bottom: 5px;
 }
-.view-teaser h2 a, .view-teaser h3 a, .view-teaser h4 a, .view-teaser h5 a, .view-teaser h6 a {
+.node-teaser h2 a, .node-teaser h3 a, .node-teaser h4 a, .node-teaser h5 a, .node-teaser h6 a {
   color: #444 !important;
   font-size: 18px !important;
 }
-.view-teaser h2 a:hover, .view-teaser h3 a:hover, .view-teaser h4 a:hover, .view-teaser h5 a:hover, .view-teaser h6 a:hover {
+.node-teaser h2 a:hover, .node-teaser h3 a:hover, .node-teaser h4 a:hover, .node-teaser h5 a:hover, .node-teaser h6 a:hover {
   text-decoration: underline !important;
 }
-.view-teaser .meta.submitted {
+.node-teaser .meta.submitted {
   font-size: .95em;
   color: #888;
   margin-bottom: 15px;
 }
-.view-teaser .meta.submitted .username {
+.node-teaser .meta.submitted .username {
   color: #888 !important;
 }
-.view-teaser .meta.submitted .username:hover {
+.node-teaser .meta.submitted .username:hover {
   text-decoration: underline !important;
 }
-.view-teaser .meta.submitted .datetime {
+.node-teaser .meta.submitted .datetime {
   font-style: italic;
   margin-left: 10px;
 }
-.view-teaser .links {
+.node-teaser .links {
   float: right;
 }
-.view-teaser .node-readmore a {
+.node-teaser .node-readmore a {
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
 } 
-.view-teaser .field-type-image .field-item {
+.node-teaser .field-type-image .field-item {
   float: left;
   margin: 0 20px 30px 0;
 }
