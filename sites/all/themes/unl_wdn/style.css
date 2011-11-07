@@ -22,6 +22,14 @@ body.fixed #maincontent {min-width: 960px;}
 /* Override for unl #maincontent specificity */
 ul.links.inline {padding-left: 0 !important;}
 
+/* taxonomy
+*********/
+.taxonomy-term-description {
+  box-shadow: 0 1px 3px #999999;
+  margin: 0 0 20px;
+  padding: 10px;
+}
+
 /* book
 *********/
 .book-navigation ul {
@@ -151,8 +159,12 @@ ul.links.inline {padding-left: 0 !important;}
 /* .node-teaser
 *********/
 .node-teaser {
-  margin-bottom: 5px; 
+  margin-bottom: 10px; 
   padding: 10px;
+}
+.node-teaser.node-sticky {
+  background-color: #E8F4FF !important;
+  border: 1px solid #E1EAF0;
 }
 .content > .node-teaser:nth-child(odd),
 .views-row-even .node-teaser {
@@ -160,6 +172,9 @@ ul.links.inline {padding-left: 0 !important;}
 }
 .node-teaser .content {
   margin-bottom: 5px;
+}
+.node-teaser h2, .node-teaser h3, .node-teaser h4, .node-teaser h5, .node-teaser h6 {
+  padding-top: 0 !important;
 }
 .node-teaser h2 a, .node-teaser h3 a, .node-teaser h4 a, .node-teaser h5 a, .node-teaser h6 a {
   color: #444 !important;
