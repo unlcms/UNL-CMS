@@ -48,9 +48,10 @@ ul.links.inline {padding-left: 0 !important;}
 }
 
 #block-book-navigation,
-.block-menu-block {box-shadow: 0 1px 3px #999; padding-bottom: 0;}
+.block-menu-block {box-shadow: 0 1px 3px #999; padding-bottom: 0 !important;}
 #block-book-navigation a,
-.block-menu-block a {color: #333;}
+#maincontent .block-menu-block a {color: #333;}
+#maincontent .block-menu-block a:hover {color: #ee0000;}
 #block-book-navigation h3,
 .block-menu-block h3 {background-color: #3388BB; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
 #block-book-navigation h3 a {color: #FFF !important;}
