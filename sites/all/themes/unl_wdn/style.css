@@ -58,12 +58,12 @@ ul.links.inline {padding-left: 0 !important;}
 .block-menu-block .content > ul > li > a {display: none;}
 
 #block-book-navigation ul,
-.block-menu-block ul {padding: 0 !important; list-style: none !important;}
+.block-menu-block ul {padding: 0 !important; list-style-image: none !important; list-style-type: none !important;}
 #block-book-navigation li,
 .block-menu-block li {padding: 0 !important;}
 
 #block-book-navigation .content > ul > li, #block-book-navigation .content > ul > li > ul > li,
-.block-menu-block .content > ul > li, .block-menu-block .content > ul > li > ul > li, .block-menu-block .content > ul > li > ul > li > ul > li {list-style: none !important;}
+.block-menu-block .content > ul > li, .block-menu-block .content > ul > li > ul > li, .block-menu-block .content > ul > li > ul > li > ul > li { list-style-image: none !important; list-style-type: none !important;}
 #block-book-navigation .content > ul > li > a,
 .block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #eeeee5; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
 #block-book-navigation .content > ul > li.collapsed > a, #block-book-navigation .content > ul > li > ul > li.collapsed > a,
