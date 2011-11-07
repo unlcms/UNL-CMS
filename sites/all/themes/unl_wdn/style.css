@@ -46,7 +46,7 @@ ul.links.inline {padding-left: 0 !important;}
   color: #777 !important;
   font-size: .9em;
 }
-
+/* book nav block and menu-block */
 #block-book-navigation,
 .block-menu-block {box-shadow: 0 1px 3px #999; padding-bottom: 0 !important;}
 #block-book-navigation a,
@@ -65,7 +65,9 @@ ul.links.inline {padding-left: 0 !important;}
 #block-book-navigation .content > ul > li, #block-book-navigation .content > ul > li > ul > li,
 .block-menu-block .content > ul > li, .block-menu-block .content > ul > li > ul > li, .block-menu-block .content > ul > li > ul > li > ul > li {list-style: none !important;}
 #block-book-navigation .content > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > a {display: block; background: #eeeee5; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #eeeee5; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+#block-book-navigation .content > ul > li.collapsed > a, #block-book-navigation .content > ul > li > ul > li.collapsed > a,
+.block-menu-block .content > ul > li > ul > li.has-children > a, .block-menu-block .content > ul > li > ul > li > ul > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
 #block-book-navigation .content > ul > li:last-child > a,
 .block-menu-block .content > ul > li > ul > li:last-child > a {border: none; margin: 0;}
 #block-book-navigation .content > ul > li > ul > li > a,
