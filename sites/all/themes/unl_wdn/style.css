@@ -190,9 +190,8 @@ ul.links.inline {padding-left: 0 !important;}
   background-color: #E8F4FF !important;
   border: 1px solid #E1EAF0;
 }
-.content > .node-teaser:nth-child(odd),
-.views-row-even .node-teaser {
-  background-color: #f7f7f7;
+.content > .node-teaser:nth-child(odd) {background-color: #f7f7f7;}
+.views-row-even .node-teaser {background-color: #f7f7f7;}
 }
 .node-teaser .content {
   margin-bottom: 5px;
