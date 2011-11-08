@@ -1,5 +1,4 @@
 <?php
-// $Id: hidden.inc,v 1.27 2010/10/18 07:21:10 quicksketch Exp $
 
 /**
  * @file
@@ -7,7 +6,7 @@
  */
 
 /**
- * Implementation of _webform_defaults_component().
+ * Implements _webform_defaults_component().
  */
 function _webform_defaults_hidden() {
   return array(
@@ -17,23 +16,25 @@ function _webform_defaults_hidden() {
     'weight' => 0,
     'value' => '',
     'extra' => array(
+      'private' => FALSE,
     ),
   );
 }
 
 /**
- * Implementation of _webform_theme_component().
+ * Implements _webform_theme_component().
  */
 function _webform_theme_hidden() {
   return array(
     'webform_display_hidden' => array(
       'render element' => 'element',
+      'file' => 'components/hidden.inc',
     ),
   );
 }
 
 /**
- * Implementation of _webform_edit_component().
+ * Implements _webform_edit_component().
  */
 function _webform_edit_hidden($component) {
   $form = array();
@@ -48,12 +49,12 @@ function _webform_edit_hidden($component) {
   );
   $form['extra']['description'] = array(); // Hide the description box.
   $form['display'] = array('#type' => 'markup'); // Hide the display options.
-  $form['display']['title_display'] = array();
+
   return $form;
 }
 
 /**
- * Implementation of _webform_render_component().
+ * Implements _webform_render_component().
  */
 function _webform_render_hidden($component, $value = NULL, $filter = TRUE) {
   $element = array(
@@ -71,7 +72,7 @@ function _webform_render_hidden($component, $value = NULL, $filter = TRUE) {
 }
 
 /**
- * Implementation of _webform_display_component().
+ * Implements _webform_display_component().
  */
 function _webform_display_hidden($component, $value, $format = 'html') {
   $element = array(
@@ -104,7 +105,7 @@ function theme_webform_display_hidden($variables) {
 }
 
 /**
- * Implementation of _webform_analysis_component().
+ * Implements _webform_analysis_component().
  */
 function _webform_analysis_hidden($component, $sids = array()) {
   $query = db_select('webform_submitted_data', 'wsd', array('fetch' => PDO::FETCH_ASSOC))
@@ -122,7 +123,7 @@ function _webform_analysis_hidden($component, $sids = array()) {
 
   $result = $query->execute();
   foreach ($result as $data) {
-    if ( strlen(trim($data['data'])) > 0 ) {
+    if (strlen(trim($data['data'])) > 0) {
       $nonblanks++;
       $wordcount += str_word_count(trim($data['data']));
     }
@@ -137,14 +138,14 @@ function _webform_analysis_hidden($component, $sids = array()) {
 }
 
 /**
- * Implementation of _webform_csv_data_component().
+ * Implements _webform_csv_data_component().
  */
 function _webform_table_hidden($component, $value) {
   return check_plain(empty($value[0]) ? '' : $value[0]);
 }
 
 /**
- * Implementation of _webform_csv_data_component().
+ * Implements _webform_csv_data_component().
  */
 function _webform_csv_headers_hidden($component, $export_options) {
   $header = array();
@@ -155,7 +156,7 @@ function _webform_csv_headers_hidden($component, $export_options) {
 }
 
 /**
- * Implementation of _webform_csv_data_component().
+ * Implements _webform_csv_data_component().
  */
 function _webform_csv_data_hidden($component, $export_options, $value) {
   return empty($value[0]) ? '' : $value[0];

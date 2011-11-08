@@ -1,4 +1,3 @@
-// $Id: webform.js,v 1.5 2010/08/30 16:58:33 quicksketch Exp $
 
 /**
  * JavaScript behaviors for the front-end display of webforms.
@@ -19,22 +18,33 @@ Drupal.webform.datepicker = function(context) {
   $('div.webform-datepicker').each(function() {
     var $webformDatepicker = $(this);
     var $calendar = $webformDatepicker.find('input.webform-calendar');
-    var startYear = $calendar[0].className.replace(/.*webform-calendar-start-(\d+).*/, '$1');
-    var endYear = $calendar[0].className.replace(/.*webform-calendar-end-(\d+).*/, '$1');
+    var startDate = $calendar[0].className.replace(/.*webform-calendar-start-(\d{4}-\d{2}-\d{2}).*/, '$1').split('-');
+    var endDate = $calendar[0].className.replace(/.*webform-calendar-end-(\d{4}-\d{2}-\d{2}).*/, '$1').split('-');
     var firstDay = $calendar[0].className.replace(/.*webform-calendar-day-(\d).*/, '$1');
+console.log(startDate);
+    // Convert date strings into actual Date objects.
+    startDate = new Date(startDate[0], startDate[1] - 1, startDate[2]);
+    endDate = new Date(endDate[0], endDate[1] - 1, endDate[2]);
 
     // Ensure that start comes before end for datepicker.
-    if (startYear > endYear) {
-      var greaterYear = startYear;
-      startYear = endYear;
-      endYear = greaterYear;
+    if (startDate > endDate) {
+      var laterDate = startDate;
+      startDate = endDate;
+      endDate = laterDate;
     }
 
+    var startYear = startDate.getFullYear();
+    var endYear = endDate.getFullYear();
+
+    console.log(startDate);
+    console.log(endDate);
     // Set up the jQuery datepicker element.
     $calendar.datepicker({
       dateFormat: 'yy-mm-dd',
       yearRange: startYear + ':' + endYear,
       firstDay: parseInt(firstDay),
+      minDate: startDate,
+      maxDate: endDate,
       onSelect: function(dateText, inst) {
         var date = dateText.split('-');
         $webformDatepicker.find('select.year, input.year').val(+date[0]);
@@ -52,6 +62,9 @@ Drupal.webform.datepicker = function(context) {
         year = year ? year : today.getFullYear();
         month = month ? month : today.getMonth() + 1;
         day = day ? day : today.getDate();
+
+        // Make sure that the default year fits in the available options.
+        year = (year < startYear || year > endYear) ? startYear : year;
 
         // jQuery UI Datepicker will read the input field and base its date off
         // of that, even though in our case the input field is a button.

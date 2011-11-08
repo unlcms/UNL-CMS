@@ -1,5 +1,4 @@
 <?php
-// $Id: webform.export.inc,v 1.7 2010/04/03 04:06:29 quicksketch Exp $
 
 /**
  * @file
@@ -7,7 +6,7 @@
  */
 
 /**
- * Implementation of hook_webform_exporters().
+ * Implements hook_webform_exporters().
  *
  * Defines the exporters this module implements.
  *

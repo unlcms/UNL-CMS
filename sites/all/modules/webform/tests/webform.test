@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /**
  * @file
@@ -12,7 +11,7 @@ class WebformTestCase extends DrupalWebTestCase {
   public $webform_users;
 
   /**
-   * Implementation of setUp().
+   * Implements setUp().
    */
   function setUp() {
     // Enable Webform.
@@ -115,8 +114,8 @@ class WebformTestCase extends DrupalWebTestCase {
           'value' => '19 Nov 1978',
           'extra' => array(
             'timezone' => 'site',
-            'year_start' => '1950',
-            'year_end' => '2020',
+            'start_date' => '-100 years',
+            'end_date' => '+2 years',
           ),
           'mandatory' => '0',
           'email' => '1',
@@ -279,7 +278,7 @@ class WebformTestCase extends DrupalWebTestCase {
       'select_zero' => array(
         'component' => array(
           'form_key' => 'select_zero',
-          'name' => 'Select',
+          'name' => 'Select zero',
           'type' => 'select',
           'value' => '0',
           'extra' => array(
@@ -297,6 +296,50 @@ class WebformTestCase extends DrupalWebTestCase {
         'sample values' => '0',
         'database values' => array('0'),
         'database default values' => array('0'),
+      ),
+      'select_no_default' => array(
+        'component' => array(
+          'form_key' => 'select_no_default',
+          'name' => 'Select no default',
+          'type' => 'select',
+          'value' => '',
+          'extra' => array(
+            'description' => '<p>Description here</p>',
+            'items' => "one|one\ntwo|two\nthree|three\nfour|four\nfive|five\nsix|six",
+            'aslist' => 1,
+            'email' => 0,
+          ),
+          'mandatory' => '0',
+          'email' => '1',
+          'pid' => '0',
+          'weight' => '-15',
+          'page_num' => 1,
+        ),
+        'sample values' => 'two',
+        'database values' => array('two'),
+        'database default values' => array(''),
+      ),
+      'select_no_default_zero' => array(
+        'component' => array(
+          'form_key' => 'select_no_default_zero',
+          'name' => 'Select no default zero',
+          'type' => 'select',
+          'value' => '',
+          'extra' => array(
+            'description' => '<p>Tests saving zero as a value.</p>',
+            'items' => "0|zero\n1|one\n2|two",
+            'aslist' => 1,
+            'email' => 0,
+          ),
+          'mandatory' => '0',
+          'email' => '1',
+          'pid' => '0',
+          'weight' => '-15',
+          'page_num' => 1,
+        ),
+        'sample values' => '0',
+        'database values' => array('0'),
+        'database default values' => array(''),
       ),
       'select_optgroup' => array(
         'component' => array(
@@ -373,8 +416,8 @@ class WebformTestCase extends DrupalWebTestCase {
           'value' => 'Nov 19 1978',
           'extra' => array(
             'timezone' => 'site',
-            'year_start' => '1900',
-            'year_end' => '2050',
+            'start_date' => '-100 years',
+            'end_date' => '+2 years',
             'year_textfield' => 1,
           ),
           'mandatory' => '1',
@@ -607,7 +650,88 @@ class WebformTestCase extends DrupalWebTestCase {
    * Utility function to print out the current page being tested.
    */
   function webformPrintPage() {
-    exit($this->_browser->_page->getRaw());
+    $this->verbose($this->drupalGetContent());
   }
 }
 
+/**
+ * Test general functionality of Webform.
+ */
+class WebformGeneralTestCase extends WebformTestCase {
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Webform'),
+      'description' => t('Checks global Webform settings and content types.'),
+      'group' => t('Webform'),
+    );
+  }
+
+  /**
+   * Test creating a new Webform node.
+   */
+  function testWebformCreate() {
+    $settings = array(
+      'title' => 'Test webform, no components',
+      'type' => 'webform',
+    );
+    $node = $this->drupalCreateNode($settings);
+
+    // Because this is a "webform" type node, it should have an entry in the
+    // database even though it's using the default settings.
+    $this->assertTrue($this->webformRecordExists($node->nid), t('Webform record made in the database for the new webform node.'));
+
+    // Make a change to the node, ensure that the record stays intact.
+    $node->title .= '!';
+    node_save($node);
+    $this->assertTrue($this->webformRecordExists($node->nid), t('Webform record still in the database after modifying webform node.'));
+  }
+
+  /**
+   * Test webform-enabling a different node type and testing behavior.
+   */
+  function testWebformCreateNewType() {
+    // Enable webforms on the page content type.
+    variable_set('webform_node_types', array('webform', 'page'));
+
+    $settings = array(
+      'title' => 'Test webform-enabled page',
+      'type' => 'page',
+    );
+    $node = $this->drupalCreateNode($settings);
+
+    // Because this is a webform-enabled type node but does not yet have any
+    // components, it should not have an entry in the database because it is
+    // using the default settings.
+    $this->assertFalse($this->webformRecordExists($node->nid), t('Webform record not in the database for the new page node.'));
+
+    // Make a change to the node, ensure that the record stays empty.
+    $node->title .= '!';
+    node_save($node);
+    $this->assertFalse($this->webformRecordExists($node->nid), t('Webform record still not in the database after modifying page node.'));
+
+    // Add a new component to the node and check that a record is made in the
+    // webform table.
+    $components = $this->testWebformComponents();
+    $textarea = $components['textarea'];
+    $textarea['type'] = 'textarea';
+    $textarea['form_key'] = 'textarea';
+    $textarea['cid'] = 1;
+    $textarea['pid'] = 0;
+    $textarea = array_merge(webform_component_invoke('textarea', 'defaults'), $textarea);
+    $node->webform['components'][1] = $textarea;
+    node_save($node);
+    $this->assertTrue($this->webformRecordExists($node->nid), t('Webform record now exists after adding a new component.'));
+
+    // Remove the new component and ensure that the record is deleted.
+    $node->webform['components'] = array();
+    node_save($node);
+    $this->assertFalse($this->webformRecordExists($node->nid), t('Webform record deleted after deleting last component.'));
+  }
+
+  function webformRecordExists($nid) {
+    return (bool) db_query("SELECT nid FROM {webform} WHERE nid = :nid", array(':nid' => $nid))->fetchField();
+  }
+}

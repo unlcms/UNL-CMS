@@ -1,4 +1,3 @@
-// $Id: webform-admin.js,v 1.8 2010/12/30 02:57:19 quicksketch Exp $
 (function ($) {
 
 /**

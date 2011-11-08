@@ -1,5 +1,4 @@
 <?php
-// $Id: webform.install,v 1.62 2011/01/06 18:34:54 quicksketch Exp $
 
 /**
  * @file
@@ -7,7 +6,7 @@
  */
 
 /**
- * Implementation of hook_schema().
+ * Implements hook_schema().
  */
 function webform_schema() {
   $schema = array();
@@ -27,11 +26,10 @@ function webform_schema() {
         'not null' => TRUE,
       ),
       'confirmation_format' => array(
-        'description' => 'The input format used by the confirmation message.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'default' => 0,
+        'description' => 'The {filter_format}.format of the confirmation message.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
       ),
       'redirect_url' => array(
         'description' => 'The URL a user is redirected to after submitting a form.',
@@ -62,6 +60,13 @@ function webform_schema() {
       ),
       'allow_draft' => array(
          'description' => 'Boolean value for whether submissions to this form be saved as a draft.',
+         'type' => 'int',
+         'size' => 'tiny',
+         'not null' => TRUE,
+         'default' => 0,
+      ),
+      'auto_save' => array(
+         'description' => 'Boolean value for whether submissions to this form should be auto-saved between pages.',
          'type' => 'int',
          'size' => 'tiny',
          'not null' => TRUE,
@@ -299,10 +304,13 @@ function webform_schema() {
         'length' => 128,
       ),
     ),
+    'primary key' => array('sid'),
     'unique keys' => array(
       'sid_nid' => array('sid', 'nid'),
     ),
-    'primary key' => array('sid'),
+    'indexes' => array(
+      'nid_uid_sid' => array('nid', 'uid', 'sid'),
+    ),
   );
 
   $schema['webform_submitted_data'] = array(
@@ -344,18 +352,53 @@ function webform_schema() {
         'not null' => TRUE,
       ),
     ),
+    'primary key' => array('nid', 'sid', 'cid', 'no'),
     'indexes' => array(
       'nid' => array('nid'),
       'sid_nid' => array('sid', 'nid'),
     ),
-    'primary key' => array('nid', 'sid', 'cid', 'no'),
+  );
+
+  $schema['webform_last_download'] = array(
+   'description' => 'Stores last submission number per user download.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The node identifier of a webform.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+       'description' => 'The user identifier.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+     'sid' => array(
+        'description' => 'The last downloaded submission number.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+     'requested' => array(
+        'description' => 'Timestamp of last download request.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('nid', 'uid'),
   );
 
   return $schema;
 }
 
 /**
- * Implementation of hook_install().
+ * Implements hook_install().
  */
 function webform_install() {
   module_load_include('inc', 'node', 'content_types');
@@ -377,15 +420,17 @@ function webform_install() {
   );
   $webform_type = node_type_set_defaults($webform_type);
   node_type_save($webform_type);
+  node_add_body_field($webform_type);
 }
 
 /**
- * Implementation of hook_uninstall().
+ * Implements hook_uninstall().
  */
 function webform_uninstall() {
   // Unset webform variables.
+  variable_del('webform_node_types');
+  variable_del('webform_node_types_primary');
   variable_del('webform_use_cookies');
-  variable_del('webform_enable_fieldset');
   variable_del('webform_default_from_address');
   variable_del('webform_default_from_name');
   variable_del('webform_default_subject');
@@ -472,5 +517,173 @@ function webform_update_7305() {
 function webform_update_7306() {
   if (!db_field_exists('webform', 'status')) {
     db_add_field('webform', 'status', array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1));
+  }
+}
+
+/**
+ * Update the confirmation_format column for default text format changes.
+ */
+function webform_update_7307() {
+  // These changes are modeled after user_update_7010().
+  db_change_field('webform', 'confirmation_format', 'confirmation_format', array(
+    'description' => 'The {filter_format}.format of the confirmation message.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+  ));
+  db_update('webform')
+    ->fields(array('confirmation_format' => NULL))
+    ->condition('confirmation', '')
+    ->condition('confirmation_format', 0)
+    ->execute();
+  $existing_formats = db_query("SELECT format FROM {filter_format}")->fetchCol();
+  $default_format = variable_get('filter_default_format', 1);
+
+  // Since Webform may be updated separately from Drupal core, not all format
+  // names may be numbers when running this update.
+  $numeric_formats = array();
+  foreach ($existing_formats as $format_name) {
+    if (is_numeric($format_name)) {
+      $numeric_formats[] = (int) $format_name;
+    }
+  }
+
+  $query = db_update('webform')
+    ->fields(array('confirmation_format' => $default_format))
+    ->isNotNull('confirmation_format');
+
+  if (!empty($numeric_formats)) {
+    $query->condition('confirmation_format', $numeric_formats, 'NOT IN');
+  }
+
+  $query->execute();
+}
+
+/**
+ * Update the confirmation_format column to allow it to store strings.
+ */
+function webform_update_7308() {
+  db_change_field('webform', 'confirmation_format', 'confirmation_format', array(
+    'description' => 'The {filter_format}.format of the confirmation message.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => FALSE,
+  ));
+}
+
+/**
+ * Add the ability to auto-save as draft between pages.
+ */
+function webform_update_7309() {
+  if (!db_field_exists('webform', 'auto_save')) {
+    db_add_field('webform', 'auto_save', array('type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0));
+  }
+}
+
+/**
+ * Remove orphaned and unnecessary rows in the webform table.
+ */
+function webform_update_7310() {
+  $result = db_query("SELECT nid FROM {webform} WHERE
+    nid NOT IN
+    (SELECT DISTINCT(w1.nid) FROM {webform} w1 INNER JOIN {webform_component} wc ON w1.nid = wc.nid)
+    AND nid NOT IN
+    (SELECT w2.nid FROM {webform} w2 INNER JOIN {node} n ON w2.nid = n.nid WHERE n.type = 'webform')"
+  );
+  $empty_nids = array();
+  foreach ($result as $row) {
+    $empty_nids[] = $row->nid;
+  }
+  if (!empty($empty_nids)) {
+    db_delete('webform')->condition('nid', $empty_nids, 'IN')->execute();
+  }
+}
+
+/**
+ * Add an index for sid_nid_uid to webform_submissions.
+ */
+function webform_update_7311() {
+  if (!db_index_exists('webform_submissions', 'nid_uid_sid')) {
+    db_add_index('webform_submissions', 'nid_uid_sid', array('nid', 'uid', 'sid'));
+  }
+}
+
+/**
+ * Remove unused Webform variables.
+ */
+function webform_update_7312() {
+  variable_del('node_types');
+  variable_del('components');
+}
+
+/**
+ * Convert the Date component start and end year options to start and end date.
+ */
+function webform_update_7313() {
+  $result = db_select('webform_component', 'wc', array('fetch' => PDO::FETCH_ASSOC))
+    ->fields('wc')
+    ->condition('type', 'date')
+    ->execute();
+  foreach ($result as $component) {
+    $component['extra'] = unserialize($component['extra']);
+    if (!isset($component['extra']['start_date']) && !isset($component['end_date'])) {
+      foreach (array('year_start' => 'start_date', 'year_end' => 'end_date') as $key => $replacement) {
+        $value = isset($component['extra'][$key]) ? trim($component['extra'][$key]) : '';
+        // Relative years.
+        if (preg_match('/[-+][ ]*[0-9]+/', $value)) {
+          $component['extra'][$replacement] = ($value == 1) ? ($value . ' year') : ($value . ' years');
+        }
+        // Absolute years.
+        elseif (is_numeric($value)) {
+          $component['extra'][$replacement] = 'Dec 31 ' . $value;
+        }
+        unset($component['extra'][$key]);
+      }
+      $component['extra'] = serialize($component['extra']);
+      drupal_write_record('webform_component', $component, array('nid', 'cid'));
+    }
+  }
+}
+
+/**
+ * Add webform_last_download table to store last downloaded sid per user.
+ */
+function webform_update_7314() {
+  $schema['webform_last_download'] = array(
+    'description' => 'Stores last submission number per user download.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The node identifier of a webform.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'description' => 'The user identifier.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'sid' => array(
+        'description' => 'The last downloaded submission number.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('nid', 'uid'),
+  );
+  db_create_table('webform_last_download', $schema['webform_last_download']);
+}
+
+/**
+ * Add column for timestamp of last requested CSV download.
+ */
+function webform_update_7315() {
+  if (!db_field_exists('webform_last_download', 'requested')) {
+    db_add_field('webform_last_download', 'requested', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0,));
   }
 }

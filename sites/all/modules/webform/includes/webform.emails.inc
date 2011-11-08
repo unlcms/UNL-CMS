@@ -1,5 +1,4 @@
 <?php
-// $Id: webform.emails.inc,v 1.25 2010/12/30 02:57:19 quicksketch Exp $
 
 /**
  * @file
@@ -14,16 +13,11 @@
 function webform_emails_form($form, $form_state, $node) {
   module_load_include('inc', 'webform', 'includes/webform.components');
 
-  $path = drupal_get_path('module', 'webform');
-  $form = array(
-    '#tree' => TRUE,
-    '#node' => $node,
-    '#attached' =>  array(
-      'css' => array($path . '/css/webform-admin.css' => array('preprocess' => FALSE, 'weight' => CSS_DEFAULT + 1)),
-      'js' => array($path . '/js/webform-admin.js' => array('preprocess' => FALSE)),
-    ),
-    'components' => array(),
-  );
+  $form['#attached']['library'][] = array('webform', 'admin');
+
+  $form['#tree'] = TRUE;
+  $form['#node'] = $node;
+  $form['components'] = array();
 
   $form['nid'] = array(
     '#type' => 'value',
@@ -171,17 +165,10 @@ function webform_emails_form_submit($form, &$form_state) {
 function webform_email_edit_form($form, $form_state, $node, $email = array()) {
   module_load_include('inc', 'webform', 'includes/webform.components');
 
-  $path = drupal_get_path('module', 'webform');
-  $form = array(
-    '#tree' => TRUE,
-    '#attached' =>  array(
-      'css' => array($path . '/css/webform-admin.css' => array('preprocess' => FALSE, 'weight' => CSS_DEFAULT + 1)),
-      'js' => array(
-        $path . '/js/webform-admin.js' => array('preprocess' => FALSE),
-        array('data' => array('webform' => array('revertConfirm' => t('Are you sure you want to revert any changes to your template back to the default?'))), 'type' => 'setting'),
-      ),
-    ),
-  );
+  $form['#attached']['library'][] = array('webform', 'admin');
+  $form['#attached']['js'][] = array('data' => array('webform' => array('revertConfirm' => t('Are you sure you want to revert any changes to your template back to the default?'))), 'type' => 'setting');
+
+  $form['#tree'] = TRUE;
   $form['node'] = array(
     '#type' => 'value',
     '#value' => $node,
@@ -279,24 +266,25 @@ function webform_email_edit_form($form, $form_state, $node, $email = array()) {
     '#type' => 'textarea',
     '#rows' => max(10, min(20, count(explode("\n", $template)))),
     '#default_value' => $template,
+    '#wysiwyg' => webform_email_html_capable() ? NULL : FALSE,
   );
 
   $form['template']['html'] = array(
     '#type' => 'checkbox',
     '#title' => t('Send e-mail as HTML'),
     '#default_value' => $email['html'],
-    '#access' => module_exists('mimemail') && !variable_get('webform_format_override', 0),
+    '#access' => webform_email_html_capable() && !variable_get('webform_format_override', 0),
   );
 
   $form['template']['attachments'] = array(
     '#type' => 'checkbox',
     '#title' => t('Include files as attachments'),
     '#default_value' => $email['attachments'],
-    '#access' => module_exists('mimemail'),
+    '#access' => webform_email_html_capable(),
   );
 
   $form['template']['tokens'] = array(
-    '#value' => theme('webform_token_help'),
+    '#markup' => theme('webform_token_help', array('groups' => 'all')),
   );
 
   $form['template']['components'] = array(
@@ -317,6 +305,7 @@ function webform_email_edit_form($form, $form_state, $node, $email = array()) {
     '#value' => $default_template,
     '#resizable' => FALSE,
     '#weight' => 19,
+    '#wysiwyg' => FALSE,
   );
 
   // Add the submit button.
@@ -407,10 +396,14 @@ function webform_email_edit_form_validate($form, &$form_state) {
  * Submit handler for webform_email_edit_form().
  */
 function webform_email_edit_form_submit($form, &$form_state) {
+  // Ensure a webform record exists.
+  $node = $form_state['values']['node'];
+  webform_ensure_record($node);
+
   // Merge the e-mail, name, address, and subject options into single values.
   $email = array(
     'eid' => $form_state['values']['eid'],
-    'nid' => $form_state['values']['node']->nid,
+    'nid' => $node->nid,
   );
 
   foreach (array('email', 'from_name', 'from_address', 'subject') as $field) {
@@ -444,7 +437,7 @@ function webform_email_edit_form_submit($form, &$form_state) {
   // We actually maintain an *exclusion* list, so any new components will
   // default to being included in the %email_values token until unchecked.
   $included = array_keys(array_filter((array) $form_state['values']['components']));
-  $excluded = array_diff(array_keys($form_state['values']['node']->webform['components']), $included);
+  $excluded = array_diff(array_keys($node->webform['components']), $included);
   $email['excluded_components'] = $excluded;
 
   if (empty($form_state['values']['eid'])) {
@@ -456,7 +449,12 @@ function webform_email_edit_form_submit($form, &$form_state) {
     webform_email_update($email);
   }
 
-  $form_state['redirect'] = array('node/' . $form_state['values']['node']->nid . '/webform/emails');
+  // Clear the entity cache if Entity Cache module is installed.
+  if (module_exists('entitycache')) {
+    cache_clear_all($node->nid, 'cache_entity_node');
+  }
+
+  $form_state['redirect'] = array('node/' . $node->nid . '/webform/emails');
 }
 
 /**
@@ -489,9 +487,22 @@ function webform_email_delete_form($form, $form_state, $node, $email) {
  * Submit handler for webform_component_delete_form().
  */
 function webform_email_delete_form_submit($form, &$form_state) {
+  // Delete the e-mail settings.
+  $node = $form_state['values']['node'];
+  $email = $form_state['values']['email'];
+  webform_email_delete($node, $email);
   drupal_set_message(t('E-mail settings deleted.'));
-  webform_email_delete($form_state['values']['node'], $form_state['values']['email']);
-  $form_state['redirect'] = 'node/' . $form_state['values']['node']->nid . '/webform/emails';
+
+  // Check if this webform still contains any information.
+  unset($node->webform['emails'][$email['eid']]);
+  webform_check_record($node);
+
+  // Clear the entity cache if Entity Cache module is installed.
+  if (module_exists('entitycache')) {
+    cache_clear_all($node->nid, 'cache_entity_node');
+  }
+
+  $form_state['redirect'] = 'node/' . $node->nid . '/webform/emails';
 }
 
 /**

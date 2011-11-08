@@ -1,5 +1,10 @@
 <?php
-// $Id: webform_handler_field_node_link_edit.inc,v 1.1 2010/09/11 02:18:51 quicksketch Exp $
+
+/**
+ * @file
+ * Views handler to display an edit link for Webform configuration.
+ */
+
 /**
  * Field handler to present a link node edit.
  */
