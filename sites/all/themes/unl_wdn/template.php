@@ -1,13 +1,11 @@
 <?php
 
 /**
- * Implements hook_css_alter().
+ * zenform implementation
  */
-function unl_wdn_css_alter(&$css) {
-  // Turn off some styles from the system module.
-  // If some of this is later found desireable, add "stylesheets[all][] = css/unl_wdn.theme.css" to unl_wdn.info and copy these files to that locaiton with edits.
-  $path = drupal_get_path('module','system');
-  unset($css[$path.'/system.theme.css']);
+if (theme_get_setting('zen_forms')) {
+  require_once dirname(__FILE__) . '/includes/form.inc';
+  require_once dirname(__FILE__) . '/includes/webform.inc';
 }
 
 /**
