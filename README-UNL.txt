@@ -26,8 +26,24 @@ modules/image/image.field.inc
  * http://drupal.org/node/1025796#comment-4298698
  * http://drupal.org/files/issues/1025796.patch
 
-------------------------------------
+-------------------------------------
  
+includes/common.inc
+ * EntityMalformedException: Missing bundle property on entity of type node. in entity_extract_ids() (line 7392 of /var/www/unl.edu/htdocs/includes/common.inc).
+ * http://gforge.unl.edu/gf/project/wdn_thm_drupal/tracker/?action=TrackerItemEdit&tracker_item_id=993&start=0
+ * http://drupal.org/node/1067750#comment-4941822
+ * Applied patch: http://drupal.org/files/issues/empty_string_bundle.patch
+
+-------------------------------------
+
+sites/all/modules/form_builder/modules/webform/form_builder_webform.module
+ * In form_builder_webform_components_page() load jquery.ui.datepicker.min.js so the Date element will work on a new form that does not have ui.datepicker loaded
+ * http://drupal.org/node/1307838
+
+*****************************************
+** Other
+*****************************************
+
 sites/sites.php
  * Added support for $default_domains array. See includes/bootstrap.inc conf_path().
 
@@ -36,3 +52,8 @@ sites/sites.php
 sites/example.sites.php
  * Added an example of the $default_domains array.
  * Added the stub record needed for creating site aliases.
+
+-------------------------------------
+
+rewrite.php
+used to allow public files to be accessed without the sites/<site_dir>/files prefix
