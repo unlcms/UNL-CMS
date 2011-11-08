@@ -3,7 +3,7 @@ description = Enables CAS authentication/registration of users through login.unl
 package = UNL
 dependencies[] = unl
 core = 7.x
-version = "7.x-1.0-20101129"
+version = "7.x-1.0-beta1"
 configure = admin/config/people/unl_cas
 
 files[] = unl_cas.module

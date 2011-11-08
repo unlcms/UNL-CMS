@@ -1,7 +1,9 @@
 <?php
 
+/**
+ * Settings for admin/people/import setup in unl_cas.module
+ */
 function unl_cas_user_import($form, &$form_state) {
-
   $form['root'] = array(
     '#type' => 'fieldset',
     '#title' => 'Import from UNL Directory.',
@@ -82,8 +84,10 @@ function unl_cas_user_import_submit($form, &$form_state) {
   }
 }
 
+/**
+ * Settings for admin/config/people/unl_cas setup in unl_cas.module
+ */
 function unl_cas_config($form, &$form_state) {
-
   $form['ldap'] = array(
     '#tree' => TRUE,
     '#type'  => 'fieldset',

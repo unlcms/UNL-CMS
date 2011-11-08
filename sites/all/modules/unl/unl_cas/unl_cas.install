@@ -1,5 +1,8 @@
 <?php
 
+/**
+ * Implements hook_schema().
+ */
 function unl_cas_schema() {
   $schema = array();
   $schema['unl_cas_settings'] = array(
@@ -22,7 +25,7 @@ function unl_cas_schema() {
     ),
     'primary key' => array('name'),
   );
-  
+
   return $schema;
 }
 
@@ -50,6 +53,6 @@ function unl_cas_update_7100() {
     ),
     'primary key' => array('name'),
   );
-  
+
   db_create_table('unl_cas_settings', $table);
 }
