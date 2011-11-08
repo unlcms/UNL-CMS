@@ -92,6 +92,11 @@ function unl_wdn_preprocess_region(&$vars) {
  * Implements template_preprocess_node().
  */
 function unl_wdn_preprocess_node(&$vars) {
+  // Add forms css file if content type is webform.  Only done on webform to prevent css conflicts with zenform on basic pages.
+  if ($vars['type'] == 'webform' && !theme_get_setting('zen_forms')) {
+    $path = drupal_get_path('theme', 'unl_wdn');
+    drupal_add_css($path . '/css/form.css');
+  }
   // Drupal doesn't correctly set the $page flag for the preview on node/add/page which results in the <h2> being displayed in modules/node/node.tpl.php
   if (isset($vars['elements']['#node']->op) && $vars['elements']['#node']->op == 'Preview') {
     $vars['page'] = true;
