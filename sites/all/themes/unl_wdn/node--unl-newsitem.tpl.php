@@ -55,7 +55,9 @@
 
       // If more than one image is available, show the addtional images
       if ($view_mode == 'full') {
-        print render($content["body"]);
+        foreach (array_diff(array_keys($content), array('field_unl_imgcar', 'field_unl_newsimg', 'links', 'comments')) as $field) {
+          print render($content[$field]);
+        }
         if (isset($content["field_unl_newsimg"][1])) {
           unset($content["field_unl_newsimg"][0]);
           print render($content["field_unl_newsimg"]);
