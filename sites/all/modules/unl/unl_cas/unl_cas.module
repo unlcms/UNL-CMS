@@ -184,7 +184,7 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
  * Implements hook_form_FORM_ID_alter().
  * Make sure there's no funny business with somebody trying to change a password when we're using CAS.
  */
-function unl_cas_user_profile_form_validate(&$form, &$form_state, $form_id) {
+function unl_cas_user_profile_form_validate(&$form, &$form_state, $form_id = '') {
   if ($form_state['values']['pass']) {
     form_set_error('current_pass', t('Password changes are not allowed when CAS is enabled!'));
   }

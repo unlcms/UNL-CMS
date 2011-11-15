@@ -1292,4 +1292,25 @@ class UnlPublicStreamWrapper extends DrupalPublicStreamWrapper {
   }
 }
 
-
+/**
+ * Implements hook_query_alter()
+ * Currently used to filter out users with no roles at "admin/people".
+ */
+function unl_query_alter(QueryAlterableInterface $query)
+{
+  // If this query is coming from the "People" admin page
+  if (current_path() == 'admin/people') {
+    // Find the prefix for the "users" table
+    $usersTableAlias = NULL;
+    foreach ($query->getTables() as $alias => $table) {
+      if ($table['table'] == 'users') {
+        $usersTableAlias = $alias; 
+      }
+    }
+    // If we actually find a users table
+    if ($usersTableAlias) {
+      // Join it with the users_roles tables so that only users with roles are seleceted.
+      $query->join('users_roles', 'unl_distinct_prefix_r', $usersTableAlias . '.uid = unl_distinct_prefix_r.uid');
+    }
+  }
+}

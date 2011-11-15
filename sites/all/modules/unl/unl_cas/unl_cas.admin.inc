@@ -79,6 +79,7 @@ function unl_cas_user_import_submit($form, &$form_state) {
 
   if ($user) {
     drupal_set_message('User ' . $form_state['values']['username'] . ' successfully created.');
+    drupal_goto('user/'.$user->uid.'/edit', array('query'=>array('destination'=>'admin/people')));
   } else {
     drupal_set_message('An error occured importing the user.', 'error');
   }
