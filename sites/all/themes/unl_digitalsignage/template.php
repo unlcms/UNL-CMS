@@ -58,7 +58,8 @@ function _unl_digitalsignage_twitterfeed($item, $fieldname) {
   if (strpos($item, '/') === false) {
     $twitterapi = 'https://api.twitter.com/1/statuses/user_timeline.json?screen_name='.$item.'&include_rts=true&count=20&include_entities=true';
   } else {
-    $twitterapi = 'https://api.twitter.com/1/lists/statuses.json?slug=unl&owner_screen_name=unlnews&page=1&include_entities=true';
+    $pieces = explode("/", $item);
+    $twitterapi = 'https://api.twitter.com/1/lists/statuses.json?slug='.$pieces[1].'&owner_screen_name='.$pieces[0].'&page=1&include_entities=true';
   }
   $proxy = $base_path.'sites/all/themes/unl_digitalsignage/proxy.php?u='.urlencode($twitterapi);
   return drupal_add_js('UNL.digitalSignage.feeds["'.$fieldname.'"] = "'.$proxy.'"', 'inline');

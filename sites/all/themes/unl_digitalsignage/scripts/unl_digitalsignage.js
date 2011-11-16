@@ -1,4 +1,6 @@
 UNL.digitalSignage = (function() {
+	var width = 1920;
+	var height = 1080;
 	var maxItems = {
 		'news' : 5,
 		'videos' : 10
@@ -10,6 +12,11 @@ UNL.digitalSignage = (function() {
 		
 		init : function() {
 			console.log('UNL.digitalSignage.init called');
+			
+			if ('1360' < window.innerWidth && window.innerWidth < '1372') {
+				width = 1366;
+				height = 768;
+			}
 			
 			for (feed in UNL.digitalSignage.feeds) {
 				if (UNL.digitalSignage.feeds.hasOwnProperty(feed)) {
@@ -74,10 +81,15 @@ UNL.digitalSignage = (function() {
 										'<div class="'+field+'-qrcode"></div>'+
 										'</li>');
 							
+							var sizeSmall = 42, sizeBig = 120;
+							if (width < '1920') {
+								var sizeSmall = 32;
+								var sizeBig = 88;
+							}
 							// Small QR Code
-							UNL.digitalSignage.addQrCode('.field-name-'+field+' .field-items .field-item:nth-child('+news.length+')', 'background-image', '42', val.link);
+							UNL.digitalSignage.addQrCode('.field-name-'+field+' .field-items .field-item:nth-child('+news.length+')', 'background-image', sizeSmall, val.link);
 							// Big QR Code
-							UNL.digitalSignage.addQrCode('.field-name-'+field+' .field-items .field-item:nth-child('+news.length+') .'+field+'-qrcode', 'img', '120', val.link);
+							UNL.digitalSignage.addQrCode('.field-name-'+field+' .field-items .field-item:nth-child('+news.length+') .'+field+'-qrcode', 'img', sizeBig, val.link);
 						});
 						
 						// Add the list of news stories
@@ -201,8 +213,8 @@ UNL.digitalSignage = (function() {
 				// Show the next image
 				next.css({opacity: 0.0}).addClass('show');
 				
-				// Decide how to animate fading in the new image and whether to move the background 
-				if (current.width() < '1920' && next.width() >= '1920') {
+				// Decide how to animate fading in the new image and whether to move the background (the +/- 2 is just for a little fudging)
+				if (current.width() < width+2 && next.width() >= width-2) {
 					next.animate({opacity: 1.0}, 3000, function() {
 						jQuery('#page-title').animate({
 							backgroundColor : 'rgba(255, 255, 255, 0.50)',
@@ -210,11 +222,11 @@ UNL.digitalSignage = (function() {
 							color : 'rgba(60, 60, 60, 1.0)',
 							textShadow : '#FFFFFF 0 0 0'
 							}, 2000);
-						jQuery('#unl_digitalsignage_background').animate({'left' : '-1920px'}, 2000, function() {
+						jQuery('#unl_digitalsignage_background').animate({'left' : '-'+width+'px'}, 2000, function() {
 							jQuery(opacityElements).css('background-image','none');
 						});
 					});
-				} else if (current.width() >= '1920' && next.width() < '1920') {
+				} else if (current.width() >= width-2 && next.width() < width+2) {
 					jQuery('#page-title').animate({
 						backgroundColor : 'rgba(255, 255, 255, 0)',
 						paddingLeft : pageTitle['padding-left'],

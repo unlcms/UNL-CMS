@@ -1,0 +1,354 @@
+/* General page
+*************/
+html {
+  width: 1366px;
+  height: 768px;
+  overflow: hidden;
+  outline: 1px solid #eee;
+}
+body.node-type-digital-sign.front {
+  background: #FFF !important;
+}
+body.node-type-digital-sign {
+  background-color: gray;
+  background-image: url(../images/background-crosshatch.png);
+  color: #444;
+}
+body.node-type-digital-sign #breadcrumb {
+  display: none;
+}
+body.node-type-digital-sign #page-title {
+  display: inline-block;
+  margin-top: 12px;
+  margin-bottom: 20px;
+  padding: 12px 20px 0 92px;
+  font-family: 'URWGroteskCon-Lig';
+  font-size: 52px;
+  color: #FFF;
+  text-shadow: 1px 1px 4px #000;
+  border-radius: 0 10px 10px 0;
+}
+body.node-type-digital-sign .field {
+  z-index: 10;
+  position: relative;
+}
+body.node-type-digital-sign .field .field-label {
+  font-family: 'URWGroteskCon-Lig';
+  font-size: 45px;
+  letter-spacing: .04em;
+}
+/* Background image
+****************/
+#unl_digitalsignage_background {
+  z-index: -1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1366px;
+  height: 768px;
+  background-image: url('../images/1366/background-lights.png');
+}
+
+
+/* Beauty Shots
+*****************/
+body.node-type-digital-sign .field-name-field-beautyshots {
+  z-index: -2;
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+body.node-type-digital-sign .field-name-field-beautyshots .field-item {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+body.node-type-digital-sign .field-name-field-beautyshots .field-item img {
+  max-height: 768px;
+}
+
+/* Twitter
+*****************/
+body.node-type-digital-sign .field-name-field-twitter {
+  display: inline-block;
+  float: right;
+  width: 250px;
+  min-height: 125px;
+  padding: 14px 0 14px 14px;
+  margin: 14px 0 0 34px;
+  border-radius: 10px 0 0 60px / 10px 0 0 143px;
+  font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+  background-color: rgba(255, 255, 255, 0.86);
+  background-image: -webkit-gradient(
+    linear,
+    right bottom,
+    left top,
+    color-stop(0.19, rgb(240,240,240)),
+    color-stop(0.6, rgb(222,222,222)),
+    color-stop(0.8, rgb(252,252,252))
+  );
+}
+body.node-type-digital-sign .field-name-field-twitter img {
+  float: left;
+  margin: 0 10px 12px 0;
+  height: 34px;
+  width: 34px;
+}
+body.node-type-digital-sign .field-name-field-twitter .tweet-user {
+  float: left;
+}
+body.node-type-digital-sign .field-name-field-twitter .tweet-user-name {
+  float: left;
+  margin-bottom: 4px;
+  font-size: 18px;
+  font-weight: bold;
+}
+body.node-type-digital-sign .field-name-field-twitter .tweet-full-name {
+  float: left;
+  clear: left;
+  font-weight: normal;
+  font-size: 12px;
+  color: #999;
+}
+body.node-type-digital-sign .field-name-field-twitter .tweet-text {
+  clear: left;
+  text-align: right;
+  font-size: 15px;
+  line-height: 1.2em;
+  padding-right: 15px;
+  word-wrap: break-word;
+}
+body.node-type-digital-sign .field-name-field-twitter .retweet {
+  float: right;
+  padding-right: 10px;
+  font-style: italic;
+  padding-top: 10px;
+  max-width: 200px;
+  font-size: 14px;
+  text-align: right;
+}
+
+/* News
+*****************/
+
+body.node-type-digital-sign .field-name-field-newssources {
+  clear: both;
+  margin: 0 0 0 23px;
+}
+body.node-type-digital-sign .field-name-field-newssources .field-items {
+  float: left;
+  background: rgba(255, 255, 255, 0.86);
+  background-image: -webkit-gradient(
+    linear,
+    right bottom,
+    left top,
+    color-stop(0.19, rgb(240,240,240)),
+    color-stop(0.6, rgb(222,222,222)),
+    color-stop(0.8, rgb(252,252,252))
+  );
+}
+body.node-type-digital-sign .field-name-field-newssources ul.field-items {
+  width: 363px;
+}
+body.node-type-digital-sign .field-name-field-newssources .field-item {
+  clear: left;
+  font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+  border-bottom: 1px solid black;
+  padding: 0;
+  min-height: 34px;
+}
+body.node-type-digital-sign .field-name-field-newssources .field-item:last-child {
+  border: none;
+}
+
+body.node-type-digital-sign .field-name-field-newssources .field-item.show {
+  border-top: 1px solid #c9c9c9;
+  border-radius: 5px 0 0 5px;
+  width: 377px;
+  position: relative;
+  top: -1px;
+  left: -10px;
+  z-index: 11;
+  color: #222;
+  text-shadow: 0px 1px 0px white;
+  -webkit-box-shadow: 0px 1px 2px rgba(0,0,0, 0.5), inset 0 1px 2px #eee;
+  background-color: gray;
+  background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0.25, #C9C9C9), color-stop(1, #AFAFAF));
+}
+body.node-type-digital-sign .field-name-field-newssources .field-item.show:after {
+  content: ' ';
+  height: 0;
+  position: absolute;
+  right: -40px;
+  top: 0px;
+  width: 0;
+  border: 20px solid transparent;
+  border-left-color: #333;
+  /*border-left-image: url(border.png) 27 27 27 27 round round;*/
+}
+body.node-type-digital-sign .field-name-field-newssources .field-item.show h3 span {
+  padding: 0 0 0 40px;
+  font-size: 14px;
+}
+
+body.node-type-digital-sign .field-name-field-newssources .field-item h3 {
+  font-size: 15px;
+  background-repeat: no-repeat;
+  padding: 5px 0 5px 5px;
+  background-origin: content-box;
+  height: 34px;
+}
+body.node-type-digital-sign .field-name-field-newssources .field-item h3 span {
+  padding: 0 0 0 40px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  top: 10px;
+  min-height: 23px;
+}
+body.node-type-digital-sign .field-name-field-newssources .field-newssources-desc,
+body.node-type-digital-sign .field-name-field-newssources .field-newssources-link,
+body.node-type-digital-sign .field-name-field-newssources .field-newssources-qrcode {
+  display: none;
+}
+
+/* The actual div that shows the story
+*********************/
+
+.field-name-field-newssources .field-display {
+  float: left;
+  position: relative;
+  width: 528px;
+  height: 205px;
+  background-color: rgba(255, 255, 255, 0.86);
+  background-image: -webkit-gradient(
+    linear,
+    right bottom,
+    left top,
+    color-stop(0.19, rgb(240,240,240)),
+    color-stop(0.6, rgb(222,222,222)),
+    color-stop(0.8, rgb(252,252,252))
+  );
+  padding: 10px 10px 10px 20px;
+  margin-left: 14px;
+  font-size: 15px;
+  font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+  border-radius: 0 10px 10px 0;
+}
+.field-name-field-newssources .field-display .desc {
+  line-height: 1.2em;
+  overflow: hidden;
+  max-height: 182px;
+}
+.field-name-field-newssources .field-display .desc * {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+}
+.field-name-field-newssources .field-display .link {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  font-size: 20px;
+}
+.field-name-field-newssources .field-display .link:before {
+  content: '...continued at';
+  font-style: italic;
+  font-size: 16px;
+  padding-right: 12px;
+}
+.field-name-field-newssources .field-display .qrcode {
+  float: right;
+  margin-left: 7px;
+}
+
+/* Videos
+*****************/
+
+body.node-type-digital-sign .field-name-field-videosources {
+  margin: 0 0 0 23px;
+}
+body.node-type-digital-sign .field-name-field-videosources video {
+  height: 384px;
+  float: left;
+  margin-bottom: 26px;
+}
+body.node-type-digital-sign .field-name-field-videosources .field-videosources-desc {
+  background: rgba(255, 255, 255, 0.86);
+  background-image: -webkit-gradient(
+    linear,
+    right bottom,
+    left top,
+    color-stop(0.19, rgb(240,240,240)),
+    color-stop(0.6, rgb(222,222,222)),
+    color-stop(0.8, rgb(252,252,252))
+  );
+  padding: 10px 10px 10px 10px;
+  position: relative;
+  top: 20px;
+  max-height: 333px;
+  width: 235px;
+  overflow: hidden;
+  font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-style: italic;
+  border-radius: 0 10px 10px 0;
+  opacity: 0.95;
+  line-height: 1.3em;
+}
+body.node-type-digital-sign .field-name-field-videosources .field-videosources-desc h3 {
+  font-size: 20px;
+  font-style: normal;
+  line-height: 1.1em;
+  margin-bottom: 14px;
+}
+body.node-type-digital-sign .field-name-field-videosources .field-videosources-desc p {
+  display: inline;
+}
+
+/* UNL Alert Box
+*****************/
+#unlalert-wrapper {
+  z-index: 9999999;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+  font-size: 56px;
+  color: #111;
+  background: transparent;
+}
+#unlalert-wrapper div {
+  margin: 40px 0;
+}
+#unlalert-desc {
+  padding: 0 100px;
+  font-size: 110px;
+}
+#unlalert-bg-2 {
+  z-index: -1;
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  margin: 0 !important;
+  width: 100%;
+  height: 100%;
+  background-color:#d10000;
+  background-image: radial-gradient(55% 19%, ellipse closest-side, #d10000 9%,#750808 108%);
+}
+#unlalert-bg-1 {
+  z-index: -2;
+  position: fixed;
+  left: 0;
+  top: 0;
+  margin: 0 !important;
+  width: 100%;
+  height: 100%;
+  background-color: #fff;
+}
