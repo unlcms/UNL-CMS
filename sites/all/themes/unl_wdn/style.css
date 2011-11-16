@@ -43,7 +43,7 @@ ul.links.inline {padding-left: 0 !important;}
   margin-bottom: 30px;
 }
 .book-navigation .page-links {
-  background: #f7f7f7;
+  background: #F7F7F7;
   border-bottom: 1px solid #E1E1DB;
   border-top: 1px solid #E1E1DB;
   margin: 50px 0 20px;
@@ -58,10 +58,12 @@ ul.links.inline {padding-left: 0 !important;}
 .block-menu-block {box-shadow: 0 1px 3px #999; padding-bottom: 0 !important;}
 #block-book-navigation a,
 #maincontent .block-menu-block a {color: #333;}
-#maincontent .block-menu-block a:hover {color: #ee0000;}
+#maincontent .block-menu-block a:hover {color: #EE0000;}
+#block-book-navigation a.active {background-color: #F1F499 !important;}
 #block-book-navigation h3,
 .block-menu-block h3 {background-color: #3388BB; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
 #block-book-navigation h3 a {color: #FFF !important;}
+#block-book-navigation h3 a.active {background-color: transparent !important;}
 .block-menu-block .content > ul > li > a {display: none;}
 
 #block-book-navigation ul,
@@ -72,15 +74,15 @@ ul.links.inline {padding-left: 0 !important;}
 #block-book-navigation .content > ul > li, #block-book-navigation .content > ul > li > ul > li,
 .block-menu-block .content > ul > li, .block-menu-block .content > ul > li > ul > li, .block-menu-block .content > ul > li > ul > li > ul > li { list-style-image: none !important; list-style-type: none !important;}
 #block-book-navigation .content > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #eeeee5; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #E8E8DF; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
 #block-book-navigation .content > ul > li.collapsed > a, #block-book-navigation .content > ul > li > ul > li.collapsed > a,
 .block-menu-block .content > ul > li > ul > li.has-children > a, .block-menu-block .content > ul > li > ul > li > ul > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
 #block-book-navigation .content > ul > li:last-child > a,
 .block-menu-block .content > ul > li > ul > li:last-child > a {border: none; margin: 0;}
 #block-book-navigation .content > ul > li > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > ul > li > a {display: block; background: #eeeeee; padding: 5px 5px 5px 15px; margin-bottom: 1px;}
+.block-menu-block .content > ul > li > ul > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 25px; margin-bottom: 1px;}
 #block-book-navigation .content > ul > li > ul > li > ul,
-.block-menu-block .content > ul > li > ul > li > ul > li > ul {padding: 5px 0 5px 40px !important;}
+.block-menu-block .content > ul > li > ul > li > ul > li > ul {padding: 5px 0 5px 50px !important;}
 #block-book-navigation .content > ul > li > ul > li > ul ul,
 .block-menu-block .content > ul > li > ul > li > ul > li > ul ul {padding: 0 0 0 15px !important;}
 
@@ -114,7 +116,7 @@ ul.links.inline {padding-left: 0 !important;}
 .page-node .node-unl-newsitem .primary-image {
   float: right;
   margin-left: 10px;
-  width: 50%;
+  max-width: 50%;
 }
 .page-node .node-unl-newsitem .primary-image img,
 .page-node .node-unl-newsitem .primary-image .caption {
@@ -128,11 +130,10 @@ ul.links.inline {padding-left: 0 !important;}
   margin: 0 10px 10px 0;
 }
 
-/* sidebar blocks
+/* sidebar
 *********/
 .sidebar .block {
-  padding-bottom: 30px;
-  margin-bottom: 30px;
+  margin: 0 0 30px 0;
 }
 .sidebar .block:after {
   clear: both;
@@ -141,11 +142,22 @@ ul.links.inline {padding-left: 0 !important;}
   height: 0;
   visibility: hidden;
 }
-.sidebar .block-views {
+
+/* block
+*********/
+.block {
+  margin: 0 0 30px 0;
+}
+
+/* block made with Views
+*********/
+.block-views {
+  position: relative;
   padding: 10px;
+  margin: 0 0 30px 0;
   box-shadow: 0 1px 3px #999;
 }
-.sidebar .block-views .view-teaser-abbr .feed-icon {
+.block-views .view-teaser-abbr .feed-icon {
   top: 8px;
 }
 
@@ -179,9 +191,12 @@ ul.links.inline {padding-left: 0 !important;}
 .view-teaser-abbr ul h4 a {
   font-size: 14px;
   color: #555 !important;
+  font-weight: normal;
+}
+.view-teaser-abbr .more-link {
+  text-align: left;
 }
 .view-teaser-abbr .more-link a {
-  float: right;
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
