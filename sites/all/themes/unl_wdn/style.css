@@ -12,8 +12,6 @@ body.fixed #maincontent {min-width: 960px;}
 #wdn_content_wrapper.contextual-links-region {position: static;}
 /* Hide the contextual links in the UNL nav */
 #navigation div.contextual-links-wrapper {display: none;}
-/* Hide file icon in file field */
-.field-type-file .file-icon {display: none;}
 /* UNL css displays all ul in copyright area as inline, need to hide this */
 #wdn_copyright ul.contextual-links {display: none;}
 /* Overrides of system.menus.css due to conflicts with UNL navigation */

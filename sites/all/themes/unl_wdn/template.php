@@ -213,6 +213,14 @@ function unl_wdn_breadcrumb($variables) {
   return $html;
 }
 
+/**
+ * Implements theme_file_icon().
+ * File icons are provided as css background sprites in UNL WDN template project.
+ */
+function unl_wdn_file_icon($variables) {
+  return '';
+}
+
 function unl_wdn_menu_item($link, $has_children, $menu = '', $in_active_trail = FALSE, $extra_class = NULL) {
   if ($extra_class) {
     return '<li class="' . $extra_class . '">' . $link . $menu . '</li>' . "\n";
