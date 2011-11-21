@@ -48,7 +48,7 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
   // Change 'Home' to be $site_name
   array_unshift($head_title, str_replace( 'Home', variable_get('site_name', 'Department'), array_shift($head_title)));
 
-  //Prepend UNL
+  // Prepend UNL
   if (variable_get('site_name') != 'UNL') {
     array_unshift($head_title, 'UNL');
   }
@@ -145,6 +145,9 @@ function unl_wdn_preprocess_page(&$vars, $hook) {
   }
 }
 
+/**
+ * Called in html.tpl.php and page.tpl.php.
+ */
 function unl_wdn_get_instance() {
   static $instance;
   if (!$instance) {
@@ -168,8 +171,9 @@ function unl_wdn_get_instance() {
   return $instance;
 }
 
-require_once dirname(__FILE__) . '/includes/form.inc';
-
+/**
+ * Implements theme_breadcrumb().
+ */
 function unl_wdn_breadcrumb($variables) {
   $breadcrumbs = $variables['breadcrumb'];
 
@@ -230,11 +234,17 @@ function unl_wdn_menu_item($link, $has_children, $menu = '', $in_active_trail = 
   }
 }
 
+/**
+ * Implements theme_menu_tree().
+ */
 function unl_wdn_menu_tree($variables) {
   $tree = $variables['tree'];
   return '<ul>' . $tree . '</ul>' . PHP_EOL;
 }
 
+/**
+ * Implements theme_menu_local_tasks().
+ */
 function unl_wdn_menu_local_tasks($variables) {
   $output = '';
 
@@ -252,6 +262,9 @@ function unl_wdn_menu_local_tasks($variables) {
   return $output;
 }
 
+/**
+ * Implements theme_menu_local_task().
+ */
 function unl_wdn_menu_local_task($variables) {
   $link = $variables['element']['#link'];
   $link_text = $link['title'];
@@ -393,15 +406,15 @@ function unl_wdn_status_messages($variables) {
       case 'status':
         $extra_class = ' affirm';
         break;
-      
+
       case 'warning':
         $extra_class = ' alert';
         break;
-      
+
       case 'error':
         $extra_class = ' negate';
         break;
-        
+
       default:
         $extra_class = '';
         break;
