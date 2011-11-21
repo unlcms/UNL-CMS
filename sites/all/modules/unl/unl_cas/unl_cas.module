@@ -96,6 +96,8 @@ function unl_cas_menu() {
 function unl_cas_menu_alter(&$items) {
   $items['admin/people/create']['weight'] = 2;
   $items['admin/people/create']['title'] .= ' manually';
+  $items['admin/people/create']['access arguments'] = array('administer permissions');
+
 }
 
 /**
