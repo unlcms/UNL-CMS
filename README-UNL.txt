@@ -31,8 +31,14 @@ modules/image/image.field.inc
 sites/all/modules/form_builder/modules/webform/form_builder_webform.module
  * In form_builder_webform_components_page() load jquery.ui.datepicker.min.js so the Date element will work on a new form that does not have ui.datepicker loaded
  * http://drupal.org/node/1307838
+ 
+-------------------------------------
 
-------------------------------------
+includes/bootstrap.inc
+ * Fix so that drupal_serve_page_from_cache() won't override a cached Vary header.
+ * http://drupal.org/node/1321086
+
+-------------------------------------
 
 sites/sites.php
  * Added support for $default_domains array. See includes/bootstrap.inc conf_path().

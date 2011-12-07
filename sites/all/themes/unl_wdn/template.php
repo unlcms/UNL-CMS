@@ -156,12 +156,20 @@ function unl_wdn_get_instance() {
 
     UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
 
-    if (theme_get_setting('toggle_main_menu')) {
-      $instance = UNL_Templates::factory('Fixed');
+    // Set a default template
+    $template = 'Fixed';
+
+    if (false === theme_get_setting('toggle_main_menu')) {
+      $template = 'Document';
     }
-    else {
-      $instance = UNL_Templates::factory('Document');
+
+    // Tell caches to cache mobile and non-mobile pages separately.
+    drupal_add_http_header('Vary', 'X-UNL-Mobile', TRUE);
+    if (isset($_GET['format']) && $_GET['format'] == 'mobile') {
+      $template = 'Mobile';
     }
+
+    $instance = UNL_Templates::factory($template);
 
     if (theme_get_setting('wdn_beta')) {
       UNL_Templates::$options['templatedependentspath'] = $_SERVER['DOCUMENT_ROOT'].'/wdntemplates-dev';

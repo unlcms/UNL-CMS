@@ -1,6 +1,7 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><!-- InstanceBegin template="/Templates/fixed.dwt" codeOutsideHTMLIsLocked="false" -->
+<!DOCTYPE html>
+<html lang="en"><!-- InstanceBegin template="/Templates/fixed_html5.dwt" codeOutsideHTMLIsLocked="false" -->
 <head>
+<!--#include virtual="/wdn/templates_3.0/includes/metanfavico_html5.html" -->
 <!--
     Membership and regular participation in the UNL Web Developer Network
     is required to use the UNL templates. Visit the WDN site at 
@@ -13,13 +14,12 @@
     create a derivative work.
     This message may not be removed from any pages based on the UNL site template.
     
-    $Id: fixed.dwt 1390 2010-11-18 15:24:33Z bbieber2 $
+    $Id: fixed_html5.dwt 1918 2011-07-07 15:59:13Z bbieber2 $
 -->
 <link rel="stylesheet" type="text/css" media="screen" href="/wdn/templates_3.0/css/all.css" />
 <link rel="stylesheet" type="text/css" media="print" href="/wdn/templates_3.0/css/print.css" />
 <script type="text/javascript" src="/wdn/templates_3.0/scripts/all.js"></script>
-<!--#include virtual="/wdn/templates_3.0/includes/browserspecifics.html" -->
-<!--#include virtual="/wdn/templates_3.0/includes/metanfavico.html" -->
+<!--#include virtual="/wdn/templates_3.0/includes/browserspecifics_html5.html" -->
 <!-- InstanceBeginEditable name="doctitle" -->
 <title>UNL | Department | New Page</title>
 <!-- InstanceEndEditable -->
@@ -27,7 +27,7 @@
 <!-- Place optional header elements here -->
 <!-- InstanceEndEditable -->
 </head>
-<body class="fixed">
+<body class="html5 fixed">
 <p class="skipnav"> <a class="skipnav" href="#maincontent">Skip Navigation</a> </p>
 <div id="wdn_wrapper">
     <div id="header"> <a href="http://www.unl.edu/" title="UNL website"><img src="/wdn/templates_3.0/images/logo.png" alt="UNL graphic identifier" id="logo" /></a>

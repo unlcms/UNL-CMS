@@ -1360,7 +1360,9 @@ function drupal_serve_page_from_cache(stdClass $cache) {
   // revalidation. If a Vary header has been set in hook_boot(), it is assumed
   // that the module knows how to cache the page.
   if (!isset($hook_boot_headers['vary']) && !variable_get('omit_vary_cookie')) {
-    header('Vary: Cookie');
+    // UNL Change!
+    drupal_add_http_header('Vary', 'Cookie', TRUE);
+    // End UNL Change!
   }
 
   if ($page_compression) {
