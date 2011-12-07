@@ -153,7 +153,10 @@ function unl_wdn_get_instance() {
   if (!$instance) {
     set_include_path(dirname(__FILE__) . '/lib/php');
     require_once "UNL/Templates.php";
+    require_once "UNL/Templates/CachingService/Null.php";
 
+    // Use NULL caching service so templates are pulled from local tpl_cache
+    UNL_Templates::setCachingService(new UNL_Templates_CachingService_Null());
     UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
 
     // Set a default template
