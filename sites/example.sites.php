@@ -51,3 +51,16 @@
  * unlcms.unl.edu/ncard from showing up at bike.unl.edu/ncard.
  */
 # $default_domains = array('example.unl.edu', 'example-test.unl.edu');
+
+/**
+ * Stub for UNL Site creation tool.
+ * 
+ * The following comments are needed for the UNL Site creation tool to 
+ * create site aliases.  Make sure to include them in your sites.php!
+ */
+# THIS SECTION IS AUTOMATICALY GENERATED.
+# DO NOT EDIT!!!!
+
+# %UNL_CREATION_TOOL_STUB%
+
+# END AUTOMATICALLY GENERATED AREA.
