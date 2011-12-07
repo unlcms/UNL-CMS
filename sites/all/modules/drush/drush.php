@@ -1,6 +1,5 @@
 #!/usr/bin/env php
 <?php
-// $Id: drush.php,v 1.91 2010/11/10 02:55:41 weitzman Exp $
 
 /**
  * @file
@@ -10,7 +9,7 @@
  */
 // Terminate immediately unless invoked as a command line script
 if (!drush_verify_cli()) {
-  die('drush.php is designed to run via the command line.');
+  die('drush is designed to run via the command line.');
 }
 
 // Check supported version of PHP.
@@ -92,6 +91,7 @@ function drush_main() {
         drush_enforce_requirement_bootstrap_phase($command);
         drush_enforce_requirement_core($command);
         drush_enforce_requirement_drupal_dependencies($command);
+        drush_enforce_requirement_drush_dependencies($command);
 
         if ($bootstrap_result && empty($command['bootstrap_errors'])) {
           drush_log(dt("Found command: !command (commandfile=!commandfile)", array('!command' => $command['command'], '!commandfile' => $command['commandfile'])), 'bootstrap');
@@ -100,7 +100,12 @@ function drush_main() {
           // Dispatch the command(s).
           $return = drush_dispatch($command);
 
-          if (drush_get_context('DRUSH_DEBUG')) {
+          // prevent a '1' at the end of the output
+          if ($return === TRUE) {
+            $return = '';
+          }
+
+          if (drush_get_context('DRUSH_DEBUG') && !drush_get_context('DRUSH_QUIET')) {
             drush_print_timers();
           }
           drush_log(dt('Peak memory usage was !peak', array('!peak' => drush_format_size(memory_get_peak_usage()))), 'memory');
@@ -232,10 +237,13 @@ function drush_drupal_login($drush_user) {
 
   if (empty($user)) {
     if (is_numeric($drush_user)) {
-      $message = dt('Could not login with user ID #%user.', array('%user' => $drush_user));
+      $message = dt('Could not login with user ID #!user.', array('!user' => $drush_user));
+      if ($drush_user === 0) {
+        $message .= ' ' . dt('This is typically caused by importing a MySQL database dump from a faulty tool which re-numbered the anonymous user ID in the users table. See !link for help recovering from this situation.', array('!link' => 'http://drupal.org/node/1029506'));
+      }
     }
     else {
-      $message = dt('Could not login with user account `%user\'.', array('%user' => $drush_user));
+      $message = dt('Could not login with user account `!user\'.', array('!user' => $drush_user));
     }
     return drush_set_error('DRUPAL_USER_LOGIN_FAILED', $message);
   }

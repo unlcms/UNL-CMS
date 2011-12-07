@@ -1,5 +1,4 @@
 <?php
-// $Id: rsync.core.inc,v 1.7 2010/11/21 15:10:56 greg1anderson Exp $
 
 /**
  * Entrypoint for drush rsync.
@@ -37,7 +36,7 @@ function drush_core_rsync($source, $destination, $additional_options = array()) 
   if ($is_multiple === FALSE) {
     // If the user path is the same for the source and the destination, then
     // always add a slash to the end of the source.  If the user path is not
-    // the same in the source and the destinaiton, then you need to know how
+    // the same in the source and the destination, then you need to know how
     // rsync paths work, and put on the trailing '/' if you want it.
     if ($source_settings['user-path'] == $destination_settings['user-path']) {
       $source_path .= '/';
@@ -47,7 +46,7 @@ function drush_core_rsync($source, $destination, $additional_options = array()) 
       drush_print(dt("You will destroy data from !target and replace with data from !source", array('!source' => $source_path, '!target' => $destination_path)));
       if (!drush_confirm(dt('Do you really want to continue?'))) {
         // was: return drush_set_error('CORE_SYNC_ABORT', 'Aborting.');
-        drush_user_abort();
+        return drush_user_abort();
       }
     }
 
@@ -58,7 +57,7 @@ function drush_core_rsync($source, $destination, $additional_options = array()) 
     $include_settings_is_default = (strpos($source . $destination, ':') !== FALSE) || (strpos($source . $destination, '/') !== FALSE);
 
     // Go ahead and call rsync with the paths we determined
-    drush_core_call_rsync($source_path, $destination_path, $additional_options, $include_settings_is_default);
+    return drush_core_call_rsync($source_path, $destination_path, $additional_options, $include_settings_is_default);
   }
 }
 
@@ -87,11 +86,19 @@ function drush_core_rsync($source, $destination, $additional_options = array()) 
  *   TRUE on success, FALSE on failure.
  */
 function drush_core_call_rsync($source, $destination, $additional_options = array(), $include_settings_is_default = TRUE, $live_output = TRUE) {
-  $options = ' --exclude="*.svn*"';
+  // Exclude vcs reserved files.
+  $options = '';
+  if (!_drush_rsync_option_exists('include-vcs', $additional_options)) {
+    $vcs_files = drush_version_control_reserved_files();
+    foreach ($vcs_files as $file) {
+      $options .= ' --exclude="'.$file.'"';
+    }
+  }
+
   $mode = '-az';
   // Process --include-path and --exclude-path options the same way
   foreach (array('include', 'exclude') as $include_exclude) {
-    // Get the option --include-path or --exclude path and explode to an array of paths
+    // Get the option --include-path or --exclude-path and explode to an array of paths
     // that we will translate into an --include or --exclude option to pass to rsync
     $inc_ex_path = explode(PATH_SEPARATOR, drush_get_option(array($include_exclude . '-path', $include_exclude . '-paths'), ''));
     foreach ($inc_ex_path as $one_path_to_inc_ex) {
@@ -241,13 +248,18 @@ function drush_core_call_rsync($source, $destination, $additional_options = arra
   $exec = "rsync -e 'ssh $ssh_options' $mode$options $source $destination";
 
   if ($live_output) {
-    $exec_result = drush_op('system', $exec) !== FALSE;
+    $exec_result = drush_op_system($exec);
+    $result = ($exec_result == 0);
   }
   else {
-    $exec_result = drush_shell_exec($exec);
+    $result = drush_shell_exec($exec);
+  }
+  
+  if (!$result) {
+    drush_set_error('DRUSH_RSYNC_FAILED', dt("Could not rsync from !source to !dest", array('!source' => $source, '!dest' => $destination)));
   }
 
-  return $exec_result;
+  return $result;
 }
 
 function _drush_rsync_option_exists($option, $additional_options) {

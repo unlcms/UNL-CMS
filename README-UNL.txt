@@ -10,11 +10,17 @@ function conf_path()
 
 ------------------------------------
 
-sites/all/modules/drush/commands/core/drupal/site_install_7.inc
+sites/all/modules/drush/commands/core/drupal/site_install.inc
 function drush_core_site_install_version()
  * UNL change! Setting this to FALSE because we don't want them and they're hard coded.
 
 ------------------------------------
+
+drush/commands/core/site_install.drush.inc
+function drush_core_pre_site_install()
+ * UNL change: Inserted a return before code that would otherwise drop the entire database.
+
+-------------------------------------
 
 rewrite.php
 used to allow public files to be accessed without the sites/<site_dir>/files prefix
@@ -37,6 +43,12 @@ sites/all/modules/form_builder/modules/webform/form_builder_webform.module
 includes/bootstrap.inc
  * Fix so that drupal_serve_page_from_cache() won't override a cached Vary header.
  * http://drupal.org/node/1321086
+
+-------------------------------------
+
+drush/includes/environment.inc
+ * Fix so that drush pulls in the correct uri parameter.
+ * http://drupal.org/node/1331106
 
 -------------------------------------
 

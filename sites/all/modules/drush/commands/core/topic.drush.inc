@@ -1,5 +1,4 @@
 <?php
-// $Id: topic.drush.inc,v 1.4 2010/10/06 21:00:26 weitzman Exp $
 
 /**
  * @file
@@ -20,11 +19,14 @@ function topic_drush_command() {
     ),
     'examples' => array(
       'drush topic' => 'Show all available topics.',
-      'drush topic core-context' => 'Show documentation for the drush context API',
-      'drush core-context' => 'Show documentation for the drush context API',
+      'drush topic docs-context' => 'Show documentation for the drush context API',
+      'drush docs-context' => 'Show documentation for the drush context API',
     ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'aliases' => array('topic'),
+    'topics' => array('docs-readme'),
   );
+
   return $items;
 }
 
@@ -35,10 +37,11 @@ function topic_drush_help_alter($command) {
   $implemented = drush_get_commands();
   foreach ($command['topics'] as $topic_name) {
     // We have a related topic. Inject into the $command so the topic displays.
-    $command['sections']['topic_section'] = dt('Topics');
-    $command['topic_section'][$topic_name] = dt($implemented[$topic_name]['description']);
+    $command['sections']['topic_section'] = 'Topics';
+    $command['topic_section'][$topic_name] = $implemented[$topic_name]['description'];
   }
 }
+
 /**
  * A command callback.
  *
@@ -47,18 +50,25 @@ function topic_drush_help_alter($command) {
  * @param string $topic_name
  *   A command name.
  */
-function drush_core_topic($topic_name = NULL) {
+function drush_topic_core_topic($topic_name = NULL) {
   $commands = drush_get_commands();
   if (is_null($topic_name)) {
     // Show choice list.
     foreach (drush_get_topics() as $key => $topic) {
       $choices[$key] = $topic['description'];
     }
+    natcasesort($choices);
     if (!$topic_name = drush_choice($choices, dt('Choose a topic'), '!value (!key)')) {
       return;
     }
   }
-  return drush_do_command_redispatch($topic_name);
+  // If the topic name is not found, check for
+  // "docs-$topic_name".  This allows users to be
+  // just a bit lazy when selecting core topics by name.
+  if (!isset($commands[$topic_name]) && isset($commands["docs-$topic_name"])) {
+    $topic_name = "docs-$topic_name";
+  }
+  return drush_dispatch($commands[$topic_name]);
 }
 
 /**

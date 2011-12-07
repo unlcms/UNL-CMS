@@ -1,5 +1,4 @@
 <?php
-// $Id: bzr.inc,v 1.7 2010/09/02 23:51:50 weitzman Exp $
 
 /**
  * @file Drush pm Bazaar extension
@@ -9,17 +8,23 @@ class drush_pm_version_control_bzr implements drush_pm_version_control {
 
   /**
    * Implementation of pre_update().
+   *
+   * Check that the project or drupal core directory looks clean
    */
   public function pre_update(&$project, $items_to_test = array()) {
-    // If items to test is empty, test everything; otherwise, pass just
-    // the list of files to test to Bazaar status.
-    $status_files = implode(' ', array_keys($items_to_test));
-
-    // Check the project directory looks clean
-    if (drush_shell_exec('cd %s && bzr status --short %s', $project['full_project_path'], $status_files)) {
+    // Bazaar needs a list of items to test within the given project.
+    // If $items_to_test is empty we need to force it to test the project
+    // directory itself --once we've cd'ed to it.
+    if (empty($items_to_test)) {
+      $items_to_test = array('.' => '.');
+    }
+    $args = array_keys($items_to_test);
+    array_unshift($args, 'bzr status --short' . str_repeat(' %s', count($args)));
+    array_unshift($args, $project['full_project_path']);
+    if (call_user_func_array('drush_shell_cd_and_exec', $args)) {
       $output = preg_grep('/^[\sRCP][\sNDKM][\s\*]/', drush_shell_exec_output());
       if (!empty($output)) {
-        return drush_set_error('DRUSH_PM_BZR_LOCAL_CHANGES', dt("The Bazaar working copy at !path appears to have uncommmitted changes (see below). Please commit or revert these changes before continuing:\n!output", array('!path' => $project['full_project_path'], '!output' => implode("\n", $output))));
+        return drush_set_error('DRUSH_PM_BZR_LOCAL_CHANGES', dt("The Bazaar working copy at !path appears to have uncommitted changes (see below). Please commit or revert these changes before continuing:\n!output", array('!path' => $project['full_project_path'], '!output' => implode("\n", $output))));
       }
     }
     else {
@@ -35,7 +40,7 @@ class drush_pm_version_control_bzr implements drush_pm_version_control {
     if (drush_shell_exec('bzr revert %s', $project['full_project_path'])) {
       $output = drush_shell_exec_output();
       if (!empty($output)) {
-        return drush_set_error('DRUSH_PM_BZR_LOCAL_CHANGES', dt("The Bazaar working copy at !path appears to have uncommmitted changes (see below). Please commit or revert these changes before continuing:\n!output", array('!path' => $project['full_project_path'], '!output' => implode("\n", $output))));
+        return drush_set_error('DRUSH_PM_BZR_LOCAL_CHANGES', dt("The Bazaar working copy at !path appears to have uncommitted changes (see below). Please commit or revert these changes before continuing:\n!output", array('!path' => $project['full_project_path'], '!output' => implode("\n", $output))));
       }
     }
     else {
@@ -80,8 +85,7 @@ class drush_pm_version_control_bzr implements drush_pm_version_control {
         foreach ($output as $line) {
           if (preg_match('/^\?\s+(.*)/', $line, $matches)) {
             $path = $root[0] .'/'. $matches[1];
-            // Bazaar add is by default recursive so only run on "full_project_path".
-            if (($path == $project['full_project_path'] .'/') && !drush_shell_exec('bzr add %s', $path)) {
+            if (!drush_shell_exec('bzr add --no-recurse %s', $path)) {
               $errors .= implode("\n", drush_shell_exec_output());
             }
           }
@@ -122,5 +126,9 @@ class drush_pm_version_control_bzr implements drush_pm_version_control {
     else {
       drush_print(dt("You should consider committing the new code to your Bazaar repository.\nIf this version becomes undesireable, use Bazaar to roll back."));
     }
+  }
+
+  public static function reserved_files() {
+    return array('.bzr', '.bzrignore', '.bzrtags');
   }
 }

@@ -1,5 +1,4 @@
 <?php
-// $Id: environment_7.inc,v 1.16 2010/10/15 09:04:37 jonhattan Exp $
 /**
  * @file
  *   Specific functions for a drupal 7 environment.
@@ -16,6 +15,19 @@
  */
 function drush_get_modules() {
   return system_rebuild_module_data();
+}
+
+/**
+ * Returns drupal required modules, including modules declared as required dynamically.
+ */
+function _drush_drupal_required_modules($module_info) {
+  $required = drupal_required_modules();
+  foreach ($module_info as $name => $module) {
+    if (isset($module->info['required']) && $module->info['required']) {
+      $required[] = $name;
+    }
+  }
+  return array_unique($required);
 }
 
 /**
@@ -52,6 +64,7 @@ function drush_check_module_dependencies($modules, $module_info) {
         }
       }
     }
+    $status[$key]['unmet-dependencies'] = $unmet_dependencies;
     $status[$key]['dependencies'] = array_keys($dependencies);
   }
 
@@ -84,7 +97,10 @@ function drush_module_dependents($modules, $module_info) {
  *   Array of module names
  */
 function drush_module_enable($modules) {
-  module_enable($modules, FALSE);
+  // The list of modules already have all the dependencies, but they might not
+  // be in the correct order. Still pass $enable_dependencies = TRUE so that
+  // Drupal will enable the modules in the correct order.
+  module_enable($modules);
 }
 
 /**
@@ -94,7 +110,10 @@ function drush_module_enable($modules) {
  *   Array of module names
  */
 function drush_module_disable($modules) {
-  module_disable($modules, FALSE);
+  // The list of modules already have all the dependencies, but they might not
+  // be in the correct order. Still pass $enable_dependencies = TRUE so that
+  // Drupal will enable the modules in the correct order.
+  module_disable($modules);
 }
 
 /**

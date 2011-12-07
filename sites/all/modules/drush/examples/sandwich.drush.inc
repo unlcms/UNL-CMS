@@ -1,5 +1,4 @@
 <?php
-// $Id: sandwich.drush.inc,v 1.4 2010/10/28 23:20:48 greg1anderson Exp $
 
 /**
  * @file
@@ -8,7 +7,7 @@
  *   To run this *fun* command, execute `sudo drush --include=./examples mmas`
  *   from within your drush directory.
  *
- *   Shows how to make your own drush command.
+ *   See `drush topic docs-commands` for more information about command authoring. 
  *
  *   You can copy this file to any of the following
  *     1. A .drush folder in your HOME folder.
@@ -27,7 +26,7 @@
  * Notice how this structure closely resembles how
  * you define menu hooks.
  *
- * @See drush_parse_command() for a list of recognized keys.
+ * See `drush topic docs-commands` for a list of recognized keys.
  *
  * @return
  *   An associative array describing your command(s).
@@ -35,6 +34,7 @@
 function sandwich_drush_command() {
   $items = array();
 
+  // The 'make-me-a-sandwich' command
   $items['make-me-a-sandwich'] = array(
     'description' => "Makes a delicious sandwich.",
     'arguments' => array(
@@ -49,6 +49,18 @@ function sandwich_drush_command() {
     'aliases' => array('mmas'),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
   );
+  
+  // Commandfiles may also add topics.  These will appear in
+  // the list of topics when `drush topic` is executed.
+  // To view this topic, run `drush --include=/full/path/to/examples topic`
+  $items['sandwich-exposition'] = array(
+    'description' => 'Ruminations on the true meaning and philosophy of sandwiches.',
+    'hidden' => TRUE,
+    'topic' => TRUE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+    'callback' => 'drush_print_file',
+    'callback arguments' => array(dirname(__FILE__) . '/sandwich-topic.txt'),
+  );
 
   return $items;
 }
@@ -57,7 +69,11 @@ function sandwich_drush_command() {
  * Implementation of hook_drush_help().
  *
  * This function is called whenever a drush user calls
- * 'drush help <name-of-your-command>'
+ * 'drush help <name-of-your-command>'. This hook is optional. If a command
+ * does not implement this hook, the command's description is used instead.
+ *
+ * This hook is also used to look up help metadata, such as help
+ * category title and summary.  See the comments below for a description.
  *
  * @param
  *   A string with the help section (prepend with 'drush:')
@@ -69,11 +85,33 @@ function sandwich_drush_help($section) {
   switch ($section) {
     case 'drush:make-me-a-sandwich':
       return dt("This command will make you a delicious sandwich, just how you like it.");
+    // The 'title' meta item is used to name a group of
+    // commands in `drush help`.  If a title is not defined,
+    // the default is "All commands in ___", with the
+    // specific name of the commandfile (e.g. sandwich).
+    // Command files with less than four commands will 
+    // be placed in the "Other commands" section, _unless_
+    // they define a title.  It is therefore preferable
+    // to not define a title unless the file defines a lot
+    // of commands.
+    case 'meta:sandwich:title':
+      return dt("Sandwich commands");
+    // The 'summary' meta item is displayed in `drush help --filter`,
+    // and is used to give a general idea what the commands in this
+    // command file do, and what they have in common.
+    case 'meta:sandwich:summary':
+      return dt("Automates your sandwich-making business workflows.");
   }
 }
 
 /**
  * Implementation of drush_hook_COMMAND_validate().
+ *
+ * The validate command should exit with
+ * `return drush_set_error(...)` to stop execution of
+ * the command.  In practice, calling drush_set_error
+ * OR returning FALSE is sufficient.  See drush.api.php
+ * for more details.
  */
 function drush_sandwich_make_me_a_sandwich_validate() {
   $name = posix_getpwuid(posix_geteuid());

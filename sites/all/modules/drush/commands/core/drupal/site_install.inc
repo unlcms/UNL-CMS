@@ -1,10 +1,9 @@
 <?php
-// $Id: site_install_7.inc,v 1.2 2010/11/29 13:59:58 weitzman Exp $
 
 /**
  * Install Drupal 7+
  */
-function drush_core_site_install_version($profile) {
+function drush_core_site_install_version($profile, array $additional_form_options = array()) {
   if (is_null($profile)) {
     $profile = 'standard';
   }
@@ -12,7 +11,7 @@ function drush_core_site_install_version($profile) {
   define('MAINTENANCE_MODE', 'install');
   require_once DRUPAL_ROOT . '/includes/install.core.inc';
 
-  $db_spec = drush_core_site_install_db_spec();
+  $db_spec = drush_sql_read_db_spec();
 
   $account_pass = drush_get_option('account-pass', 'admin');
   $settings = array(
@@ -22,7 +21,9 @@ function drush_core_site_install_version($profile) {
     ),
     'forms' => array(
       'install_settings_form' => array(
+        'driver' => $db_spec['driver'],
         $db_spec['driver'] => $db_spec,
+        'op' => dt('Save and continue'),
       ),
       'install_configure_form' => array(
         'site_name' => drush_get_option('site-name', 'Site-Install'),
@@ -44,9 +45,20 @@ function drush_core_site_install_version($profile) {
           */
         ),
         'clean_url' => drush_get_option('clean-url', TRUE),
+        'op' => dt('Save and continue'),
       ),
     ),
   );
+
+  // Merge in the additional options.
+  foreach ($additional_form_options as $key => $value) {
+    $current = &$settings['forms'];
+    foreach (explode('.', $key) as $param) {
+      $current = &$current[$param];
+    }
+    $current = $value;
+  }
+
   drush_log(dt('Starting Drupal installation. This takes a few seconds ...'), 'ok');
   install_drupal($settings);
 }

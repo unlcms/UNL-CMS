@@ -1,5 +1,4 @@
 <?php
-// $Id: environment_5.inc,v 1.13 2010/11/10 02:55:41 weitzman Exp $
 /**
  * @file
  *   Specific functions for a drupal 5 environment.
@@ -15,6 +14,13 @@
  */
 function drupal_required_modules() {
   return array('block', 'filter', 'node', 'system', 'user', 'watchdog');
+}
+
+/**
+ * Returns drupal required modules, including their dependencies.
+ */
+function _drush_drupal_required_modules($module_info) {
+  return drupal_required_modules();
 }
 
 /**

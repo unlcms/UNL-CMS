@@ -215,8 +215,13 @@ function unl_site_updates_submit($form, &$form_state) {
 function unl_site_updates_step($site_uri, &$context) {
   $uri = escapeshellarg($site_uri);
   $root = escapeshellarg(DRUPAL_ROOT);
-  $command = "sites/all/modules/drush/drush.php -y --token=secret --root={$root} --uri={$uri} updatedb";
-  drupal_set_message('Messages from ' . $site_uri . ':<br />' . PHP_EOL . '<pre>' . shell_exec($command) . '</pre>', 'status');
+  $output = '';
+  $command = "sites/all/modules/drush/drush.php -y --token=secret --root={$root} --uri={$uri} updatedb 2>&1";
+  $output .= shell_exec($command);
+  $command = "sites/all/modules/drush/drush.php -y --root={$root} --uri={$uri} cc all 2>&1";
+  $output .= shell_exec($command);
+  
+  drupal_set_message('Messages from ' . $site_uri . ':<br />' . PHP_EOL . '<pre>' . $output . '</pre>', 'status');
 }
 
 function unl_site_email_settings($form, &$form_state) {

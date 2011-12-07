@@ -6,7 +6,7 @@
  *
  * Aliases are commonly used to define short names for
  * local or remote Drupal installations; however, an alias
- * is really nothing more than a collection of option sets.
+ * is really nothing more than a collection of options.
  * A canonical alias named "dev" that points to a local
  * Drupal site named "dev.mydrupalsite.com" looks like this: 
  *
@@ -125,7 +125,7 @@
  * - 'ssh-options': If the target requires special options, such as a non-
  *     standard port, alternative identity file, or alternative
  *     authentication method, ssh- options can contain a string of extra
- *     options  that are used with the ssh command, eg "-p 100"
+ *     options that are used with the ssh command, eg "-p 100"
  * - 'parent': The name of a parent alias (e.g. '@server') to use as a basis
  *     for this alias.  Any value of the parent will appear in the child
  *     unless overridden by an item with the same name in the child.
@@ -141,20 +141,35 @@
  *     record.  Drush will look up the 'databases' record if it is not specified.
  * - 'path-aliases': An array of aliases for common rsync targets.
  *   Relative aliases are always taken from the Drupal root.
- *     '%drush': The path to the folder where drush is stored.  Optional;
- *       defaults to the folder containing the running script.  Always be sure
- *       to set '%drush' if the path to drush is different on the remote server.
- *     '%drush-script': The path to the 'drush' script (used by backend invoke);
- *       default is 'drush' on remote machines, or the full path to drush.php on
- *       the local machine.  Note that you only need to define one of '%drush'
- *       or '%drush-script', as drush can infer one from the other.
+ *     '%drush-script': The path to the 'drush' script, or to 'drush.php' or
+ *       'drush.bat', as desired.  This is used by backend invoke when drush
+ *       runs a drush command.  The default is 'drush' on remote machines, or 
+ *       the full path to drush.php on the local machine.
+ *     '%drush': A read-only property: points to the folder that the drush script
+ *       is stored in.
  *     '%dump-dir': Path to directory that "drush sql-sync" should use to store
  *       sql-dump files. Helpful filenames are auto-generated.
  *     '%dump': Path to the file that "drush sql-sync" should use to store sql-dump file.
  *     '%files': Path to 'files' directory.  This will be looked up if not specified.
  *     '%root': A reference to the Drupal root defined in the 'root' item
  *       in the site alias record.
- *
+ * - 'command-specific': These options will only be set if the alias
+ *   is used with the specified command.  In the example below, the option
+ *   `--no-cache` will be selected whenever the @stage alias
+ *   is used in any of the following ways:
+ *      drush @stage sql-sync @self @live
+ *      drush sql-sync @stage @live
+ *      drush sql-sync @live @stage
+ *   In case of conflicting options, command-specific options in targets
+ *   (source and destination) take precedence over command-specific options
+ *   in the bootstrapped site, and command-specific options in a destination
+ *   alias will take precedence over those in a source alias.
+ * - 'source-command-specific' and 'target-command-specific': Behaves exactly
+ *   like the 'command-specific' option, but is applied only if the alias
+ *   is used as the source or target, respectively, of an rsync or sql-sync
+ *   command.  In the example below, `--skip-tables-list=comments` whenever
+ *   the alias @live is the target of an sql-sync command, but comments will
+ *   be included if @live is the source for the sql-sync command.
  * Some examples appear below.  Remove the leading hash signs to enable.
  */
 #$aliases['stage'] = array(
@@ -170,6 +185,11 @@
 #      '%files' => 'sites/mydrupalsite.com/files',
 #      '%custom' => '/my/custom/path',
 #     ),
+#     'command-specific' => array (
+#       'sql-sync' => array (
+#         'no-cache' => TRUE,
+#       ),
+#     ),
 #  );
 #$aliases['dev'] = array(
 #    'uri' => 'dev.mydrupalsite.com',
@@ -182,4 +202,9 @@
 #$aliases['live'] = array(
 #    'parent' => '@server,@dev',
 #    'uri' => 'mydrupalsite.com',
+#     'target-command-specific' => array (
+#       'sql-sync' => array (
+#         'skip-tables-list' => 'comments',
+#       ),
+#     ),
 #  );

@@ -1,117 +1,191 @@
 <?php
-// $Id: git_drupalorg.inc,v 1.2 2010/11/29 13:52:59 weitzman Exp $
 
 /**
  * @file Drush PM drupal.org Git extension.
  */
 
 /**
- * Install a project.
- *
- * @param $project The project array with name, base and full (final) paths.
- * @param $release The release details array from drupal.org
+ * Validate this package handler can run.
  */
-function package_handler_install_project($project, $release) {
-  drush_log('Downloading project ' . $project['name'] . ' ...');
-
-  $project_name = strtok($project['name'], ' ');
-
-  if (isset($release['version_extra']) && $release['version_extra'] == 'dev') {
-    // Use the development repository, not supported yet.
-    $repository = 'git://git.drupal.org/project/' . $project_name . '.git';
-    $tag = $release['tag'];
+function package_handler_validate() {
+  // Check git command exists. Disable possible output.
+  $debug = drush_get_context('DRUSH_DEBUG');
+  drush_set_context('DRUSH_DEBUG', FALSE);
+  $success = drush_shell_exec('git --version');
+  drush_set_context('DRUSH_DEBUG', $debug);
+  if (!$success) {
+    return drush_set_error('DRUSH_SHELL_COMMAND_NOT_FOUND', dt('git executable not found.'));
   }
-  else {
-    // Use a stable repository.
-    $repository = 'git://git.drupal.org/contributions-stable/' . $project_name . '.git';
-    $tag = $release['version'];
-  }
-
-  // Determine if we're going to init using submodules or not, as our logic
-  // branches as a result
-  $submodule = drush_get_option('gitsubmodule', FALSE);
-  $function = 'package_handler_install_project_gitdo_' . ($submodule ? 'submodule' : 'normal');
-  return $function($project, $repository, $tag);
-
-
-}
-
-function package_handler_install_project_gitdo_normal($project, $repository, $tag) {
-  // Clone the repo into its appropriate target location.
-  $commands = array();
-  $commands[] = 'git clone ' . escapeshellarg($repository) . ' ' . escapeshellarg($project['full_project_path']);
-  // Check out the appropriate branch.
-  $commands[] = 'cd ' . escapeshellarg($project['full_project_path']);
-  $commands[] = 'git checkout ' . escapeshellarg($tag);
-
-  if (!drush_shell_exec(implode(' && ', $commands))) {
-    return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to retrieve ' . $project['name'] . ' from git.drupal.org.');
-  }
-  else {
-    return TRUE;
-  }
-}
-
-function package_handler_install_project_gitdo_submodule($project, $repository, $tag) {
-  // Verify that we are in a Git repository.
-  if (drush_shell_exec("cd " . escapeshellarg($project['base_project_path']) . " ; git rev-parse --git-dir")) {
-    $output = drush_shell_exec_output();
-    if (isset($output[0])) {
-      $git_dir = $output[0];
+  // Check git_deploy is enabled. Only for bootstrapped sites.
+  if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_FULL) {
+    if (!module_exists('git_deploy')) {
+      drush_log(dt('git package handler needs git_deploy module enabled to work properly.'), 'warning');
     }
   }
-  if (!isset($git_dir)) {
-    return drush_set_error('DRUSH_PM_GIT_CHECKOUT_PROBLEMS', dt('Unable to create !project as a git submodule: !dir is not in a Git repository.', array('!project' => $project['name'], '!dir' => $project['base_project_path'])));
-  }
+}
 
-  // Create the project path and find its true location, git submodule doesn't
-  // like symbolic links.
-  mkdir($project['full_project_path']);
-  $full_project_path = realpath($project['full_project_path']);
-  rmdir($full_project_path);
-
-  // Add the submodule; this clones it into place and registers it in the
-  // superproject.
-  $commands = array();
-  $commands[] = 'cd ' . escapeshellarg($git_dir . '/..');
-  $commands[] = 'git submodule add ' . escapeshellarg($repository) . ' ' . escapeshellarg($full_project_path);
-  $commands[] = 'cd ' . escapeshellarg($project['full_project_path']);
-  $commands[] = 'git checkout ' . escapeshellarg($tag);
-
-  if (!drush_shell_exec(implode(' && ', $commands))) {
-    return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to retrieve ' . $project['name'] . ' from git.drupal.org.');
+/**
+ * Download a project.
+ *
+ * @param $request
+ *   The project array with name, base and full (final) paths.
+ * @param $release
+ *   The release details array from drupal.org.
+ */
+function package_handler_download_project(&$request, $release) {
+  if ($username = drush_get_option('gitusername')) {
+    // Uses SSH, which enables pushing changes back to git.drupal.org.
+    $repository = $username . '@git.drupal.org:project/' . $request['name'] . '.git';
   }
   else {
-    return TRUE;
+    $repository = 'git://git.drupal.org/project/' . $request['name'] . '.git';
   }
+  $request['repository'] = $repository;
+  $tag = $release['tag'];
+
+  // If the --cache option was given, create a new git reference cache of the
+  // remote repository, or update the existing cache to fetch recent changes.
+  if (drush_get_option('cache') && ($cachedir = drush_directory_cache())) {
+    $gitcache = $cachedir . '/git';
+    $projectcache = $gitcache . '/' . $request['name'] . '.git';
+    drush_mkdir($gitcache);
+    // Setup a new cache, if we don't have this project yet.
+    if (!file_exists($projectcache)) {
+      // --mirror works similar to --bare, but retrieves all tags, local
+      // branches, remote branches, and any other refs (notes, stashes, etc).
+      // @see http://stackoverflow.com/questions/3959924
+      $command = 'git clone --mirror';
+      if (drush_get_context('DRUSH_VERBOSE')) {
+        $command .= ' --verbose --progress';
+      }
+      $command .= ' %s %s';
+      drush_shell_cd_and_exec($gitcache, $command, $repository, $request['name'] . '.git');
+    }
+    // If we already have this project, update it to speed up subsequent clones.
+    else {
+      // A --mirror clone is fully synchronized with `git remote update` instead
+      // of `git fetch --all`.
+      // @see http://stackoverflow.com/questions/6150188
+      drush_shell_cd_and_exec($projectcache, 'git remote update');
+    }
+    $gitcache = $projectcache;
+  }
+
+  // Clone the repo into its appropriate target location.
+  $command  = 'git clone';
+  $command .= ' ' . drush_get_option('gitcloneparams');
+  if (drush_get_option('cache')) {
+    $command .= ' --reference ' . drush_escapeshellarg($gitcache);
+  }
+  if (drush_get_context('DRUSH_VERBOSE')) {
+    $command .= ' --verbose --progress';
+  }
+  $command .= ' ' . drush_escapeshellarg($repository);
+  $command .= ' ' . drush_escapeshellarg($request['full_project_path']);
+  if (!drush_shell_exec($command)) {
+    return drush_set_error('DRUSH_PM_GIT_CHECKOUT_PROBLEMS', dt('Unable to clone project !name from git.drupal.org.', array('!name' => $request['name'])));
+  }
+
+  // Check if the 'tag' from the release feed is a tag or a branch.
+  // If the tag exists, git will return it
+  if (!drush_shell_cd_and_exec($request['full_project_path'], 'git tag -l ' . drush_escapeshellarg($tag))) {
+    return drush_set_error('DRUSH_PM_GIT_CHECKOUT_PROBLEMS', dt('Unable to clone project !name from git.drupal.org.', array('!name' => $request['name'])));
+  }
+  $output = drush_shell_exec_output();
+
+  if (isset($output[0]) && ($output[0] == $tag)) {
+    // If we want a tag, simply checkout it. The checkout will end up in
+    // "detached head" state.
+    $command  = 'git checkout ' . drush_get_option('gitcheckoutparams');
+    $command .= ' ' . drush_escapeshellarg($tag);
+    if (!drush_shell_cd_and_exec($request['full_project_path'], $command)) {
+      return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to retrieve ' . $request['name'] . ' from git.drupal.org.');
+    }
+  }
+  else {
+    // Else, we want to checkout a branch.
+    // First check if we are not already in the correct branch.
+    if (!drush_shell_cd_and_exec($request['full_project_path'], 'git symbolic-ref HEAD')) {
+      return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to retrieve ' . $request['name'] . ' from git.drupal.org.');
+    }
+    $output = drush_shell_exec_output();
+    $current_branch = preg_replace('@^refs/heads/@', '', $output[0]);
+
+    // If we are not on the correct branch already, switch to the correct one.
+    if ($current_branch != $tag) {
+      $command  = 'git checkout';
+      $command .= ' ' . drush_get_option('gitcheckoutparams');
+      $command .= ' --track ' . drush_escapeshellarg('origin/' . $tag) . ' -b ' . drush_escapeshellarg($tag);
+      if (!drush_shell_cd_and_exec($request['full_project_path'], $command)) {
+        return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to retrieve ' . $request['name'] . ' from git.drupal.org.');
+      }
+    }
+  }
+
+  return TRUE;
 }
 
 /**
  * Update a project (so far, only modules are supported).
  *
- * @param $project The project array with name, base and full (final) paths.
- * @param $release The release details array from drupal.org
+ * @param $request
+ *   The project array with name, base and full (final) paths.
+ * @param $release
+ *   The release details array from drupal.org.
  */
-function package_handler_update_project($project, $release) {
-  drush_log('Updating project ' . $project['name'] . ' ...');
+function package_handler_update_project($request, $release) {
+  drush_log('Updating project ' . $request['name'] . ' ...');
 
   $commands = array();
-  $commands[] = 'cd ' . escapeshellarg($project['full_project_path']);
-
   if ($release['version_extra'] == 'dev') {
     // Update the branch of the development repository.
     $commands[] = 'git pull';
+    $commands[] = drush_get_option('gitpullparams');
   }
   else {
     // Use a stable repository.
     $commands[] = 'git fetch';
-    $commands[] = 'git checkout ' . escapeshellarg($release['version']);
+    $commands[] = drush_get_option('gitfetchparams');
+    $commands[] = ';';
+    $commands[] = 'git checkout';
+    $commands[] = drush_get_option('gitcheckoutparams');
+    $commands[] = $release['version'];
   }
 
-  if (!drush_shell_exec(implode(' ; ', $commands))) {
-    return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to update ' . $project['name'] . ' from git.drupal.org.');
+  if (!drush_shell_cd_and_exec($request['full_project_path'], implode(' ', $commands))) {
+    return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to update ' . $request['name'] . ' from git.drupal.org.');
   }
-  else {
-    return TRUE;
+
+  return TRUE;
+}
+
+/**
+ * Post download action.
+ *
+ * This action take place once the project is placed in its final location.
+ *
+ * Here we add the project as a git submodule.
+ */
+function package_handler_post_download($project) {
+  if (drush_get_option('gitsubmodule', FALSE)) {
+    // Obtain the superproject path, then add as submodule.
+    if (drush_shell_cd_and_exec(dirname($project['full_project_path']), 'git rev-parse --show-toplevel')) {
+      $output = drush_shell_exec_output();
+      $superproject = $output[0];
+      // Add the downloaded project as a submodule of its git superproject.
+      $command = array();
+      $command[] = 'git submodule add';
+      $command[] = drush_get_option('gitsubmoduleaddparams');
+      $command[] = $project['repository'];
+      // We need the submodule relative path.
+      $command[] = substr($project['full_project_path'], strlen($superproject) + 1);
+      if (!drush_shell_cd_and_exec($superproject, implode(' ', $command))) {
+        return drush_set_error('DRUSH_PM_GIT_CHECKOUT_PROBLEMS', dt('Unable to add !name as a git submodule of !super.', array('!name' => $project['name'], '!super' => $superproject)));
+      }
+    }
+    else {
+      return drush_set_error('DRUSH_PM_GIT_SUBMODULE_PROBLEMS', dt('Unable to create !project as a git submodule: !dir is not in a Git repository.', array('!project' => $project['name'], '!dir' => dirname($project['full_project_path']))));
+    }
   }
 }
+

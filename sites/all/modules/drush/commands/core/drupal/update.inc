@@ -1,5 +1,4 @@
 <?php
-// $Id: update_7.inc,v 1.29 2010/11/10 02:55:41 weitzman Exp $
 /**
  * @file
  *   Update.php for provisioned sites.
@@ -16,6 +15,12 @@
  */
 define('MAINTENANCE_MODE', 'update');
 
+/**
+ * Drupal's update.inc has functions that are in previous update_X.inc files
+ * for example, update_check_incompatibility() which can prove useful when
+ * enabling modules.
+ */
+require_once DRUPAL_ROOT . '/includes/update.inc';
 /**
  * Returns (and optionally stores) extra requirements that only apply during
  * particular parts of the update.php process.
@@ -143,7 +148,6 @@ function update_main_prepare() {
   // We prepare a minimal bootstrap for the update requirements check to avoid
   // reaching the PHP memory limit.
   require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
-  require_once DRUPAL_ROOT . '/includes/update.inc';
   require_once DRUPAL_ROOT . '/includes/common.inc';
   require_once DRUPAL_ROOT . '/includes/file.inc';
   require_once DRUPAL_ROOT . '/includes/entity.inc';
@@ -234,7 +238,7 @@ function update_main() {
     }
 
     if (!drush_confirm(dt('Do you wish to run all pending updates?'))) {
-      drush_user_abort();
+      return drush_user_abort();
     }
 
     drush_update_batch($start);

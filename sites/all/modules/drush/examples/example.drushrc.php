@@ -1,5 +1,4 @@
 <?php
-// $Id: example.drushrc.php,v 1.12 2010/12/01 04:46:08 greg1anderson Exp $
 
 /*
  * Examples of valid statements for a drushrc.php file. Use this file to cut down on
@@ -44,6 +43,9 @@
  * load the configuration file for the site specified by the
  * destination parameter, nor do they load configuration files
  * for remote sites.
+ *
+ * See `drush topic docs-bootstrap` for more information on how
+ * bootstrapping affects the loading of drush configuration files.
  */
 
 // Specify a particular multisite.
@@ -54,6 +56,23 @@
 
 // Load a drushrc.php configuration file from the current working directory.
 # $options['c'] = '.';
+
+// You should not use drush-4.x on Windows; upgrade to the 5.x branch.
+// If you are really sure that you want to ignore this advice, you may
+// still disable the warning by setting the 'check_os' setting to the
+// special value shown below.
+# $options['check_os'] = 'i-want-4.x';
+
+// Control automatically check for updates in pm-updatecode and drush version.
+// FALSE = never check for updates.  'head' = allow updates to drush-HEAD.
+// TRUE (default) = allow updates to latest stable release.
+# $options['self-update'] = FALSE;
+
+// By default, drush will download projects compatibile with the
+// current version of Drupal, or, if no Drupal site is specified,
+// then the Drupal-7 version of the project is downloaded.  Set
+// default-major to select a different default version.
+# $options['default-major'] = 6;
 
 // Specify CVS for checkouts
 # $options['package-handler'] = 'cvs';
@@ -125,6 +144,15 @@
 # $options['output_charset'] = 'ISO-8859-1//TRANSLIT';
 
 /*
+ * Multiple command execution options
+ */
+// By default, drush will prepend the name of the
+// site to the output of any multiple-site command 
+// execution.  To disable this behavior, set the
+// --no-label option
+# $options['no-label'] = TRUE;
+
+/*
  * Customize this associative array with your own tables. This is the list of
  * tables whose *data* is skipped by the 'sql-dump' and 'sql-sync' commands when
  * a structure-tables-key is provided. You may add new tables to the existing
@@ -166,6 +194,23 @@ $options['skip-tables'] = array(
 // Specify additional directories to search for scripts
 // Separate by : (Unix-based systems) or ; (Windows).
 # $command_specific['script']['script-path'] = 'sites/all/scripts:profiles/myprofile/scripts';
+
+// Always show release notes when running pm-update or pm-updatecode
+# $command_specific['pm-update'] = array('notes' => TRUE);
+# $command_specific['pm-updatecode'] = array('notes' => TRUE);
+
+// List of drush commands or aliases that should override built-in 
+// shell functions and commands; otherwise, built-ins override drush 
+// commands. Default is help,dd,sa.
+// Warning:  bad things can happen if you put the wrong thing here
+// (e.g. eval, grep), so be cautious.
+// If a drush command overrides a built-in command (e.g. bash help),
+// then you can use the `builtin` operator to run the built-in version
+// (e.g. `builtin help` to show bash help instead of drush help.)
+// If a drush command overrides a shell command (e.g. grep), then
+// you can use the regular shell command by typing in the full path
+// to the command (e.g. /bin/grep).
+# $command_specific['core-cli'] = array('override' => 'help,dd,sa');
 
 /**
  * Variable overrides:

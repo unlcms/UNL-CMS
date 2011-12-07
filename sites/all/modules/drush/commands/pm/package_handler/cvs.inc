@@ -1,9 +1,28 @@
 <?php
-// $Id: cvs.inc,v 1.21 2010/10/13 19:48:58 jonhattan Exp $
 
 /**
  * @file Drush PM CVS extension
  */
+
+/**
+ * Validate this package handler can run.
+ */
+function package_handler_validate() {
+  // Check cvs command exists. Disable possible output.
+  $debug = drush_get_context('DRUSH_DEBUG');
+  drush_set_context('DRUSH_DEBUG', FALSE);
+  $success = drush_shell_exec('cvs --version');
+  drush_set_context('DRUSH_DEBUG', $debug);
+  if (!$success) {
+    return drush_set_error('DRUSH_SHELL_COMMAND_NOT_FOUND', dt('cvs executable not found.'));
+  }
+  // Check cvs_deploy is enabled. Only for bootstrapped sites.
+  if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_FULL) {
+    if (!module_exists('cvs_deploy')) {
+      drush_log(dt('cvs package handler needs cvs_deploy module enabled to work properly.'), 'warning');
+    }
+  }
+}
 
 /**
  * Install a project.
@@ -11,7 +30,7 @@
  * @param $project The project array with name, base and full (final) paths.
  * @param $release The release details array from drupal.org
  */
-function package_handler_install_project($project, $release) {
+function package_handler_download_project(&$project, $release) {
   // Check it out.
   drush_pm_cvs($project, $release);
 
@@ -21,8 +40,7 @@ function package_handler_install_project($project, $release) {
       return TRUE;
     }
     else {
-      drush_set_error('DRUSH_PM_CVS_CHECKOUT_PROBLEMS', dt("Unable to check out !project to !destination from cvs.drupal.org", array('!project' => $project['name'], '!destination' => $project['full_project_path'])));
-      return FALSE;
+      return drush_set_error('DRUSH_PM_CVS_CHECKOUT_PROBLEMS', dt("Unable to check out !project to !destination from cvs.drupal.org", array('!project' => $project['name'], '!destination' => $project['full_project_path'])));
     }
   }
 }
@@ -33,7 +51,7 @@ function package_handler_install_project($project, $release) {
  * @param $project The project array with name, base and full (final) paths.
  * @param $release The release details array from drupal.org
  */
-function package_handler_update_project($project, $release) {
+function package_handler_update_project(&$project, $release) {
   drush_log('Updating project ' . $project['name'] . ' ...');
 
   // Check out a fresh copy, or update an existing one.
@@ -54,7 +72,7 @@ function package_handler_update_project($project, $release) {
  * @param $project The project array with name, base and full (final) paths.
  * @param $release The release details array from drupal.org
  */
-function drush_pm_cvs($project, $release) {
+function drush_pm_cvs(&$project, $release) {
   // Build the cvs command to execute.
   $command = array('cvs');
 
@@ -95,17 +113,19 @@ function drush_pm_cvs($project, $release) {
   }
   else {
     if ($cvsparams === FALSE) {
-      // By default we update overwriting changes, however if we have
-      // an existing CVS checkout that is version controlled then the
-      // default is to update in place, which will attempt to merge changes
-      // but we assume anyone using SVN is competent enough to deal with this!
-      // TODO: Make this work with BZR etc.
-      if (!file_exists($project['full_project_path'] . '/.svn')) {
-        $command[] = '-dPC';
+      // By default we update overwriting changes, however if we have an
+      // existing CVS checkout that is version controlled then the default is
+      // to update in place, which will attempt to merge changes but we assume
+      // anyone using a VCS is competent enough to deal with this!
+      $reserved_files = drush_version_control_reserved_files();
+      $overwrite = TRUE;
+      foreach ($reserved_files as $file) {
+        if (file_exists($project['full_project_path'] . '/' . $file)) {
+          $overwrite = FALSE;
+          break;
+        }
       }
-      else {
-        $command[] = '-dP';
-      }
+      $command[] = $overwrite?'-dPC':'-dP';
     }
     // Directory to work on.
     $command[] = $project['project_dir'];
@@ -114,6 +134,15 @@ function drush_pm_cvs($project, $release) {
   // CVS only accepts relative paths. We will cd in the checkout path right
   // before running the cvs command.
   if (!drush_shell_cd_and_exec($project['base_project_path'], implode(' ', $command))) {
-    drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', 'Unable to checkout ' . $project['name'] . ' from cvs.drupal.org.');
+    return drush_set_error('DRUSH_PM_UNABLE_CHECKOUT', dt('Unable to !op !project from cvs.drupal.org.', array('!op' => $cvsmethod, '!project' => $project['name'])));
   }
 }
+
+/**
+ * Post download action.
+ *
+ * This action take place once the project is placed in its final location.
+ */
+function package_handler_post_download($project) {
+}
+

@@ -1,5 +1,4 @@
 <?php
-// $Id: sql.drush.inc,v 1.67 2010/12/01 04:46:08 greg1anderson Exp $
 
 /**
  * @file Drush sql commands
@@ -10,18 +9,10 @@
  */
 function sql_drush_help($section) {
   switch ($section) {
-    case 'drush:sql-conf':
-      return dt('Show database connection details.');
-    case 'drush:sql-connect':
-      return dt('A string which connects to the current database.');
-    case 'drush:sql-cli':
-      return dt('Quickly enter the mysql command line.');
-    case 'drush:sql-dump':
-      return dt('Prints the whole database to STDOUT or save to a file.');
-    case 'drush:sql-query':
-      return dt("Usage: drush [options] sql-query <query>...\n<query> is a SQL statement, which can alternatively be passed via STDIN. Any additional arguments are passed to the mysql command directly.");
-    case 'drush:sql-sync':
-      return dt("Usage: drush [options] sql-sync <source_alias> <target_alias>.\n <source_alias> and <target_alias> are site-aliases, or names of directories under \'sites\'. These determine from where and to where you want your database copied.");
+    case 'meta:sql:title':
+      return dt('SQL commands');
+    case 'meta:sql:summary':
+      return dt('Examine and modify your Drupal database.');
   }
 }
 
@@ -29,23 +20,25 @@ function sql_drush_help($section) {
  * Implementation of hook_drush_command().
  */
 function sql_drush_command() {
-  $options['--database'] = 'The DB connection key if using multiple connections in settings.php.';
+  $options['database'] = 'The DB connection key if using multiple connections in settings.php.';
   if (drush_drupal_major_version() >= 7) {
-    $options['--target'] = 'The name of a target within the specified database.';
+    $options['target'] = 'The name of a target within the specified database.';
   }
 
   $items['sql-drop'] = array(
     'description' => 'Drop all tables in a given database.',
     'arguments' => array(
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION,
     'options' => array(
-      '--yes' => 'Skip confirmation and proceed.',
-      '--result-file' => 'Save to a file. The file should be relative to Drupal root. Recommended.',
+      'yes' => 'Skip confirmation and proceed.',
+      'result-file' => 'Save to a file. The file should be relative to Drupal root. Recommended.',
     ) + $options,
+    'topics' => array('docs-policy'),
   );
   $items['sql-conf'] = array(
     'description' => 'Print database connection details using print_r().',
+    'hidden' => TRUE,
     'arguments' => array(
       'all' => 'Show all database connections, instead of just one.',
       'show-passwords' => 'Show database password.',
@@ -70,15 +63,16 @@ function sql_drush_command() {
       'drush sql-dump --skip-tables-key=common' => 'Skip standard tables. @see example.drushrc.com',
     ),
     'options' => array(
-      '--result-file' => 'Save to a file. The file should be relative to Drupal root. Recommended.',
-      '--skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
-      '--structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
-      '--tables-key' => 'A key in the $tables array. Optional.',
-      '--tables-list' => 'A comma-separated list of tables to transfer. Optional.',
-      '--ordered-dump' => 'Use this option to output ordered INSERT statements in the sql-dump.Useful when backups are managed in a Version Control System. Optional.',
-      '--create-db' => 'Wipe existing tables.',
-      '--data-only' => 'Omit CREATE TABLE statements. Postgres only.',
-      '--ordered-dump' => 'Order by primary key and add line breaks for efficient diff in revision control. Also, faster rsync. Slows down the dump. Mysql only.',
+      'result-file' => 'Save to a file. The file should be relative to Drupal root. If --result-file is provided with no value, then date based filename will be created under ~/drush-backups directory.',
+      'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
+      'structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
+      'tables-key' => 'A key in the $tables array. Optional.',
+      'tables-list' => 'A comma-separated list of tables to transfer. Optional.',
+      'ordered-dump' => 'Use this option to output ordered INSERT statements in the sql-dump.Useful when backups are managed in a Version Control System. Optional.',
+      'create-db' => 'Wipe existing tables.',
+      'data-only' => 'Omit CREATE TABLE statements. Postgres only.',
+      'ordered-dump' => 'Order by primary key and add line breaks for efficient diff in revision control. Also, faster rsync. Slows down the dump. Mysql only.',
+      'gzip' => 'Compress the dump using the gzip program which must be in your $PATH.',
     ) + $options,
   );
   $items['sql-query'] = array(
@@ -86,18 +80,23 @@ function sql_drush_command() {
     'description' => 'Execute a query against the site database.',
     'examples' => array(
       'drush sql-query "SELECT * FROM {users} WHERE uid=1"' => 'Browse user record. Table prefixes are honored.',
+      '`drush sql-connect` < example.sql' => 'Import sql statements from a file into the current database.',
+      'drush sql-query --input-file=example.sql' => 'Alternate way to import sql statements from a file.',
     ),
     'arguments' => array(
-       'query' => 'A SQL query. Mandatory.',
+       'query' => 'An SQL query. Ignored if \'file\' is provided.',
     ),
     'options' => array(
-      '--extra' => 'Add custom options to the mysql command.',
+      'result-file' => 'Save to a file. The file should be relative to Drupal root. Optional.',
+      'input-file' => 'Path to a file containing the SQL to be run.',
+      'extra' => 'Add custom options to the mysql command.',
     ) + $options,
     'aliases' => array('sqlq'),
   );
   $items['sql-sync'] = array(
-    'description' => 'Copy source database to target database using rsync.',
+    'description' => 'Copy and import source database to target database. Transfers via rsync.',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+    'drush dependencies' => array('core'), // core-rsync.
     'examples' => array(
       'drush sql-sync @dev @prod' => 'Copy the DB defined in sites/dev to the DB in sites/prod.',
     ),
@@ -106,45 +105,47 @@ function sql_drush_command() {
       'to' => 'Name of subdirectory within /sites or a site-alias.',
     ),
     'options' => array(
-      '--skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
-      '--structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
-      '--tables-key' => 'A key in the $tables array. Optional.',
-      '--tables-list' => 'A comma-separated list of tables to transfer. Optional.',
-      '--cache' => 'Skip dump if result file exists and is less than "cache" hours old. Optional; default is 24 hours.',
-      '--no-cache' => 'Do not cache the sql-dump file.',
-      '--no-dump' => 'Do not dump the sql database; always use an existing dump file.',
-      '--source-db-url' => 'Database specification for source system to dump from.',
-      '--source-remote-port' => 'Override sql database port number in source-db-url. Optional.',
-      '--source-remote-host' => 'Remote machine to run sql-dump file on. Optional; default is local machine.',
-      '--source-dump' => 'Path to dump file. Optional; default is to create a temporary file.',
-      '--target-database' => 'A key in the $db_url (D6) or $databases (D7+) array which provides the data.',
-      '--source-target' => 'Oy. A key within the --target_database identifying a particular server in the database group.',
-      '--target-db-url' => '',
-      '--target-remote-port' => '',
-      '--target-remote-host' => '',
-      '--target-dump' => '',
-      '--target-database' => 'A key in the $db_url (D6) or $databases (D7+) array which shall receive the data.',
-      '--target-target' => 'Oy. A key within the --target_database identifying a particular server in the database group.',
-      '--temp' => 'Use a temporary file to hold dump files.  Implies --no-cache.',
-      '--dump-dir' => 'Directory to store sql dump files in when --source-dump or --target-dump are not used.  Takes precedence over --temp.',
-      '--create-db' => 'Create a new database before importing the database dump on the target machine.',
-      '--db-su' => 'Account to use when creating a new database. Optional.',
-      '--db-su-pw' => 'Password for the "db-su" account. Optional.',
-      '--sanitize' => 'Obscure email addresses and reset passwords in the user table post-sync. Optional.',
+      'skip-tables-key' => 'A key in the $skip_tables array. @see example.drushrc.php. Optional.',
+      'structure-tables-key' => 'A key in the $structure_tables array. @see example.drushrc.php. Optional.',
+      'tables-key' => 'A key in the $tables array. Optional.',
+      'tables-list' => 'A comma-separated list of tables to transfer. Optional.',
+      'cache' => 'Skip dump if result file exists and is less than "cache" hours old. Optional; default is 24 hours.',
+      'no-cache' => 'Do not cache the sql-dump file.',
+      'no-dump' => 'Do not dump the sql database; always use an existing dump file.',
+      'source-db-url' => 'Database specification for source system to dump from.',
+      'source-remote-port' => 'Override sql database port number in source-db-url. Optional.',
+      'source-remote-host' => 'Remote machine to run sql-dump file on. Optional; default is local machine.',
+      'source-dump' => 'Path to dump file. Optional; default is to create a temporary file.',
+      'target-database' => 'A key in the $db_url (D6) or $databases (D7+) array which provides the data.',
+      'source-target' => 'Oy. A key within the --target_database identifying a particular server in the database group.',
+      'target-db-url' => '',
+      'target-remote-port' => '',
+      'target-remote-host' => '',
+      'target-dump' => '',
+      'target-database' => 'A key in the $db_url (D6) or $databases (D7+) array which shall receive the data.',
+      'target-target' => 'Oy. A key within the --target_database identifying a particular server in the database group.',
+      'temp' => 'Use a temporary file to hold dump files.  Implies --no-cache.',
+      'dump-dir' => 'Directory to store sql dump files in when --source-dump or --target-dump are not used.  Takes precedence over --temp.',
+      'create-db' => 'Create a new database before importing the database dump on the target machine.',
+      'db-su' => 'Account to use when creating a new database. Optional.',
+      'db-su-pw' => 'Password for the "db-su" account. Optional.',
+      'no-ordered-dump' => 'Do not pass --ordered-dump to sql-dump.  sql-sync orders the dumpfile by default in order to increase the efficiency of rsync.',
+      'sanitize' => 'Obscure email addresses and reset passwords in the user table post-sync. Optional.',
     ),
     'sub-options' => array(
-      '--sanitize' => array(
-        '--sanitize-password' => 'The password to assign to all accounts in the sanitization operation, or "no" to keep passwords unchanged.  Default is "password".',
-        '--sanitize-email' => 'The username for test email addresses in the sanitization operation, or "no" to keep email addresses unchanged.  May contain replacement patterns %uid, %mail or %login.  Default is "user+%uid@localhost".',
-        '--confirm-sanitizations' => 'Prompt yes/no after importing the database, but before running the sanitizations',
+      'sanitize' => array(
+        'sanitize-password' => 'The password to assign to all accounts in the sanitization operation, or "no" to keep passwords unchanged.  Default is "password".',
+        'sanitize-email' => 'The username for test email addresses in the sanitization operation, or "no" to keep email addresses unchanged.  May contain replacement patterns %uid, %mail or %login.  Default is "user+%uid@localhost".',
+        'confirm-sanitizations' => 'Prompt yes/no after importing the database, but before running the sanitizations',
       ),
     ),
+    'topics' => array('docs-aliases', 'docs-policy'),
   );
   if (drush_drupal_major_version() >= 7) {
 
     $items['sql-sync']['options'] += array(
-      '--source-target' => 'The name of a target within the SOURCE database.',
-      '--destination-target' => 'The name of a target within the specified DESTINATION database.',
+      'source-target' => 'The name of a target within the SOURCE database.',
+      'destination-target' => 'The name of a target within the specified DESTINATION database.',
     );
   }
   $items['sql-cli'] = array(
@@ -152,6 +153,16 @@ function sql_drush_command() {
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION,
     'options' => $options,
     'aliases' => array('sqlc'),
+  );
+  $items['sql-sanitize'] = array(
+    'description' => "Run sanitization operations on the current database.",
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_DATABASE,
+    'hidden' => TRUE,
+    'options' => array(
+      'sanitize-password' => 'The password to assign to all accounts in the sanitization operation, or "no" to keep passwords unchanged.  Default is "password".',
+      'sanitize-email' => 'The username for test email addresses in the sanitization operation, or "no" to keep email addresses unchanged.  May contain replacement patterns %uid, %mail or %login.  Default is "user+%uid@localhost".',
+    ),
+    'aliases' => array('sqlsan'),
   );
   return $items;
 }
@@ -164,10 +175,7 @@ function drush_sql_conf() {
     $db_spec['db-url'] = $GLOBALS['db_url'];
   }
   elseif (drush_get_option('all', FALSE)) {
-    $db_spec = $GLOBALS['databases'];
-    if (!isset($db_spec)) {
-      $db_spec = array('default' => array('default' => _drush_sql_get_db_spec()));
-    }
+    $db_spec = _drush_sql_get_all_db_specs();
   }
   if (!isset($db_spec)) {
     $db_spec = _drush_sql_get_db_spec();
@@ -185,18 +193,16 @@ function drush_sql_conf() {
 function _drush_sql_connect($db_spec = NULL) {
   switch (_drush_sql_get_scheme($db_spec)) {
     case 'mysql':
-      $command = 'mysql ';
-      $command .= _drush_sql_get_credentials($db_spec);
+      $command = 'mysql';
       break;
     case 'pgsql':
       $command = 'psql';
-      $command .= _drush_sql_get_credentials($db_spec);
       break;
     case 'sqlite':
-      $command = 'sqlite3 ';
-      $command .= _drush_sql_get_credentials($db_spec);
+      $command = 'sqlite3';
       break;
   }
+  $command .= _drush_sql_get_credentials($db_spec);
   return $command;
 }
 
@@ -208,9 +214,13 @@ function drush_sql_connect() {
  * Command callback. Outputs the entire Drupal database in SQL format using mysqldump.
  */
 function drush_sql_dump_execute() {
-  $exec = drush_sql_dump();
+  list($exec, $file) = drush_sql_dump();
   // Avoid the php memory of the $output array in drush_shell_exec().
-  $return = drush_op('system', $exec);
+  if (!$return = drush_op_system($exec)) {
+    if ($file) {
+      drush_log(dt('Database dump saved to !path', array('!path' => $file)), 'success');
+    }
+  }
   return $return;
 }
 
@@ -226,21 +236,35 @@ function drush_sql_get_table_selection() {
 }
 
 /**
- * Build a mysqldump statement.
+ * Build a mysqldump/pg_dump/sqlite statement.
  *
  * @param db_spec
  *   For D5/D6, a $db_url. For D7, a target in the default DB connection.
- * @return string
- *   A mysqldump statement that is ready for executing.
+ * @return array
+ *   An array with items.
+ *     1. A mysqldump/pg_dump/sqlite statement that is ready for executing.
+ *     2. The filepath where the dump will be saved.
  */
 function drush_sql_dump($db_spec = NULL) {
   return drush_sql_build_dump_command(drush_sql_get_table_selection(), $db_spec);
 }
 
-function drush_sql_build_dump_command($tabel_selection, $db_spec = NULL) {
-  $skip_tables = $tabel_selection['skip'];
-  $structure_tables = $tabel_selection['structure'];
-  $tables = $tabel_selection['tables'];
+/**
+ * Build a mysqldump/pg_dump/sqlite statement.
+ *
+ * @param array $table_selection
+ *   Supported keys: 'skip', 'structure', 'tables'.
+ * @param db_spec
+ *   For D5/D6, a $db_url. For D7, a target in the default DB connection.
+ * @return array
+ *   An array with items.
+ *     1. A mysqldump/pg_dump/sqlite statement that is ready for executing.
+ *     2. The filepath where the dump will be saved.
+ */
+function drush_sql_build_dump_command($table_selection, $db_spec = NULL) {
+  $skip_tables = $table_selection['skip'];
+  $structure_tables = $table_selection['structure'];
+  $tables = $table_selection['tables'];
 
   $ignores = array();
   $skip_tables  = array_merge($structure_tables, $skip_tables);
@@ -254,23 +278,24 @@ function drush_sql_build_dump_command($tabel_selection, $db_spec = NULL) {
     $db_spec = _drush_sql_get_db_spec();
   }
   $database = $db_spec['database'];
-  
+
   // Get the setting of --result-file.  If the user
   // has set $options['result-file'] = TRUE, then we
   // will generate an SQL dump file in the same backup
   // directory that pm-updatecode uses.
+  $file = NULL;
   if ($file = drush_get_option('result-file', FALSE)) {
     if ($file === TRUE) {
       // User did not pass a specific value for --result-file. Make one.
       drush_include_engine('version_control', 'backup');
       $backup = new drush_pm_version_control_backup();
-      $backup_dir = $backup->prepare_backup_dir();
+      $backup_dir = $backup->prepare_backup_dir($db_spec['database']);
       if (empty($backup_dir)) {
         $backup_dir = "/tmp";
       }
       $file = $backup_dir . '/@DATABASE_@DATE.sql';
     }
-    $file = str_replace(array('@DATABASE', '@DATE'), array($database, date('Ymd_his')), $file);
+    $file = str_replace(array('@DATABASE', '@DATE'), array($database, gmdate('Ymd_his')), $file);
   }
 
   switch (_drush_sql_get_scheme($db_spec)) {
@@ -314,13 +339,8 @@ function drush_sql_build_dump_command($tabel_selection, $db_spec = NULL) {
       if ($file) {
         $exec .= ' --file '. $file;
       }
-      // Unlike psql, pg_dump does not take a '-d' flag before the database name.
-      // We'll put the database name in 'by hand' and then clear the name from
-      // the record to prevent _drush_sql_get_credentials from inserting a -d term
-      // that pg_dump does not understand.
-      $extra = ' ' . $db_spec['database'];
-      $db_spec['database'] = null;
-      $extra .= _drush_sql_get_credentials($db_spec);
+      // Unlike psql, pg_dump does not take a '--dbname=' before the database name.
+      $extra = str_replace('--dbname=', ' ', _drush_sql_get_credentials($db_spec));
       if (isset($data_only)) {
         $extra .= ' --data-only';
       }
@@ -366,7 +386,19 @@ function drush_sql_build_dump_command($tabel_selection, $db_spec = NULL) {
       break;
   }
 
-  return $exec;
+  if (drush_get_option('gzip')) {
+    if ($file) {
+      // Gzip the result-file
+      $exec .= "; gzip $file";
+      $file .= '.gz';
+    }
+    else {
+      // gzip via pipe since user has not specified a file.
+      $exec .= "| gzip";
+    }
+  }
+
+  return array($exec, $file);
 }
 
 /**
@@ -383,7 +415,7 @@ function drush_sql_build_dump_command($tabel_selection, $db_spec = NULL) {
  *   found, or an empty array if there were no matches.
  */
 function _drush_sql_get_table_list($option_name) {
-  foreach(array('' => 'options', 'target-,,source-' => NULL) as $prefix_list => $context) {
+  foreach(array('' => 'cli', 'target-,,source-' => NULL) as $prefix_list => $context) {
     foreach(explode(',',$prefix_list) as $prefix) {
       $key_list = drush_get_option($prefix . $option_name . '-key', NULL, $context);
       foreach(explode(',', $key_list) as $key) {
@@ -412,18 +444,34 @@ function _drush_sql_get_table_list($option_name) {
  * Command callback. Executes the given SQL query on the Drupal database.
  */
 function drush_sql_query($query) {
-  return _drush_sql_query($query);
+  $filename = drush_get_option('file', NULL);
+  return _drush_sql_query($query, NULL, $filename);
 }
 
-function _drush_sql_query($query, $db_spec = NULL) {
+/*
+ * Execute a SQL query.
+ *
+ * @param string $query
+ *   The SQL to be executed. Should be NULL if $file is provided.
+ * @param array $db_spec
+ *   A database target.
+ * @param string $filename
+ *   A path to a file containing the SQL to be executed.
+ */
+function _drush_sql_query($query, $db_spec = NULL, $filename = NULL) {
   $scheme = _drush_sql_get_scheme($db_spec);
 
   // Inject table prefixes as needed.
-  if (drush_drupal_major_version() >= 7) {
-    $query = Database::getConnection()->prefixTables($query);
-  }
-  else {
-    $query = db_prefix_tables($query);
+  if (drush_has_boostrapped(DRUSH_BOOTSTRAP_DRUPAL_DATABASE)) {
+    if ($filename) {
+      $query = file_get_contents($filename);
+    }
+    if (drush_drupal_major_version() >= 7) {
+      $query = Database::getConnection()->prefixTables($query);
+    }
+    else {
+      $query = db_prefix_tables($query);
+    }
   }
 
   // Convert mysql 'show tables;' query into something pgsql understands
@@ -431,28 +479,39 @@ function _drush_sql_query($query, $db_spec = NULL) {
     $query = drush_sql_show_tables_pgsql();
   }
 
-  // Save $query to a tmp file. We will redirect it in.
-  if ($filename = drush_save_data_to_temp_file($query)) {
-    $exec = drush_sql_build_exec($db_spec, $filename);
-    // In --simulate mode, drush_op will show the call to mysql or psql,
-    // but the sql query itself is stored in a temp file and not displayed.
-    // We will therefore show the query explicitly in the interest of full disclosure.
-    if (drush_get_context('DRUSH_SIMULATE')) {
-      drush_print('sql-query: ' . $query);
-    }
-    $return = drush_op('system', $exec) !== FALSE;
-    return $return;
+  // Save $query to a tmp file if needed. We will redirect it in.
+  if (!$filename) {
+    $filename = drush_save_data_to_temp_file($query);
   }
+  $exec = drush_sql_build_exec($db_spec, $filename);
+  if ($output_file = drush_get_option('result-file')) {
+    $exec .= ' > '. drush_escapeshellarg($output_file);
+  }
+  // In --simulate mode, drush_op will show the call to mysql or psql,
+  // but the sql query itself is stored in a temp file and not displayed.
+  // We will therefore show the query explicitly in the interest of full disclosure.
+  if (drush_get_context('DRUSH_SIMULATE')) {
+    drush_print('sql-query: ' . $query);
+  }
+  $return = drush_op_system($exec) == 0;
+  return $return;
 }
 
 function drush_sql_drop() {
   if (!drush_confirm(dt('Do you really want to drop all tables?'))) {
-    drush_user_abort();
+    return drush_user_abort();
   }
+  _drush_sql_drop();
+}
 
+// n.b. site-install uses _drush_sql_drop as a fallback technique if
+// drop database; create database fails.  If _drush_sql_drop
+// is rewritten to also use that technique, it should maintain
+// the drop tables code here as a fallback.
+function _drush_sql_drop($db_spec = NULL) {
   // TODO: integrate with _drush_sql_get_table_list?
 
-  $scheme = _drush_sql_get_scheme();
+  $scheme = _drush_sql_get_scheme($db_spec);
   switch ($scheme) {
     case 'pgsql':
       $query = drush_sql_show_tables_pgsql();
@@ -463,68 +522,92 @@ function drush_sql_drop() {
     default:
       $query = 'SHOW TABLES;';
   }
-  
+
   $filename = drush_save_data_to_temp_file($query);
-  $exec = drush_sql_build_exec(NULL, $filename);
-  
+  $exec = drush_sql_build_exec($db_spec, $filename);
+
   // Actually run this prep query no matter if in SIMULATE.
   $old = drush_get_context('DRUSH_SIMULATE');
   drush_set_context('DRUSH_SIMULATE', FALSE);
   drush_shell_exec($exec);
   drush_set_context('DRUSH_SIMULATE', $old);
-  $tables = drush_shell_exec_output();
-  if ($scheme === 'sqlite') {
-    // SQLite's '.tables' command always outputs the table names in a column
-    // format, like this:
-    // table_alpha    table_charlie    table_echo
-    // table_bravo    table_delta      table_foxtrot
-    // …and there doesn't seem to be a way to fix that. So we need to do some
-    // clean-up.
-    // Since we're already doing iteration here, might as well build the SQL
-    // too, since SQLite only wants one table per DROP TABLE command (so we have
-    // to do "DROP TABLE foo; DROP TABLE bar;" instead of
-    // "DROP TABLE foo, bar;").
-    $sql = '';
-    foreach ($tables as $line) {
-      preg_match_all('/[^\s]+/', $line, $matches);
-      if (!empty($matches[0])) {
-        foreach ($matches[0] as $match) {
-          $sql .= "DROP TABLE {$match};";
+  if ($tables = drush_shell_exec_output()) {
+    if ($scheme === 'sqlite') {
+      // SQLite's '.tables' command always outputs the table names in a column
+      // format, like this:
+      // table_alpha    table_charlie    table_echo
+      // table_bravo    table_delta      table_foxtrot
+      // …and there doesn't seem to be a way to fix that. So we need to do some
+      // clean-up.
+      // Since we're already doing iteration here, might as well build the SQL
+      // too, since SQLite only wants one table per DROP TABLE command (so we have
+      // to do "DROP TABLE foo; DROP TABLE bar;" instead of
+      // "DROP TABLE foo, bar;").
+      $sql = '';
+      foreach ($tables as $line) {
+        preg_match_all('/[^\s]+/', $line, $matches);
+        if (!empty($matches[0])) {
+          foreach ($matches[0] as $match) {
+            $sql .= "DROP TABLE {$match};";
+          }
         }
       }
+      // We can't use drush_op('db_query', $sql) because it will only perform one
+      // SQL command and we're technically performing several.
+      $exec = _drush_sql_connect($db_spec);
+      $exec .= " '{$sql}'";
+      return drush_op_system($exec) == 0;
     }
-    // We can't use drush_op('db_query', $sql) because it will only perform one
-    // SQL command and we're technically performing several.
-    $exec = _drush_sql_connect();
-    $exec .= " '{$sql}'";
-    return drush_op('system', $exec);
+    else {
+      // Shift off the header of the column of data returned.
+      array_shift($tables);
+      $sql = 'DROP TABLE '. implode(', ', $tables);
+      return _drush_sql_query($sql, $db_spec);
+    }
   }
   else {
-    // Shift off the header of the column of data returned.
-    array_shift($tables);
-    $sql = 'DROP TABLE '. implode(', ', $tables);
-    return drush_op('db_query', $sql);
+    drush_log(dt('No tables to drop.'), 'ok');
   }
+  return TRUE;
 }
 
 function drush_sql_cli() {
-  switch (_drush_sql_get_scheme()) {
-    case 'mysql':
-      $command = 'mysql ' . (drush_get_context('DRUSH_VERBOSE') ? ' -v' : '');
-      $command .= _drush_sql_get_credentials();
-      break;
-    case 'pgsql':
-      $command = 'psql ';
-      $command .= _drush_sql_get_credentials();
-      break;
-    case 'sqlite':
-      $command = 'sqlite3 ';
-      $command .= _drush_sql_get_credentials();
-      break;
-  }
-  proc_close(proc_open($command, array(0 => STDIN, 1 => STDOUT, 2 => STDERR), $pipes));
+  proc_close(proc_open(_drush_sql_connect(), array(0 => STDIN, 1 => STDOUT, 2 => STDERR), $pipes));
 }
 
+/**
+ * Command callback. Run's the sanitization operations on the current database.
+ */
+function drush_sql_sanitize() {
+  if (!drush_confirm(dt('Do you really want to sanitize the current database?'))) {
+    return drush_user_abort();
+  }
+  drush_include(DRUSH_BASE_PATH . '/commands/sql', 'sync.sql');
+  drush_command_invoke_all('drush_sql_sync_sanitize', 'default');
+  $options = drush_get_context('post-sync-ops');
+  if (!empty($options)) {
+    if (!drush_get_context('DRUSH_SIMULATE')) {
+      $messages = _drush_sql_get_post_sync_messages();
+      if ($messages) {
+        drush_print();
+        drush_print($messages);
+      }
+    }
+  }
+
+  $sanitize_query = '';
+  foreach($options as $id => $data) {
+    $sanitize_query .= $data['query'] . " ";
+  }
+  if ($sanitize_query) {
+    if (!drush_get_context('DRUSH_SIMULATE')) {
+      drush_sql_query($sanitize_query);
+    }
+    else {
+      drush_print("Executing: $sanitize_query");
+    }
+  }
+}
 
 //////////////////////////////////////////////////////////////////////////////
 // SQL SERVICE HELPERS
@@ -554,6 +637,20 @@ function _drush_sql_get_db_spec() {
         return NULL;
       }
       return $GLOBALS['databases'][$database][$target];
+  }
+}
+
+function _drush_sql_get_all_db_specs() {
+  switch (drush_drupal_major_version()) {
+    case 5:
+    case 6:
+      return drush_sitealias_convert_db_from_db_url($GLOBALS['db_url']);
+
+    default:
+      if (!isset($GLOBALS['databases'])) {
+        return NULL;
+      }
+      return $GLOBALS['databases'];
   }
 }
 
@@ -673,10 +770,9 @@ function _drush_sql_get_credentials($db_spec = NULL) {
       break;
 
     case 'pgsql':
-      // Database is optional in Postgres.
-      if (isset($db_spec['database'])) {
-        $parameters['dbname'] = empty($db_spec['database']) ? 'template1' : $db_spec['database'];
-      }
+      // Some drush commands (e.g. site-install) want to connect to the
+      // server, but not the database.  Connect to the built-in database.
+      $parameters['dbname'] = empty($db_spec['database']) ? 'template1' : $db_spec['database'];
 
       // Host and port are optional but have defaults.
       $parameters['host'] = empty($db_spec['host']) ? 'localhost' : $db_spec['host'];
@@ -781,20 +877,114 @@ function drush_sql_show_tables_pgsql() {
   return "select tablename from pg_tables where schemaname='public';";
 }
 
+/*
+ * Drop all tables or DROP+CREATE target database.
+ *
+ * return boolean
+ *   TRUE or FALSE depending on success.
+ */
+function drush_sql_empty_db($db_spec = NULL) {
+  if (is_null($db_spec)) {
+    $db_spec = drush_sql_read_db_spec();
+  }
+  $sql = drush_sql_build_createdb_sql($db_spec, TRUE);
+  // Get credentials to connect to the server, but not the database which we
+  // are about to DROP. @see _drush_sql_get_credentials().
+  $create_db_spec = $db_spec;
+  unset($create_db_spec['database']);
+  $create_db_su = drush_sql_su($create_db_spec);
+  if (!_drush_sql_query($sql, $create_db_su)) {
+    // If we could not drop the database, try instead to drop all
+    // of the tables in the database (presuming it exists...).
+    // If we cannot do either operation, then fail with an error.
+    if (!_drush_sql_drop($db_spec)) {
+      return drush_set_error(dt('Could not drop and create database: @name', array('@name' => $db_name)));
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Return a db_spec based on supplied db_url/db_prefix options or an existing
+ * settings.php.
+ */
+function drush_sql_read_db_spec() {
+  if ($db_url = drush_get_option('db-url')) {
+    // We were passed a db_url. Usually a fresh site.
+    $db_spec = drush_convert_db_from_db_url($db_url);
+    $db_spec['db_prefix'] = drush_get_option('db-prefix');
+    return $db_spec;
+  }
+  elseif (drush_bootstrap(DRUSH_BOOTSTRAP_DRUPAL_CONFIGURATION)) {
+    // We have an existing settings.php.
+    $db_spec = _drush_sql_get_db_spec();
+    $db_spec['db_prefix'] = $GLOBALS['db_prefix'];
+    return $db_spec;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/*
+ * Build DB connection array with superuser credentials if provided.
+ */
+function drush_sql_su($db_spec) {
+  $create_db_target = $db_spec;
+  $create_db_target['database'] = '';
+  $db_superuser = drush_get_option(array('db-su', 'target-db-su'));
+  if (isset($db_superuser)) {
+    $create_db_target['username'] = $db_superuser;
+  }
+  $db_su_pw = drush_get_option(array('db-su-pw', 'target-db-su-pw'));
+  if (isset($db_su_pw)) {
+    $create_db_target['password'] = $db_su_pw;
+  }
+  return $create_db_target;
+}
+
+/*
+ * Build a SQL string for dropping and creating a database.
+ *
+ * @param array $db_spec
+ *   A database specification array.
+ *
+ * @param boolean $quoted
+ *   Quote the database name. Mysql uses backticks to quote which can cause problems
+ *   in a Windows shell. Set TRUE of the CREATE is not running on the bash command line.
+ */
+function drush_sql_build_createdb_sql($db_spec, $quoted = FALSE) {
+  switch (_drush_sql_get_scheme($db_spec)) {
+    case 'mysql':
+      $dbname = $quoted ? '`' . $db_spec['database'] . '`' : $db_spec['database'];
+      $sql[] = sprintf('DROP DATABASE IF EXISTS %s; ', $dbname);
+      $sql[] = sprintf('CREATE DATABASE %s /*!40100 DEFAULT CHARACTER SET utf8 */;', $dbname);
+      $sql[] = sprintf('GRANT ALL PRIVILEGES ON %s.* TO \'%s\'@\'%s\'', $dbname, $db_spec['username'], $db_spec['host']);
+      $sql[] = sprintf("IDENTIFIED BY '%s';", $db_spec['password']);
+      $sql[] = 'FLUSH PRIVILEGES;';
+      break;
+    case 'pgsql':
+      $dbname = $quoted ? '"' . $db_spec['database'] . '"' : $db_spec['database'];
+      $sql[] = sprintf('drop database if exists %s;', $dbname);
+      $sql[] = sprintf("create database %s ENCODING 'UTF8';", $dbname);
+      break;
+  }
+  return implode(' ', $sql);
+}
+
 function drush_sql_build_exec($db_spec, $filepath) {
   $scheme = _drush_sql_get_scheme($db_spec);
   switch ($scheme) {
     case 'mysql':
-      $exec = 'mysql' . (drush_get_context('DRUSH_VERBOSE') ? ' -v' : '');
+      $exec = 'mysql';
       $exec .= _drush_sql_get_credentials($db_spec);
       $exec .= ' ' . drush_get_option('extra');
       $exec .= " < $filepath";
 
       break;
     case 'pgsql':
-      $exec = 'psql';
+      $exec = 'psql -q ';
       $exec .= _drush_sql_get_credentials($db_spec);
-      $exec .= (drush_get_context('DRUSH_VERBOSE') ? '' : ' -q');
       $exec .= ' ' . (drush_get_option('extra') ? drush_get_option('extra') : "--no-align --field-separator='\t' --pset footer=off");
       $exec .= " --file $filepath";
       break;

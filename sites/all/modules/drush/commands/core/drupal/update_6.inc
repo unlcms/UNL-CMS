@@ -1,5 +1,4 @@
 <?php
-// $Id: update_6.inc,v 1.19 2010/12/01 15:53:15 jonhattan Exp $
 /**
  * @file
  *   Update.php for provisioned sites.
@@ -219,6 +218,31 @@ function update_fix_d6_requirements() {
       'primary key' => array('cid'),
     );
     db_create_table($ret, 'cache_block', $schema['cache_block']);
+    
+    // Create the semaphore table now -- the menu system after 6.15 depends on
+    // this table, and menu code runs in updates prior to the table being
+    // created in its original update function, system_update_6054().
+    $schema['semaphore'] = array(
+      'fields' => array(
+        'name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''),
+      'value' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''),
+      'expire' => array(
+        'type' => 'float',
+        'size' => 'big',
+        'not null' => TRUE),
+      ),
+     'indexes' => array('expire' => array('expire')),
+     'primary key' => array('name'),
+    );
+    db_create_table($ret, 'semaphore', $schema['semaphore']);
   }
 
   return $ret;
@@ -403,7 +427,7 @@ function update_main() {
       }
     }
     if (!drush_confirm(dt('Do you wish to run all pending updates?'))) {
-      drush_user_abort();
+      return drush_user_abort();
     }
     // Proceed with running all pending updates.
     $operations = array();

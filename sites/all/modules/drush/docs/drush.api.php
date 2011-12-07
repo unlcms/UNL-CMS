@@ -1,5 +1,4 @@
 <?php
-// $Id: drush.api.php,v 1.16 2010/11/30 15:12:49 weitzman Exp $
 
 /**
  * @file
@@ -17,7 +16,7 @@
  * 2. drush_hook_pre_COMMAND()
  * 3. drush_hook_COMMAND()
  * 4. drush_hook_post_COMMAND()
- * 
+ *
  * For example, here are the hook opportunities for a mysite.drush.inc file
  * that wants to hook into the `pm-download` command.
  *
@@ -29,9 +28,21 @@
  * Note that the drush_COMMAND_init() hook is only for use by the
  * commandfile that defines the command.
  *
- * If any of hook function fails, the rollback mechanism is called. It will
- * call, in reverse, all _rollback hooks. The mysite command file can implement
- * the following rollback hooks:
+ * If any of hook function fails, either by calling drush_set_error
+ * or by returning FALSE as its function result, then the rollback
+ * mechanism is called.  To fail with an error, call drush_set_error:
+ *
+ *   return drush_set_error('MY_ERROR_CODE', dt('Error message.'));
+ *
+ * To allow the user to confirm or cancel a command, use drush_confirm
+ * and drush_user_abort:
+ *
+ *   if (!drush_confirm(dt('Are you sure?'))) {
+ *     return drush_user_abort();
+ *   }
+ *
+ * The rollback mechanism will call, in reverse, all _rollback hooks.
+ * The mysite command file can implement the following rollback hooks:
  *
  * 1. drush_mysite_post_pm_download_rollback()
  * 2. drush_mysite_pm_download_rollback()
@@ -150,6 +161,15 @@ function hook_drush_exit() {
 
 }
 
+/*
+ * A commandfile may choose to decline to load for the current bootstrap
+ * level by returning FALSE. This hook must be placed in MODULE.drush.load.inc.
+ * @see drush_commandfile_list().
+ */
+function hook_drush_load() {
+
+}
+
 /**
  * Take action after a project has been downloaded.
  */
@@ -176,6 +196,17 @@ function hook_drush_pm_download_destination_alter(&$project, $release) {
 }
 
 /**
+ * Add information to the upgrade project map; this information
+ * will be shown to the user when upgrading Drupal to the next
+ * major version if the module containing this hook is enabled.
+ *
+ * @see drush_upgrade_project_map().
+ */
+function hook_drush_upgrade_project_map_alter(&$project_map) {
+  $project_map['warning']['hook'] = dt("You need to take special action before upgrading this module. See http://mysite.com/mypage for more information.");
+}
+
+/**
  * Sql-sync sanitization example.  This is equivalent to
  * the built-in --sanitize option of sql-sync, but simplified
  * to only work with default values on Drupal 6 + mysql.
@@ -189,12 +220,25 @@ function hook_drush_sql_sync_sanitize($source) {
 }
 
 /**
+ * Take action before modules are disabled in a major upgrade.
+ * Note that when this hook fires, it will be operating on a
+ * copy of the database.
+ */
+function drush_hook_pre_site_upgrade_prepare() {
+  // site upgrade prepare will disable contrib_extensions and
+  // uninstall the uninstall_extension
+  $contrib_extensions = func_get_args();
+  $uninstall_extensions = explode(',', drush_get_option('uninstall', ''));
+}
+
+
+/**
  * Add help components to a command
  */
 function hook_drush_help_alter(&$command) {
   if ($command['command'] == 'sql-sync') {
-    $command['options']['--myoption'] = "Description of modification of sql-sync done by hook";
-    $command['sub-options']['--sanitize']['--my-sanitize-option'] = "Description of sanitization option added by hook (grouped with --sanitize option)";
+    $command['options']['myoption'] = "Description of modification of sql-sync done by hook";
+    $command['sub-options']['sanitize']['my-sanitize-option'] = "Description of sanitization option added by hook (grouped with --sanitize option)";
   }
 }
 
@@ -212,7 +256,7 @@ function hook_drush_cache_clear(&$types) {
  *   Bash code typically found in a .bashrc file.
  *
  * @see core_cli_bashrc() for an example implementation.
- */ 
+ */
 function hook_cli_bashrc() {
   $string = "
     alias siwef='drush site-install wef --account-name=super --account-mail=me@wef'
