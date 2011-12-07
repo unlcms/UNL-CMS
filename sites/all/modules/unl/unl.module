@@ -1220,10 +1220,6 @@ function _unl_limit_menu_depth($menu_links, $depth) {
   return $menu_links;
 }
 
-
-
-
-
 /**
  * Implements hook_block_info()
  */
