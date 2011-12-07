@@ -4,9 +4,37 @@
  * Do so special setup for UNL specific features.
  */
 function unl_bootstrap() {
+  unl_bootstrap_short_hostname_redirect();
   unl_bootstrap_multisite_without_symlinks();
   unl_bootstrap_proxy_pass_support();
   unl_bootstrap_mobile_internal_redirect();
+}
+
+/**
+ * Check that the hostname resolves to an IP Address.
+ * If it doesn't redirect to <hostname>.unl.edu.
+ */
+function unl_bootstrap_short_hostname_redirect() {
+  $hostname = $_SERVER['HTTP_HOST'];
+  if (gethostbynamel($hostname)) {
+    // The provided host name is just fine.
+    return;
+  }
+  
+  // Otherwise, try adding .unl.edu.
+  $hostname .= '.unl.edu';
+  if (gethostbynamel($hostname)) {
+    // If its a valid domain, redirect to it.
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') {
+      $uri = 'https://';
+    } else {
+      $uri = 'http://';
+    }
+    $uri .= $hostname . $_SERVER['REQUEST_URI'];
+    
+    header('Location: ' . $uri);
+    exit;
+  }
 }
 
 /**
