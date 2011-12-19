@@ -4,13 +4,10 @@
 #wdn_identity_management {left: 480px;}
 
 /* - breadcrumbs - */
-#breadcrumbs > ul > li > a{
-background: url('/sharedcode/affiliate_imgs/2011_breadcrumb_li.png') no-repeat right 3px;
-}
-
-#breadcrumbs > ul > li.selected > a {
-color: #9d0201;
-}
+#breadcrumbs > ul > li > a {background: none;}
+#breadcrumbs > ul > li > a:after {content: ' ▶'; font-size: .8em;}
+#breadcrumbs > ul > li.selected > a {color: #9d0201;}
+#breadcrumbs > ul > li.selected > a:after {content: ' ▼'; font-size: .8em;}
 
 /* - navigation - */
 #navigation > ul > li > a, #navigation > ul > li.empty a, #navigation > ul > li.empty:hover a {

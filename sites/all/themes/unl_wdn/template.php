@@ -9,6 +9,15 @@ if (theme_get_setting('zen_forms')) {
 }
 
 /**
+ * Implements hook_css_alter().
+ */
+function unl_wdn_css_alter(&$css) {
+  if (!theme_get_setting('unl_affiliate')) {
+    unset($css[drupal_get_path('theme', 'unl_wdn') . '/css/colors.css']);
+  }
+}
+
+/**
  * Implements template_preprocess_field().
  */
 function unl_wdn_preprocess_field(&$vars, $hook) {
