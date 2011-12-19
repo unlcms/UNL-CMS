@@ -37,19 +37,19 @@ function unl_wdn_preprocess_field(&$vars, $hook) {
 function unl_wdn_preprocess_html(&$vars, $hook) {
   if (theme_get_setting('unl_affiliate')) {
     if (!theme_get_setting('toggle_unl_banner')) {
-      drupal_add_css('#header h1{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+      drupal_add_css('#header h1{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
     if (!theme_get_setting('toggle_unl_branding')) {
-      drupal_add_css('#footer_floater,#wdn_logos{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+      drupal_add_css('#footer_floater,#wdn_logos{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
     if (!theme_get_setting('toggle_unl_breadcrumb')) {
-      drupal_add_css('#breadcrumbs > ul > li:first-child{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+      drupal_add_css('#breadcrumbs > ul > li:first-child{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
     if (!theme_get_setting('toggle_unl_search')) {
-      drupal_add_css('#wdn_search{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+      drupal_add_css('#wdn_search{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
     if (!theme_get_setting('toggle_unl_tools')) {
-      drupal_add_css('#wdn_tool_links{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+      drupal_add_css('#wdn_tool_links{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
   }
 
