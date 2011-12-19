@@ -1,9 +1,46 @@
 <?php
+
 /**
  * Implements hook_form_system_theme_settings_alter().
  * Done as THEMENAME_form_system_theme_settings_alter(), reference http://drupal.org/node/177868
  */
 function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
+  global $user;
+
+  // Add checkboxes to the Toggle Display form to hide UNL template items on an affiliate site
+  $form['theme_settings'] += array(
+    'toggle_unl_banner' => array(
+      '#type' => 'checkbox',
+      '#title' => t('UNL Affiliate Banner'),
+      '#default_value' => theme_get_setting('toggle_unl_banner'),
+      '#access' => theme_get_setting('unl_affiliate'),
+    ),
+    'toggle_unl_branding' => array(
+      '#type' => 'checkbox',
+      '#title' => t('UNL Branding Elements'),
+      '#default_value' => theme_get_setting('toggle_unl_branding'),
+      '#access' => theme_get_setting('unl_affiliate'),
+    ),
+    'toggle_unl_breadcrumb' => array(
+      '#type' => 'checkbox',
+      '#title' => t('UNL Breadcrumb'),
+      '#default_value' => theme_get_setting('toggle_unl_breadcrumb'),
+      '#access' => theme_get_setting('unl_affiliate'),
+    ),
+    'toggle_unl_search' => array(
+      '#type' => 'checkbox',
+      '#title' => t('UNL Search box'),
+      '#default_value' => theme_get_setting('toggle_unl_search'),
+      '#access' => theme_get_setting('unl_affiliate'),
+    ),
+    'toggle_unl_tools' => array(
+      '#type' => 'checkbox',
+      '#title' => t('UNL Tools'),
+      '#default_value' => theme_get_setting('toggle_unl_tools'),
+      '#access' => theme_get_setting('unl_affiliate'),
+    ),
+  );
+
   $form[] = array(
     '#type' => 'fieldset',
     '#title' => t('Site Name Abbreviation'),
@@ -75,6 +112,12 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
       '#default_value' => theme_get_setting('wdn_beta'),
       '#description' => t('Replaces the links in &lt;head&gt; to the stable /wdn directory with the latest development versions.'),
       '#access' => _unl_wdn_use_wdn_beta(),
+    ),
+    'unl_affiliate' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Affiliate Site'),
+      '#default_value' => theme_get_setting('unl_affiliate'),
+      '#description' => t('Grants access to the Color scheme picker, Logo image settings, Shortcut icon settings on this page for customizing the UNL template.'),
     ),
   );
 }

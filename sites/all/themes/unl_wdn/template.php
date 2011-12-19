@@ -26,6 +26,24 @@ function unl_wdn_preprocess_field(&$vars, $hook) {
  * Implements template_preprocess_html().
  */
 function unl_wdn_preprocess_html(&$vars, $hook) {
+  if (theme_get_setting('unl_affiliate')) {
+    if (!theme_get_setting('toggle_unl_banner')) {
+      drupal_add_css('#header h1{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+    }
+    if (!theme_get_setting('toggle_unl_branding')) {
+      drupal_add_css('#footer_floater,#wdn_logos{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+    }
+    if (!theme_get_setting('toggle_unl_breadcrumb')) {
+      drupal_add_css('#breadcrumbs > ul > li:first-child{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+    }
+    if (!theme_get_setting('toggle_unl_search')) {
+      drupal_add_css('#wdn_search{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+    }
+    if (!theme_get_setting('toggle_unl_tools')) {
+      drupal_add_css('#wdn_tool_links{display:none;}', array('type'=>'inline', 'group' => CSS_THEME));
+    }
+  }
+
   /**
    * Change the <title> tag to UNL format: UNL | Department | Section | Page
    */
@@ -54,6 +72,16 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
   }
 
   $vars['head_title'] = check_plain(implode(' | ', $head_title));
+}
+
+/**
+ * Implements template_process_html().
+ */
+function unl_wdn_process_html(&$vars) {
+  // Hook into color.module.
+  if (theme_get_setting('unl_affiliate') && module_exists('color')) {
+    _color_html_alter($vars);
+  }
 }
 
 /**
@@ -142,6 +170,16 @@ function unl_wdn_preprocess_page(&$vars, $hook) {
   if (arg(0) == 'user') {
     $vars['page']['sidebar_first'] = array();
     $vars['page']['sidebar_second'] = array();
+  }
+}
+
+/**
+ * Implements template_process_page().
+ */
+function unl_wdn_process_page(&$vars) {
+  // Hook into color.module.
+  if (theme_get_setting('unl_affiliate') && module_exists('color')) {
+    _color_page_alter($vars);
   }
 }
 

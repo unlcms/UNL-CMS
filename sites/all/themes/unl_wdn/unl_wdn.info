@@ -5,14 +5,9 @@ core = 7.x
 engine = phptemplate
 
 stylesheets[all][] = style.css
+stylesheets[all][] = css/colors.css
 
 scripts[] = theme.js
-
-features[] = main_menu
-features[] = name
-features[] = node_user_picture
-features[] = comment_user_picture
-features[] = comment_user_verification
 
 regions[page_top] = Page top
 regions[page_bottom] = Page bottom
@@ -29,8 +24,12 @@ regions[footercontent] = Footer Content
 
 plugins[panels][layouts] = layouts
 
+settings[toggle_logo] = 0
+settings[toggle_slogan] = 0
 settings[toggle_favicon] = 0
-settings[zen_forms] = 0
-settings[wdn_beta] = 0
+
 settings[sidebar_first_width] = 3
 settings[sidebar_second_width] = 3
+settings[zen_forms] = 0
+settings[wdn_beta] = 0
+settings[unl_affiliate] = 0

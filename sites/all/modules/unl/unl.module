@@ -477,6 +477,34 @@ function unl_file_validate($file) {
 }
 
 /**
+ * Implementation of hook_form_FORM_ID_alter() for system_theme_settings.
+ * This is used in addition to unl_wdn_form_system_theme_settings_alter because that hook
+ *   runs before color_form_system_theme_settings_alter which overwrites an attempt
+ *   at setting $form['color']['#access'].
+ */
+function unl_form_system_theme_settings_alter(&$form, &$form_state) {
+  global $user;
+
+  $form['advanced_settings']['unl_affiliate']['#access'] = unl_user_is_administrator();
+
+  $is_affiliate = $form['advanced_settings']['unl_affiliate']['#default_value'];
+
+  $form['color']['#access'] = $is_affiliate;
+  $form['logo']['#access'] = $is_affiliate;
+  $form['favicon']['#access'] = $is_affiliate;
+
+  // These are settings manipulations that we want for UNL but don't necessarily belong in the theme
+  if (!$is_affiliate && !unl_user_is_administrator()) {
+    $form['theme_settings']['toggle_logo']['#access'] = false;
+    $form['theme_settings']['toggle_favicon']['#access'] = false;
+    $form['theme_settings']['toggle_name']['#access'] = false;
+    $form['theme_settings']['toggle_comment_user_verification']['#access'] = false;
+    $form['theme_settings']['toggle_main_menu']['#access'] = false;
+    $form['theme_settings']['toggle_secondary_menu']['#access'] = false;
+  }
+}
+
+/**
  * Implementation of hook_form_FORM_ID_alter() for field_ui_display_overview_form.
  */
 function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $form_id) {
@@ -1332,7 +1360,7 @@ function unl_query_alter(QueryAlterableInterface $query)
     $usersTableAlias = NULL;
     foreach ($query->getTables() as $alias => $table) {
       if ($table['table'] == 'users') {
-        $usersTableAlias = $alias; 
+        $usersTableAlias = $alias;
       }
     }
     // If we actually find a users table

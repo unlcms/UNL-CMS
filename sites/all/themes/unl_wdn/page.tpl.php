@@ -70,17 +70,28 @@ Any real output is being deferred to html.tpl.php
 
 $t = unl_wdn_get_instance();
 
+// Site Logo (for affiliates)
+if (theme_get_setting('unl_affiliate') && $logo) {
+  $t->logo = '<a href="'.$front_page.'" title="Home">
+                <img src="'.$logo.'" alt="'.$site_name.' logo" id="logo" />
+              </a>';
+}
+
 // Breadcrumbs
 if (isset($breadcrumb)) {
-  $t->breadcrumbs = PHP_EOL.$breadcrumb.PHP_EOL;
+  $t->breadcrumbs = PHP_EOL . $breadcrumb . PHP_EOL;
 }
 
 // Navigation
-$t->navlinks = PHP_EOL.render($page['navlinks']);
+$t->navlinks = PHP_EOL . render($page['navlinks']);
 
 // Site Title and Page Title
 if (isset($site_name) && $site_name) {
-  $t->titlegraphic = '<h1>' . $site_name . '</h1>';
+  $t->titlegraphic = '<h1>' . $site_name;
+  if (!empty($site_slogan)) {
+    $t->titlegraphic .= '<span>' . $site_slogan . '</span>';
+  }
+  $t->titlegraphic .= '</h1>';
 }
 if (isset($title) && $title) {
   $t->pagetitle = '<h2>' . render($title_prefix) . $title . render($title_suffix) . '</h2>';

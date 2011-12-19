@@ -77,6 +77,16 @@ $html = str_replace(
                 $page_bottom . PHP_EOL . '</body>'),
           $html);
 
+// Replace the header logo (used by affiliates)
+if (isset($t->logo)) {
+  $html = str_replace('<a href="http://www.unl.edu/" title="UNL website"><img src="/wdn/templates_3.0/images/logo.png" alt="UNL graphic identifier" id="logo" /></a>',
+                      $t->logo,
+                      $html);
+  $html = str_replace('<h1>University of Nebraska&ndash;Lincoln</h1>',
+                      '<h1>An Affiliate of the University of Nebraska&ndash;Lincoln</h1>',
+                      $html);
+}
+
 $format = filter_input(INPUT_GET, 'format', FILTER_SANITIZE_STRING);
 if ($format == 'partial') {
   echo $t->maincontentarea;
