@@ -5,7 +5,7 @@
  */
 
 /**
- * @defgroup views_area_handlers Views' relationship handlers
+ * @defgroup views_area_handlers Views' area handlers
  * @{
  * Handlers to tell Views what can display in header, footer
  * and empty text in a view.
@@ -58,7 +58,6 @@ class views_handler_area extends views_handler {
         '#type' => 'checkbox',
         '#title' => t('Display even if view has no result'),
         '#default_value' => isset($this->options['empty']) ? $this->options['empty'] : 0,
-        '#description' => t('If checked this area will be rended, even if the views has no results.'),
       );
     }
   }
@@ -73,6 +72,13 @@ class views_handler_area extends views_handler {
    */
   function render($empty = FALSE) {
     return '';
+  }
+
+  /**
+   * Area handlers shouldn't have groupby.
+   */
+  function use_group_by() {
+    return FALSE;
   }
 }
 
