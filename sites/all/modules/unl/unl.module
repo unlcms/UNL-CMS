@@ -530,7 +530,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       $base_urls = array('_null' => '--Select One--');
       foreach ($alternate_uris as $alternate_uri) {
         $base_urls[$alternate_uri] = $alternate_uri;
-      };
+      }
       $form['site_information']['unl_primary_base_url'] = array(
         '#title' => 'Primary Base URL',
         '#type' => 'select',
@@ -669,10 +669,6 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     // Also turn on revisioning by default
     $form['revision_information']['revision']['#default_value'] = TRUE;
     unset($form['revision_information']['revision']['#states']);
-
-    // Also hide the "Promoted to front page" option
-    $form['options']['promote']['#prefix'] = '<div style="display:none;">';
-    $form['options']['promote']['#suffix'] = '</div>';
   }
 
   // Add the Roles checkboxes to the user edit form for users with ability to 'Administer users' but not 'Administer permissions' (Code below partially taken from user.module)
