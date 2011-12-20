@@ -1,6 +1,6 @@
 Developed for Google Chrome on Mac OS X
 Most recent version checked: 
-  13.0.782.112
+  14.0.835.202 on 10.7.2
 
 
 I haven't done a good enough job making the name references in the theme generic so you must use these:

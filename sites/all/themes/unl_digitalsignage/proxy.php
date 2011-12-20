@@ -20,7 +20,7 @@ function net_match($network, $ip) {
 }
 
 if (isset($_SERVER['REMOTE_ADDR'])) {
-    $validIPs = array('129.93.0.0/16','65.123.32.0/19','64.39.240.0/20','216.128.208.0/20');
+    $validIPs = array('129.93.0.0/16','65.123.32.0/19','64.39.240.0/20','216.128.208.0/20','67.208.34.248/249');
     foreach ($validIPs as $range) {
         if (net_match($range, $_SERVER['REMOTE_ADDR'])) {
             $result = file_get_contents($_GET['u']);
