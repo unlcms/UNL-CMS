@@ -12,7 +12,7 @@ $view->tag = 'Workbench';
 $view->base_table = 'file_managed';
 $view->human_name = '';
 $view->core = 0;
-$view->api_version = '3.0-alpha1';
+$view->api_version = 3;
 $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
 
 /* Display: Defaults */
@@ -200,7 +200,7 @@ $handler->display->display_options['filters']['filename']['expose']['identifier'
 $handler = $view->new_display('page', 'Page', 'page_1');
 $handler->display->display_options['path'] = 'admin/workbench/files';
 $handler->display->display_options['menu']['type'] = 'tab';
-$handler->display->display_options['menu']['title'] = 'File List';
+$handler->display->display_options['menu']['title'] = 'File list';
 $handler->display->display_options['menu']['description'] = 'List of all files uploaded to this site.';
 $handler->display->display_options['menu']['weight'] = '0';
 $translatables['workbench_files'] = array(

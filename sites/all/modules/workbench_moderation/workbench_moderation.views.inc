@@ -50,7 +50,7 @@ function workbench_moderation_views_data() {
       'handler' => 'workbench_moderation_handler_filter_state',
     ),
     'field' => array(
-      'handler' => 'views_handler_field',
+      'handler' => 'workbench_moderation_handler_field_state',
       'click sortable' => TRUE,
     ),
     'sort' => array(
@@ -58,6 +58,8 @@ function workbench_moderation_views_data() {
     ),
     'argument' => array(
       'handler' => 'views_handler_argument_string',
+      'name table' => 'workbench_moderation_states',
+      'name field' => 'label',
     ),
   );
   $data['workbench_moderation_node_history']['from_state'] = array(
@@ -75,6 +77,8 @@ function workbench_moderation_views_data() {
     ),
     'argument' => array(
       'handler' => 'views_handler_argument_string',
+      'name table' => 'workbench_moderation_states',
+      'name field' => 'label',
     ),
   );
   $data['workbench_moderation_node_history']['uid'] = array(
@@ -150,7 +154,38 @@ function workbench_moderation_views_data() {
     ),
   );
 
-  // Declare a virtual field on the {node} table.
+  $data['workbench_moderation_states']['table']['group'] = t('Workbench Moderation');
+  $data['workbench_moderation_states']['table']['join'] = array(
+    // Add a join for labeling the 'state' and 'from_state' arguments on workbench_moderation_node_history.
+    'workbench_moderation_node_history' => array(
+      'left_field' => 'state',
+      'field' => 'name',
+    ),
+    'node' => array(
+      'left_table' => 'workbench_moderation_node_history',
+      'left_field' => 'state',
+      'field' => 'name',
+    ),
+    'node_revision' => array(
+      'left_table' => 'workbench_moderation_node_history',
+      'left_field' => 'state',
+      'field' => 'name',
+    ),
+  );
+  $data['workbench_moderation_states']['description'] = array(
+    'title' => t('Moderation state description'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+    ),
+  );
+  $data['workbench_moderation_states']['weight'] = array(
+    'title' => t('Moderation state order'),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+
+  // Declare virtual fields on the {node} table.
   $data['node']['workbench_moderation_moderated_type'] = array(
     'group' => t('Workbench Moderation'),
     'title' => t('Type is moderated'),
@@ -160,6 +195,17 @@ function workbench_moderation_views_data() {
       'handler' => 'workbench_moderation_handler_filter_moderated_type',
       'label' => t('Type is moderated'),
       'type' => 'yes-no',
+    ),
+  );
+  $data['node']['workbench_moderation_history_link'] = array(
+    'group' => t('Workbench Moderation'),
+    'title' => t('Moderation History'),
+    'help' => t('A link to the Moderation History page of the node'),
+    'real field' => 'nid',
+    'field' => array(
+      'title' => t('Moderation History Link'),
+      'handler' => 'workbench_moderation_handler_field_history_link',
+      'click sortable' => FALSE,
     ),
   );
 

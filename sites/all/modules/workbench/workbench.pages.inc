@@ -12,7 +12,7 @@
  * the Views as part of the alter hook provided here.
  *
  * @see hook_workbench_content_alter()
- * 
+ *
  * @return
  *  A Render API array of content creation options.
  */
@@ -29,19 +29,18 @@ function workbench_content() {
   $output['workbench_current_user'] = array(
     '#title' => t('My Profile'),
     '#view' => 'workbench_current_user',
+    '#view_display' => 'block_1',
     '#attributes' => array('class' => array('left', 'clearfix')),
     '#theme' => 'workbench_element',
   );
   // This right column is given a width of 65% by workbench.myworkbench.css.
   $output['workbench_edited'] = array(
-    '#title' => t('Content I\'ve Edited'),
     '#view' => 'workbench_edited',
     '#view_display' => 'block_1',
     '#attributes' => array('class' => array('right', 'clearfix')),
     '#theme' => 'workbench_element',
   );
   $output['workbench_recent_content'] = array(
-    '#title' => t('All Recent Content'),
     '#view' => 'workbench_recent_content',
     '#view_display' => 'block_1',
     '#attributes' => array('class' => array('clearfix'), 'style' => array('clear: both;')),
@@ -52,17 +51,18 @@ function workbench_content() {
   drupal_alter('workbench_content', $output);
 
   // Transform the Views into markup.
+  // @see views_embed_view()
   foreach (element_children($output) as $key) {
-    $value = $output[$key];
-    if (isset($value['#view'])) {
-      $markup = '';
-      if (isset($output[$key]['#markup'])) {
-        $markup = $output[$key]['#markup'];
+    if (isset($output[$key]['#view']) && $view = views_get_view($output[$key]['#view'])) {
+      $output[$key] += array('#markup' => '', '#view_display' => 'default');
+      $display_id = $output[$key]['#view_display'];
+      if ($view->access($display_id)) {
+        $output[$key]['#markup'] .= $view->preview($display_id, array());
+        if ($title = $view->get_title()) {
+          $output[$key]['#title'] = $title;
+        }
       }
-      $view = $value['#view'];
-      $display = isset($value['#view_display']) ? $value['#view_display'] : 'default';
-      // TODO: pass arguments to the View.
-      $output[$key]['#markup'] = $markup . views_embed_view($view, $display);
+      $view->destroy();
     }
   }
 

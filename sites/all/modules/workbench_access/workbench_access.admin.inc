@@ -53,26 +53,43 @@ function workbench_access_settings_form($form, &$form_state) {
       }
     }
   }
-  $form['workbench_access_auto_assign'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Automated section assignment'),
-    '#default_value' => variable_get('workbench_access_auto_assign', 1),
-    '#description' => t('Enable all sections automatically for the active scheme.'),
-  );
+  $types = node_type_get_types();
+  if (!empty($types)) {
+    $form['node_types'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Content types enabled'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    foreach ($types as $type => $data) {
+      $form['node_types']['workbench_access_node_type_' . $type] = array(
+        '#title' => check_plain($data->name),
+        '#type' => 'checkbox',
+        '#default_value' => variable_get('workbench_access_node_type_' . $type, 1),
+      );
+    }
+    $form['node_types']['message'] = array(
+      '#markup' => '<em>' . t('Only selected content types will have Workbench Access rules enforced.') . '</em>',
+    );
+  }
   $form['workbench_access_label'] = array(
     '#type' => 'textfield',
     '#title' => t('Workbench Access message label'),
     '#default_value' => variable_get('workbench_access_label', 'Section'),
     '#description' => t('Text that will be shown in front of Workbench Access messages.'),
   );
-  /*
-  $form['workbench_access_custom_form'] = array(
+  $form['workbench_access_auto_assign'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Require a Workbench Access form element'),
-    '#default_value' => variable_get('workbench_access_defailt_form', 1),
-    '#description' => t('If not selected, Workbench Access settings will inherit from the standard node form.'),
-  );*/
-
+    '#title' => t('Automated section assignment'),
+    '#default_value' => variable_get('workbench_access_auto_assign', 1),
+    '#description' => t('Enable all sections automatically for the active scheme.'),
+  );
+  $form['workbench_access_allow_multiple'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow multiple section assignments'),
+    '#default_value' => variable_get('workbench_access_allow_multiple', 0),
+    '#description' => t('Let content be assigned to multiple sections.'),
+  );
   $form = system_settings_form($form);
   $form['#validate'][] = 'workbench_access_settings_validate';
   $form['#submit'][] = 'workbench_access_settings_submit';
@@ -419,22 +436,29 @@ function workbench_access_editors($access_type = NULL, $access_type_id = NULL, $
       $row = array(
         str_repeat('-', $section['depth'] ) . ' ' . l($section['name'], 'admin/config/workbench/access/' . "{$type}s/" . $active['access_scheme']['access_type'] . '/' . $access_id),
       );
+      $roles = workbench_access_get_roles('access workbench access by role');
+      if (empty($roles)) {
+        if (user_access('administer permissions')) {
+          return t('To continue, at least one role must be have the <a href="!url">Allow all members of this role to be assigned to Workbench Access sections</a> permission', array('!url' => url('admin/people/permissions', array('fragment' => 'module-workbench_access'))));
+        }
+        else {
+          return t('There are no roles who have permission to edit sections. Please contact a site administrator.');
+        }
+      }
       if ($type == 'editor') {
-        $count = db_query("SELECT COUNT(wau.uid) FROM {workbench_access_user} wau
+        $count = db_query("SELECT COUNT(DISTINCT(wau.uid)) FROM {workbench_access_user} wau
           INNER JOIN {users_roles} ur ON wau.uid = ur.uid
-          INNER JOIN {role_permission} rp ON ur.rid = rp.rid
           WHERE wau.access_scheme = :access_scheme AND wau.access_id = :access_id
-          AND rp.permission = :permission",
-          array(':access_scheme' => $active['access_scheme']['access_type'], ':access_id' => $access_id, ':permission' => 'access workbench access by role')
+          AND ur.rid IN (:rids)",
+          array(':access_scheme' => $active['access_scheme']['access_type'], ':access_id' => $access_id, ':rids' => array_keys($roles))
         )->fetchField();
         $row[] = l(format_plural($count, '1 editor', '@count editors'), 'admin/config/workbench/access/editors/' . $active['access_scheme']['access_type'] . '/' . $access_id);
       }
       else {
         $count2 = db_query("SELECT COUNT(war.rid) FROM {workbench_access_role} war
-          INNER JOIN {role_permission} rp ON war.rid = rp.rid
           WHERE war.access_scheme = :access_scheme AND war.access_id = :access_id
-          AND rp.permission = :permission",
-          array(':access_scheme' => $active['access_scheme']['access_type'], ':access_id' => $access_id, ':permission' => 'access workbench access by role')
+          AND war.rid IN (:rids)",
+          array(':access_scheme' => $active['access_scheme']['access_type'], ':access_id' => $access_id, ':rids' => array_keys($roles))
         )->fetchField();
         $row[] = l(format_plural($count2, '1 role', '@count roles'),  'admin/config/workbench/access/roles/' . $active['access_scheme']['access_type'] . '/' . $access_id);
       }
@@ -467,6 +491,10 @@ function workbench_access_editor_form($form, &$form_state, $access_type, $access
     drupal_access_denied();
     drupal_exit();
   }
+
+  // Get the list of user roles that can be assigned workbench access.
+  $roles = workbench_access_get_roles('access workbench access by role');
+
   $query = db_select('users', 'u')
     ->fields('u', array('uid', 'name'));
   $query->join('workbench_access_user', 'wau', 'u.uid = wau.uid');
@@ -474,7 +502,7 @@ function workbench_access_editor_form($form, &$form_state, $access_type, $access
   $query->join('role_permission', 'rp', 'rp.rid = ur.rid');
   $query->condition('wau.access_scheme', $access_type)
     ->condition('wau.access_id', $access_type_id)
-    ->condition('rp.permission', 'access workbench access by role')
+    ->condition('ur.rid', array_keys($roles), 'IN')
     ->extend('PagerDefault')->limit(25);
   $result = $query->execute();
   $rows = array();
@@ -513,6 +541,9 @@ function workbench_access_editor_form_validate($form, &$form_state) {
     if (empty($account)) {
       form_set_error('add_user', t('The selected user does not exist.'));
     }
+    elseif (!user_access('access workbench access by role', $account)) {
+      form_set_error('add_user', t('The selected user does not have permission to be added as an editor.'));
+    }
   }
 }
 
@@ -547,7 +578,7 @@ function workbench_access_editor_form_submit($form, &$form_state) {
       workbench_access_role_section_save($rid, $values['workbench_access']['access_id'], $values['workbench_access']['access_scheme']);
     }
     elseif (empty($status) && in_array($rid, $values['default_roles'])) {
-      workbench_access_role_section_delete($rid, $values['workbench_access']['access_id'], $values['workbench_access']['access_scheme']);    
+      workbench_access_role_section_delete($rid, $values['workbench_access']['access_id'], $values['workbench_access']['access_scheme']);
     }
   }*/
 }
@@ -572,6 +603,7 @@ function theme_workbench_access_editor_form($variables) {
   $variables = array(
     'header' => $header,
     'rows' => $rows,
+    'empty' => t('No active editors.'),
   );
   $output .= theme('table', $variables);
   $output .= drupal_render_children($form);
@@ -616,16 +648,23 @@ function workbench_access_role_form($form, &$form_state, $access_type, $access_t
     drupal_access_denied();
     drupal_exit();
   }
+
+  // Build the list of user roles that can be assigned workbench access.
+  $roles = workbench_access_get_roles('access workbench access by role');
+
   // Form markup elements.
   $access_info = workbench_access_load($access_type, $access_type_id);
   $output = '<h2>' . t('%name editors by role', array('%name' => $access_info['name'])) . '</h2>';
   $output .= '<p>' . t('Active editors for the %section section, as determined by role. <a href="!url">View editors by user</a>.', array('%section' => $access_info['name'], '!url' => url('admin/config/workbench/access/editors/' . $active['access_scheme']['access_type'] . '/' . $access_type_id)));
   $header = array(t('Editors'), t('Roles'));
   $rows = array();
-  $roles = array_keys(db_query("SELECT war.rid FROM {workbench_access_role} war INNER JOIN {role_permission} rp ON rp.rid = war.rid WHERE rp.permission = :permission AND war.access_scheme = :access_scheme AND war.access_id = :access_type_id", array(':permission' => 'access workbench access by role', ':access_scheme' => $access_type, ':access_type_id' => $access_type_id))->fetchAllAssoc('rid'));
-  $users = array();
+  $access_rids = array();
   if (!empty($roles)) {
-    $users = db_query("SELECT u.name, u.uid, r.name AS role FROM {users} u INNER JOIN {users_roles} ur ON ur.uid = u.uid LEFT JOIN {role} r ON r.rid = ur.rid WHERE ur.rid IN (:roles)", array(':roles' => $roles));
+    $access_rids = db_query("SELECT war.rid FROM {workbench_access_role} war WHERE war.rid IN (:rids) AND war.access_scheme = :access_scheme AND war.access_id = :access_type_id", array(':rids' => array_keys($roles), ':access_scheme' => $access_type, ':access_type_id' => $access_type_id))->fetchCol();
+  }
+  $users = array();
+  if (!empty($access_rids)) {
+    $users = db_query("SELECT u.name, u.uid, r.name AS role FROM {users} u INNER JOIN {users_roles} ur ON ur.uid = u.uid LEFT JOIN {role} r ON r.rid = ur.rid WHERE ur.rid IN (:rids) AND u.status > 0", array(':rids' => $access_rids));
   }
   $users_by_role = array();
   foreach ($users as $data) {
@@ -638,7 +677,7 @@ function workbench_access_role_form($form, &$form_state, $access_type, $access_t
       theme('item_list', array('items' => $item['roles'], 'type' => 'ul')),
     );
   }
-  $table = theme('table', array('header' => $header, 'rows' => $rows));
+  $table = theme('table', array('header' => $header, 'rows' => $rows, 'empty' => t('No active roles.')));
   $form['content'] = array(
     '#weight' => -5,
     '#markup' => $output,
@@ -648,7 +687,6 @@ function workbench_access_role_form($form, &$form_state, $access_type, $access_t
     '#markup' => $table,
   );
   // User role form.
-  $roles = user_roles(FALSE, 'access workbench access by role');
   $default = array_keys(db_query("SELECT rid FROM {workbench_access_role} WHERE access_scheme = :access_scheme AND access_id = :access_type_id", array(':access_scheme' => $access_type, ':access_type_id' => $access_type_id))->fetchAllAssoc('rid'));
   $form['roles'] = array(
     '#type' => 'checkboxes',
@@ -657,6 +695,10 @@ function workbench_access_role_form($form, &$form_state, $access_type, $access_t
     '#default_value' => $default,
     '#description' => empty($roles) ? t('There are no roles with the proper permissions.') : t('Select the role(s) that should have all users assigned to this section.'),
   );
+  // TODO: replace with fancy jQuery.
+  if (isset($roles[DRUPAL_AUTHENTICATED_RID])) {
+    $form['roles']['#description'] .= '<p>' . t('Selecting the %auth role will select all registered users.', array('%auth' => $roles[DRUPAL_AUTHENTICATED_RID])) . '</p>';
+  }
   $form['default_roles'] = array('#type' => 'value', '#value' => !empty($roles) ? $default : array());
   $form['workbench_access'] = array(
     '#type' => 'value',
@@ -674,6 +716,14 @@ function workbench_access_role_form($form, &$form_state, $access_type, $access_t
  */
 function workbench_access_role_form_submit($form, &$form_state) {
   $values = $form_state['values'];
+  // Handle the authenticated user role, which is all roles but anonymous.
+  if (!empty($values['roles'][DRUPAL_AUTHENTICATED_RID])) {
+    foreach ($values['roles'] as $key => $value) {
+      if ($key > 0) {
+        $values['roles'][$key] = $key;
+      }
+    }
+  }
   // Role handling.
   foreach ($values['roles'] as $rid => $status) {
     if (!empty($status) && !in_array($rid, $values['default_roles'])) {
@@ -708,15 +758,17 @@ function workbench_access_example_taxonomy() {
   }
   // Save.
   taxonomy_vocabulary_save($vocabulary);
+  // Use the proper translation function, in case this is run from the install.
+  $t = get_t();
   // Create some terms.
   $terms = array(
-    t('Exhibits'),
-    t('Library'),
-    t('Gift Shop'),
+    $t('Exhibits'),
+    $t('Library'),
+    $t('Gift Shop'),
   );
   $children = array(
-    t('Staff'),
-    t('Visitors'),
+    $t('Staff'),
+    $t('Visitors'),
   );
   // Get the proper filter format for taxonomy descriptions.
   $account = new stdClass();
@@ -730,7 +782,7 @@ function workbench_access_example_taxonomy() {
     $term->name = $name;
     $term->vocabulary_machine_name = 'workbench_access';
     $term->vid = $vocabulary->vid;
-    $term->description = st('Test term for Workbench Access.');
+    $term->description = $t('Test term for Workbench Access.');
     $term->format = $format;
     $term->weight = $i;
     taxonomy_term_save($term);
@@ -744,7 +796,7 @@ function workbench_access_example_taxonomy() {
       $item->vocabulary_machine_name = 'workbench_access';
       $item->vid = $vocabulary->vid;
       $item->format = $format;
-      $item->description = t('Test child term for Workbench Access.');
+      $item->description = $t('Test child term for Workbench Access.');
       taxonomy_term_save($item);
       $ids[] = $item->tid;
     }
@@ -815,11 +867,12 @@ function workbench_access_vocabulary_exists($vocabulary) {
  *   A vocabulary object.
  */
 function workbench_access_sample_vocabulary() {
+  $t = get_t();
   $vocabulary = new stdClass();
-  $vocabulary->name = t('Museum');
+  $vocabulary->name = $t('Museum');
   $vocabulary->module = 'workbench_access';
   $vocabulary->machine_name = 'workbench_access';
-  $vocabulary->description = t('Access control for editorial content.');
+  $vocabulary->description = $t('Access control for editorial content.');
   $vocabulary->hierarchy = 1;
   $vocabulary->weight = -10;
   return $vocabulary;

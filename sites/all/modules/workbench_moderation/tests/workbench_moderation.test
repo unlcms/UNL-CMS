@@ -9,8 +9,9 @@ class WorkbenchModerationTestCase extends DrupalWebTestCase {
   protected $content_type;
   protected $moderator_user;
 
-  function setUp() {
-    parent::setUp(array('workbench_moderation', 'workbench'));
+  function setUp($modules = array()) {
+    $modules = array_merge($modules, array('workbench_moderation'));
+    parent::setUp($modules);
 
     // Create a new content type and enable moderation on it.
     $type = $this->drupalCreateContentType();
@@ -52,9 +53,21 @@ class WorkbenchModerationModerateTabTestCase extends WorkbenchModerationTestCase
     );
   }
 
-  function setUp() {
-    parent::setUp();
+  function setUp($modules = array()) {
+    parent::setUp($modules);
     $this->drupalLogin($this->moderator_user);
+  }
+
+  /**
+   * Override DrupalWebTestCase::drupalGetToken() as it does not return the
+   * correct token for the currently logged-in testing user.
+   */
+  protected function drupalGetToken($value = '') {
+    $session_id = $this->session_id;
+    if (empty($session_id) && !empty($this->loggedInUser)) {
+      $session_id = db_query("SELECT sid FROM {sessions} WHERE uid = :uid ORDER BY timestamp DESC", array(':uid' => $this->loggedInUser->uid))->fetchField();
+    }
+    return drupal_hmac_base64($value, $session_id . drupal_get_private_key() . drupal_get_hash_salt());
   }
 
   function testModerateTab() {
@@ -79,6 +92,18 @@ class WorkbenchModerationModerateTabTestCase extends WorkbenchModerationTestCase
 
     // Make sure the "Moderate" tab is accessible.
     $this->drupalGet("node/{$node->nid}/moderation");
+
+    // Attempt to change the moderation state without a token in the link.
+    $this->drupalGet("node/{$node->nid}/moderation/{$node->vid}/change-state/needs_review");
+    $this->assertResponse(403);
+
+    // Run the same state change with a valid token, which should succeed.
+    $this->drupalGet("node/{$node->nid}/moderation/{$node->vid}/change-state/needs_review", array(
+      'query' => array('token' => $this->drupalGetToken("{$node->nid}:{$node->vid}:needs_review"))
+    ));
+    $this->assertResponse(200);
+    $node = node_load($node->nid, NULL, TRUE);
+    $this->assertEqual($node->workbench_moderation['current']->state, 'needs_review', 'Node state changed to Needs Review via callback.');
 
     // Publish the node via the moderation form.
     $moderate = array('state' => workbench_moderation_state_published());
@@ -111,15 +136,15 @@ class WorkbenchModerationDraftTabTestCase extends WorkbenchModerationTestCase {
       'name' => 'Draft tab',
       'description' => 'Test access to the "Draft" tab and publishing from the mini moderation form on the draft tab.',
       'group' => 'Workbench Moderation',
+      'dependencies' => array(
+        'workbench', // Workbench is required for the mini moderation form
+      ),
     );
   }
 
-  function setUp() {
-    parent::setUp();
-
-    // Workbench is now required for the mini moderation form.
-    module_enable(array('workbench'));
-
+  function setUp($modules = array()) {
+    $modules = array_merge($modules, array('workbench'));
+    parent::setUp($modules);
     $this->drupalLogin($this->moderator_user);
   }
 
@@ -182,8 +207,8 @@ class WorkbenchModerationPublishFromNodeFormTestCase extends WorkbenchModeration
     );
   }
 
-  function setUp() {
-    parent::setUp();
+  function setUp($modules = array()) {
+    parent::setUp($modules);
     $this->drupalLogin($this->admin_user);
   }
 
@@ -222,8 +247,8 @@ class WorkbenchModerationUnpublishTestCase extends WorkbenchModerationTestCase {
     );
   }
 
-  function setUp() {
-    parent::setUp();
+  function setUp($modules = array()) {
+    parent::setUp($modules);
     $this->drupalLogin($this->admin_user);
   }
 
@@ -241,7 +266,7 @@ class WorkbenchModerationUnpublishTestCase extends WorkbenchModerationTestCase {
     $node = $this->drupalGetNodeByTitle($edit['title']);
 
     // Unpublish the node via the unpublish confirmation form.
-    $this->drupalPost("node/{$node->nid}/moderation/{$node->vid}/unpublish", array(), t('Confirm'));
+    $this->drupalPost("node/{$node->nid}/moderation/{$node->vid}/unpublish", array(), t('Unpublish'));
 
     $unpublished_node = node_load($node->nid, FALSE, TRUE);
     $this->assertFalse($unpublished_node->status, t('The node is not published.'));

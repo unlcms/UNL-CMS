@@ -20,15 +20,17 @@ function workbench_access_views_data() {
     ),
   );
   $data['workbench_access']['section'] = array(
-    'title' => t('Section'),
+    'title' => variable_get('workbench_access_label', 'Section'),
     'help' => t('The section to which this node belongs.'),
     'field' => array(
       'handler' => 'workbench_access_handler_field_section',
-      'click sortable' => TRUE,
+      'click sortable' => FALSE,
     ),
-    'sort' => array(
-      'handler' => 'workbench_access_handler_sort_section',
-    ),
+    // Temporarily disable sortability for the section handler.
+    // @see http://drupal.org/node/1243186
+    //'sort' => array(
+    //  'handler' => 'workbench_access_handler_sort_section',
+    //),
   );
   $data['workbench_access']['access_id'] = array(
     'title' => t('Access filter'),

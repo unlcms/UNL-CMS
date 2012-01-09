@@ -8,11 +8,7 @@ class workbench_moderation_handler_filter_state extends views_handler_filter_in_
   function get_value_options() {
     if (!isset($this->value_options)) {
       $this->value_title = t('Moderation Status');
-      $this->value_options = array();
-      foreach (workbench_moderation_states() as $key => $state) {
-        $this->value_options[$key] = check_plain($key . ': ' . $state->description);
-      }
-
+      $this->value_options = array_map('check_plain', workbench_moderation_state_labels());
     }
   }
 }
