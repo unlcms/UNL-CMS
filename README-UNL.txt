@@ -60,3 +60,11 @@ sites/sites.php
 sites/example.sites.php
  * Added an example of the $default_domains array.
  * Added the stub record needed for creating site aliases.
+ 
+------------------------------------
+
+Add Trigger Support Patch to Workbench Moderation
+ * Trigger support not in 7.x-1.1
+ * http://drupal.org/files/issues/trigger_support_for_wb_moderation-1079134-23.patch
+ *   from http://drupal.org/node/1079134
+ * Don't upgrade WB Moderation without first applying this patch unless the new version supports Triggers
