@@ -15,6 +15,11 @@ function unl_bootstrap() {
  * If it doesn't redirect to <hostname>.unl.edu.
  */
 function unl_bootstrap_short_hostname_redirect() {
+  // Don't do a redirect when using the command line.
+  if (PHP_SAPI == 'cli') {
+    return;
+  }
+  
   $hostname = $_SERVER['HTTP_HOST'];
   if (gethostbynamel($hostname)) {
     // The provided host name is just fine.
