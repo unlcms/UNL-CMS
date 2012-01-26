@@ -1,6 +1,14 @@
 <?php
+/**
+ * Contains the callback functions for the pages/forms located at
+ * admin/sites/unl/% as specified in unl_menu().
+ */
+
 require_once DRUPAL_ROOT . '/includes/install.core.inc';
 
+/**
+ * Page callback for admin/sites/unl
+ */
 function unl_sites_page() {
   $page = array();
   $page[] = drupal_get_form('unl_site_create');
@@ -13,10 +21,9 @@ function unl_sites_page() {
 
 function unl_site_create($form, &$form_state) {
   $form['root'] = array(
-    '#type'  => 'fieldset',
-    '#title' => 'Create New Site',
+    '#type' => 'fieldset',
+    '#title' => t('Create New Site'),
   );
-
   $form['root']['site_path'] = array(
     '#type' => 'textfield',
     '#title' => t('New site path'),
@@ -24,17 +31,15 @@ function unl_site_create($form, &$form_state) {
     '#default_value' => t('newsite'),
     '#required' => TRUE,
   );
-
   $form['root']['clean_url'] = array(
     '#type' => 'checkbox',
     '#title' => t('Use clean URLs'),
     '#description' => t('Unless you have some reason to think your site won\'t support this, leave it checked.'),
     '#default_value' => 1,
   );
-
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Create Site',
+    '#value' => t('Create Site'),
   );
 
   return $form;
@@ -86,66 +91,142 @@ function unl_site_create_submit($form, &$form_state) {
   return;
 }
 
+/**
+ * Site List appears on admin/sites/unl, admin/sites/unl/sites
+ */
 function unl_site_list($form, &$form_state) {
-  $headers = array(
-    'site_path' => array(
-      'data' => 'Site Path',
-      'field' => 's.site_path',
-    ),
-    'db_prefix' => array(
-      'data' => 'Datbase Prefix',
-      'field' => 's.db_prefix',
-    ),
-    'installed' => array(
-      'data' => 'Status',
-      'field' => 's.installed',
-    ),
+  // Get all the custom made roles
+  $roles = user_roles(TRUE);
+  unset($roles[DRUPAL_AUTHENTICATED_RID]);
+  unset($roles[variable_get('user_admin_role')]);
+  $roles_in = implode(',', array_keys($roles)); //For use in the DB query
+
+  // Setup alternate db connection so we can query other sites' tables without a prefix being attached
+  global $databases;
+  $database_noprefix = array(
+    'database' => $databases['default']['default']['database'],
+    'username' => $databases['default']['default']['username'],
+    'password' => $databases['default']['default']['password'],
+    'host' => $databases['default']['default']['host'],
+    'port' => $databases['default']['default']['port'],
+    'driver' => $databases['default']['default']['driver'],
+  );
+  Database::addConnectionInfo('UNLNoPrefix', 'default', $database_noprefix);
+  db_set_active('UNLNoPrefix');
+
+  $header = array(
     'uri' => array(
-      'data' => 'Link',
+      'data' => t('Default Path'),
       'field' => 's.uri',
+    ),
+    'site_name' => t('Site Name'),
+    'last_access' => t('Last Access'),
+    'installed' => array(
+      'data' => t('Status'),
+      'field' => 's.installed',
     ),
     'operations' => t('Operations'),
   );
 
-  $sites = db_select('unl_sites', 's')
+  // The master prefix that was specified during initial drupal install
+  $master_prefix = $databases['default']['default']['prefix'];
+
+  // Get all the db prefixes for every UNL site sorted by uri
+  $prefixes = db_query('SELECT db_prefix FROM ' . $master_prefix . 'unl_sites ORDER BY uri')->fetchCol();
+  if (isset($_GET['sort']) && $_GET['sort'] == 'desc' && (!isset($_GET['order']) || (isset($_GET['order']) && $_GET['order'] !== 'Status'))) {
+    $prefixes = array_reverse($prefixes);
+  }
+
+  // Get a portion of the prefixes based on the page
+  $prefixes = new ArrayIterator($prefixes);
+  $count = 50;
+  $offset = (isset($_GET['page']) ? (int)$_GET['page'] : 0) * $count;
+  $prefixIterator = new LimitIterator($prefixes, $offset, $count);
+
+  // Prepare the CASE expression for the following query
+  $case_expression = "CASE";
+  foreach ($prefixIterator as $key => $prefix) {
+    if (db_table_exists($prefix.'_'.$master_prefix.'variable')) {
+      $case_expression .= " WHEN {u}.db_prefix = '".$prefix."' THEN p".$key.".value";
+    }
+  }
+  $case_expression .= " ELSE '* Scheduled for creation (or Error)' END";
+
+  // Combines the site_id from the unl_sites table with the corresponding site_name from [unl_sites.db_prefix]_variable table
+  $subquery = db_select($master_prefix.'unl_sites', 'u');
+  $subquery->addField('u', 'site_id', 'site_id');
+  $subquery->addExpression($case_expression, 'site_name');
+  foreach ($prefixIterator as $key => $prefix) {
+    if (db_table_exists($prefix.'_'.$master_prefix.'variable')) {
+      $subquery->leftJoin($prefix.'_'.$master_prefix.'variable', 'p'.$key, 'p'.$key.'.name = :site_name', array('site_name'=>'site_name'));
+    }
+  }
+
+  // The query that will be displayed - uses the subquery above in a JOIN
+  $sites = db_select($master_prefix.'unl_sites', 's');
+  $sites->join($subquery, 'i', 'i.site_id=s.site_id');
+  $sites = $sites
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
-    ->extend('TableSort')
-    ->orderByHeader($headers)
+    ->fields('i', array('site_name'))
+    ->extend('TableSort')->extend('PagerDefault')->limit($count)
+    ->orderByHeader($header)
     ->execute()
     ->fetchAll();
 
-  $total_no_of_sites = count($sites);
-
-  $form['root'] = array(
-    '#type' => 'fieldset',
-    '#title' => 'Existing Sites ' . '(total: ' . $total_no_of_sites . ')',
-  );
-
-  $form['root']['site_list'] = array(
-    '#theme' => 'unl_table',
-    '#header' => $headers,
-  );
-
+  // Generate an array of Last Access timestamps for each site based on time last accessed by someone in a non-admin role
   foreach ($sites as $site) {
-    unset($checkbox);
-    $form['root']['site_list']['rows'][$site->site_id] = array(
-      'site_path' => array('#prefix' => $site->site_path),
-      'db_prefix' => array('#prefix' => $site->db_prefix . '_' . $GLOBALS['databases']['default']['default']['prefix']),
-      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
-      'uri' => array(
-        '#type' => 'link',
-        '#title' => $site->uri,
-        '#href' => $site->uri,
-      ),
+    if (db_table_exists($site->db_prefix.'_'.$master_prefix.'users') && db_table_exists($site->db_prefix.'_'.$master_prefix.'users_roles')) {
+      $last_access[$site->site_id] = db_query('SELECT u.access FROM '.$site->db_prefix.'_'.$master_prefix.'users u, '.$site->db_prefix.'_'.$master_prefix.'users_roles r WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN ('.$roles_in.') ORDER BY u.access DESC')->fetchColumn();
+    }
+  }
+
+  // Restore default db connection
+  db_set_active();
+
+  // Setup the form
+  foreach ($sites as $site) {
+    $options[$site->site_id] = array(
+      'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
+      'site_name' => @unserialize($site->site_name),
+      'last_access' => (isset($last_access[$site->site_id]) && $last_access[$site->site_id]) ? t('@time ago', array('@time' => format_interval(REQUEST_TIME - $last_access[$site->site_id]))) : t('never'),
+      'installed' => _unl_get_install_status_text($site->installed),
       'operations' => array(
-        '#type' => 'link',
-        '#title' => t('delete'),
-        '#href' => 'admin/sites/unl/'.$site->site_id.'/delete',
+        'data' => array(
+          '#theme' => 'links__node_operations',
+          '#links' => array(
+            'delete' => array(
+              'title' => t('delete'),
+              'href' => 'admin/sites/unl/' . $site->site_id . '/delete',
+              'query' => drupal_get_destination(),
+            ),
+          ),
+          '#attributes' => array('class' => array('links', 'inline')),
+        ),
       ),
     );
   }
 
+  $form['unl_sites'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Existing Sites: ') . count($prefixes),
+  );
+  $form['unl_sites']['site_list'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $options,
+    '#empty' => t('No sites available.'),
+  );
+  $form['unl_sites']['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
   return $form;
+}
+
+/**
+ * Implements theme_CUSTOM() which works with unl_theme()
+ */
+function theme_unl_site_details($variables) {
+  $output = '<div><a href="' . $variables['uri'] . '">' . $variables['site_path'] . '</a></div>';
+  $output .= '<div style="display:none;">Database Prefix: ' . $variables['db_prefix'] . '_' . $GLOBALS['databases']['default']['default']['prefix'] . '</div>';
+  return $output;
 }
 
 /**
@@ -174,20 +255,19 @@ function unl_site_delete_confirm_submit($form, &$form_state) {
     return;
   }
   unl_site_remove($form_state['values']['site_id']);
-  drupal_set_message('The site has been scheduled for removal.');
+  drupal_set_message(t('The site has been scheduled for removal.'));
   $form_state['redirect'] = 'admin/sites/unl';
 }
 
 function unl_site_updates($form, &$form_state) {
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Maintenance',
-    '#description' => 'Using drush, do database updates and clear the caches of all sites.',
+    '#title' => t('Maintenance'),
+    '#description' => t('Using drush, do database updates and clear the caches of all sites.'),
   );
-
   $form['root']['submit'] = array(
     '#type'  => 'submit',
-    '#value' => 'Run Drush',
+    '#value' => t('Run Drush'),
   );
 
   return $form;
@@ -220,34 +300,34 @@ function unl_site_updates_step($site_uri, &$context) {
   $output .= shell_exec($command);
   $command = "sites/all/modules/drush/drush.php -y --root={$root} --uri={$uri} cc all 2>&1";
   $output .= shell_exec($command);
-  
+
   drupal_set_message('Messages from ' . $site_uri . ':<br />' . PHP_EOL . '<pre>' . $output . '</pre>', 'status');
 }
 
 function unl_site_email_settings($form, &$form_state) {
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Email Alert Settings',
-    '#description' => 'When a new site is created, who should be emailed?',
+    '#title' => t('Email Alert Settings'),
+    '#description' => t('When a new site is created, who should be emailed?'),
   );
 
   $form['root']['unl_site_created_email_address'] = array(
     '#type' => 'textfield',
-    '#title' => 'Address for Notification',
-    '#description' => 'When a site has been been created and migrated, send an email to this address.',
+    '#title' => t('Address for Notification'),
+    '#description' => t('When a site has been been created and migrated, send an email to this address.'),
     '#default_value' => variable_get('unl_site_created_email_address'),
   );
 
   $form['root']['unl_site_created_alert_admins'] = array(
     '#type' => 'checkbox',
-    '#title' => 'Email Site Admins',
-    '#description' => 'When a site has been created and migrated, send an email to the Site Admins.',
+    '#title' => t('Email Site Admins'),
+    '#description' => t('When a site has been created and migrated, send an email to the Site Admins.'),
     '#default_value' => variable_get('unl_site_created_alert_admins'),
   );
 
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Update Settings',
+    '#value' => t('Update Settings'),
   );
 
   return $form;
@@ -266,7 +346,7 @@ function unl_site_remove($site_id) {
     ->fetchCol();
 
   if (!isset($uri[0])) {
-    form_set_error(NULL, 'Unfortunately, the site could not be removed.');
+    form_set_error(NULL, t('Unfortunately, the site could not be removed.'));
     return;
   }
   $uri = $uri[0];
@@ -277,12 +357,12 @@ function unl_site_remove($site_id) {
 
   // A couple checks to make sure we aren't deleting something we shouldn't be.
   if (substr($sites_subdir, 0, strlen(DRUPAL_ROOT . '/sites/')) != DRUPAL_ROOT . '/sites/') {
-    form_set_error(NULL, 'Unfortunately, the site could not be removed.');
+    form_set_error(NULL, t('Unfortunately, the site could not be removed.'));
     return;
   }
 
   if (strlen($sites_subdir) <= strlen(DRUPAL_ROOT . '/sites/')) {
-    form_set_error(NULL, 'Unfortunately, the site could not be removed.');
+    form_set_error(NULL, t('Unfortunately, the site could not be removed.'));
     return;
   }
 
@@ -300,6 +380,9 @@ function unl_site_remove($site_id) {
   return TRUE;
 }
 
+/**
+ * Page callback for admin/sites/unl/aliases
+ */
 function unl_aliases_page() {
   $page = array();
   $page[] = drupal_get_form('unl_site_alias_create');
@@ -322,13 +405,13 @@ function unl_site_alias_create($form, &$form_state) {
 
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Create New Site Alias',
+    '#title' => t('Create New Site Alias'),
   );
 
   $form['root']['site'] = array(
     '#type' => 'select',
-    '#title' => 'Aliased Site',
-    '#description' => 'The site the alias will point to.',
+    '#title' => t('Aliased Site'),
+    '#description' => t('The site the alias will point to.'),
     '#options' => $site_list,
     '#required' => TRUE,
   );
@@ -349,7 +432,7 @@ function unl_site_alias_create($form, &$form_state) {
 
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Create Alias',
+    '#value' => t('Create Alias'),
   );
 
   return $form;
@@ -357,7 +440,7 @@ function unl_site_alias_create($form, &$form_state) {
 
 function unl_site_alias_create_validate($form, &$form_state) {
   $form_state['values']['base_uri'] = trim($form_state['values']['base_uri']);
-  $form_state['values']['path']     = trim($form_state['values']['path']);
+  $form_state['values']['path'] = trim($form_state['values']['path']);
 
   if (substr($form_state['values']['base_uri'], -1) != '/') {
     $form_state['values']['base_uri'] .= '/';
@@ -380,57 +463,62 @@ function unl_site_alias_create_submit($form, &$form_state) {
   ))->execute();
 }
 
+/**
+ * Site Alias List appears on admin/sites/unl/aliases
+ */
 function unl_site_alias_list($form, &$form_state) {
-  $form['root'] = array(
-    '#type' => 'fieldset',
-    '#title' => 'Existing Site Aliases',
-  );
-
-  $headers = array(
+  $header = array(
     'site_uri' => array(
-      'data' => 'Site URI',
+      'data' => t('Site URI'),
       'field' => 's.uri',
     ),
     'alias_uri' => array(
-      'data' => 'Alias URI',
+      'data' => t('Alias URI'),
       'field' => 'a.path',
     ),
     'installed' => array(
-      'data' => 'Status',
+      'data' => t('Status'),
       'field' => 'a.installed',
     ),
-    'remove'    => 'Remove (can not undo!)'
-  );
-
-  $form['root']['alias_list'] = array(
-    '#theme' => 'unl_table',
-    '#header' => $headers,
+    'remove' => t('Remove (can not undo!)'),
   );
 
   $query = db_select('unl_sites_aliases', 'a')
     ->extend('TableSort')
-    ->orderByHeader($headers);
+    ->orderByHeader($header);
   $query->join('unl_sites', 's', 's.site_id = a.site_id');
   $query->fields('s', array('uri'));
   $query->fields('a', array('site_alias_id', 'base_uri', 'path', 'installed'));
   $sites = $query->execute()->fetchAll();
 
   foreach ($sites as $site) {
-    $form['root']['alias_list']['rows'][$site->site_alias_id] = array(
-      'site_uri' => array('#prefix'  => $site->uri),
-      'alias_uri' => array('#prefix' => $site->base_uri . $site->path),
-      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
+    $options[$site->site_alias_id] = array(
+      'site_uri' => $site->uri,
+      'alias_uri' => $site->base_uri . $site->path,
+      'installed' => _unl_get_install_status_text($site->installed),
       'remove' => array(
-        '#type' => 'checkbox',
-        '#parents' => array('aliases', $site->site_alias_id, 'remove'),
-        '#default_value' => 0
+        'data' => array(
+          '#type' => 'checkbox',
+          '#parents' => array('aliases', $site->site_alias_id, 'remove'),
+          '#default_value' => 0,
+        ),
       ),
     );
   }
 
-  $form['root']['submit'] = array(
+  $form['unl_site_aliases'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Existing Site Aliases'),
+  );
+  $form['unl_site_aliases']['alias_list'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $options,
+    '#empty' => t('No aliases available.'),
+  );
+  $form['unl_site_aliases']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Delete Selected Aliases',
+    '#value' => t('Delete Selected Aliases'),
   );
 
   return $form;
@@ -452,7 +540,7 @@ function unl_site_alias_list_submit($form, &$form_state) {
     ->condition('site_alias_id', $site_alias_ids, 'IN')
     ->execute()
     ->fetchAll();
-  
+
   $site_alias_ids = array(-1);
   foreach ($data as $row) {
     $alias_url = $row->base_uri . $row->path;
@@ -464,7 +552,7 @@ function unl_site_alias_list_submit($form, &$form_state) {
     $site_alias_ids[] = $row->site_alias_id;
     drupal_set_message("The alias $alias_url was scheduled for removal.");
   }
-  
+
   db_update('unl_sites_aliases')
     ->fields(array('installed' => 3))
     ->condition('site_alias_id', $site_alias_ids, 'IN')
@@ -480,7 +568,7 @@ function unl_page_alias_create($form, &$form_state) {
   $form['root']['from_uri'] = array(
     '#type' => 'textfield',
     '#title' => t('From URL'),
-    '#description' => 'The URL that users will visit.',
+    '#description' => t('The URL that users will visit.'),
     '#default_value' => url('', array('https' => FALSE)),
     '#required' => TRUE,
   );
@@ -495,7 +583,7 @@ function unl_page_alias_create($form, &$form_state) {
 
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Create Alias',
+    '#value' => t('Create Alias'),
   );
 
   return $form;
@@ -508,55 +596,60 @@ function unl_page_alias_create_submit($form, &$form_state) {
   ))->execute();
 }
 
+/**
+ * Page Alias List appears on admin/sites/unl/aliases
+ */
 function unl_page_alias_list($form, &$form_state) {
-  $form['root'] = array(
-    '#type' => 'fieldset',
-    '#title' => 'Existing Page Aliases',
-  );
-
-  $headers = array(
+  $header = array(
     'site_uri' => array(
-      'data' => 'From URI',
+      'data' => t('From URI'),
       'field' => 'a.from_uri',
     ),
     'alias_uri' => array(
-      'data' => 'To URI',
+      'data' => t('To URI'),
       'field' => 'a.to_uri',
     ),
     'installed' => array(
-      'data' => 'Status',
+      'data' => t('Status'),
       'field' => 'a.installed',
     ),
-    'remove' => 'Remove (can not undo!)'
-  );
-
-  $form['root']['alias_list'] = array(
-    '#theme' => 'unl_table',
-    '#header' => $headers,
+    'remove' => t('Remove (can not undo!)'),
   );
 
   $query = db_select('unl_page_aliases', 'a')
     ->extend('TableSort')
-    ->orderByHeader($headers);
+    ->orderByHeader($header);
   $query->fields('a', array('page_alias_id', 'from_uri', 'to_uri', 'installed'));
   $sites = $query->execute()->fetchAll();
 
   foreach ($sites as $site) {
-    $form['root']['alias_list']['rows'][$site->page_alias_id] = array(
-      'site_uri' => array('#prefix'  => $site->from_uri),
-      'alias_uri' => array('#prefix' => $site->to_uri),
-      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
+    $options[$site->page_alias_id] = array(
+      'site_uri' => $site->from_uri,
+      'alias_uri' => $site->to_uri,
+      'installed' => _unl_get_install_status_text($site->installed),
       'remove' => array(
-        '#type' => 'checkbox',
-        '#parents' => array('aliases', $site->page_alias_id, 'remove'),
-        '#default_value' => 0
+        'data' => array(
+          '#type' => 'checkbox',
+          '#parents' => array('aliases', $site->page_alias_id, 'remove'),
+          '#default_value' => 0,
+        ),
       ),
     );
   }
 
-  $form['root']['submit'] = array(
+  $form['unl_page_aliases'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Existing Page Aliases'),
+  );
+  $form['unl_page_aliases']['alias_list'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $options,
+    '#empty' => t('No aliases available.'),
+  );
+  $form['unl_page_aliases']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Delete Selected Aliases',
+    '#value' => t('Delete Selected Aliases'),
   );
 
   return $form;
@@ -579,65 +672,65 @@ function unl_page_alias_list_submit($form, &$form_state) {
 function unl_wdn_registry($form, &$form_state) {
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => 'WDN Registry Database',
+    '#title' => t('WDN Registry Database'),
   );
 
   $form['root']['production'] = array(
     '#type' => 'checkbox',
-    '#title' => 'This is production.',
-    '#description' => 'If this box checked, sites imported will be marked as imported.',
+    '#title' => t('This is production.'),
+    '#description' => t('If this box checked, sites imported will be marked as imported.'),
     '#default_value' => variable_get('unl_wdn_registry_production'),
   );
 
   $form['root']['host'] = array(
     '#type' => 'textfield',
-    '#title' => 'Host',
-    '#description' => 'Hostname of the WDN Registry database.',
+    '#title' => t('Host'),
+    '#description' => t('Hostname of the WDN Registry database.'),
     '#default_value' => variable_get('unl_wdn_registry_host'),
     '#required' => TRUE,
   );
 
   $form['root']['username'] = array(
     '#type' => 'textfield',
-    '#title' => 'Username',
-    '#description' => 'Username for the WDN Registry database.',
+    '#title' => t('Username'),
+    '#description' => t('Username for the WDN Registry database.'),
     '#default_value' => variable_get('unl_wdn_registry_username'),
     '#required' => TRUE,
   );
 
   $form['root']['password'] = array(
     '#type' => 'password',
-    '#title' => 'Password',
-    '#description' => 'Password for the WDN Registry database.',
+    '#title' => t('Password'),
+    '#description' => t('Password for the WDN Registry database.'),
     '#required' => TRUE,
   );
 
   $form['root']['database'] = array(
     '#type' => 'textfield',
-    '#title' => 'Database',
-    '#description' => 'Database for the WDN Registry database.',
+    '#title' => t('Database'),
+    '#description' => t('Database for the WDN Registry database.'),
     '#default_value' => variable_get('unl_wdn_registry_database'),
     '#required' => TRUE,
   );
 
   $form['root']['frontier_username'] = array(
     '#type' => 'textfield',
-    '#title' => 'Frontier Username',
-    '#description' => 'Username to connect to frontier FTP.',
+    '#title' => t('Frontier Username'),
+    '#description' => t('Username to connect to frontier FTP.'),
     '#default_value' => variable_get('unl_frontier_username'),
     '#required' => TRUE,
   );
 
   $form['root']['frontier_password'] = array(
     '#type' => 'password',
-    '#title' => 'Frontier Password',
-    '#description' => 'Password to connect to frontier FTP.',
+    '#title' => t('Frontier Password'),
+    '#description' => t('Password to connect to frontier FTP.'),
     '#required' => TRUE,
   );
 
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Update',
+    '#value' => t('Update'),
   );
 
   return $form;
@@ -656,27 +749,22 @@ function unl_wdn_registry_submit($form, &$form_state) {
 function _unl_get_install_status_text($id) {
   switch ($id) {
     case 0:
-    $installed = 'Scheduled for creation.';
-    break;
-
+      $installed = t('Scheduled for creation.');
+      break;
     case 1:
-    $installed = 'Curently being created.';
-    break;
-
+      $installed = t('Curently being created.');
+      break;
     case 2:
-      $installed = 'In production.';
+      $installed = t('In production.');
       break;
-
     case 3:
-      $installed = 'Scheduled for removal.';
+      $installed = t('Scheduled for removal.');
       break;
-
     case 4:
-      $installed = 'Currently being removed.';
+      $installed = t('Currently being removed.');
       break;
-
     default:
-      $installed = 'Unknown';
+      $installed = t('Unknown');
       break;
   }
 
@@ -687,16 +775,15 @@ function _unl_get_install_status_text($id) {
  * Callback for the path admin/sites/unl/user-audit
  * Presents a form to query what roles (if any) a user has on each site.
  */
-
 function unl_user_audit($form, &$form_state) {
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => 'User Audit',
+    '#title' => t('User Audit'),
   );
 
   $form['root']['username'] = array(
     '#type' => 'textfield',
-    '#title' => 'Username',
+    '#title' => t('Username'),
     '#required' => TRUE,
   );
 
@@ -709,7 +796,7 @@ function unl_user_audit($form, &$form_state) {
 
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Search',
+    '#value' => t('Search'),
   );
 
   // If no user input has been received yet, return the base form.
@@ -717,14 +804,12 @@ function unl_user_audit($form, &$form_state) {
     return $form;
   }
 
-
   // Otherwise, since we have a username, we can query the sub-sites and return a list of roles for each.
   $username = $form_state['values']['username'];
 
-
   $form['results'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Results',
+    '#title' => t('Results'),
   );
 
   $form['results']['roles'] = _unl_get_user_audit_content($username);
@@ -757,18 +842,21 @@ function _unl_get_user_audit_content($username) {
       '#items' => $audit_map,
     );
     if ($username == $GLOBALS['user']->name) {
-      $content['#title'] = 'You belong to the following sites as a member of the listed roles.';
-    } else {
-      $content['#title'] = 'The user "' . $username . '" belongs to the following sites as a member of the listed roles.';
+      $content['#title'] = t('You belong to the following sites as a member of the listed roles.');
     }
-  } else {
+    else {
+      $content['#title'] = t('The user "' . $username . '" belongs to the following sites as a member of the listed roles.');
+    }
+  }
+  else {
     $content = array(
       '#type' => 'item',
     );
     if ($username == $GLOBALS['user']->name) {
-      $content['#title'] = 'You do not belong to any roles on any sites.';
-    } else {
-      $content['#title'] = 'The user "' . $username . '" does not belong to any roles on any sites.';
+      $content['#title'] = t('You do not belong to any roles on any sites.');
+    }
+    else {
+      $content['#title'] = t('The user "' . $username . '" does not belong to any roles on any sites.');
     }
   }
 
@@ -781,17 +869,6 @@ function _unl_get_user_audit_content($username) {
  */
 function unl_user_audit_submit($form, &$form_state) {
   $form_state['rebuild'] = TRUE;
-}
-
-function theme_unl_table($variables) {
-  $form = $variables['form'];
-  foreach (element_children($form['rows']) as $row_index) {
-    foreach (element_children($form['rows'][$row_index]) as $column_index) {
-      $form['#rows'][$row_index][$column_index] = drupal_render($form['rows'][$row_index][$column_index]);
-    }
-  }
-
-  return theme('table', $form);
 }
 
 /**
