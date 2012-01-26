@@ -755,8 +755,9 @@ function unl_system_settings_form_submit($form, &$form_state) {
  */
 function unl_theme() {
   return array(
-    'unl_table' => array(
-      'render element' => 'form',
+    'unl_site_details' => array(
+      'variables' => array('site_path' => NULL, 'uri' => NULL, 'db_prefix' => NULL),
+      'file' => "unl_site_creation.php",
     ),
   );
 }
