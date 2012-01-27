@@ -1026,7 +1026,7 @@ function unl_init() {
     $primary_base_url = $current_url_schema . substr($primary_base_url, strlen($primary_base_url_schema));
 
     if (conf_path() != 'sites/default' && $primary_base_url != url() && PHP_SAPI != 'cli') {
-      drupal_goto($primary_base_url . current_path());
+      drupal_goto(url($primary_base_url . request_path(), array('query' => drupal_get_query_parameters())));
     }
   }
 
