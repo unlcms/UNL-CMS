@@ -4,48 +4,34 @@
 - PHP 5.1 or greater
 - Availability of a memcached daemon: http://memcached.org/
 - One of the two PECL memcache packages:
-  - http://pecl.php.net/package/memcache
-  - http://pecl.php.net/package/memcached (recommended
+  - http://pecl.php.net/package/memcache (recommended):
+  - http://pecl.php.net/package/memcached
 
 ## INSTALLATION ##
 
 These are the broad steps you need to take in order to use this software. Order
 is important.
 
-1. Install the memcached binaries on your server. See 
-
-http://www.lullabot.com/articles/how_install_memcache_debian_etch
-
-2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or 
-   higher or you will experience errors.
-3. Put your site into offline mode.
-4. Download and install the memcache module.
-5. If you have previously been running the memcache module, run update.php.
-6. Start at least one instance of memcached on your server.
-7. Edit settings.php to configure the servers, clusters and bins that memcache
-   is supposed to use.
-8. Edit settings.php to include cache.inc, memcache.inc.  For example:
-     include_once('./includes/cache.inc');
-     include_once('./sites/all/modules/memcache/memcache.inc');
-9. Edit settings.php to make memcache the default caching class:
-     $conf['cache_default_class'] = 'MemCacheDrupal';
-9. Bring your site back online.
+ 1. Install the memcached binaries on your server. See for instance:
+      http://www.lullabot.com/articles/how_install_memcache_debian_etch
+ 2. Install the PECL memcache extension for PHP. This must be version 2.2.1 or 
+    higher or you will experience errors.
+ 3. Put your site into offline mode.
+ 4. Download and install the memcache module.
+ 5. If you have previously been running the memcache module, run update.php.
+ 6. Start at least one instance of memcached on your server.
+ 7. Edit settings.php to configure the servers, clusters and bins that memcache
+    is supposed to use.
+ 8. Edit settings.php to make memcache the default cache class, for example:
+      $conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
+      $conf['cache_default_class'] = 'MemCacheDrupal';
+ 9. Make sure the following line also exists, to ensure that the special
+    cache_form bin is assigned to non-volatile storage:
+      $conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
+10. Bring your site back online.
 
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
-
-http://www.lullabot.com/files/memcache-inc.png
-
-In Drupal 7+, you no longer should set cache_inc in settings.php.  Instead, you
-will have to manually include 'cache.inc' and 'memcache.inc', then update $conf
-to tell Drupal to default to memcache for caching:
-
-  // the path to the core cache file
-  include_once('./includes/cache.inc');
-  // the path to the memcache cache file
-  include_once('./sites/all/modules/memcache/memcache.inc');
-  // make MemCacheDrupal the default cache class
-  $conf['cache_default_class'] = 'MemCacheDrupal';
 
 ## SERVERS ##
 
@@ -79,7 +65,7 @@ The bin/cluster/server model can be described as follows:
 - Servers are memcached instances identified by host:port.
 
 - Bins are groups of data that get cached together and map 1:1 to the $table
-  param in cache_set(). Examples from Drupal core are cache_filter,
+  parameter of cache_set(). Examples from Drupal core are cache_filter,
   cache_menu. The default is 'cache'.
 
 - Clusters are groups of servers that act as a memory pool.
@@ -106,11 +92,13 @@ $conf = array(
 
 Here is an example configuration that has two clusters, 'default' and
 'cluster2'. Five memcached instances are divided up between the two
-clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other
+clusters. 'cache_filter' and 'cache_menu' bins go to 'cluster2'. All other
 bins go to 'default'.
 
-include_once('./includes/cache.inc');
-include_once('./sites/all/modules/memcache/memcache.inc');
+$conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
+$conf['cache_default_class'] = 'MemCacheDrupal';
+// The 'cache_form' bin must be assigned no non-volatile storage.
+$conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
 $conf = array(
   'cache_default_class' = 'MemCacheDrupal',
   'memcache_servers' => array('localhost:11211' => 'default',
@@ -123,6 +111,7 @@ $conf = array(
                            'cache_filter' => 'cluster2',
                            'cache_menu' => 'cluster2'),
 );
+
 ## PREFIXING ##
 
 If you want to have multiple Drupal installations share memcached instances,
@@ -136,13 +125,16 @@ $conf = array(
 
 ## SESSIONS ##
 
+NOTE: Session.inc is not yet ported to Drupal 7 and is not recommended for use
+in production..
+
 Here is a sample config that uses memcache for sessions. Note you MUST have
 a session and a users server set up for memcached sessions to work.
 
-NOTE: Session.inc is not yet ported to Drupal 7.
-
-include_once('./includes/cache.inc');
-include_once('./sites/all/modules/memcache/memcache.inc');
+$conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
+$conf['cache_default_class'] = 'MemCacheDrupal';
+// The 'cache_form' bin must be assigned no non-volatile storage.
+$conf['cache_class_cache_form'] = 'DrupalDatabaseCache';
 $conf = array(
   'cache_default_class' = 'MemCacheDrupal',
   'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
@@ -183,12 +175,11 @@ See http://drupal.org/node/273824
 A module offering a UI for memcache is included. It provides stats, a
 way to clear the cache, and an interface to organize servers/bins/clusters.
 
-
 ## Memcached PECL Extension Support
 
-We also now support the Memcached PECL extension. If you install this extension,
-it will be used by default. This new extension backends to libmemcached and 
-allows you to use some of the newer advanced features in memcached 1.4. 
+We also now support the Memcached PECL extension. This new extension backends
+to libmemcached and allows you to use some of the newer advanced features in
+memcached 1.4. 
 
 NOTE: It is important to realize that the memcache php.ini options do not impact
 the memcached extension, this new extension doesn't read in options that way.

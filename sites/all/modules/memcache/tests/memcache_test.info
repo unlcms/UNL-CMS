@@ -1,7 +1,8 @@
-name = Memcache Admin
-description = Adds a User Interface to monitor the Memcache for this site.
+name = Memcache test
+description = Support module for memcache testing.
+package = Testing
 core = 7.x
-package = Performance and scalability
+hidden = TRUE
 
 ; Information added by drupal.org packaging script on 2012-01-07
 version = "7.x-1.0-rc3"

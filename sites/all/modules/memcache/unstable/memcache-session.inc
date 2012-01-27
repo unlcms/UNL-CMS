@@ -1,13 +1,16 @@
 <?php
 
-require_once dirname(__FILE__) . '/dmemcache.inc';
-
 /**
  * @file
  * User session handling functions.
  *
+ * Note session support is not fully ported to Drupal 7 and is not recommended
+ * for production sites.
+ *
  * An alternative to includes/session.inc.
  */
+
+require_once dirname(__FILE__) . '/dmemcache.inc';
 
 /**
  * Implement hook_user() using a required module's namespace since memcache is 
