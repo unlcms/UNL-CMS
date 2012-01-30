@@ -175,8 +175,11 @@ function unl_site_list($form, &$form_state) {
 
   // Generate an array of Last Access timestamps for each site based on time last accessed by someone in a non-admin role
   foreach ($sites as $site) {
-    if (db_table_exists($site->db_prefix.'_'.$master_prefix.'users') && db_table_exists($site->db_prefix.'_'.$master_prefix.'users_roles')) {
-      $last_access[$site->site_id] = db_query('SELECT u.access FROM '.$site->db_prefix.'_'.$master_prefix.'users u, '.$site->db_prefix.'_'.$master_prefix.'users_roles r WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN ('.$roles_in.') ORDER BY u.access DESC')->fetchColumn();
+    if (db_table_exists($site->db_prefix.'_'.$master_prefix.'users') &&
+        db_table_exists($site->db_prefix.'_'.$master_prefix.'users_roles') &&
+        !empty($roles_in)) {
+      $query = 'SELECT u.access FROM '.$site->db_prefix.'_'.$master_prefix.'users u, '.$site->db_prefix.'_'.$master_prefix.'users_roles r WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN ('.$roles_in.') ORDER BY u.access DESC';
+      $last_access[$site->site_id] = db_query($query)->fetchColumn();
     }
   }
 
