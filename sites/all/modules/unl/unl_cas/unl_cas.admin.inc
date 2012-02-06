@@ -29,13 +29,48 @@ function unl_cas_user_import($form, &$form_state) {
     $matches = array();
     $search = $form_state['values']['name'];
     // TODO Use directory for now, use LDAP query once this app is granted access
-    $results = json_decode(file_get_contents('http://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'));
+    try {
+      $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
+      $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
+      
+      $searchFields = array('uid', 'mail', 'cn', 'givenName', 'sn', 'eduPersonNickname');
+      $filter = '(&';
+      foreach (preg_split('/\s+/', $search) as $searchTerm) {
+        $searchTerm = str_replace(array('"', ',', '*'), '', $searchTerm);
+        $filter .= '(|';
+        foreach ($searchFields as $searchField) {
+          $filter .= '(' . $searchField . '=*' . $searchTerm . '*)';
+        }
+        $filter .= ')';
+      }
+      $filter .= '(|(ou=people)(ou=guests)))';
+      
+      // Convert the uid to a string to match with peoplefinder results.
+      $results = $ldap->search('dc=unl,dc=edu', $filter);
+      foreach ($results as $key => $result) {
+        $results[$key]['uid'] = $result['uid'][0];
+      }
+    } catch (Exception $e) {
+      $results = json_decode(file_get_contents('http://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
+      
+      // Convert each key to lowercase to mimic the LDAP results.
+      foreach ($results as $index => $result) {
+        foreach ($result as $key => $value) {
+          $results[$index][strtolower($key)] = $value;
+        }
+      }
+    }
+    
+    
+    $ldap = new Unl_Ldap('ldap://ldap.unl.edu/');
     foreach ($results as $result) {
-      $displayName = $result->displayName->{0};
-      $uid = $result->uid;
-      $mail = $result->mail;
+      if (!$result['uid']) {
+        continue;
+      }
+      $displayName = $result['displayname'][0];
+      $uid = $result['uid'];
       $affiliations = array();
-      foreach ($result->eduPersonPrimaryAffiliation as $affiliation) {
+      foreach ($result['edupersonaffiliation'] as $affiliation) {
         $affiliations[] = $affiliation;
       }
       $affiliations = implode(', ', $affiliations);
