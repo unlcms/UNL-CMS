@@ -60,9 +60,11 @@ if (theme_get_setting('wdn_beta')) {
 if (module_exists('rdf')) {
   $html = str_replace(
             array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">',
+                  '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">',
                   '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
                   '<head>'),
             array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>'.PHP_EOL,
+                  '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>'.PHP_EOL,
                   '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN" "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">',
                   '<head profile="'.$grddl_profile.'">'),
             $html);
