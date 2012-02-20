@@ -35,6 +35,15 @@ function unl_wdn_preprocess_field(&$vars, $hook) {
  * Implements template_preprocess_html().
  */
 function unl_wdn_preprocess_html(&$vars, $hook) {
+  // Add the CSS and JS files that are generated from the unl_wdn appearance settings page
+  foreach (array('css', 'js') as $type) {
+    $file = variable_get('unl_custom_code_path', 'public://custom') . '/custom.' . $type;
+    if (is_file($file)) {
+      $func = 'drupal_add_'.$type;
+      $func($file, array('type' => 'file', 'group' => ($type=='css'?CSS_THEME:JS_THEME), 'every_page' => TRUE));
+    }
+  }
+
   if (theme_get_setting('unl_affiliate')) {
     if (!theme_get_setting('toggle_unl_banner')) {
       drupal_add_css('#header h1{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));

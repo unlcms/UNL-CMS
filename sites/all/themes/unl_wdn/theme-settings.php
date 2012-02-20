@@ -71,12 +71,29 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
     );
   }
 
-  $form[] = array(
+  $form['unl_head'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Head HTML'),
-    '#description' => t('Additional HTML (your own css, js) to be added inside the &lt;head&gt;&lt;/head&gt; tags.'),
-    'head_html' => array(
+    '#title' => t('Site Specific CSS and JavaScript'),
+    '#weight' => -45,
+    'unl_css' => array(
+      '#title' => t('CSS'),
+      '#description' => t('Custom CSS rules for this site. Do not include @style tags.', array('@style' => '<style>')),
       '#type' => 'textarea',
+      '#rows' => 16,
+      '#default_value' => theme_get_setting('unl_css'),
+    ),
+    'unl_js' => array(
+      '#title' => t('JavaScript'),
+      '#description' => t('Custom Javascript for this site. Do not include @script tags.', array('@script' => '<script>')),
+      '#type' => 'textarea',
+      '#rows' => 16,
+      '#default_value' => theme_get_setting('unl_js'),
+    ),
+    'head_html' => array(
+      '#title' => t('Head HTML'),
+      '#description' => t('HTML to be added inside the @head tags.', array('@head' => '<head>')),
+      '#type' => 'textarea',
+      '#rows' => 3,
       '#default_value' => theme_get_setting('head_html'),
     ),
   );
@@ -116,6 +133,59 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
       '#description' => t('Grants access to the Color scheme picker, Logo image settings, Shortcut icon settings on this page for customizing the UNL template.'),
     ),
   );
+  $form['#submit'][] = 'unl_wdn_form_system_theme_settings_submit';
+  _unl_wdn_attach_syntax_highlighting($form['unl_head']);
+}
+
+/**
+ * Form submit callback.
+ */
+function unl_wdn_form_system_theme_settings_submit($form, &$form_state) {
+  // Delete existing files, then save them.
+  foreach (array('css', 'js') as $type) {
+    _unl_wdn_delete_file('custom.' . $type);
+    _unl_wdn_save_file($form_state['values']['unl_' . $type], 'custom.' . $type);
+  }
+}
+
+/**
+ * Saves CSS & Javascript in the file system (but only if not empty).
+ */
+function _unl_wdn_save_file($data, $filename) {
+  if (!drupal_strlen(trim($data))) {
+    return FALSE;
+  }
+  $path = variable_get('unl_custom_code_path', 'public://custom');
+  file_prepare_directory($path, FILE_CREATE_DIRECTORY);
+  return file_unmanaged_save_data($data, $path . '/' . $filename, FILE_EXISTS_REPLACE);
+}
+
+/**
+ * Deletes CSS & Javascript from the file system (but only if it exists).
+ */
+function _unl_wdn_delete_file($filename) {
+  $path = variable_get('unl_custom_code_path', 'public://custom') . '/' . $filename;
+  if (file_exists($path)) {
+    return file_unmanaged_delete($path);
+  }
+  return FALSE;
+}
+
+/**
+ * Attaches syntax highlighting to a form element.
+ */
+function _unl_wdn_attach_syntax_highlighting(&$form, $css = TRUE, $js = TRUE) {
+  $form['#attached']['js'][] = 'sites/all/libraries/codemirror/lib/codemirror.js';
+  $form['#attached']['css'][] = 'sites/all/libraries/codemirror/lib/codemirror.css';
+  if ($css) {
+    $form['#attached']['js'][] = 'sites/all/libraries/codemirror/mode/css/css.js';
+  }
+  if ($js) {
+    $form['#attached']['js'][] = 'sites/all/libraries/codemirror/mode/javascript/javascript.js';
+  }
+  $form['#attached']['css'][] = 'sites/all/libraries/codemirror/theme/default.css';
+  $form['#attached']['js'][] = drupal_get_path('theme', 'unl_wdn') . '/codemirror/unl.js';
+  $form['#attached']['css'][] = drupal_get_path('theme', 'unl_wdn') . '/codemirror/unl.css';
 }
 
 /**
