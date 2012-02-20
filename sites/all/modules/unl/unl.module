@@ -1046,7 +1046,7 @@ function unl_init() {
       '#type' => 'html_tag',
       '#tag' => 'base',
       '#attributes' => array(
-        'href' => url('<front>', array('absoule' => TRUE)),
+        'href' => '//' . $_SERVER['HTTP_HOST'] . base_path(),
       ),
     );
     drupal_add_html_head($base_tag, 'base');
