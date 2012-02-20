@@ -469,6 +469,8 @@ function unl_menu_alter(&$items) {
     // Since clean URLs have no "prefix", we can just set it to 1.
     $items['styles/%image_style']['page arguments'] = array(1);
   }
+  
+  $items['admin/modules/uninstall']['access callback'] = 'unl_user_is_administrator';
 }
 
 /**
