@@ -150,6 +150,7 @@ class Unl_Migration_Tool
     private $_breadcrumbs         = array();
     private $_nodeMap             = array();
     private $_pageTitles          = array();
+    private $_pageParentLinks     = array();
     private $_log                 = array();
     private $_blocks              = array();
     private $_isFrontier          = FALSE;
@@ -480,6 +481,54 @@ class Unl_Migration_Tool
                 }
             }
         }
+        
+        
+        // Now set up the site hierarchy
+        $pageParentLinks = $this->_pageParentLinks;
+        foreach ($this->_pageParentLinks as $path => $parentLink) {
+          $this->_createParentLink($path, $parentLink);
+        }
+    }
+    
+    private function _createParentLink($childPath, $parentPath) {
+      
+      // If the child is the site root, just return the root mlid.
+      if (!$childPath) {
+        return 0;
+      }
+      
+      // If the child link already exists, just return its mlid.
+      $childLink = menu_link_get_preferred(drupal_get_normal_path(rtrim($childPath, '/')));
+      if ($childLink && $childLink['link_path'] != 'node/%') {
+        return $childLink['mlid'];
+      }
+      
+      // Find the parent link, if it doesn't exist, recursively create it.
+      $parentNodePath = drupal_get_normal_path(rtrim($parentPath, '/'));
+      $parentLink = menu_link_get_preferred($parentNodePath);
+      if ($parentLink) {
+        $parentLinkId = $parentLink['mlid'];
+      } else if (substr($parentNodePath, 0, 5) != 'node/') {
+        // This will catch invalid breadcrumb links and change them to point to the site root.
+        $parentLink = '';
+        $parentLinkId = 0;
+      } else {
+        $parentLinkId = $this->_createParentLink($parentPath, $this->_pageParentLinks[$parentPath]);
+      }
+      
+      // Create the menu item.
+      $item = array(
+        'menu_name' => 'main-menu',
+        'link_title' => $this->_pageTitles[$childPath],
+        'link_path' => drupal_get_normal_path(rtrim($childPath, '/')),
+        'plid' => $parentLinkId,
+        'weight' => 50,
+        'hidden' => 1,
+      );
+      menu_link_save($item);
+      
+      // Return its mlid.
+      return $item['mlid'];
     }
     
     private function _process_blocks() {
@@ -706,6 +755,24 @@ class Unl_Migration_Tool
         
         $this->_content[$path] = $maincontentarea;
         $this->_pageTitles[$path] = $pageTitle;
+        
+        // Scan the page for the parent breadcrumb
+        $breadcrumbs = $dom->getElementById('breadcrumbs');
+        if ($breadcrumbs) {
+            $breadcrumbs = $breadcrumbs->getElementsByTagName('a');
+            $breadcrumb = $breadcrumbs->item($breadcrumbs->length - 1);
+            $breadcrumb = $breadcrumb->getAttribute('href');
+            $breadcrumb = $this->_makeLinkAbsolute($breadcrumb, $path);
+            if (substr($breadcrumb, 0, strlen($this->_baseUrl)) == $this->_baseUrl && $breadcrumb != $this->_baseUrl) {
+                $pageParentLink = substr($breadcrumb, strlen($this->_baseUrl));
+            } else {
+                $pageParentLink = '';
+            }
+            if ($pageParentLink == $path) {
+                $pageParentLink = '';
+            }
+            $this->_pageParentLinks[$path] = $pageParentLink;
+        }
     }
     
     private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL)
@@ -810,7 +877,7 @@ class Unl_Migration_Tool
           in_array(basename($parts['path']), $this->_frontierIndexFiles)
         ) {
             $parts['path'] = isset($parts['path']) ? dirname($parts['path']) . '/' : '';
-            if (substr($parts['path'], 0, 1) == '/') {
+            while (substr($parts['path'], 0, 2) == '//') {
               $parts['path'] = substr($parts['path'], 1);
             }
             
