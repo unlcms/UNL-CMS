@@ -318,6 +318,7 @@ EOF;
 
   $files_dir = $settings_dir . '/files';
   chmod($files_dir, 0777);
+  chmod($files_dir . '/styles', 0777);
 
   
   // IMCE setup (currently cannot be shared between sites)

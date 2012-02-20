@@ -460,6 +460,15 @@ function unl_menu_alter(&$items) {
     $items['node/%node/moderation']['theme callback'] = '_unl_get_admin_theme';
     $items['node/%node/moderation/%/unpublish']['theme callback'] = '_unl_get_admin_theme';
   }
+  
+  // Add a menu hook for the image module to use clean file URLs.
+  if (variable_get('unl_clean_file_url') && module_exists('image')) {
+    $directory_path = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath();
+    $items['styles/%image_style'] = $items[$directory_path . '/styles/%image_style'];
+    // This parameter is how "deep" to look into request_path() for the image's path.
+    // Since clean URLs have no "prefix", we can just set it to 1.
+    $items['styles/%image_style']['page arguments'] = array(1);
+  }
 }
 
 /**
