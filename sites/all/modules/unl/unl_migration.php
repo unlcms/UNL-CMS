@@ -186,6 +186,11 @@ class Unl_Migration_Tool
         if (substr($baseUrl, -1) != '/') {
             $baseUrl .= '/';
         }
+        
+        $frontierPath = trim ($frontierPath);
+        if ($frontierPath && substr($frontierPath, -1) != '/') {
+          $frontierPath .= '/';
+        }
 
         $this->_frontierPath = $frontierPath;
         $this->_frontierUser = $frontierUser;
