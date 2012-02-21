@@ -112,7 +112,7 @@ DirectoryIndex index.php index.html index.htm
   # RewriteMap drupal prg:<DRUPAL_ROOT>/rewrite.php
   # Do not uncomment the previous line.  Only the next two.
   # RewriteCond %{REQUEST_FILENAME} !-f
-  # RewriteRule (.*) ${drupal:%{HTTP_HOST};delim;%{REQUEST_URI};delim;$1}
+  # RewriteRule (.*) ${drupal:%{HTTP_HOST};delim;%{REQUEST_URI};delim;$1} [DPI]
 
   # Pass all requests not referring directly to files in the filesystem to
   # index.php. Clean URLs are handled in drupal_environment_initialize().

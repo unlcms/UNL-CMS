@@ -402,13 +402,14 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
     throw new Exception('Unable to find stub site entry in .htaccess.');
   }
   $new_htaccess = substr($htaccess, 0, $stub_pos)
-                . "  # %UNL_START_{$site_or_alias}_ID_{$site_id}%\n";
-  foreach (array('misc', 'modules', 'sites', 'themes') as $drupal_dir) {
-    $new_htaccess .=  "  RewriteRule $site_path$drupal_dir/(.*) $drupal_dir/$1\n";
-  }
-  $new_htaccess .= "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n"
-                 . $stub_token
-                 . substr($htaccess, $stub_pos + strlen($stub_token));
+                . "  # %UNL_START_{$site_or_alias}_ID_{$site_id}%\n"
+                . "  RewriteRule {$site_path}misc/(.*) misc/$1\n"
+                . "  RewriteRule {$site_path}modules/(.*) modules/$1\n"
+                . "  RewriteRule {$site_path}sites/(.*) sites/$1 [DPI]\n"
+                . "  RewriteRule {$site_path}themes/(.*) themes/$1\n"
+                . "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n"
+                . $stub_token
+                . substr($htaccess, $stub_pos + strlen($stub_token));
 
   _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
