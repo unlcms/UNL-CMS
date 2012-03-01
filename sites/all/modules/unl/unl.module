@@ -1041,6 +1041,8 @@ function unl_init() {
     }
   }
 
+  drupal_add_js('sites/all/modules/unl/unl.js');
+
   if (variable_get('unl_use_base_tag', TRUE)) {
     $base_tag = array(
       '#type' => 'html_tag',
