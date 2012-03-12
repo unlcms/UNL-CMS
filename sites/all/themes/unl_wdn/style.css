@@ -15,17 +15,18 @@ body.fixed #maincontent {min-width: 960px;}
 /* UNL css displays all ul in copyright area as inline, need to hide this */
 #wdn_copyright ul.contextual-links {display: none;}
 /* Overrides of system.menus.css due to conflicts with UNL navigation */
-#navigation ul li.expanded, #navigation ul li.collapsed , #navigation ul li.leaf {list-style-image: none; list-style-type: none;}
-#navigation li.expanded, #navigation li.collapsed, #navigation li.leaf {margin: 0; padding: 0;}
+#navigation li {margin: 0; padding: 0; list-style-image: none; list-style-type: none;}
 /* Override for unl #maincontent specificity */
 ul.links.inline {padding-left: 0 !important;}
-/* Overrides of system.theme.css */
+/* Overrides of system.theme.css, form.css */
 .zenform label {display: inline; font-weight: normal;}
 #wdn_search_form fieldset {background: none; border: none; margin: 0; padding: 0; position: static;}
 #wdn_search_form label {font-weight: normal;}
 #wdn_search_form input {margin: 0; padding: 0;}
-#wdn_feedback_comments fieldset {position: static; margin: 0; border: none;}
-#wdn_feedback_comments legend {top: auto; left: auto; line-height:1.5em; text-indent: 0; border: none; background: none; color: #333; text-shadow: 0 1px 0 #F5F2EF;}
+#wdn_feedback fieldset, #wdn_feedback_comments fieldset {position: static; padding: 0; margin: 0; border: none; background: none;}
+#wdn_feedback legend, #wdn_feedback_comments legend {position: static; top: auto; left: auto; color: #333; line-height:1.7em; text-indent: 0; border: none; background: none; height: inherit; width: inherit;}
+#wdn_copyright .block {margin: 0;}
+#toolbarcontent fieldset {border: none; margin: 0; padding: 0;}
 
 /* taxonomy
 *********/

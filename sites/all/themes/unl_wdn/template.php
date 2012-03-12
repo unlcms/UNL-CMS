@@ -44,12 +44,18 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
     }
   }
 
+  // Affiliate Template
   if (theme_get_setting('unl_affiliate')) {
+    if (theme_get_setting('toggle_logo') && !theme_get_setting('default_logo')) {
+      $logo_css = '#header #logo{background-image:url('.file_create_url(theme_get_setting('logo_path')).'); background-position:13px 10px;}
+                   @media (max-width:1040px) {#header #logo{background-size:90%; background-position:2px 3px;}}';
+      drupal_add_css($logo_css, array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
+    }
     if (!theme_get_setting('toggle_unl_banner')) {
-      drupal_add_css('#header h1{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
+      drupal_add_css('#wdn_institution_title{visibility:hidden;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
     if (!theme_get_setting('toggle_unl_branding')) {
-      drupal_add_css('#footer_floater,#wdn_logos{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
+      drupal_add_css('#footer_floater,#wdn_copyright #wdn_logos{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
     }
     if (!theme_get_setting('toggle_unl_breadcrumb')) {
       drupal_add_css('#breadcrumbs > ul > li:first-child{display:none;}', array('type' => 'inline', 'group' => CSS_THEME, 'every_page' => TRUE));
@@ -62,34 +68,14 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
     }
   }
 
-  /**
-   * Change the <title> tag to UNL format: UNL | Department | Section | Page
-   */
-  $head_title[] = 'Home';
-
-  $trail = menu_get_active_trail();
-  foreach ($trail as $item) {
-    if ($item['type'] & MENU_VISIBLE_IN_BREADCRUMB) {
-      if (isset($item['title']) && !empty($item['title'])) {
-          $head_title[] = $item['title'];
-      }
-      if (isset($item['page_arguments'],
-                $item['page_arguments'][0],
-                $item['page_arguments'][0]->title)) {
-          $head_title[] = $item['page_arguments'][0]->title;
-      }
-    }
+  // Set the <title> tag to UNL format: Page Title | Site Name | University of Nebraska–Lincoln
+  if ($vars['is_front']) {
+    unset($vars['head_title_array']['title']);
   }
-
-  // Change 'Home' to be $site_name
-  array_unshift($head_title, str_replace( 'Home', variable_get('site_name', 'Department'), array_shift($head_title)));
-
-  // Prepend UNL
-  if (variable_get('site_name') != 'UNL') {
-    array_unshift($head_title, 'UNL');
+  if (variable_get('site_name') != 'University of Nebraska–Lincoln') {
+    $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska–Lincoln'));
   }
-
-  $vars['head_title'] = check_plain(implode(' | ', $head_title));
+  $vars['head_title'] = check_plain(implode(' | ', $vars['head_title_array']));
 }
 
 /**
@@ -213,7 +199,7 @@ function unl_wdn_get_instance() {
 
     // Use NULL caching service so templates are pulled from local tpl_cache
     UNL_Templates::setCachingService(new UNL_Templates_CachingService_Null());
-    UNL_Templates::$options['version'] = UNL_Templates::VERSION3;
+    UNL_Templates::$options['version'] = UNL_Templates::VERSION3x1;
 
     // Set a default template
     $template = 'Fixed';
@@ -222,17 +208,24 @@ function unl_wdn_get_instance() {
       $template = 'Document';
     }
 
-    // Tell caches to cache mobile and non-mobile pages separately.
-    drupal_add_http_header('Vary', 'X-UNL-Mobile', TRUE);
-    if (isset($_GET['format']) && $_GET['format'] == 'mobile') {
-      $template = 'Mobile';
+    if (theme_get_setting('unl_affiliate')) {
+      $template = 'Unlaffiliate';
+    }
+
+    if (theme_get_setting('wdn_beta')) {
+      $template = 'Debug';
+      if (theme_get_setting('unl_affiliate')) {
+        $template = 'Unlaffiliate_debug';
+      }
+      UNL_Templates::$options['templatedependentspath'] = $_SERVER['DOCUMENT_ROOT'].'/wdntemplates-dev';
     }
 
     $instance = UNL_Templates::factory($template);
+  }
 
-    if (theme_get_setting('wdn_beta')) {
-      UNL_Templates::$options['templatedependentspath'] = $_SERVER['DOCUMENT_ROOT'].'/wdntemplates-dev';
-    }
+  if (theme_get_setting('unl_affiliate')) {
+    $instance->sitebranding_logo = '<a id="logo" href="'.url('<front>', array('absolute')).'" title="'.variable_get('site_name').'">'.variable_get('site_name').'</a>';
+    $instance->sitebranding_affiliate = 'An Affiliate of the University of Nebraska&ndash;Lincoln';
   }
 
   return $instance;

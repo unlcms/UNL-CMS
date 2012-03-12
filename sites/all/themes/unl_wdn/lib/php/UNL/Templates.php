@@ -48,6 +48,7 @@ class UNL_Templates extends UNL_DWT
 {
     const VERSION2 = 2;
     const VERSION3 = 3;
+    const VERSION3x1 = '3.1';
     
     /**
      * Cache object for output caching
@@ -61,7 +62,8 @@ class UNL_Templates extends UNL_DWT
         'sharedcodepath'         => 'sharedcode',
         'templatedependentspath' => '',
         'cache'                  => array(),
-        'version'                => self::VERSION3
+        'version'                => self::VERSION3,
+        'timeout'                => 5
     );
     
     /**
@@ -89,6 +91,7 @@ class UNL_Templates extends UNL_DWT
      */
     public static function loadDefaultConfig()
     {
+        self::$options['version'] = str_replace('.', 'x', self::$options['version']);
         include_once 'UNL/Templates/Version'.self::$options['version'].'.php';
         $class = 'UNL_Templates_Version'.self::$options['version'];
         self::$template_version = new $class();
@@ -356,9 +359,9 @@ class UNL_Templates extends UNL_DWT
             return dirname(__FILE__).'/../../data/UNL_Templates/data';
         }
 
-        if (file_exists(dirname(__FILE__).'/../data/tpl_cache')) {
+        if (file_exists(dirname(__FILE__).'/../../data/tpl_cache')) {
             // svn checkout
-            return realpath(dirname(__FILE__).'/../data');
+            return realpath(dirname(__FILE__).'/../../data');
         }
 
         if (file_exists(dirname(__FILE__).'/../../data/pear.unl.edu/UNL_Templates/data')) {
@@ -366,9 +369,9 @@ class UNL_Templates extends UNL_DWT
             return dirname(__FILE__).'/../../data/pear.unl.edu/UNL_Templates/data';
         }
 
-        if ('/Users/bbieber/Documents/workspace/wdn_thm_drupal/sites/all/themes/unl_wdn/lib/data' != '@DATA_DIR'.'@') {
+        if ('@DATA_DIR@' != '@DATA_DIR'.'@') {
             // pear/pyrus installation
-            return '/Users/bbieber/Documents/workspace/wdn_thm_drupal/sites/all/themes/unl_wdn/lib/data/UNL_Templates/data/';
+            return '@DATA_DIR@/UNL_Templates/data/';
         }
 
         throw new Exception('Cannot determine data directory!');

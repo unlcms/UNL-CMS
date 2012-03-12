@@ -46,48 +46,14 @@ $t->doctitle = '<title>'.$head_title.'</title>';
 
 $html = $t->toHtml();
 
-if (theme_get_setting('wdn_beta')) {
-  $html = str_replace(
-            array('/wdn/templates',
-                  'css/all.css',
-                  'scripts/all.js'),
-            array('/wdntemplates-dev/wdn/templates',
-                  'css/debug.css',
-                  'scripts/debug.js'),
-            $html);
-}
-
-if (module_exists('rdf')) {
-  $html = str_replace(
-            array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">',
-                  '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">',
-                  '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
-                  '<head>'),
-            array('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>'.PHP_EOL,
-                  '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="'.$language->language.'" version="XHTML+RDFa 1.0" dir="'.$language->dir.'" '.$rdf_namespaces.'>'.PHP_EOL,
-                  '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN" "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">',
-                  '<head profile="'.$grddl_profile.'">'),
-            $html);
-}
-
 $html = str_replace(
-          array('<body class="fixed">',
-                '<p class="skipnav">',
+          array('<body class="',
+                '<nav class="skipnav">',
                 '</body>'),
-          array('<body class="fixed '.$classes.'" '.$attributes.'>',
-                $page_top . PHP_EOL . '<p class="skipnav">',
-                $page_bottom . PHP_EOL . '</body>'),
+          array('<body '.$attributes.' class="'.$classes.' ',
+                $page_top . '<nav class="skipnav">',
+                $page_bottom . '</body>'),
           $html);
-
-// Replace the header logo (used by affiliates)
-if (isset($t->logo)) {
-  $html = str_replace('<a href="http://www.unl.edu/" title="UNL website"><img src="/wdn/templates_3.0/images/logo.png" alt="UNL graphic identifier" id="logo" /></a>',
-                      $t->logo,
-                      $html);
-  $html = str_replace('<h1>University of Nebraska&ndash;Lincoln</h1>',
-                      '<h1>An Affiliate of the University of Nebraska&ndash;Lincoln</h1>',
-                      $html);
-}
 
 $format = filter_input(INPUT_GET, 'format', FILTER_SANITIZE_STRING);
 if ($format == 'partial') {

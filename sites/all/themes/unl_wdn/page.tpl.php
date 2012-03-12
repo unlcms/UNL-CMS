@@ -70,13 +70,6 @@ Any real output is being deferred to html.tpl.php
 
 $t = unl_wdn_get_instance();
 
-// Site Logo (for affiliates)
-if (theme_get_setting('unl_affiliate') && $logo) {
-  $t->logo = '<a href="'.$front_page.'" title="Home">
-                <img src="'.$logo.'" alt="'.$site_name.' logo" id="logo" />
-              </a>';
-}
-
 // Breadcrumbs
 if (isset($breadcrumb)) {
   $t->breadcrumbs = PHP_EOL . $breadcrumb . PHP_EOL;
@@ -87,14 +80,13 @@ $t->navlinks = PHP_EOL . render($page['navlinks']);
 
 // Site Title and Page Title
 if (isset($site_name) && $site_name) {
-  $t->titlegraphic = '<h1>' . $site_name;
+  $t->titlegraphic = $site_name;
   if (!empty($site_slogan)) {
     $t->titlegraphic .= '<span>' . $site_slogan . '</span>';
   }
-  $t->titlegraphic .= '</h1>';
 }
 if (isset($title) && $title) {
-  $t->pagetitle = '<h2>' . render($title_prefix) . $title . render($title_suffix) . '</h2>';
+  $t->pagetitle = '<h1>' . render($title_prefix) . $title . render($title_suffix) . '</h1>';
 }
 
 // Main Content Area
@@ -135,5 +127,4 @@ if ($page['optionalfooter']) {
 if ($page['footercontent']) {
   $t->footercontent = PHP_EOL.render($page['footercontent']);
 }
-$t->footercontent = preg_replace('/&copy;\s*[0-9]{4}/', '&copy; ' . date('Y'), $t->footercontent);
-$t->footercontent .= '<p style="margin:0.5em 0 -1.4em 0">This site is an instance of <a href="http://unlcms.unl.edu/" title="Go to the UNLcms website">UNLcms</a> powered by <a href="http://drupal.org/" title="Go to the Drupal website">Drupal</a></p>';
+$t->footercontent = preg_replace(array('/©\s*[0-9]{4}/', '/&copy;\s*[0-9]{4}/'), '&copy; ' . date('Y'), $t->footercontent);
