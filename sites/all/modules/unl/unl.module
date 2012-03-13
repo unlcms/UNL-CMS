@@ -460,7 +460,7 @@ function unl_menu_alter(&$items) {
     $items['node/%node/moderation']['theme callback'] = '_unl_get_admin_theme';
     $items['node/%node/moderation/%/unpublish']['theme callback'] = '_unl_get_admin_theme';
   }
-  
+
   // Add a menu hook for the image module to use clean file URLs.
   if (variable_get('unl_clean_file_url') && module_exists('image')) {
     $directory_path = file_stream_wrapper_get_instance_by_scheme('public')->getDirectoryPath();
@@ -469,7 +469,7 @@ function unl_menu_alter(&$items) {
     // Since clean URLs have no "prefix", we can just set it to 1.
     $items['styles/%image_style']['page arguments'] = array(1);
   }
-  
+
   $items['admin/modules/uninstall']['access callback'] = 'unl_user_is_administrator';
 }
 
@@ -1026,6 +1026,7 @@ function unl_get_alternate_base_uris() {
  * Implementation of hook_init().
  */
 function unl_init() {
+  // Redirect to desired URL if needed
   $primary_base_url = variable_get('unl_primary_base_url');
   if ($primary_base_url) {
     if (substr($primary_base_url, -1) != '/') {
@@ -1041,20 +1042,30 @@ function unl_init() {
     }
   }
 
-  drupal_add_js('sites/all/modules/unl/unl.js');
-
+  // Insert <base> tag
   if (variable_get('unl_use_base_tag', TRUE)) {
+    $base_href = url('<front>', array('absolute' => TRUE));
+    if (substr($base_href, -1) != '/') {
+      $base_href .= '/';
+    }
+    if ($GLOBALS['is_https']) {
+      $base_href = str_replace('http://', 'https://', $base_href);
+    }
     $base_tag = array(
       '#type' => 'html_tag',
       '#tag' => 'base',
       '#attributes' => array(
-        'href' => '//' . $_SERVER['HTTP_HOST'] . base_path(),
+        'href' => $base_href
       ),
     );
     drupal_add_html_head($base_tag, 'base');
   }
   drupal_add_js(array('unl' => array('use_base_tag' => variable_get('unl_use_base_tag', TRUE))), 'setting');
 
+  // Add JS
+  drupal_add_js('sites/all/modules/unl/unl.js');
+
+  // Handle unneeded index.html references
   _unl_handle_directory_index();
 }
 
