@@ -173,6 +173,23 @@ function unl_node_prepare($node) {
 }
 
 /**
+ * Implementation of hook_node_presave().
+ */
+function unl_node_presave($node) {
+  // Tidy html in fields that are text areas
+  foreach(field_info_instances('node', $node->type) as $field) {
+    if (substr($field['widget']['type'], 0, 13) == 'text_textarea') {
+      $field_name = $field['field_name'];
+      $lang = $node->language;
+      $node_field = $node->$field_name;
+      $tidied_value = unl_tidy($node_field[$lang][0]['value']);
+      $node_field[$lang][0]['value'] = $tidied_value;
+      $node->$field_name = $node_field;
+    }
+  }
+}
+
+/**
  * Implementation of hook_wywiwyg_plugin() found in wysiwyg.api.php
  */
 function unl_wysiwyg_plugin($editor) {
@@ -610,15 +627,6 @@ function unl_form_alter(&$form, $form_state, $form_id) {
   $admin_role_id = unl_shared_variable_get('user_admin_role', -1);
   if (!in_array($admin_role_id, array_keys($GLOBALS['user']->roles))) {
     switch ($form_id) {
-      // Don't allow editing of non-custom content types on admin/structure/types, i.e. don't allow subsites to edit the content types coming from modules or the UNL shared content types
-//       case 'node_type_form' :
-//       case 'field_ui_field_overview_form' :
-//       case 'field_ui_display_overview_form' :
-//         if (!$form['custom']['#value']) {
-//           drupal_access_denied();
-//           exit;
-//         }
-//         break;
       // Add additional validation on admin/people/permissions/roles/edit/%
       case 'user_admin_role' :
         $form['#validate'][] = 'unl_user_admin_role_validate';
@@ -700,18 +708,22 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     }
   }
 
-  /**
-   * On the node edit form, hide the "Provide a menu link" checkbox since we'll
-   * be using the menu to build a site hierarchy.  Instead, add a button that will
-   * determine whether or not the menu link is visible or not.
-   */
-  if (substr($form_id, -10) == '_node_form') {
-    $form['menu']['#title'] = 'Site hierarchy';
+  // Node Edit Form
+  if (isset($form['#node_edit_form']) && $form['#node_edit_form']) {
+    // Tidy existing html in fields that are text areas
+    foreach(field_info_instances($form['#entity_type'], $form['#bundle']) as $field) {
+      if (substr($field['widget']['type'], 0, 13) == 'text_textarea') {
+        $field_name = $field['field_name'];
+        $form[$field_name]['und'][0]['#default_value'] = unl_tidy($form[$field_name]['und'][0]['#default_value']);
+      }
+    }
 
+    // Hide the "Provide a menu link" checkbox since we'll be using the menu to build a site hierarchy.
+    // Instead, add a button that will determine whether or not the menu link is visible.
+    $form['menu']['#title'] = 'Site hierarchy';
     $form['menu']['enabled']['#default_value'] = TRUE;
     $form['menu']['enabled']['#prefix'] = '<div style="display: none;">';
     $form['menu']['enabled']['#suffix'] = '</div>';
-
     $form['menu']['link']['link_title']['#required'] = TRUE;
 
     $mlid = $form['menu']['link']['mlid']['#value'];
@@ -731,7 +743,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
 
     $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
 
-    // Also turn on revisioning by default
+    // Also turn on revisioning
     $form['revision_information']['revision']['#default_value'] = TRUE;
     unset($form['revision_information']['revision']['#states']);
   }
@@ -946,7 +958,6 @@ function _unl_cron_import_wdn_registry_sites() {
       'department'     => $site->department,
     );
   }
-
 
   foreach ($sites_to_create as $wdn_site_id => $site_to_create) {
     try {
@@ -1223,7 +1234,7 @@ function unl_still_alive() {
 /**
  * Custom function to return the current admin theme for use with hook_menu_alter().
  */
-function _unl_get_admin_theme(){
+function _unl_get_admin_theme() {
   return variable_get('admin_theme', '0');
 }
 
@@ -1362,8 +1373,7 @@ function unl_block_view($delta = '') {
  * Implements hook_block_view('my_sites').
  * Displays the list of sites/roles for the current user.
  */
-function unl_block_view_my_sites()
-{
+function unl_block_view_my_sites() {
   if (user_is_anonymous()) {
     return array();
   }
@@ -1403,8 +1413,7 @@ class UnlPublicStreamWrapper extends DrupalPublicStreamWrapper {
  * Implements hook_query_alter()
  * Currently used to filter out users with no roles at "admin/people".
  */
-function unl_query_alter(QueryAlterableInterface $query)
-{
+function unl_query_alter(QueryAlterableInterface $query) {
   // If this query is coming from the "People" admin page
   if (current_path() == 'admin/people') {
     // Find the prefix for the "users" table

@@ -88,17 +88,17 @@ function unl_get_site_settings($uri) {
   if (!is_readable($settings_file)) {
     throw new Exception('No settings.php exists for site at ' . $uri);
   }
-  
+
   if (is_readable(DRUPAL_ROOT . '/sites/all/settings.php')) {
     require DRUPAL_ROOT . '/sites/all/settings.php';
   }
-  
+
   require $settings_file;
   unset($uri);
   unset($settings_file);
-  
+
   return get_defined_vars();
-} 
+}
 
 /**
  * Custom function that returns TRUE if the given table is shared with another site.
@@ -115,21 +115,64 @@ function unl_table_is_shared($table_name) {
 }
 
 /**
+ * Custom function that formats a string of HTML using Tidy
+ * @param string $string
+ */
+function unl_tidy($string) {
+  if (class_exists('Tidy') && variable_get('unl_tidy')) {
+    $tidy = new Tidy();
+
+    // Tidy options: http://tidy.sourceforge.net/docs/quickref.html
+    $options = array(
+      // HTML, XHTML, XML Options
+      'doctype' => 'omit',
+      'new-blocklevel-tags' => 'article,aside,header,footer,section,nav,hgroup,address,figure,figcaption,output',
+      'new-inline-tags' => 'video,audio,canvas,ruby,rt,rp,time,code,kbd,samp,var,mark,bdi,bdo,wbr,details,datalist,source,summary',
+      'output-xhtml' => true,
+      'show-body-only' => true,
+      // Pretty Print
+      'indent' => true,
+      'indent-spaces' => 2,
+      'vertical-space' => false,
+      'wrap' => 140,
+      'wrap-attributes' => false,
+      // Misc
+      'force-output' => true,
+      'quiet' => true,
+      'tidy-mark' => false,
+    );
+
+    // Prevent Tidy from trying to move <script> to the head if it is the first thing
+    if (strtolower(substr(trim($string), 0, 7)) == '<script' || substr(trim($string), 0, 4) == '<!--') {
+      $string = "&nbsp; <!-- Tidy: Start field with something other than script or comment to remove this -->\n" . $string;
+    }
+
+    $tidy->parseString($string, $options, 'utf8');
+    if ($tidy->cleanRepair()) {
+      return $tidy;
+    }
+  }
+
+  return $string;
+}
+
+/**
  * A shared-table safe method that returns TRUE if the user is a member of the super-admin role.
  */
 function unl_user_is_administrator() {
   $user = $GLOBALS['user'];
-  
+
   // If the role table is shared, use parent site's user_admin role, otherwise use the local value.
   if (unl_table_is_shared('role')) {
     $admin_role_id = unl_shared_variable_get('user_admin_role');
-  } else {
-    $admin_role_id = variable_get('user_admin_role'); 
   }
-  
+  else {
+    $admin_role_id = variable_get('user_admin_role');
+  }
+
   if ($user && in_array($admin_role_id, array_keys($user->roles))) {
     return TRUE;
   }
-  
+
   return FALSE;
 }
