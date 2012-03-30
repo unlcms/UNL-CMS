@@ -206,7 +206,7 @@ function unl_wysiwyg_plugin($editor) {
           'buttons' => array(
             'unlZenBox'   => 'UNL Zen Box',
             'unlZenTable' => 'UNL Zen Table',
-            'unlGrid'   => 'UNL Grid',
+            'unlGrid'     => 'UNL Grid',
             'unlLayout'   => 'UNL Layout',
             'unlTooltip'  => 'UNL Tooltip',
           ),
@@ -216,6 +216,7 @@ function unl_wysiwyg_plugin($editor) {
             'skin' => 'unl',
             'table_styles' => 'ZenTable Bright (yellow)=zentable bright;ZenTable Cool (blue)=zentable cool;ZenTable Energetic (orange)=zentable energetic;ZenTable Soothing (green)=zentable soothing;ZenTable Primary (red)=zentable primary;ZenTable Neutral (gray)=zentable neutral;', 'doctype' => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
             'valid_elements' => '*[*],script[charset|defer|id|src|type=text/javascript]',
+            'forced_root_block' => false,
           ),
         )
         // Wysiwyg wrapper plugin AJAX callback.
@@ -226,6 +227,31 @@ function unl_wysiwyg_plugin($editor) {
         //'theme_advanced_buttons1' => array(t('Button title (optional)') => 'myplugin'),
       );
   }
+}
+
+/**
+ * Implements of hook_element_info_alter().
+ */
+function unl_element_info_alter(&$type) {
+  // Change text format processing on elements to our version.
+  if (isset($type['text_format'])) {
+    $type['text_format']['#process'][] = 'unl_filter_process_format';
+  }
+}
+
+/**
+ * Callback for processing the text_format element
+ */
+function unl_filter_process_format($element) {
+  // Only remove the plain_text and filtered_html options on the node edit form. They need to be available on comment forms, etc.
+  if ($element['#entity_type'] == 'node') {
+    unset($element['format']['format']['#options']['plain_text']);
+    unset($element['format']['format']['#options'][1]); // On production the machine names are integers
+    unset($element['format']['format']['#options']['filtered_html']);
+    unset($element['format']['format']['#options'][11]);
+    $element['format']['format']['#title'] = 'Editor: ';
+  }
+  return $element;
 }
 
 /**
