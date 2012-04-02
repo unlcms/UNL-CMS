@@ -261,7 +261,7 @@ function unl_element_info_alter(&$type) {
  */
 function unl_filter_process_format($element) {
   // Only remove the plain_text and filtered_html options on the node edit form. They need to be available on comment forms, etc.
-  if ($element['#entity_type'] == 'node') {
+  if (isset($element['#entity_type']) && $element['#entity_type'] == 'node') {
     unset($element['format']['format']['#options']['plain_text']);
     unset($element['format']['format']['#options'][1]); // On production the machine names are integers
     unset($element['format']['format']['#options']['filtered_html']);
