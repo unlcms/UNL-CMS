@@ -142,9 +142,11 @@ function unl_tidy($string) {
       'tidy-mark' => false,
     );
 
-    // Prevent Tidy from trying to move <script> to the head if it is the first thing
-    if (strtolower(substr(trim($string), 0, 7)) == '<script' || substr(trim($string), 0, 4) == '<!--') {
-      $string = "&nbsp; <!-- Tidy: Start field with something other than script or comment to remove this -->\n" . $string;
+    // Prevent Tidy from trying to move <script>,<style>,comments to the head if it is the first thing
+    if (strtolower(substr(trim($string), 0, 7)) == '<script' ||
+        strtolower(substr(trim($string), 0, 6)) == '<style' ||
+        substr(trim($string), 0, 4) == '<!--') {
+      $string = "&nbsp; <!-- Tidy: Start field with something other than script , style, or comment to remove this -->\n" . $string;
     }
 
     $tidy->parseString($string, $options, 'utf8');
