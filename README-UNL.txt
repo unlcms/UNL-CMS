@@ -78,3 +78,7 @@ Add Trigger Support Patch to Workbench Moderation
  *   from http://drupal.org/node/1079134
  * Don't upgrade WB Moderation without first applying this patch unless the new version supports Triggers
 
+------------------------------------
+wysiwyg/editors/js/tinymce-3.js
+ * Comment out the part that switches wrappers from table-based to div. We need the original TinyMCE code for the PDW toggle plugin to work
+ 

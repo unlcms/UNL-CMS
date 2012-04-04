@@ -1,4 +1,3 @@
-// $Id: imce_mkdir.js,v 1.4 2010/09/27 21:30:56 ufku Exp $
 
 (function($) {
 //add hook:load. process mkdir form 
@@ -15,7 +14,7 @@ imce.hooks.load.push(function () {
     var dop = this.id.substr(5);
     $(imce.mkdirOps[dop] = this).click(function() {imce.dopSubmit(dop); return false;});
   });
-  imce.opAdd({name: 'mngdir', title: Drupal.t('Manage directories'), content: form});
+  imce.opAdd({name: 'mngdir', title: Drupal.t('Directory'), content: form});
   imce.mkdirRefreshOps();
   //add hook:navigate. set dirops visibility
   imce.hooks.navigate.push(function (data, olddir, cached) {
@@ -115,7 +114,7 @@ imce.mkdirSubSelector = function () {
   var ie7 = $('html').is('.ie-7');
   var $inp = $(imce.el('edit-dirname'));
   // create selector
-  var $subsel = $(imce.newEl('div')).attr({id: 'subdir-selector'}).hide().appendTo(document.body);
+  var $subsel = $(imce.newEl('div')).attr({id: 'subdir-selector'}).css('display', 'none').appendTo(document.body);
   // create selector button
   var $button = $(imce.newEl('a')).attr({id: 'subdir-selector-button', href: '#'}).click(function() {
     var offset = $inp.offset();

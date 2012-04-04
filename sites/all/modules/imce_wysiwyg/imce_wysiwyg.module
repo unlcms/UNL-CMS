@@ -7,7 +7,7 @@
  */
 
 /**
- * Implementation of hook_wysiwyg_plugin().
+ * Implements hook_wysiwyg_plugin().
  */
 function imce_wysiwyg_plugin($editor, $version) {
   static $integrated = array();

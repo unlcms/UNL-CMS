@@ -143,10 +143,12 @@ function unl_tidy($string) {
     );
 
     // Prevent Tidy from trying to move <script>,<style>,comments to the head if it is the first thing
-    if (strtolower(substr(trim($string), 0, 7)) == '<script' ||
-        strtolower(substr(trim($string), 0, 6)) == '<style' ||
-        substr(trim($string), 0, 4) == '<!--') {
-      $string = "&nbsp; <!-- Tidy: Start field with something other than script , style, or comment to remove this -->\n" . $string;
+    if (strtolower(substr(trim($string), 0, 7)) == '<script' || strtolower(substr(trim($string), 0, 6)) == '<style' || substr(trim($string), 0, 4) == '<!--') {
+      $statement = '';
+      if (substr(trim($string), 0, 9) !== '<!-- Tidy') {
+        $statement = "<!-- Tidy: Start field with something other than script , style, or comment to remove this -->\n";
+      }
+      $string = "&nbsp;" . $statement . $string;
     }
 
     $tidy->parseString($string, $options, 'utf8');

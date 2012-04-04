@@ -1,9 +1,9 @@
 
-IMCE Wysiwyg x.x-x.x, xxxx-xx-xx
+IMCE Wysiwyg 7.x-1.x, xxxx-xx-xx
 --------------------------------
 
 
-IMCE Wysiwyg 7.x-1.x, xxxx-xx-xx
+IMCE Wysiwyg 7.x-1.0, 2011-10-05
 --------------------------------
 #670818 by Onopoc: Fixed port to Drupal 7.
 #670818 by sun: Ported to Drupal 7.

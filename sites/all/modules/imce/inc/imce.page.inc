@@ -101,6 +101,12 @@ function imce_js($user, $scheme, $jsop = '') {
       if (function_exists($func = 'imce_js_' . $jsop)) {
         $response['data'] = $func($imce);
       }
+      // Allow alteration of response.
+      foreach (variable_get('imce_custom_response', array()) as $func => $state) {
+        if ($state && function_exists($func)) {
+          $func($jsop, $response, $imce, $user);
+        }
+      }
     }
   }
   //messages
@@ -697,6 +703,12 @@ function imce_initiate_profile($user, $scheme = NULL) {
 
   //check user profile and translate tokens in directory paths and evaluate php paths.
   if ($imce = imce_user_profile($user, $scheme)) {
+    // Allow alteration of raw profile
+    foreach (variable_get('imce_custom_init', array()) as $func => $state) {
+      if ($state && function_exists($func)) {
+        $func($imce, $user);
+      }
+    }
     imce_process_directories($imce, $user);
     if (!empty($imce['directories'])) {
       $imce['uid'] = (int) $user->uid;
@@ -879,7 +891,7 @@ function imce_directory_info($dirname, $imce) {
     $diruri = imce_dir_uri($imce, $dirname);
     if (file_prepare_directory($diruri)) {
       foreach ($imce['directories'] as $name => $prop) {
-        if ($prop['subnav'] && ($name == '.' || strpos($dirname . '/', $name . '/') === 0)) {
+        if ($prop['subnav'] && ($name === '.' || strpos($dirname . '/', $name . '/') === 0)) {
           $info = $prop;
           $info['name'] = $dirname;
         }
@@ -896,11 +908,15 @@ function imce_directory_info($dirname, $imce) {
 function imce_subdirectories_accessible(&$imce) {
 
   if (!empty($imce['subdirectories'])) {
+    if (!empty($imce['perm']['subnav'])) {
+      return TRUE;
+    }
     //checking only the first one is sufficient.
     $dirname = ($imce['dir'] == '.' ? '' : $imce['dir'] . '/') . $imce['subdirectories'][0];
 
     //check if any setting is applicable for this subdirectory through any directory in the list.
     foreach ($imce['directories'] as $name => $info) {
+      $name = (string) $name;
       if ($info['subnav'] && $dirname != $name && ($name == '.' || strpos($dirname . '/', $name . '/') === 0)) {
         return TRUE;
       }
@@ -947,9 +963,10 @@ function imce_scan_directory($dirname, $imce) {
     return $directory;
   }
 
-  $exclude = array('.' => 1, '..' => 1, 'CVS' => 1, '.svn' => 1, '.htaccess' => 1);
   while (($file = readdir($handle)) !== FALSE) {
-    if (isset($exclude[$file])) {
+
+    // Do not include dot files and folders
+    if (substr($file, 0, 1) === '.') {
       continue;
     }
 
