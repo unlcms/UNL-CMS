@@ -26,7 +26,7 @@ function unl_config($form, &$form_state) {
     $form['root']['unl_tidy'] = array(
       '#type' => 'checkbox',
       '#title' => 'Clean up text area HTML',
-      '#description' => 'Tidy will be used to process HTML in text areas on the node edit form. (This will remove any <style> tags.)',
+      '#description' => 'Tidy will be used to process HTML in text areas on the node edit form. (This will remove any &lt;style&gt; tags.)',
       '#default_value' => variable_get('unl_tidy'),
     );
   }
