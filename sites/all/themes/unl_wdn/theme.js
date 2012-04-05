@@ -1,4 +1,4 @@
-WDN.jQuery(document).ready(function () {
+WDN.loadJQuery(function () {
 	// if there's no base tag on the page, we don't have to worry about this
 	if (WDN.jQuery('base').length == 0) {
 		return;
