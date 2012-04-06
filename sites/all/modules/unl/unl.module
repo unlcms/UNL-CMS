@@ -97,6 +97,30 @@ function unl_context_page_reaction() {
 }
 
 /**
+ * Implementation of hook_page_alter().
+ */
+function unl_page_alter(&$page) {
+  // Add UNLcms technical feedback link to toolbar
+  if (isset($page['page_top']['toolbar'])) {
+      $page['page_top']['toolbar']['#pre_render'][] = 'unl_toolbar_add_links';
+    }
+}
+
+/**
+ * Custom function called from unl_page_alter() to add links to the toolbar.
+ */
+function unl_toolbar_add_links($toolbar) {
+  $link['html'] = TRUE;
+  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); width:20px; height:20px; text-indent:-9999px; display:block;">Feedback</span>';
+  $link['title'] = t("!icon", array('!icon' => $icon));
+  $link['attributes']['title'] = t('Submit technical feedback/issues/problems about the UNLcms system');
+  $link['href'] = 'user/unl/technical_feedback';
+
+  $toolbar['toolbar_user']['#links'] = array_merge(array('unl' => $link), $toolbar['toolbar_user']['#links']);
+  return $toolbar;
+}
+
+/**
  * Implementation of hook_page_build().
  */
 function unl_page_build(&$page) {
@@ -329,8 +353,6 @@ function unl_preprocess_page(&$vars) {
  * Implementation of hook_menu().
  */
 function unl_menu() {
-  global $user;
-
   $items = array();
 
   // Returns confirmation 'user_loggedin' if user is logged into the system
@@ -341,34 +363,36 @@ function unl_menu() {
     'file' => 'unl_whoami.php',
   );
 
-  // Returns html technical feedback form
+  // Returns UNLcms technical feedback form
   $items['user/unl/technical_feedback'] = array(
-    'title' => 'Technical Feedback',
-    'description' => 'Returns a form to fill out to give technical feedback',
-    'access callback' => TRUE,
-    'page callback' => 'technical_feedback',
-    'file' => 'technical_feedback.php'
+    'title' => 'UNLcms Technical Feeedback Form',
+    'description' => 'Submit technical feedback/issues/problems about the UNLcms system.',
+    'access callback' => 'user_is_logged_in',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_technical_feedback'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'technical_feedback.php',
   );
 
   // Adds UNL Migration Tool to the Content menu for admin
   $items['admin/content/unl/migration'] = array(
-    'title'            => 'UNL Migration Tool',
-    'description'      => 'Migrate a static UNL template page into drupal',
+    'title' => 'UNL Migration Tool',
+    'description' => 'Migrate a static UNL template page into Drupal.',
     'access arguments' => array('unl migration'),
-    'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('unl_migration'),
-    'type'             => MENU_LOCAL_TASK,
-    'file'             => 'unl_migration.php',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_migration'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'unl_migration.php',
   );
 
   $items['admin/content/unl/reset'] = array(
-    'title'            => 'Reset Site',
-    'description'      => 'Remove all nodes, menu items, etc from this site.',
-    'access callback'  => 'unl_user_is_administrator',
-    'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('unl_reset_site'),
-    'type'             => MENU_LOCAL_TASK,
-    'file'             => 'includes/reset_site.php',
+    'title' => 'Reset Site',
+    'description' => 'Remove all nodes, menu items, etc from this site.',
+    'access callback' => 'unl_user_is_administrator',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_reset_site'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/reset_site.php',
   );
 
   // Redirect the Appearance link away from admin/appearance for users who can't Administer themes but can Change Theme Settings
@@ -384,20 +408,20 @@ function unl_menu() {
 
   // Hello world type page for performance/uptime monitoring
   $items['_status'] = array(
-    'title'           => 'Still Alive',
-    'page callback'   => 'unl_still_alive',
+    'title' => 'Still Alive',
+    'page callback' => 'unl_still_alive',
     'access callback' => TRUE,
   );
 
-  // UNL
+  // UNL Settings
   $items['admin/config/system/unl'] = array(
-    'title'            => 'UNL',
-    'description'      => 'Configure UNL System Settings',
-    'access callback'  => 'unl_user_is_administrator',
-    'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('unl_config'),
-    'file'             => 'includes/unl.admin.inc',
-    'weight'	       => 1,
+    'title' => 'UNL',
+    'description' => 'Configure UNL System Settings',
+    'access callback' => 'unl_user_is_administrator',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_config'),
+    'file' => 'includes/unl.admin.inc',
+    'weight' => 1,
   );
 
   if (module_exists('imce')) {
@@ -405,7 +429,7 @@ function unl_menu() {
     $items['admin/content/imce-file-browser'] = array(
       'title' => 'File browser',
       'page callback' => 'imce_user_page',
-      'page arguments' => array($user->uid),
+      'page arguments' => array($GLOBALS['user']->uid),
       'access callback' => '_unl_imce_file_browser_access',
       'file' => 'inc/imce.page.inc',
       'file path' => drupal_get_path('module', 'imce'),
@@ -417,7 +441,7 @@ function unl_menu() {
       'title' => 'File upload',
       'description' => 'Upload files from your computer, such as PDF documents, to the file system.',
       'page callback' => 'imce_user_page',
-      'page arguments' => array($user->uid),
+      'page arguments' => array($GLOBALS['user']->uid),
       'access callback' => '_unl_imce_file_browser_access',
       'file' => 'inc/imce.page.inc',
       'file path' => drupal_get_path('module', 'imce'),
