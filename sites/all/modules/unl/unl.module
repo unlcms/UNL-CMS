@@ -3,6 +3,18 @@
 require_once dirname(__FILE__) . '/includes/common.php';
 
 /**
+ * Implementation of hook_help().
+ */
+function unl_help($path, $arg) {
+  switch ($path) {
+    case 'admin/people/permissions':
+      return '<h1>Be careful! Permissions are shared globally between sites on UNLcms!</h1>';
+    case 'user/unl/technical_feedback':
+      return '<p>Consider visiting the Web Developer Network <a href="http://wdn.unl.edu/help/irc.shtml" target="_blank">chat room</a> as well.</p>';
+  }
+}
+
+/**
  * Implementation of hook_entity_info_alter().
  */
 function unl_entity_info_alter(&$entity_info) {
