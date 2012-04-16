@@ -123,7 +123,7 @@ function unl_page_alter(&$page) {
  */
 function unl_toolbar_add_links($toolbar) {
   $link['html'] = TRUE;
-  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); width:20px; height:20px; text-indent:-9999px; display:block;">Feedback</span>';
+  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); background-repeat: no-repeat; width:17px; height:14px; text-indent:-9999px; display:block; margin: 3px 0;">Feedback</span>';
   $link['title'] = t("!icon", array('!icon' => $icon));
   $link['attributes']['title'] = t('Submit technical feedback/issues/problems about the UNLcms system');
   $link['href'] = 'user/unl/technical_feedback';
