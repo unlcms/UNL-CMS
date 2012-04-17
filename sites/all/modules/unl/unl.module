@@ -436,7 +436,7 @@ function unl_menu() {
   $items['admin/config/system/unl'] = array(
     'title' => 'UNL',
     'description' => 'Configure UNL System Settings',
-    'access callback' => 'unl_user_is_administrator',
+    'access arguments' => array('administer site configuration'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('unl_config'),
     'file' => 'includes/unl.admin.inc',

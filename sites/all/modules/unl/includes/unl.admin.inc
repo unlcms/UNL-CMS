@@ -13,6 +13,7 @@ function unl_config($form, &$form_state) {
     '#title' => 'Use base tag',
     '#description' => 'Insert the HTML Base tag in the head of all pages on this site.',
     '#default_value' => variable_get('unl_use_base_tag', TRUE),
+    '#disabled' => !unl_user_is_administrator(),
   );
 
   $form['root']['unl_clean_file_url'] = array(
@@ -20,6 +21,7 @@ function unl_config($form, &$form_state) {
     '#title' => 'Clean file URLs',
     '#description' => 'Enable this once mod_rewrite has been set up to support clean file URLs.',
     '#default_value' => variable_get('unl_clean_file_url'),
+    '#disabled' => !unl_user_is_administrator(),
   );
 
   if (class_exists('Tidy')) {
