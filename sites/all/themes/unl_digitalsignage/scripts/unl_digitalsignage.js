@@ -43,10 +43,6 @@ UNL.digitalSignage = (function() {
 					time = 500000;
 			}
 			
-			// Video feed will be updated by calling updateFeed with an ended event on the last video
-			if (field != 'field_videosources') {
-				//setInterval(function(){UNL.digitalSignage.updateFeed(field);}, time);
-			}
 			return false;
 		},
 		
@@ -129,6 +125,9 @@ UNL.digitalSignage = (function() {
 						var callVideoUpdate = function() {
 							videoUpdate(videoCounter+1);
 						};
+
+						// Initialize the ThreeDots variable
+						var threedots_object = jQuery('.field-videosources-desc').ThreeDots();
 						
 						var videoUpdate = function() {
 							video.removeEventListener('ended', callVideoUpdate, false);
@@ -139,9 +138,10 @@ UNL.digitalSignage = (function() {
 							// Add the description
 							jQuery('.'+field+'-desc').html(videos[videoCounter].description);
 							// Truncate with ellipsis plugin if too long
+							jQuery('.field-videosources-desc').removeAttr('threedots');
 							jQuery('.field-videosources-desc').wrapInner('<span class="ellipsis_text" />');
-							jQuery('.field-videosources-desc').ThreeDots({ max_rows:14 });
-							// Add title of video, must be done after ellipsis call to avoid stripping h3 tag
+							threedots_object.ThreeDots.update({ max_rows:12 });
+							// Add title of video, must be done after ThreeDots ellipsis call to avoid stripping h3 tag
 							jQuery('.'+field+'-desc').prepend('<h3>'+videos[videoCounter].title+'</h3>');
 							
 							// Set up recursion
@@ -255,7 +255,13 @@ UNL.digitalSignage = (function() {
 		
 		rotateNews : function() {
 			var fi = '.field-name-field-newssources .field-items .field-item';
+			var counter = 0;
 			var rotate = function() {
+				if (counter > maxItems.news-1) {
+					clearInterval(newsInterval);
+					UNL.digitalSignage.updateFeed('field_newssources');
+					return false;
+				}
 				// Get the first story
 				var current = (jQuery(fi+'.show') ? jQuery(fi+'.show') : jQuery(fi+':first'));
 				// Get next story, when it reaches the end, rotate it back to the first story
@@ -268,11 +274,13 @@ UNL.digitalSignage = (function() {
 				
 				next.addClass('show');
 				current.removeClass('show');
+				
+				counter++;
 			};
 			
 			// Call the rotator function to run the slideshow, (2000 = change to next story after 2 seconds)
 			rotate();
-			setInterval(function(){rotate()}, 10000);
+			var newsInterval = setInterval(function(){rotate()}, 10000);
 		},
 		
 		rotateTweets : function(tweets) {
@@ -332,8 +340,16 @@ UNL.digitalSignage = (function() {
 					jQuery(element+' h3').css('background-image','url("'+qrlink+'")');
 					// Change the long story url to the newly created GoURL
 					jQuery(element+' .field-newssources-link').html(data);
+					// Update the displayed URL in case the full URL was added before this returned (happens with first story when feed is updated)
+					if (jQuery(element).hasClass('show')) {
+						jQuery('.field-name-field-newssources .field-display .link').html(data);
+					}
 				} else {
 					jQuery(element).html('<img src="'+qrlink+'" alt="QR Code" />');
+					// Update the displayed QR code in case the story displayed before this returned (happens with first story when feed is updated)
+					if (jQuery(element).parent().hasClass('show')) {
+						jQuery('.field-name-field-newssources .field-display .qrcode').html('<img src="'+qrlink+'" alt="QR Code" />');
+					}
 				}
 			});
 		},
