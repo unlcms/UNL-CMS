@@ -853,7 +853,11 @@ function unl_theme() {
   return array(
     'unl_site_details' => array(
       'variables' => array('site_path' => NULL, 'uri' => NULL, 'db_prefix' => NULL),
-      'file' => "unl_site_creation.php",
+      'file' => 'unl_site_creation.php',
+    ),
+    'unl_table' => array(
+      'render element' => 'form',
+      'file' => 'unl_site_creation.php',
     ),
   );
 }
