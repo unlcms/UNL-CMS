@@ -202,14 +202,14 @@ function unl_wdn_get_instance() {
     UNL_Templates::$options['version'] = UNL_Templates::VERSION3x1;
 
     // Set a default template
-    $template = 'Fixed';
+    $template = 'Local';
 
     if (false === theme_get_setting('toggle_main_menu')) {
       $template = 'Document';
     }
 
     if (theme_get_setting('unl_affiliate')) {
-      $template = 'Unlaffiliate';
+      $template = 'Unlaffiliate_local';
     }
 
     if (theme_get_setting('wdn_beta')) {
