@@ -1,0 +1,6 @@
+[submodule "vendor/WDN-TinyMCE"]
+	path = vendor/WDN-TinyMCE
+	url = git@github.unl.edu:iim/TinyMCE.git
+[submodule "vendor/NmcFramework"]
+	path = vendor/NmcFramework
+	url = git@github.unl.edu:UNL-Information-Services/NMC-PHP-Framework.git
