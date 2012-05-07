@@ -1,0 +1,7 @@
+.htaccess
+sites/*/
+!sites/all/
+!sites/default/
+sites/all/settings.php
+sites/default/files
+sites/default/settings.php
