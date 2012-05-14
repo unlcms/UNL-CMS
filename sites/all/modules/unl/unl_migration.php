@@ -762,7 +762,6 @@ class Unl_Migration_Tool
           $breadcrumbs = $breadcrumbs->getElementsByTagName('a');
           $breadcrumb = $breadcrumbs->item($breadcrumbs->length - 1);
           if ($breadcrumb) {
-              var_dump($breadcrumb);
             $breadcrumb = $breadcrumb->getAttribute('href');
             $breadcrumb = $this->_makeLinkAbsolute($breadcrumb, $path);
             if (substr($breadcrumb, 0, strlen($this->_baseUrl)) == $this->_baseUrl && $breadcrumb != $this->_baseUrl) {
