@@ -759,19 +759,22 @@ class Unl_Migration_Tool
         // Scan the page for the parent breadcrumb
         $breadcrumbs = $dom->getElementById('breadcrumbs');
         if ($breadcrumbs) {
-            $breadcrumbs = $breadcrumbs->getElementsByTagName('a');
-            $breadcrumb = $breadcrumbs->item($breadcrumbs->length - 1);
+          $breadcrumbs = $breadcrumbs->getElementsByTagName('a');
+          $breadcrumb = $breadcrumbs->item($breadcrumbs->length - 1);
+          if ($breadcrumb) {
+              var_dump($breadcrumb);
             $breadcrumb = $breadcrumb->getAttribute('href');
             $breadcrumb = $this->_makeLinkAbsolute($breadcrumb, $path);
             if (substr($breadcrumb, 0, strlen($this->_baseUrl)) == $this->_baseUrl && $breadcrumb != $this->_baseUrl) {
-                $pageParentLink = substr($breadcrumb, strlen($this->_baseUrl));
+              $pageParentLink = substr($breadcrumb, strlen($this->_baseUrl));
             } else {
-                $pageParentLink = '';
+              $pageParentLink = '';
             }
             if ($pageParentLink == $path) {
-                $pageParentLink = '';
+              $pageParentLink = '';
             }
             $this->_pageParentLinks[$path] = $pageParentLink;
+          }
         }
     }
     
