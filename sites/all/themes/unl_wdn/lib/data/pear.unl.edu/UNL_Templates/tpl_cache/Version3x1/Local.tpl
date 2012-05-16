@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!--[if IEMobile 7 ]><html class="ie iem7"><![endif]-->
-<!--[if lt IE 7 ]><html class="ie ie6" lang="en"><![endif]-->
-<!--[if IE 7 ]><html class="ie ie7" lang="en"><![endif]-->
-<!--[if IE 8 ]><html class="ie ie8" lang="en"><![endif]-->
-<!--[if (gte IE 9)|(gt IEMobile 7) ]><html class="ie" lang="en"><![endif]-->
-<!--[if !(IEMobile)|!(IE)]><!--><html lang="en"><!-- InstanceBegin template="/Templates/debug.dwt" codeOutsideHTMLIsLocked="false" --><!--<![endif]-->
+<!--[if IEMobile 7 ]><html class="ie iem7"><!-- InstanceBegin template="/Templates/local.dwt" codeOutsideHTMLIsLocked="false" --><![endif]-->
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"><!-- InstanceBegin template="/Templates/local.dwt" codeOutsideHTMLIsLocked="false" --><![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"><!-- InstanceBegin template="/Templates/local.dwt" codeOutsideHTMLIsLocked="false" --><![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"><!-- InstanceBegin template="/Templates/local.dwt" codeOutsideHTMLIsLocked="false" --><![endif]-->
+<!--[if (gte IE 9)|(gt IEMobile 7) ]><html class="ie" lang="en"><!-- InstanceBegin template="/Templates/local.dwt" codeOutsideHTMLIsLocked="false" --><![endif]-->
+<!--[if !(IEMobile) | !(IE)]><!--><html lang="en"><!-- InstanceBegin template="/Templates/local.dwt" codeOutsideHTMLIsLocked="false" --><!--<![endif]-->
 <head>
 <!--#include virtual="/wdn/templates_3.1/includes/metanfavico.html" -->
 <!--
@@ -19,9 +19,9 @@
     create a derivative work.
     This message may not be removed from any pages based on the UNL site template.
     
-    $Id$
+    $Id: local.dwt | d3b0e517ecafe3e1f81c45ddafa7a316adcc45dd | Fri Mar 9 11:41:56 2012 -0600 | Kevin Abel  $
 -->
-<!--#include virtual="/wdn/templates_3.1/includes/scriptsandstyles_debug.html" -->
+<!--#include virtual="/wdn/templates_3.1/includes/scriptsandstyles_local.html" -->
 <!-- InstanceBeginEditable name="doctitle" -->
 <title>Use a descriptive page title | Optional Site Title (use for context) | University of Nebraska&ndash;Lincoln</title>
 <!-- InstanceEndEditable -->
@@ -30,9 +30,9 @@
 <!-- Place optional header elements here -->
 
 <!-- InstanceEndEditable -->
-<!-- TemplateParam name="class" type="text" value="fixed debug" -->
+<!-- TemplateParam name="class" type="text" value="fixed" -->
 </head>
-<body class="@@(_document['class'])@@">
+<body class="@@(_document['class'])@@" data-version="3.1">
     <nav class="skipnav">
         <a class="skipnav" href="#maincontent">Skip Navigation</a>
     </nav>
