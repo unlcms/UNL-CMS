@@ -496,15 +496,13 @@ function unl_site_alias_list($form, &$form_state) {
 
   foreach ($sites as $site) {
     $options[$site->site_alias_id] = array(
-      'site_uri' => $site->uri,
-      'alias_uri' => $site->base_uri . $site->path,
-      'installed' => _unl_get_install_status_text($site->installed),
+      'site_uri' => array('#prefix' => $site->uri),
+      'alias_uri' => array('#prefix' => $site->base_uri . $site->path),
+      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
       'remove' => array(
-        'data' => array(
           '#type' => 'checkbox',
           '#parents' => array('aliases', $site->site_alias_id, 'remove'),
           '#default_value' => 0,
-        ),
       ),
     );
   }
@@ -514,9 +512,9 @@ function unl_site_alias_list($form, &$form_state) {
     '#title' => t('Existing Site Aliases'),
   );
   $form['unl_site_aliases']['alias_list'] = array(
-    '#theme' => 'table',
+    '#theme' => 'unl_table',
     '#header' => $header,
-    '#rows' => $options,
+    'rows' => $options,
     '#empty' => t('No aliases available.'),
   );
   $form['unl_site_aliases']['submit'] = array(
@@ -872,6 +870,22 @@ function _unl_get_user_audit_content($username) {
  */
 function unl_user_audit_submit($form, &$form_state) {
   $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Similar to the table theme, but the #rows attribute is populated by the contents
+ * of the 'rows' instead.  This allows form processing to be applied to table cells.
+ * @param array $variables
+ */
+function theme_unl_table($variables) {
+  $form = $variables['form'];
+  foreach (element_children($form['rows']) as $row_index) {
+    foreach (element_children($form['rows'][$row_index]) as $column_index) {
+      $form['#rows'][$row_index][$column_index] = drupal_render($form['rows'][$row_index][$column_index]);
+    }
+  }
+   
+  return theme('table', $form);
 }
 
 /**
