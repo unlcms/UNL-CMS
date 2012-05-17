@@ -376,3 +376,16 @@ function unl_update_7111() {
   db_add_unique_key('unl_sites', 'uri', array('uri'));
   db_add_unique_key('unl_sites', 'db_prefix', array('db_prefix'));
 }
+
+/**
+ * Add the hard-coded white list as the default whitelist.
+ */
+function unl_update_7112() {
+  $modules = array(
+    'aggregator', 'blog', 'book', 'comment', 'translation', 'dashboard', 'forum', 'help', 'list', 'locale', 'number', 'taxonomy', 'trigger', // Core on this line, Contrib below
+    'action_email_role', 'context', 'context_layouts', 'context_ui', 'features', 'unl_news', 'imce', 'imce_mkdir', 'imce_rename', 'menu_block', 'menu_block_export',
+    'form_builder', 'form_builder_webform_ui', 'webform', 'webform_alt_ui',
+    'workbench', 'workbench_access', 'workbench_files', 'workbench_media', 'workbench_moderation'
+  );
+  unl_shared_variable_set('unl_module_whitelist', $modules);
+}

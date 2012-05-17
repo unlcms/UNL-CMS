@@ -37,6 +37,29 @@ function unl_config($form, &$form_state) {
     '#type' => 'submit',
     '#value' => 'Update',
   );
+  
+  // Grab a list of available modules (active or not).
+  // Based on system_modules() from modules/system.admin.inc.
+  $files = system_rebuild_module_data();
+  require_once DRUPAL_ROOT . '/modules/system/system.admin.inc';
+  uasort($files, 'system_sort_modules_by_info_name');
+  
+  $modules = array();
+  foreach ($files as $filename => $file) {
+    if (!empty($file->info['hidden'])) {
+      continue;
+    }
+    $modules[$filename] = $file->info['name'];
+  }
+  
+  $form['root']['module_whitelist'] = array(
+    '#type' => 'select',
+    '#title' => 'Module White List (Global)',
+    '#multiple' => TRUE,
+    '#options' => $modules,
+    '#size' => 15,
+    '#default_value' => unl_shared_variable_get('unl_module_whitelist', array()),
+  );
 
   return $form;
 }
@@ -47,4 +70,5 @@ function unl_config_submit($form, &$form_state) {
   if (class_exists('Tidy')) {
     variable_set('unl_tidy', $form_state['values']['root']['unl_tidy']);
   }
+  variable_set('unl_module_whitelist', $form_state['values']['root']['module_whitelist']);
 }
