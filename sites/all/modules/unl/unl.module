@@ -620,10 +620,7 @@ function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $fo
  */
 function unl_form_system_modules_alter(&$form, &$form_state, $form_id) {
   // Whitelist of modules that Site Admin are allowed to turn on and off on admin/modules
-  $modules = array('aggregator', 'blog', 'book', 'comment', 'translation', 'dashboard', 'forum', 'help', 'list', 'locale', 'number', 'taxonomy', 'trigger', // Core on this line, Contrib below
-                   'action_email_role', 'context', 'context_layouts', 'context_ui', 'features', 'unl_news', 'imce', 'imce_mkdir', 'imce_rename', 'menu_block', 'menu_block_export',
-                   'form_builder', 'form_builder_webform_ui', 'webform', 'webform_alt_ui',
-                   'workbench', 'workbench_access', 'workbench_files', 'workbench_media', 'workbench_moderation');
+  $modules = unl_shared_variable_get('unl_module_whitelist', array());
 
   if (!unl_user_is_administrator() && isset($form['modules'])) {
     foreach ($form['modules'] as $category_name => $category) {
