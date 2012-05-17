@@ -387,5 +387,5 @@ function unl_update_7112() {
     'form_builder', 'form_builder_webform_ui', 'webform', 'webform_alt_ui',
     'workbench', 'workbench_access', 'workbench_files', 'workbench_media', 'workbench_moderation'
   );
-  unl_shared_variable_set('unl_module_whitelist', $modules);
+  variable_set('unl_module_whitelist', $modules);
 }
