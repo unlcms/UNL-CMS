@@ -1,4 +1,5 @@
 .htaccess
+sites/sites.php
 sites/*/
 !sites/all/
 !sites/default/
