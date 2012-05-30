@@ -92,9 +92,65 @@ function unl_site_create_submit($form, &$form_state) {
 }
 
 /**
+ * Updates the name and access fields in the default site unl_sites table.
+ */
+function unl_update_unl_sites() {
+  // Get all sites in production
+  $query = db_query('SELECT * FROM {unl_sites} WHERE installed=2');
+
+  // Get all custom made roles (roles other than authenticated, anonymous, administrator)
+  $roles = user_roles(TRUE);
+  unset($roles[DRUPAL_AUTHENTICATED_RID]);
+  unset($roles[variable_get('user_admin_role')]);
+
+  // Setup alternate db connection so we can query other sites' tables without a prefix being attached
+  $database_noprefix = array(
+    'database' => $GLOBALS['databases']['default']['default']['database'],
+    'username' => $GLOBALS['databases']['default']['default']['username'],
+    'password' => $GLOBALS['databases']['default']['default']['password'],
+    'host' => $GLOBALS['databases']['default']['default']['host'],
+    'port' => $GLOBALS['databases']['default']['default']['port'],
+    'driver' => $GLOBALS['databases']['default']['default']['driver'],
+  );
+  Database::addConnectionInfo('UNLNoPrefix', 'default', $database_noprefix);
+
+  // The master prefix that was specified during initial drupal install
+  $master_prefix = $GLOBALS['databases']['default']['default']['prefix'];
+
+  while ($row = $query->fetchAssoc()) {
+    // Switch to alt db connection
+    db_set_active('UNLNoPrefix');
+
+    // Get site name
+    $table = $row['db_prefix'].'_'.$master_prefix.'variable';
+    $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
+
+    // Get last access timestamp (by a non-administrator)
+    $table_users = $row['db_prefix'].'_'.$master_prefix.'users u';
+    $table_users_roles = $row['db_prefix'].'_'.$master_prefix.'users_roles r';
+    if (!empty($roles)) {
+      $access = db_query('SELECT u.access FROM '.$table_users.', '.$table_users_roles.' WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN (' . implode(',', array_keys($roles)) . ') ORDER BY u.access DESC')->fetchColumn();
+    } else {
+      $access = 0;
+    }
+
+    // Restore default db connection
+    db_set_active();
+
+    // Update unl_sites table of the default site
+    db_update('unl_sites')
+      ->fields(array('name' => @unserialize($name), 'access' => (int)$access))
+      ->condition('site_id', $row['site_id'])
+      ->execute();
+  }
+}
+
+/**
  * Site List appears on admin/sites/unl, admin/sites/unl/sites
  */
 function unl_site_list($form, &$form_state) {
+  unl_update_unl_sites();
+
   $header = array(
     'uri' => array(
       'data' => t('Default Path'),
