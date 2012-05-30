@@ -28,6 +28,7 @@ unl_remove_page_aliases();
 unl_add_sites();
 unl_add_aliases();
 unl_add_page_aliases();
+unl_update_unl_sites();
 
 function unl_add_sites() {
   $query = db_query('SELECT * FROM {unl_sites} WHERE installed=0');
@@ -215,7 +216,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   if ($site_mail) {
     $command .= " --site-mail=$site_mail";
   }
-  
+
   $result = shell_exec($command);
   echo $result;
   if (stripos($result, 'Drush command terminated abnormally due to an unrecoverable error.') !== FALSE) {
@@ -275,7 +276,7 @@ function unl_add_alias($site_uri, $base_uri, $path, $alias_id) {
   $alias_uri = $base_uri . $path;
   $real_config_dir = unl_get_sites_subdir($site_uri);
   $alias_config_dir = unl_get_sites_subdir($alias_uri, FALSE);
-  
+
   unl_add_alias_to_sites_php($alias_config_dir, $real_config_dir, $alias_id);
   if ($path) {
     unl_add_site_to_htaccess($alias_id, $path, TRUE);
@@ -289,7 +290,7 @@ function unl_remove_alias($base_uri, $path, $alias_id) {
    *       to the new method of creating aliases.
    */
   unlink(DRUPAL_ROOT . '/sites/' . $alias_config_dir);
-  
+
   unl_remove_alias_from_sites_php($alias_id);
   unl_remove_site_from_htaccess($alias_id, TRUE);
 }
@@ -318,7 +319,7 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
   }
 
   unl_require_writable(DRUPAL_ROOT . '/.htaccess');
-  
+
   $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $stub_pos = strpos($htaccess, $stub_token);
@@ -346,7 +347,7 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
   }
 
   unl_require_writable(DRUPAL_ROOT . '/.htaccess');
-  
+
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $site_start_token = "\n  # %UNL_START_{$site_or_alias}_ID_{$site_id}%";
   $site_end_token = "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n";
@@ -366,7 +367,7 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
 
 function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
   unl_require_writable(DRUPAL_ROOT . '/.htaccess');
-  
+
   $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $stub_pos = strpos($htaccess, $stub_token);
@@ -387,7 +388,7 @@ function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
 
 function unl_remove_page_alias_from_htaccess($site_id) {
   unl_require_writable(DRUPAL_ROOT . '/.htaccess');
-  
+
   $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
   $site_start_token = "\n  # %UNL_START_PAGE_ALIAS_ID_{$site_id}%";
   $site_end_token = "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n";
@@ -407,7 +408,7 @@ function unl_remove_page_alias_from_htaccess($site_id) {
 
 function unl_add_alias_to_sites_php($alias_site_dir, $real_site_dir, $alias_id) {
   unl_require_writable(DRUPAL_ROOT . '/sites/sites.php');
-  
+
   $stub_token = '# %UNL_CREATION_TOOL_STUB%';
   $sites_php = file_get_contents(DRUPAL_ROOT . '/sites/sites.php');
   $stub_pos = strpos($sites_php, $stub_token);
@@ -426,7 +427,7 @@ function unl_add_alias_to_sites_php($alias_site_dir, $real_site_dir, $alias_id) 
 
 function unl_remove_alias_from_sites_php($alias_id) {
   unl_require_writable(DRUPAL_ROOT . '/sites/sites.php');
-  
+
   $sites_php = file_get_contents(DRUPAL_ROOT . '/sites/sites.php');
   $site_start_token = "\n# %UNL_START_ALIAS_ID_{$alias_id}%";
   $site_end_token = "# %UNL_END_ALIAS_ID_{$alias_id}%\n";
@@ -447,5 +448,59 @@ function unl_remove_alias_from_sites_php($alias_id) {
 function unl_require_writable($path) {
   if (!is_writable($path)) {
     throw new Exception('The file "' . $path . '" needs to be writable and is not.');
+  }
+}
+
+/**
+ * Updates the name and access fields in the default site unl_sites table for display on admin/sites/unl
+ */
+function unl_update_unl_sites() {
+  // Get all sites in production
+  $query = db_query('SELECT * FROM {unl_sites} WHERE installed=2');
+
+  // Get all custom made roles (roles other than authenticated, anonymous, administrator)
+  $roles = user_roles(TRUE);
+  unset($roles[DRUPAL_AUTHENTICATED_RID]);
+  unset($roles[variable_get('user_admin_role')]);
+
+  // Setup alternate db connection so we can query other sites' tables without a prefix being attached
+  $database_noprefix = array(
+    'database' => $GLOBALS['databases']['default']['default']['database'],
+    'username' => $GLOBALS['databases']['default']['default']['username'],
+    'password' => $GLOBALS['databases']['default']['default']['password'],
+    'host' => $GLOBALS['databases']['default']['default']['host'],
+    'port' => $GLOBALS['databases']['default']['default']['port'],
+    'driver' => $GLOBALS['databases']['default']['default']['driver'],
+  );
+  Database::addConnectionInfo('UNLNoPrefix', 'default', $database_noprefix);
+
+  // The master prefix that was specified during initial drupal install
+  $master_prefix = $GLOBALS['databases']['default']['default']['prefix'];
+
+  while ($row = $query->fetchAssoc()) {
+    // Switch to alt db connection
+    db_set_active('UNLNoPrefix');
+
+    // Get site name
+    $table = $row['db_prefix'].'_'.$master_prefix.'variable';
+    $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
+
+    // Get last access timestamp (by a non-administrator)
+    $table_users = $row['db_prefix'].'_'.$master_prefix.'users u';
+    $table_users_roles = $row['db_prefix'].'_'.$master_prefix.'users_roles r';
+    if (!empty($roles)) {
+      $access = db_query('SELECT u.access FROM '.$table_users.', '.$table_users_roles.' WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN (' . implode(',', array_keys($roles)) . ') ORDER BY u.access DESC')->fetchColumn();
+    } else {
+      $access = 0;
+    }
+
+    // Restore default db connection
+    db_set_active();
+
+    // Update unl_sites table of the default site
+    db_update('unl_sites')
+      ->fields(array('name' => @unserialize($name), 'access' => (int)$access))
+      ->condition('site_id', $row['site_id'])
+      ->execute();
   }
 }

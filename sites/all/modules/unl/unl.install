@@ -5,7 +5,7 @@ function unl_schema() {
   $schema['unl_sites'] = array(
     'description' => 'Table of tables to be programatically created',
     'fields' => array(
-      'site_id'  => array(
+      'site_id' => array(
         'type'     => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -37,6 +37,20 @@ function unl_schema() {
         'length'   => 255,
         'not null' => TRUE,
         'default'  => '',
+      ),
+      'name' => array(
+        'description' => 'Site name entered on the site configuration page.',
+        'type'     => 'varchar',
+        'length'   => 255,
+        'not null' => TRUE,
+        'default'  => '',
+      ),
+      'access' => array(
+        'description' => 'Timestamp for previous time a non-admin role accessed the site.',
+        'type'     => 'int',
+        'length'   => 11,
+        'not null' => TRUE,
+        'default'  => 0,
       ),
       'site_admin' => array(
         'type'     => 'varchar',
@@ -153,7 +167,7 @@ function unl_update_7100() {
   $table = array(
     'description' => 'Table of tables to be programatically created',
     'fields' => array(
-      'site_id'  => array(
+      'site_id' => array(
         'type'     => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -364,8 +378,7 @@ function unl_update_7109() {
 /**
  * Updates unl sites and site aliases to have trailing slashes.
  */
-function unl_update_7110()
-{
+function unl_update_7110() {
   db_query("UPDATE {unl_sites} SET site_path = CONCAT(site_path, '/') WHERE SUBSTRING(site_path, -1) != '/'");
   db_query("UPDATE {unl_sites} SET uri = CONCAT(uri, '/') WHERE SUBSTRING(uri, -1) != '/'");
   db_query("UPDATE {unl_sites_aliases} SET base_uri = CONCAT(base_uri, '/') WHERE SUBSTRING(base_uri, -1) != '/'");
@@ -388,4 +401,24 @@ function unl_update_7112() {
     'workbench', 'workbench_access', 'workbench_files', 'workbench_media', 'workbench_moderation'
   );
   variable_set('unl_module_whitelist', $modules);
+}
+
+/**
+ * Add name and access fields to unl_sites table to hold site name and last access timestamp.
+ */
+function unl_update_7113() {
+  db_add_field('unl_sites', 'name', array(
+    'description' => 'Site name entered on the site configuration page.',
+    'type'     => 'varchar',
+    'length'   => 255,
+    'not null' => TRUE,
+    'default'  => '',
+  ));
+  db_add_field('unl_sites', 'access', array(
+    'description' => 'Timestamp for previous time a non-admin role accessed the site.',
+    'type'     => 'int',
+    'length'   => 11,
+    'not null' => TRUE,
+    'default'  => 0,
+  ));
 }
