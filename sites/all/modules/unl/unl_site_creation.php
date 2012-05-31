@@ -92,12 +92,10 @@ function unl_site_create_submit($form, &$form_state) {
 }
 
 /**
- * Updates the name and access fields in the default site unl_sites table.
+ * Adds virtual name and access fields to a result set from the unl_sites table.
+ * @param $sites The result of db_select()->fetchAll() on the unl_sites table.
  */
-function unl_update_unl_sites() {
-  // Get all sites in production
-  $query = db_query('SELECT * FROM {unl_sites} WHERE installed=2');
-
+function unl_add_extra_site_info($sites) {
   // Get all custom made roles (roles other than authenticated, anonymous, administrator)
   $roles = user_roles(TRUE);
   unset($roles[DRUPAL_AUTHENTICATED_RID]);
@@ -117,17 +115,22 @@ function unl_update_unl_sites() {
   // The master prefix that was specified during initial drupal install
   $master_prefix = $GLOBALS['databases']['default']['default']['prefix'];
 
-  while ($row = $query->fetchAssoc()) {
+  foreach ($sites as $row) {
+    // Skip over any sites that aren't properly installed.
+    if ($row->installed != 2) {
+      continue;
+    }
+    
     // Switch to alt db connection
     db_set_active('UNLNoPrefix');
 
     // Get site name
-    $table = $row['db_prefix'].'_'.$master_prefix.'variable';
+    $table = $row->db_prefix.'_'.$master_prefix.'variable';
     $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
 
     // Get last access timestamp (by a non-administrator)
-    $table_users = $row['db_prefix'].'_'.$master_prefix.'users u';
-    $table_users_roles = $row['db_prefix'].'_'.$master_prefix.'users_roles r';
+    $table_users = $row->db_prefix.'_'.$master_prefix.'users u';
+    $table_users_roles = $row->db_prefix.'_'.$master_prefix.'users_roles r';
     if (!empty($roles)) {
       $access = db_query('SELECT u.access FROM '.$table_users.', '.$table_users_roles.' WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN (' . implode(',', array_keys($roles)) . ') ORDER BY u.access DESC')->fetchColumn();
     } else {
@@ -138,10 +141,8 @@ function unl_update_unl_sites() {
     db_set_active();
 
     // Update unl_sites table of the default site
-    db_update('unl_sites')
-      ->fields(array('name' => @unserialize($name), 'access' => (int)$access))
-      ->condition('site_id', $row['site_id'])
-      ->execute();
+    $row->name = @unserialize($name);
+    $row->access = (int)$access;
   }
 }
 
@@ -149,8 +150,6 @@ function unl_update_unl_sites() {
  * Site List appears on admin/sites/unl, admin/sites/unl/sites
  */
 function unl_site_list($form, &$form_state) {
-  unl_update_unl_sites();
-
   $header = array(
     'uri' => array(
       'data' => t('Default Path'),
@@ -177,6 +176,8 @@ function unl_site_list($form, &$form_state) {
     ->orderByHeader($header)
     ->execute()
     ->fetchAll();
+  
+  unl_add_extra_site_info($sites);
 
   $options = array();
   foreach ($sites as $site) {

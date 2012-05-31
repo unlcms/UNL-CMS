@@ -402,23 +402,3 @@ function unl_update_7112() {
   );
   variable_set('unl_module_whitelist', $modules);
 }
-
-/**
- * Add name and access fields to unl_sites table to hold site name and last access timestamp.
- */
-function unl_update_7113() {
-  db_add_field('unl_sites', 'name', array(
-    'description' => 'Site name entered on the site configuration page.',
-    'type'     => 'varchar',
-    'length'   => 255,
-    'not null' => TRUE,
-    'default'  => '',
-  ));
-  db_add_field('unl_sites', 'access', array(
-    'description' => 'Timestamp for previous time a non-admin role accessed the site.',
-    'type'     => 'int',
-    'length'   => 11,
-    'not null' => TRUE,
-    'default'  => 0,
-  ));
-}
