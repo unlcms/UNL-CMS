@@ -3,7 +3,7 @@ UNL.digitalSignage = (function() {
 	var height = 1080;
 	var maxItems = {
 		'news' : 5,
-		'videos' : 10
+		'videos' : 100
 	};
 
 	return {
