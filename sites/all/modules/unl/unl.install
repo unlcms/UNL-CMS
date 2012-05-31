@@ -38,20 +38,6 @@ function unl_schema() {
         'not null' => TRUE,
         'default'  => '',
       ),
-      'name' => array(
-        'description' => 'Site name entered on the site configuration page.',
-        'type'     => 'varchar',
-        'length'   => 255,
-        'not null' => TRUE,
-        'default'  => '',
-      ),
-      'access' => array(
-        'description' => 'Timestamp for previous time a non-admin role accessed the site.',
-        'type'     => 'int',
-        'length'   => 11,
-        'not null' => TRUE,
-        'default'  => 0,
-      ),
       'site_admin' => array(
         'type'     => 'varchar',
         'length'   => 255,
