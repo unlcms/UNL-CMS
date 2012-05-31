@@ -171,7 +171,7 @@ function unl_site_list($form, &$form_state) {
   );
 
   $sites = db_select('unl_sites', 's')
-    ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri', 'name', 'access'))
+    ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
     ->extend('TableSort')
     ->orderByHeader($header)
     ->execute()
