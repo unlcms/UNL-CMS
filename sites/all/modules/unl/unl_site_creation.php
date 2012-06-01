@@ -120,7 +120,7 @@ function unl_add_extra_site_info($sites) {
     if ($row->installed != 2) {
       continue;
     }
-    
+
     // Switch to alt db connection
     db_set_active('UNLNoPrefix');
 
@@ -147,44 +147,43 @@ function unl_add_extra_site_info($sites) {
 }
 
 /**
- * Site List appears on admin/sites/unl, admin/sites/unl/sites
+ *  Existing sites list table appears on admin/sites/unl, admin/sites/unl/sites
  */
 function unl_site_list($form, &$form_state) {
   $header = array(
     'uri' => array(
       'data' => t('Default Path'),
-      'field' => 's.uri',
+      'field' => 'uri',
     ),
     'name' => array(
       'data' => t('Site Name'),
-      'field' => 's.name',
+      'field' => 'name',
     ),
     'access' =>  array(
       'data' => t('Last Access'),
-      'field' => 's.access',
+      'field' => 'access',
     ),
     'installed' => array(
       'data' => t('Status'),
-      'field' => 's.installed',
+      'field' => 'installed',
     ),
     'operations' => t('Operations'),
   );
 
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
-    ->extend('TableSort')
-    ->orderByHeader($header)
     ->execute()
     ->fetchAll();
-  
+
+  // In addition to the above db query, add site name and last access timestamp
   unl_add_extra_site_info($sites);
 
-  $options = array();
+  $rows = array();
   foreach ($sites as $site) {
-    $options[$site->site_id] = array(
+    $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
-      'site_name' => $site->name,
-      'last_access' => (isset($site->access) && $site->access > 0) ? t('@time ago', array('@time' => format_interval(REQUEST_TIME - $site->access))) : t('never'),
+      'name' => $site->name,
+      'access' => $site->access,
       'installed' => _unl_get_install_status_text($site->installed),
       'operations' => array(
         'data' => array(
@@ -202,6 +201,16 @@ function unl_site_list($form, &$form_state) {
     );
   }
 
+  // Sort the table data accordingly with a custom sort function
+  $order = tablesort_get_order($header);
+  $sort = tablesort_get_sort($header);
+  $rows = unl_sites_sort($rows, $order, $sort);
+
+  // Now that the access timestamp has been used to sort, convert it to something readable
+  foreach ($rows as $key=>$row) {
+    $rows[$key]['access'] = (isset($row['access']) && $row['access'] > 0) ? t('@time ago', array('@time' => format_interval(REQUEST_TIME - $row['access']))) : t('never');
+  }
+
   $form['unl_sites'] = array(
     '#type' => 'fieldset',
     '#title' => t('Existing Sites: ') . count($sites),
@@ -209,11 +218,81 @@ function unl_site_list($form, &$form_state) {
   $form['unl_sites']['site_list'] = array(
     '#theme' => 'table',
     '#header' => $header,
-    '#rows' => $options,
-    '#empty' => t('No sites available.'),
+    '#rows' => $rows,
+    '#empty' => t('No sites have been created.'),
   );
 
   return $form;
+}
+
+/**
+ * Custom sort the Existing Sites table.
+ */
+function unl_sites_sort($rows, $order, $sort) {
+  switch ($order['sql']) {
+    case 'uri':
+      if ($sort == 'asc') {
+        usort($rows, "unl_uri_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_uri_cmp_desc");
+      }
+      break;
+    case 'name':
+      if ($sort == 'asc') {
+        usort($rows, "unl_name_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_name_cmp_desc");
+      }
+      break;
+    case 'access':
+      if ($sort == 'asc') {
+        usort($rows, "unl_access_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_access_cmp_desc");
+      }
+      break;
+    case 'installed':
+      if ($sort == 'asc') {
+        usort($rows, "unl_installed_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_installed_cmp_desc");
+      }
+      break;
+  }
+
+  return $rows;
+}
+
+/**
+ * Comparison functions used in unl_sites_sort().
+ */
+function unl_uri_cmp_asc($a, $b) {
+  return strcmp($a['uri'], $b['uri']);
+}
+function unl_uri_cmp_desc($a, $b) {
+  return strcmp($b['uri'], $a['uri']);
+}
+function unl_name_cmp_asc($a, $b) {
+  return strcmp($a['name'], $b['name']);
+}
+function unl_name_cmp_desc($a, $b) {
+  return strcmp($b['name'], $a['name']);
+}
+function unl_access_cmp_asc($a, $b) {
+  return strcmp($b['access'], $a['access']);
+}
+function unl_access_cmp_desc($a, $b) {
+  return strcmp($a['access'], $b['access']);
+}
+function unl_installed_cmp_asc($a, $b) {
+  return strcmp($a['installed'], $b['installed']);
+}
+function unl_installed_cmp_desc($a, $b) {
+  return strcmp($b['installed'], $a['installed']);
 }
 
 /**
