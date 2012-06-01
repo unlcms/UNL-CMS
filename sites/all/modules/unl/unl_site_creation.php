@@ -182,8 +182,8 @@ function unl_site_list($form, &$form_state) {
   foreach ($sites as $site) {
     $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
-      'name' => $site->name,
-      'access' => $site->access,
+      'name' => (isset($site->name) ? $site->name : ''),
+      'access' => (isset($site->access) ? $site->access : 0),
       'installed' => _unl_get_install_status_text($site->installed),
       'operations' => array(
         'data' => array(
