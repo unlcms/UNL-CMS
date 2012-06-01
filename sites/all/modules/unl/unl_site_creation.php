@@ -182,8 +182,8 @@ function unl_site_list($form, &$form_state) {
   foreach ($sites as $site) {
     $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
-      'name' => $site->name,
-      'access' => $site->access,
+      'name' => (isset($site->name) ? $site->name : ''),
+      'access' => (isset($site->access) ? $site->access : 0),
       'installed' => _unl_get_install_status_text($site->installed),
       'operations' => array(
         'data' => array(
@@ -271,16 +271,16 @@ function unl_sites_sort($rows, $order, $sort) {
  * Comparison functions used in unl_sites_sort().
  */
 function unl_uri_cmp_asc($a, $b) {
-  return strcmp($a['uri'], $b['uri']);
+  return strcasecmp($a['uri'], $b['uri']);
 }
 function unl_uri_cmp_desc($a, $b) {
-  return strcmp($b['uri'], $a['uri']);
+  return strcasecmp($b['uri'], $a['uri']);
 }
 function unl_name_cmp_asc($a, $b) {
-  return strcmp($a['name'], $b['name']);
+  return strcasecmp($a['name'], $b['name']);
 }
 function unl_name_cmp_desc($a, $b) {
-  return strcmp($b['name'], $a['name']);
+  return strcasecmp($b['name'], $a['name']);
 }
 function unl_access_cmp_asc($a, $b) {
   return strcmp($b['access'], $a['access']);
