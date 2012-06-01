@@ -271,16 +271,16 @@ function unl_sites_sort($rows, $order, $sort) {
  * Comparison functions used in unl_sites_sort().
  */
 function unl_uri_cmp_asc($a, $b) {
-  return strcmp($a['uri'], $b['uri']);
+  return strcasecmp($a['uri'], $b['uri']);
 }
 function unl_uri_cmp_desc($a, $b) {
-  return strcmp($b['uri'], $a['uri']);
+  return strcasecmp($b['uri'], $a['uri']);
 }
 function unl_name_cmp_asc($a, $b) {
-  return strcmp($a['name'], $b['name']);
+  return strcasecmp($a['name'], $b['name']);
 }
 function unl_name_cmp_desc($a, $b) {
-  return strcmp($b['name'], $a['name']);
+  return strcasecmp($b['name'], $a['name']);
 }
 function unl_access_cmp_asc($a, $b) {
   return strcmp($b['access'], $a['access']);
