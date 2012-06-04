@@ -472,7 +472,7 @@ function unl_menu() {
 
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
-      'title'            => 'UNL Site Creation Tool',
+      'title'            => 'UNL Site Management',
       'description'      => 'Create and manage UNL Drupal sites and aliases.',
       'access arguments' => array('unl site creation'),
       'page callback'    => 'unl_sites_page',
@@ -488,11 +488,11 @@ function unl_menu() {
     );
 
     $items['admin/sites/unl/%/delete'] = array(
-      'title' => 'Delete site',
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('unl_site_delete_confirm', 3),
+      'title'            => 'Delete site',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('unl_site_delete_confirm', 3),
       'access arguments' => array('unl site creation'),
-      'file' => 'unl_site_creation.php',
+      'file'             => 'unl_site_creation.php',
     );
 
     $items['admin/sites/unl/aliases'] = array(
