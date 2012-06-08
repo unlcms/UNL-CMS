@@ -312,16 +312,29 @@ function theme_unl_site_details($variables) {
  * Form to confirm UNL site delete operation.
  */
 function unl_site_delete_confirm($form, &$form_state, $site_id) {
-  $form['site_id'] = array(
-    '#type' => 'value',
-    '#value' => $site_id,
-  );
-
   $site_path = db_select('unl_sites', 's')
     ->fields('s', array('site_path'))
     ->condition('site_id', $site_id)
     ->execute()
     ->fetchCol();
+
+  $form['site_id'] = array(
+    '#type' => 'value',
+    '#value' => $site_id,
+  );
+  $form['confirm_delete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Confirm'),
+    '#description' => t('I am sure I want to permanently delete %site_path ?', array('%site_path' => $site_path[0])),
+    '#required' => TRUE,
+  );
+  $form['confirm_again'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Confirm Again'),
+    '#description' => t('Yes, I am absolutely sure I want to permanently delete this site.'),
+    '#required' => TRUE,
+  );
+
 
   return confirm_form($form, t('Are you sure you want to delete the site %site_path ?', array('%site_path' => $site_path[0])), 'admin/sites/unl', t('This action cannot be undone. DOUBLE CHECK WHICH CMS INSTANCE YOU ARE ON!'), t('Delete Site'));
 }
