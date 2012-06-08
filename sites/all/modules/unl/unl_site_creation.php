@@ -335,7 +335,6 @@ function unl_site_delete_confirm($form, &$form_state, $site_id) {
     '#required' => TRUE,
   );
 
-
   return confirm_form($form, t('Are you sure you want to delete the site %site_path ?', array('%site_path' => $site_path[0])), 'admin/sites/unl', t('This action cannot be undone. DOUBLE CHECK WHICH CMS INSTANCE YOU ARE ON!'), t('Delete Site'));
 }
 
@@ -362,7 +361,7 @@ function unl_site_remove($site_id) {
     ->fetchCol();
 
   if (!isset($uri[0])) {
-    form_set_error(NULL, t('Unfortunately, the site could not be removed.'));
+    form_set_error(NULL, t('The site could not be removed.'));
     return;
   }
   $uri = $uri[0];
@@ -409,7 +408,6 @@ function unl_site_updates($form, &$form_state) {
     '#type' => 'submit',
     '#value' => t('Run Drush'),
   );
-
   return $form;
 }
 
@@ -508,14 +506,14 @@ function unl_aliases_page($site_id = null) {
  */
 function unl_site_alias_create($form, &$form_state, $site_id = null) {
   $query = db_select('unl_sites', 's')
-    ->fields('s', array('site_id', 'uri'))
+    ->fields('s', array('site_id', 'site_path'))
     ->orderBy('uri');
   if (isset($site_id)) {
     $query->condition('site_id', $site_id);
   }
   $sites = $query->execute()->fetchAll();
   foreach ($sites as $site) {
-    $site_list[$site->site_id] = $site->uri;
+    $site_list[$site->site_id] = $site->site_path;
   }
 
   $form['root'] = array(
@@ -587,7 +585,7 @@ function unl_site_alias_create_submit($form, &$form_state) {
 function unl_site_alias_list($form, &$form_state, $site_id = null) {
   $header = array(
     'site_uri' => array(
-      'data' => t('Site URI'),
+      'data' => t('Aliased Site Path'),
       'field' => 's.uri',
     ),
     'alias_uri' => array(
@@ -598,7 +596,7 @@ function unl_site_alias_list($form, &$form_state, $site_id = null) {
       'data' => t('Status'),
       'field' => 'a.installed',
     ),
-    'remove' => t('Remove (can not undo!)'),
+    'remove' => t('Remove'),
   );
 
   $query = db_select('unl_sites_aliases', 'a')
@@ -608,14 +606,14 @@ function unl_site_alias_list($form, &$form_state, $site_id = null) {
   if (isset($site_id)) {
     $query->condition('s.site_id', $site_id);
   }
-  $query->fields('s', array('uri'));
+  $query->fields('s', array('site_path'));
   $query->fields('a', array('site_alias_id', 'base_uri', 'path', 'installed'));
   $sites = $query->execute()->fetchAll();
 
   foreach ($sites as $site) {
     $options[$site->site_alias_id] = array(
-      'site_uri' => array('#prefix' => $site->uri),
-      'alias_uri' => array('#prefix' => $site->base_uri . $site->path),
+      'site_uri' => array('#prefix' => $site->site_path),
+      'alias_uri' => array('#prefix' => $site->base_uri . '<span style="color:#777">' . $site->path . '</span>'),
       'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
       'remove' => array(
         '#type' => 'checkbox',
