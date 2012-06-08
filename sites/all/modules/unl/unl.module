@@ -473,20 +473,26 @@ function unl_menu() {
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
       'title'            => 'UNL Site Management',
-      'description'      => 'Create and manage UNL Drupal sites and aliases.',
+      'description'      => 'Create and manage sites and aliases.',
       'access arguments' => array('unl site creation'),
       'page callback'    => 'unl_sites_page',
-      'type'             => MENU_LOCAL_TASK,
+      'weight'           => -20,
       'file'             => 'unl_site_creation.php',
     );
-
     $items['admin/sites/unl/sites'] = array(
       'title'       => 'Sites',
       'description' => 'Create and manage UNL Drupal sites.',
       'type'        => MENU_DEFAULT_LOCAL_TASK,
       'weight'      => -8,
     );
-
+    $items['admin/sites/unl/sites/add'] = array(
+      'title'            => 'Create site',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('unl_site_create', 'add'),
+      'access arguments' => array('unl site creation'),
+      'type'             => MENU_LOCAL_ACTION,
+      'file'             => 'unl_site_creation.php',
+    );
     $items['admin/sites/unl/%/delete'] = array(
       'title'            => 'Delete site',
       'page callback'    => 'drupal_get_form',
@@ -494,7 +500,6 @@ function unl_menu() {
       'access arguments' => array('unl site creation'),
       'file'             => 'unl_site_creation.php',
     );
-
     $items['admin/sites/unl/aliases'] = array(
       'title'            => 'Aliases',
       'description'      => 'Manage aliases of UNL Drupal sites.',
@@ -503,7 +508,14 @@ function unl_menu() {
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
-
+    $items['admin/sites/unl/%/aliases'] = array(
+      'title'            => 'Aliases',
+      'description'      => 'Manage aliases of specified site.',
+      'access arguments' => array('unl site creation'),
+      'page callback'    => 'unl_aliases_page',
+      'page arguments'   => array(3),
+      'file'             => 'unl_site_creation.php',
+    );
     $items['admin/sites/unl/user-audit'] = array(
       'title'            => 'User Audit',
       'description'      => 'Find out which sites users have access to.',
@@ -513,7 +525,6 @@ function unl_menu() {
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
-
     $items['admin/sites/unl/wdn_registry'] = array(
       'title'            => 'WDN Registry',
       'description'      => 'Settings for the connection to the WDN Registry.',
@@ -523,14 +534,14 @@ function unl_menu() {
       'type'             => MENU_LOCAL_TASK,
       'file'             => 'unl_site_creation.php',
     );
-
     $items['admin/sites/unl/feed'] = array(
+      'title'           => 'Site Feed',
+      'description'     => 'JSON output of all UNL sites.',
       'page callback'   => 'unl_sites_feed',
       'access callback' => TRUE,
       'file'            => 'unl_site_creation.php',
     );
   }
-
   return $items;
 }
 
