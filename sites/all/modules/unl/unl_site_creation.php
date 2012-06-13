@@ -36,7 +36,7 @@ function unl_site_create($form, &$form_state) {
   );
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Create Site'),
+    '#value' => t('Create site'),
   );
   return $form;
 }
@@ -124,15 +124,15 @@ function unl_site_create_submit($form, &$form_state) {
 function unl_site_list($form, &$form_state) {
   $header = array(
     'uri' => array(
-      'data' => t('Default Path'),
+      'data' => t('Default path'),
       'field' => 'uri',
     ),
     'name' => array(
-      'data' => t('Site Name'),
+      'data' => t('Site name'),
       'field' => 'name',
     ),
     'access' =>  array(
-      'data' => t('Last Access'),
+      'data' => t('Last access'),
       'field' => 'access',
     ),
     'installed' => array(
@@ -448,7 +448,7 @@ function unl_site_delete_confirm($form, &$form_state, $site_id) {
   );
   $form['confirm_again'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Confirm Again'),
+    '#title' => t('Confirm again'),
     '#description' => t('Yes, I am absolutely sure I want to permanently delete this site.'),
     '#required' => TRUE,
   );
@@ -524,7 +524,7 @@ function unl_site_updates($form, &$form_state) {
   );
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Run Drush'),
+    '#value' => t('Run drush'),
   );
   return $form;
 }
@@ -569,24 +569,24 @@ function unl_site_updates_step($site_uri, &$context) {
 function unl_site_email_settings($form, &$form_state) {
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Email Alert Settings'),
+    '#title' => t('Email alert settings'),
     '#description' => t('When a new site is created, who should be emailed?'),
   );
   $form['root']['unl_site_created_email_address'] = array(
     '#type' => 'textfield',
-    '#title' => t('Address for Notification'),
+    '#title' => t('Address for notification'),
     '#description' => t('When a site has been been created and migrated, send an email to this address.'),
     '#default_value' => variable_get('unl_site_created_email_address'),
   );
   $form['root']['unl_site_created_alert_admins'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Email Site Admins'),
-    '#description' => t('When a site has been created and migrated, send an email to the Site Admins.'),
+    '#title' => t('Email site admins'),
+    '#description' => t('When a site has been created and migrated, send an email to the users with Site Admin role.'),
     '#default_value' => variable_get('unl_site_created_alert_admins'),
   );
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Update Settings'),
+    '#value' => t('Update settings'),
   );
   return $form;
 }
@@ -636,11 +636,11 @@ function unl_site_alias_create($form, &$form_state, $site_id = null) {
 
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Create New Site Alias'),
+    '#title' => t('Create new site alias'),
   );
   $form['root']['site'] = array(
     '#type' => 'select',
-    '#title' => t('Aliased Site Path'),
+    '#title' => t('Aliased site path'),
     '#description' => t('The site the alias will point to.'),
     '#options' => $site_list,
     '#required' => TRUE,
@@ -649,7 +649,7 @@ function unl_site_alias_create($form, &$form_state, $site_id = null) {
   );
   $form['root']['base_uri'] = array(
     '#type' => 'textfield',
-    '#title' => t('Alias Base URL'),
+    '#title' => t('Alias base URL'),
     '#description' => t('The base URL for the new alias. This should resolve to the directory containing the .htaccess file.'),
     '#default_value' => url('', array('https' => FALSE)),
     '#required' => TRUE,
@@ -661,7 +661,7 @@ function unl_site_alias_create($form, &$form_state, $site_id = null) {
   );
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Create Alias'),
+    '#value' => t('Create alias'),
   );
   return $form;
 }
@@ -703,7 +703,7 @@ function unl_site_alias_create_submit($form, &$form_state) {
 function unl_site_alias_list($form, &$form_state, $site_id = null) {
   $header = array(
     'site_uri' => array(
-      'data' => t('Aliased Site Path'),
+      'data' => t('Aliased site path'),
       'field' => 's.uri',
     ),
     'alias_uri' => array(
@@ -743,7 +743,7 @@ function unl_site_alias_list($form, &$form_state, $site_id = null) {
 
   $form['unl_site_aliases'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Existing Site Aliases'),
+    '#title' => t('Existing site aliases'),
   );
   $form['unl_site_aliases']['alias_list'] = array(
     '#theme' => 'unl_table',
@@ -753,7 +753,7 @@ function unl_site_alias_list($form, &$form_state, $site_id = null) {
   );
   $form['unl_site_aliases']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Delete Selected Aliases'),
+    '#value' => t('Delete selected aliases'),
   );
 
   return $form;
@@ -803,7 +803,7 @@ function unl_site_alias_list_submit($form, &$form_state) {
 function unl_page_alias_create($form, &$form_state) {
   $form['root'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Create New Page Alias',
+    '#title' => 'Create new page alias',
   );
   $form['root']['from_uri'] = array(
     '#type' => 'textfield',
@@ -821,7 +821,7 @@ function unl_page_alias_create($form, &$form_state) {
   );
   $form['root']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Create Alias'),
+    '#value' => t('Create alias'),
   );
   return $form;
 }
@@ -879,7 +879,7 @@ function unl_page_alias_list($form, &$form_state) {
 
   $form['unl_page_aliases'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Existing Page Aliases'),
+    '#title' => t('Existing page aliases'),
   );
   $form['unl_page_aliases']['alias_list'] = array(
     '#theme' => 'table',
@@ -889,7 +889,7 @@ function unl_page_alias_list($form, &$form_state) {
   );
   $form['unl_page_aliases']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Delete Selected Aliases'),
+    '#value' => t('Delete selected aliases'),
   );
   return $form;
 }
@@ -950,14 +950,14 @@ function unl_wdn_registry($form, &$form_state) {
   );
   $form['frontier_username'] = array(
     '#type' => 'textfield',
-    '#title' => t('Frontier Username'),
+    '#title' => t('Frontier username'),
     '#description' => t('Username to connect to frontier FTP.'),
     '#default_value' => variable_get('unl_frontier_username'),
     '#required' => TRUE,
   );
   $form['frontier_password'] = array(
     '#type' => 'password',
-    '#title' => t('Frontier Password'),
+    '#title' => t('Frontier password'),
     '#description' => t('Password to connect to frontier FTP.'),
     '#required' => TRUE,
   );
