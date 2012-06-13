@@ -81,7 +81,13 @@ function unl_validate_path($form, $form_state) {
     ->execute()
     ->fetch();
 
-  if ($site) {
+  $alias = db_select('unl_sites_aliases', 'a')
+    ->fields('a', array('path'))
+    ->condition('path', $site_path)
+    ->execute()
+    ->fetch();
+
+  if ($site || $alias) {
     form_set_error('site_path', t('Path already in use.'));
   }
 
