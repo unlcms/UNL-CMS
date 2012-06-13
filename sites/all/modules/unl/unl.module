@@ -470,6 +470,7 @@ function unl_menu() {
     );
   }
 
+  // UNL Site Management section
   if (conf_path() == 'sites/default') {
     $items['admin/sites/unl'] = array(
       'title'            => 'UNL Site Management',
@@ -491,6 +492,13 @@ function unl_menu() {
       'page arguments'   => array('unl_site_create', 'add'),
       'access arguments' => array('unl site creation'),
       'type'             => MENU_LOCAL_ACTION,
+      'file'             => 'unl_site_creation.php',
+    );
+    $items['admin/sites/unl/%/edit'] = array(
+      'title'            => 'Edit site',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('unl_site_edit', 3),
+      'access arguments' => array('unl site creation'),
       'file'             => 'unl_site_creation.php',
     );
     $items['admin/sites/unl/%/delete'] = array(

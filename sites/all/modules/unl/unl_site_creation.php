@@ -45,6 +45,13 @@ function unl_site_create($form, &$form_state) {
  * Form Validate: Create New Site.
  */
 function unl_site_create_validate($form, &$form_state) {
+  $form_state['values']['site_path'] = unl_validate_path($form, $form_state);
+}
+
+/**
+ * Custom function to validate and correct a path submitted in a form.
+ */
+function unl_validate_path($form, $form_state) {
   $site_path = trim($form_state['values']['site_path']);
 
   if (substr($site_path, 0, 1) == '/') {
@@ -56,11 +63,21 @@ function unl_site_create_validate($form, &$form_state) {
 
   $site_path_parts = explode('/', $site_path);
   $first_directory = array_shift($site_path_parts);
-  if (in_array($first_directory, array('includes', 'misc', 'modules', 'profiles', 'scripts', 'sites', 'themes'))) {
+  if (in_array($first_directory, array('core', 'includes', 'misc', 'modules', 'profiles', 'scripts', 'sites', 'themes', 'vendor'))) {
     form_set_error('site_path', t('Drupal site paths must not start with the @first_directory directory.', array('@first_directory' => $first_directory)));
   }
 
-  $form_state['values']['site_path'] = $site_path;
+  $site = db_select('unl_sites', 's')
+    ->fields('s', array('site_path'))
+    ->condition('site_path', $site_path)
+    ->execute()
+    ->fetch();
+
+  if ($site) {
+    form_set_error('site_path', t('Path already in use.'));
+  }
+
+  return $site_path;
 }
 
 /**
@@ -140,6 +157,10 @@ function unl_site_list($form, &$form_state) {
               'title' => t('edit aliases'),
               'href' => 'admin/sites/unl/' . $site->site_id . '/aliases',
             ),
+            'edit' => array(
+              'title' => t('edit site'),
+              'href' => 'admin/sites/unl/' . $site->site_id . '/edit',
+            ),
             'delete' => array(
               'title' => t('delete site'),
               'href' => 'admin/sites/unl/' . $site->site_id . '/delete',
@@ -198,7 +219,7 @@ function unl_add_extra_site_info($sites) {
 
   foreach ($sites as $row) {
     // Skip over any sites that aren't properly installed.
-    if ($row->installed != 2) {
+    if (!in_array($row->installed, array(2, 6))) {
       continue;
     }
 
@@ -306,6 +327,95 @@ function theme_unl_site_details($variables) {
   $output = '<div><a href="' . $variables['uri'] . '">' . $variables['site_path'] . '</a></div>';
   $output .= '<div class="db_prefix" style="display:none;">Database Prefix: ' . $variables['db_prefix'] . '_' . $GLOBALS['databases']['default']['default']['prefix'] . '</div>';
   return $output;
+}
+
+/**
+ * Form to edit site details stored in unl_sites.
+ */
+function unl_site_edit($form, &$form_state, $site_id) {
+  $site = db_select('unl_sites', 's')
+    ->fields('s', array('site_path', 'uri', 'installed', 'clean_url', 'db_prefix'))
+    ->condition('site_id', $site_id)
+    ->execute()
+    ->fetch();
+
+  $form['site_id'] = array(
+    '#title' => 'site_id',
+    '#type' => 'textfield',
+    '#default_value' => $site_id,
+    '#disabled' => TRUE,
+  );
+  $form['site_path'] = array(
+    '#title' => 'site_path',
+    '#type' => 'textfield',
+    '#default_value' => $site->site_path,
+    '#required' => $site->installed != 6,
+    '#disabled' => $site->installed == 6,
+  );
+  $form['uri'] = array(
+    '#title' => 'uri',
+    '#type' => 'textfield',
+    '#default_value' => $site->uri,
+    '#disabled' => TRUE,
+  );
+  $form['db_prefix'] = array(
+    '#title' => 'db_prefix',
+    '#type' => 'textfield',
+    '#default_value' => $site->db_prefix,
+    '#disabled' => TRUE,
+  );
+  $form['installed'] = array(
+    '#title' => 'installed',
+    '#type' => 'textfield',
+    '#default_value' => $site->installed,
+    '#disabled' => TRUE,
+  );
+  $form['clean_url'] = array(
+    '#title' => 'clean_url',
+    '#type' => 'textfield',
+    '#default_value' => $site->clean_url,
+    '#disabled' => TRUE,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#default_value' => t('Submit'),
+    '#access' => $site->installed != 6,
+  );
+  return $form;
+}
+
+/**
+ * Form validate handler for unl_site_edit().
+ */
+function unl_site_edit_validate($form, &$form_state) {
+  $form_state['values']['site_path'] = unl_validate_path($form, $form_state);
+}
+
+/**
+ * Form submit handler for unl_site_edit().
+ */
+function unl_site_edit_submit($form, &$form_state) {
+  $site_id = $form_state['values']['site_id'];
+  $old_site_path = $form['site_path']['#default_value'];
+  $site_path = $form_state['values']['site_path'];
+
+  // Flag row in unl_sites table for update
+  db_update('unl_sites')
+    ->fields(array('installed' => 6))
+    ->condition('site_id', $site_id)
+    ->execute();
+
+  // Add an alias to the new site_path. This new path and the current default path in unl_sites will be exchanged with one another in cron.
+  db_insert('unl_sites_aliases')->fields(array(
+    'site_id' => $site_id,
+    'base_uri' => url('', array('absolute' => TRUE, 'https' => FALSE)),
+    'path' => $site_path,
+    'installed' => 6,
+  ))->execute();
+
+  drupal_set_message("{$old_site_path} has been scheduled to change to {$site_path}");
+  $form_state['redirect'] = 'admin/sites/unl';
+  return;
 }
 
 /**
@@ -522,7 +632,7 @@ function unl_site_alias_create($form, &$form_state, $site_id = null) {
   );
   $form['root']['site'] = array(
     '#type' => 'select',
-    '#title' => t('Aliased Site'),
+    '#title' => t('Aliased Site Path'),
     '#description' => t('The site the alias will point to.'),
     '#options' => $site_list,
     '#required' => TRUE,
@@ -876,6 +986,12 @@ function _unl_get_install_status_text($id) {
       break;
     case 4:
       $installed = t('Currently being removed.');
+      break;
+    case 5:
+      $installed = t('Failure/Unknown.');
+      break;
+    case 6:
+      $installed = t('Scheduled for site update.');
       break;
     default:
       $installed = t('Unknown');
