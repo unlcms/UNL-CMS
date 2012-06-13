@@ -737,6 +737,7 @@ function unl_site_alias_list($form, &$form_state, $site_id = null) {
         '#type' => 'checkbox',
         '#parents' => array('aliases', $site->site_alias_id, 'remove'),
         '#default_value' => 0,
+        '#disabled' => $site->installed == 6,
       ),
     );
   }
