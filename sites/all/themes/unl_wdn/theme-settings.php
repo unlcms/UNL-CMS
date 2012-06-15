@@ -144,17 +144,18 @@ function unl_wdn_form_system_theme_settings_submit($form, &$form_state) {
   // Delete existing files, then save them.
   foreach (array('css', 'js') as $type) {
     _unl_wdn_delete_file('custom.' . $type);
-    _unl_wdn_save_file($form_state['values']['unl_' . $type], 'custom.' . $type);
+    if (drupal_strlen(trim($form_state['values']['unl_' . $type])) !== 0) {
+      _unl_wdn_save_file($form_state['values']['unl_' . $type], 'custom.' . $type);
+      drupal_set_message('File saved to custom/custom.' . $type . ' and will be automatically included on all pages.');
+    }
   }
+  drupal_flush_all_caches();
 }
 
 /**
  * Saves CSS & Javascript in the file system (but only if not empty).
  */
 function _unl_wdn_save_file($data, $filename) {
-  if (!drupal_strlen(trim($data))) {
-    return FALSE;
-  }
   $path = variable_get('unl_custom_code_path', 'public://custom');
   file_prepare_directory($path, FILE_CREATE_DIRECTORY);
   return file_unmanaged_save_data($data, $path . '/' . $filename, FILE_EXISTS_REPLACE);
