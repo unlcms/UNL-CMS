@@ -198,7 +198,18 @@ function form_builder_preview($f, &$form_state, $form, $form_type, $form_id) {
   $form['#attached']['library'][] = array('system', 'form');
   $form['#attached']['js'][] = 'misc/form.js';
   $form['#attached']['js'][] = 'misc/collapse.js';
-  $form['#attached']['js'][] = array('data' => array('formBuilder' => array('emptyFieldset' => theme('form_builder_empty_fieldset'))), 'type' => 'setting');
+
+  $form['#attached']['js'][] = array('data' => array('machineName' => array()), 'type' => 'setting');
+  $form['#attached']['js'][] = 'misc/machine-name.js';
+
+  $settings = array(
+    'emptyForm' => theme('form_builder_empty_form'),
+    'emptyFieldset' => theme('form_builder_empty_fieldset'),
+    'noFieldSelected' => theme('form_builder_no_field_selected'),
+    'fieldLoading' => theme('form_builder_field_loading'),
+  );
+
+  $form['#attached']['js'][] = array('data' => array('formBuilder' => $settings), 'type' => 'setting');
 
   $form['#attached']['css'][] = drupal_get_path('module', 'form_builder') .'/form_builder.css';
   $form['#attached']['css'][] = drupal_get_path('module', 'options_element') .'/options_element.css';
@@ -300,8 +311,8 @@ function theme_form_builder_wrapper($variables) {
   $element = $variables['element'];
 
   $output = '';
-  $output .= '<div id="form-builder-wrapper" class="' . ($element['#block_enabled'] ? 'no-palette' : 'with-palette') . '">';
-  if (!$element['#block_enabled']) {
+  $output .= '<div id="form-builder-wrapper" class="' . ($element['#show_palette'] ? 'with-palette' : 'no-palette') . '">';
+  if ($element['#show_palette']) {
     $output .= '<div id="form-builder-fields">';
     $output .= '<div class="block">';
     $output .= form_builder_field_palette();
@@ -311,7 +322,7 @@ function theme_form_builder_wrapper($variables) {
 
   $output .= '<div id="form-builder">';
   if (isset($element['#title'])) {
-    $output .= '<h3>' . $element['#title'] . '</h3>';
+    $output .= '<h3 class="form-builder-title">' . $element['#title'] . '</h3>';
   }
 
   // Add the contents of the form and close the wrappers.
@@ -360,12 +371,51 @@ function theme_form_builder_element_wrapper($variables) {
 }
 
 /**
+ * Placeholder for an entirely empty form before any fields are added.
+ */
+function theme_form_builder_empty_form($variables) {
+  $output = '';
+  $output .= '<div class="form-builder-empty-form form-builder-empty-placeholder">';
+  $output .= '<span>' . t('Drag a field from the palette to add it to this form.') . '</span>';
+  $output .= '</div>';
+  return $output;
+}
+
+/**
  * Placeholder for empty fieldsets during drag and drop.
  */
 function theme_form_builder_empty_fieldset($variables) {
   $output = '';
   $output .= '<div class="form-builder-wrapper form-builder-empty-placeholder">';
-  $output .= '<span>' . t('This fieldset is empty. Drag a form element into it.') .'</span>';
+  $output .= '<span>' . t('This fieldset is empty. Drag a form element into it.') . '</span>';
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Message shown in custom field configure forms when no field is selected.
+ *
+ * Note that this message is not displayed using the default field presentation.
+ * Modules or themes can set a custom field configuration form location by
+ * specifying a Drupal.settings.formBuilder.configureFormSelector value.
+ */
+function theme_form_builder_no_field_selected($variables) {
+  $output = '';
+  $output .= '<div class="field-settings-message">';
+  $output .= t('No field selected');
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Message shown in custom field configure forms when a field is loading.
+ *
+ * @see theme_form_builder_no_field_selected().
+ */
+function theme_form_builder_field_loading($variables) {
+  $output = '';
+  $output .= '<div class="field-settings-message">';
+  $output .= t('Loading...');
   $output .= '</div>';
   return $output;
 }
@@ -448,7 +498,7 @@ function form_builder_pre_render($element) {
  * Pre-render function to alter the form being edited by Form builder.
  *
  * This function modifies the form element itself and sets a #title to label the
- * form preview and an #block_enabled property to indicate to the theme wrapper
+ * form preview and an #show_palette property to indicate to the theme wrapper
  * whether the field palette should be added.
  */
 function form_builder_pre_render_form($form) {
@@ -467,9 +517,16 @@ function form_builder_pre_render_form($form) {
 
   // Check if the Form Builder block is enabled.
   // Otherwise make our own columns.
-  $form['#block_enabled'] = db_query("SELECT status FROM {block} WHERE module = 'form_builder' AND theme = :theme", array(':theme' => $theme))->fetchField();
+  if (!isset($form['#show_palette'])) {
+    if (module_exists('block')) {
+      $form['#show_palette'] = !db_query("SELECT status FROM {block} WHERE module = 'form_builder' AND theme = :theme", array(':theme' => $theme))->fetchField();
+    }
+    else {
+      $form['#show_palette'] = TRUE;
+    }
+  }
 
-  if ($form['#block_enabled'] && ($theme == 'garland' || $theme == 'minnelli')) {
+  if ($theme == 'garland' || $theme == 'minnelli') {
     $form['#attached']['css'][] = drupal_get_path('module', 'form_builder') . '/form_builder.garland.css';
   }
 
@@ -545,7 +602,7 @@ function form_builder_field_configure($form, $form_state, $form_type, $form_id, 
       $function = $property_settings['form'];
       // Set a default value on the property to avoid notices.
       $element['#' . $property] = isset($element['#' . $property]) ? $element['#' . $property] : NULL;
-      $form = array_merge($form, $function($form_state, $form_type, $element));
+      $form = array_merge($form, $function($form_state, $form_type, $element, $property));
     }
   }
 
@@ -568,7 +625,7 @@ function form_builder_field_configure($form, $form_state, $form_type, $form_id, 
  * Pre-render function for the field configuration form.
  */
 function form_builder_field_configure_pre_render($form) {
-  $groups = module_invoke_all('form_builder_property_groups', $form['#form_type']);
+  $groups = module_invoke_all('form_builder_property_groups', $form['#_edit_form_type']);
 
   foreach (element_children($form) as $key) {
     // If no group is specified, put the element into the default group.
@@ -628,7 +685,7 @@ function form_builder_field_configure_submit(&$form, &$form_state) {
   foreach ($form_state['values'] as $property => $value) {
     if (in_array($property, $saveable)) {
       // Remove empty properties entirely.
-      if ($value == '') {
+      if ($value === '' || is_null($value)) {
         unset($element['#'. $property]);
       }
       else {

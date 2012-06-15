@@ -1,7 +1,15 @@
+/**
+ * @file
+ * Styles required for the basic functionality of the Form Builder interface.
+ */
 
 #form-builder-wrapper {
   overflow: hidden;
   padding: 10px 0;
+}
+
+#form-builder-wrapper h3.form-builder-title {
+  margin: 0;
 }
 
 #form-builder-wrapper.with-palette #form-builder-fields {
@@ -197,6 +205,8 @@ span.form-builder-links a.progress:hover {
 #form-builder ul.form-builder-tabs {
   margin: 0;
   padding: 0;
+  float: left; /* RTL */
+  position: relative;
 }
 
 #form-builder ul.form-builder-tabs li {
@@ -219,8 +229,26 @@ span.form-builder-links a.progress:hover {
   margin-left: -1px;
   border-left: 1px solid #999;
   border-top: 1px dashed #999;
-  border-bottom: 1px solid #ebf4fa;
-  background: #ebf4fa;
+  border-bottom: 1px solid #ffffff;
+  background: #ffffff;
+}
+
+#form-builder fieldset.form-builder-group {
+  float: left; /* RTL */
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-top: 1px solid #CCC;
+}
+
+#form-builder fieldset.form-builder-group .fieldset-wrapper {
+  padding: 10px 10px 0;
+}
+
+#form-builder fieldset.form-builder-group .form-item {
+  padding: 0;
+  margin: 0 0 10px;
 }
 
 #form-builder-field-configure .form-submit {
@@ -233,12 +261,6 @@ span.form-builder-links a.progress:hover {
   font-size: 80%;
   float: right;
   padding: 6px 10px;
-}
-
-#form-builder fieldset.form-builder-group {
-  margin: 0;
-  border: none;
-  border-top: 1px solid #CCC;
 }
 
 /* Weight and parents form */
@@ -291,9 +313,6 @@ div.form-builder-new-field span.progress {
   color: black;
 }
 
-#form-builder-field-palette ul li.field-body_field {
-  background-image: url(images/fields/body.png);
-}
 #form-builder-field-palette ul li.field-checkboxes {
   background-image: url(images/fields/checkboxes.png);
 }
@@ -306,8 +325,7 @@ div.form-builder-new-field span.progress {
 #form-builder-field-palette ul li.field-fieldset {
   background-image: url(images/fields/fieldset.png);
 }
-#form-builder-field-palette ul li.field-file,
-#form-builder-field-palette ul li.field-upload_settings {
+#form-builder-field-palette ul li.field-file {
   background-image: url(images/fields/file.png);
 }
 #form-builder-field-palette ul li.field-grid {
@@ -322,23 +340,14 @@ div.form-builder-new-field span.progress {
 #form-builder-field-palette ul li.field-markup {
   background-image: url(images/fields/markup.png);
 }
-#form-builder-field-palette ul li.field-menu_settings {
-  background-image: url(images/fields/menu.png);
-}
 #form-builder-field-palette ul li.field-number {
   background-image: url(images/fields/number.png);
 }
 #form-builder-field-palette ul li.field-pagebreak {
   background-image: url(images/fields/pagebreak.png);
 }
-#form-builder-field-palette ul li.field-path_settings {
-  background-image: url(images/fields/path.png);
-}
 #form-builder-field-palette ul li.field-radios {
   background-image: url(images/fields/radios.png);
-}
-#form-builder-field-palette ul li.field-revision_information {
-  background-image: url(images/fields/revisions.png);
 }
 #form-builder-field-palette ul li.field-select {
   background-image: url(images/fields/select.png);
@@ -346,16 +355,9 @@ div.form-builder-new-field span.progress {
 #form-builder-field-palette ul li.field-time {
   background-image: url(images/fields/time.png);
 }
-#form-builder-field-palette ul li.field-taxonomy {
-  background-image: url(images/fields/taxonomy.png);
-}
 #form-builder-field-palette ul li.field-textarea {
   background-image: url(images/fields/textarea.png);
 }
 #form-builder-field-palette ul li.field-textfield {
   background-image: url(images/fields/textfield.png);
 }
-#form-builder-field-palette ul li.field-title {
-  background-image: url(images/fields/title.png);
-}
-
