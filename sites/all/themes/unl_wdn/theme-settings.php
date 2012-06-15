@@ -103,7 +103,7 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
     '#title' => t('Advanced settings'),
     'sidebar_first_width' => array(
       '#type' => 'textfield',
-      '#title' => t('Sidebar first Grid Size'),
+      '#title' => t('Sidebar first grid size'),
       '#default_value' => theme_get_setting('sidebar_first_width'),
       '#description' => t('Enter only the numeral, for grid4 just enter 4.'),
     ),
