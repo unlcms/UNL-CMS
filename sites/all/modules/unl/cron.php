@@ -7,6 +7,7 @@
  *  3: 'Scheduled for removal.'
  *  4: 'Currently being removed.'
  *  5: 'Failure/Unknown.'
+ *  6: 'Scheduled for site update.'
  */
 
 if (PHP_SAPI != 'cli') {
@@ -22,6 +23,7 @@ require_once dirname(__FILE__) . '/includes/common.php';
 drupal_override_server_variables();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
+unl_edit_sites();
 unl_remove_aliases();
 unl_remove_sites();
 unl_remove_page_aliases();
@@ -70,6 +72,70 @@ function unl_remove_sites() {
       db_update('unl_sites')
         ->fields(array('installed' => 5))
         ->condition('site_id', $row['site_id'])
+        ->execute();
+    }
+  }
+}
+
+function unl_edit_sites() {
+  $query = db_query('SELECT * FROM {unl_sites} WHERE installed=6');
+  while ($row = $query->fetchAssoc()) {
+    try {
+      $alias = db_select('unl_sites_aliases')
+        ->fields('unl_sites_aliases', array('site_alias_id', 'site_id', 'base_uri', 'path'))
+        ->condition('installed', 6)
+        ->condition('site_id', $row['site_id'])
+        ->execute()
+        ->fetchAssoc();
+
+      $new_uri = $alias['base_uri'] . $alias['path'];
+      db_update('unl_sites')
+        ->fields(array('site_path' => $alias['path'], 'uri' => $new_uri))
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+
+      db_update('unl_sites_aliases')
+        ->fields(array('path' => $row['site_path']))
+        ->condition('site_id', $row['site_id'])
+        ->condition('installed', 6)
+        ->execute();
+
+      unl_remove_site_from_htaccess($row['site_id'], FALSE);
+      unl_add_site_to_htaccess($row['site_id'], $alias['path'], FALSE);
+
+      // Original sites subdir
+      $sites_subdir = unl_get_sites_subdir($row['uri']);
+      $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
+      $sites_subdir = realpath($sites_subdir);
+      // New sites subdir
+      $new_sites_subdir = unl_get_sites_subdir(strtolower($new_uri));
+      $new_sites_subdir = DRUPAL_ROOT . '/sites/' . $new_sites_subdir;
+      // mv original to new
+      shell_exec('chmod -R u+w ' . escapeshellarg($sites_subdir));
+      $command = 'mv ' . escapeshellarg($sites_subdir) . ' ' . escapeshellarg($new_sites_subdir);
+      shell_exec($command);
+
+      unl_add_alias($new_uri, $alias['base_uri'], $row['site_path'], $alias['site_alias_id']);
+
+      db_update('unl_sites')
+        ->fields(array('installed' => 2))
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+      db_update('unl_sites_aliases')
+        ->fields(array('installed' => 2))
+        ->condition('site_id', $row['site_id'])
+        ->condition('installed', 6)
+        ->execute();
+    } catch (Exception $e) {
+      watchdog('unl cron', $e->getMessage(), array(), WATCHDOG_ERROR);
+      db_update('unl_sites')
+        ->fields(array('installed' => 5))
+        ->condition('site_id', $row['site_id'])
+        ->execute();
+      db_update('unl_sites_aliases')
+        ->fields(array('installed' => 5))
+        ->condition('site_id', $row['site_id'])
+        ->condition('installed', 6)
         ->execute();
     }
   }
@@ -209,7 +275,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   $sites_subdir = escapeshellarg($sites_subdir);
   $db_url = escapeshellarg($db_url);
   $db_prefix = escapeshellarg($db_prefix);
-  $site_mail    = escapeshellarg(variable_get('site_mail'));
+  $site_mail = escapeshellarg(variable_get('site_mail'));
 
   $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url 2>&1";
   if ($site_mail) {
