@@ -1,0 +1,29 @@
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+	<title>{#codeprotect_dlg.title}</title>
+	<script type="text/javascript" src="../../tinymce/jscripts/tiny_mce/tiny_mce_popup.js"></script>
+	<script type="text/javascript" src="js/functions.js"></script>
+	<base target="_self" />
+</head>
+<body onresize="resizeInputs();" style="display:none; overflow:hidden;">
+	<form name="source" onsubmit="saveContent();return false;" action="#">
+		<div style="float: left" class="title">{#codeprotect_dlg.title}</div>
+
+		<br style="clear: both" />
+
+		<textarea name="alt" id="codeprotectAlt" rows="15" cols="100" style="width: 100%; height: 100%; font-family: 'Courier New',Courier,monospace; font-size: 12px;" dir="ltr" wrap="off" class="mceFocus"></textarea>
+
+		<div class="mceActionPanel">
+			<div style="float: left">
+				<input type="submit" name="insert" value="{#insert}" id="insert" />
+			</div>
+
+			<div style="float: right">
+				<input type="button" name="cancel" value="{#cancel}" onclick="tinyMCEPopup.close();" id="cancel" />
+			</div>
+		</div>
+	</form>
+</body>
+</html>
