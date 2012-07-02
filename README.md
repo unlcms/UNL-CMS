@@ -103,10 +103,6 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
-  *  form_builder/modules/webform/form_builder_webform.module
-
-     - In form_builder_webform_components_page() load jquery.ui.datepicker.min.js so the Date element will work on a new form that does not have ui.datepicker loaded. See http://drupal.org/node/1307838
-
   *  Add Trigger Support Patch to Workbench Moderation
 
      - Trigger support not in 7.x-1.1 - See http://drupal.org/files/issues/trigger_support_for_wb_moderation-1079134-23.patch from http://drupal.org/node/1079134

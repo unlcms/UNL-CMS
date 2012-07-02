@@ -67,6 +67,18 @@ function hook_form_builder_types() {
 }
 
 /**
+ * Modify fields and properties that are declared by other modules.
+ *
+ * @see hook_form_builder_types()
+ */
+function hook_form_builder_types_alter(&$types) {
+  if (!empty($types['webform']['textfield']['properties'])) {
+    // Add our new placeholder properties for the webform textfield component.
+    $types['webform']['textfield']['properties'][] = 'placeholder';
+  }
+}
+
+/**
  * Defined globally available Form API properties.
  *
  * The hook_form_builder_properties() hook allows modules to define properties
