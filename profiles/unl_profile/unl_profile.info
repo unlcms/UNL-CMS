@@ -27,8 +27,11 @@ dependencies[] = pathauto
 dependencies[] = pagepreview
 dependencies[] = wysiwyg
 dependencies[] = imce
+dependencies[] = imce_mkdir
+dependencies[] = imce_rename
 dependencies[] = imce_wysiwyg
 dependencies[] = unl
+dependencies[] = unl_varnish
 
 files[] = unl.profile
 
