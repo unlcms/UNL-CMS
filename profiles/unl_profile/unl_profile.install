@@ -205,7 +205,6 @@ EOF;
     // Only enable CAS on subsites until we get some sort of bootstrap setup.
     module_enable(array('unl_cas'));
 
-
     // Update the db config to include shared tables.
     $parent_site_database_settings = unl_profile_get_default_site_db_settings();
 
@@ -342,6 +341,7 @@ EOF;
   }
   krsort($roles);
   variable_set('imce_roles_profiles', $roles);
+  variable_set('imce_settings_replace', "1");
   // End IMCE setup.
 
 
