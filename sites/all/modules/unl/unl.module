@@ -284,6 +284,11 @@ function unl_wysiwyg_editor_settings_alter(&$settings, $context) {
         }
       }
 
+      // Don't show the button for the codeprotect plugin if the php filter module is disabled
+      if (!module_exists('php')) {
+        unset($enabled_buttons[array_search('codeprotect', $enabled_buttons)]);
+      }
+
       // Define the final button settings
       $default_buttons_list = preg_split('/,PAGEBREAK,/', implode(',', $default_buttons));
       $settings['theme_advanced_buttons1'] = $default_buttons_list[0];
