@@ -1,4 +1,4 @@
-## Get Started
+## Get Started.
 
 In this example the web root is /Library/WebServer/Documents and Apache runs as _www - modify the instructions below according to your setup
 
