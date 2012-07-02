@@ -67,12 +67,14 @@ function unl_validate_path($form, $form_state) {
     form_set_error('site_path', t('Drupal site paths must not start with the @first_directory directory.', array('@first_directory' => $first_directory)));
   }
 
-  if (substr(strtolower($form['site_path']['#default_value']), 0, strlen($site_path)) ==  strtolower($site_path)) {
-    form_set_error('site_path', t('New path cannot be parent directory of current path.'));
-  }
+  if ($form['#form_id'] != 'unl_site_create') {
+    if (substr(strtolower($form['site_path']['#default_value']), 0, strlen($site_path)) ==  strtolower($site_path)) {
+      form_set_error('site_path', t('New path cannot be parent directory of current path.'));
+    }
 
-  if (substr(strtolower($site_path), 0, strlen($form['site_path']['#default_value'])) ==  strtolower($form['site_path']['#default_value'])) {
-    form_set_error('site_path', t('New path cannot be sub directory of current path.'));
+    if (substr(strtolower($site_path), 0, strlen($form['site_path']['#default_value'])) ==  strtolower($form['site_path']['#default_value'])) {
+      form_set_error('site_path', t('New path cannot be sub directory of current path.'));
+    }
   }
 
   $site = db_select('unl_sites', 's')
