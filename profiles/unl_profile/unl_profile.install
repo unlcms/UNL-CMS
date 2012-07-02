@@ -69,12 +69,14 @@ function unl_profile_install() {
   unl_profile_add_shortcut('Contact Us',       'admin/structure/block/manage/block/101/configure');
   unl_profile_add_shortcut('Navigation Links', 'admin/structure/menu/manage/main-menu');
 
+  module_disable(array('comment'));
   module_disable(array('overlay'));
+  module_disable(array('rdf'));
 
   // Pathauto setup
   variable_set('pathauto_node_pattern', '[node:title]');
   variable_set('pathauto_update_action', 1);
-  
+
   // Add custom blocks for extra sections of the UNL Template (ie: Contact Us, Footer)
   $block_contents = array();
   $block_contents['contactinfo'] = <<<EOF
@@ -199,11 +201,11 @@ EOF;
 
   // Update the settings file to use shared database tables (unless this is the default site)
   if (conf_path() != 'sites/default') {
-    
+
     // Only enable CAS on subsites until we get some sort of bootstrap setup.
     module_enable(array('unl_cas'));
-    
-    
+
+
     // Update the db config to include shared tables.
     $parent_site_database_settings = unl_profile_get_default_site_db_settings();
 
@@ -247,7 +249,7 @@ EOF;
     $writable = drupal_verify_install_file($settings_file, FILE_READABLE|FILE_WRITABLE);
 
     drupal_rewrite_settings($settings);
-    
+
     // Make drupal realize that we've changed some db settings.
     Database::addConnectionInfo('new_site', 'default', $settings['databases']['value']['default']['default']);
     db_set_active('new_site');
@@ -320,7 +322,7 @@ EOF;
   chmod($files_dir, 0777);
   chmod($files_dir . '/styles', 0777);
 
-  
+
   // IMCE setup (currently cannot be shared between sites)
   // We set every role but the anonymous role to use the "User-1" profile.
   $roles = array();
@@ -341,8 +343,8 @@ EOF;
   krsort($roles);
   variable_set('imce_roles_profiles', $roles);
   // End IMCE setup.
-  
-  
+
+
   return;
 }
 
