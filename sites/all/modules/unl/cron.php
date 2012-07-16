@@ -275,12 +275,9 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   $sites_subdir = escapeshellarg($sites_subdir);
   $db_url = escapeshellarg($db_url);
   $db_prefix = escapeshellarg($db_prefix);
-  $site_mail = escapeshellarg(variable_get('site_mail'));
+  $site_mail = escapeshellarg('noreply@unl.edu');
 
-  $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url 2>&1";
-  if ($site_mail) {
-    $command .= " --site-mail=$site_mail";
-  }
+  $command = "$php_path sites/all/modules/drush/drush.php -y --uri=$uri site-install unl_profile --sites-subdir=$sites_subdir --db-url=$db_url --db-prefix=$db_prefix --clean-url=$clean_url 2>&1 --site-mail=$site_mail";
 
   $result = shell_exec($command);
   echo $result;
