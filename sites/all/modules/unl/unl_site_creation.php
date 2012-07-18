@@ -873,15 +873,13 @@ function unl_page_alias_list($form, &$form_state) {
 
   foreach ($sites as $site) {
     $options[$site->page_alias_id] = array(
-      'site_uri' => $site->from_uri,
-      'alias_uri' => $site->to_uri,
-      'installed' => _unl_get_install_status_text($site->installed),
+      'site_uri' => array('#prefix' => $site->from_uri),
+      'alias_uri' => array('#prefix' => $site->to_uri),
+      'installed' => array('#prefix' => _unl_get_install_status_text($site->installed)),
       'remove' => array(
-        'data' => array(
-          '#type' => 'checkbox',
-          '#parents' => array('aliases', $site->page_alias_id, 'remove'),
-          '#default_value' => 0,
-        ),
+        '#type' => 'checkbox',
+        '#parents' => array('aliases', $site->page_alias_id, 'remove'),
+        '#default_value' => 0,
       ),
     );
   }
@@ -891,7 +889,7 @@ function unl_page_alias_list($form, &$form_state) {
     '#title' => t('Existing page aliases'),
   );
   $form['unl_page_aliases']['alias_list'] = array(
-    '#theme' => 'table',
+    '#theme' => 'unl_table',
     '#header' => $header,
     'rows' => (!empty($options) ? $options : FALSE),
     '#empty' => t('No aliases available.'),
