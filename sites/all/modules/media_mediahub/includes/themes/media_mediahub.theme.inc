@@ -37,10 +37,14 @@ function media_mediahub_preprocess_media_mediahub_video(&$variables) {
 
   $json = json_decode(@file_get_contents('http://mediahub.unl.edu/media/'.$variables['video_id'].'?format=json'));
   if (isset($json->url)) {
+    // Use the real file path if we are able to.
     $url = $json->url;
+    // Type is left blank because the type sent by mediahub is incompatible with mediaelement.
+    // For instance a m4v file returns 'video/quicktime' which does not work.
     $type = '';
   }
   else {
+    // If getting the json failed use the /file path which needs a type set.
     $url = $variables['url'];
     $type = 'type="video/mp4"';
   }
