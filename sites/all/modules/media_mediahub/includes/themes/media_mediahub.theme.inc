@@ -54,9 +54,17 @@ function media_mediahub_preprocess_media_mediahub_video(&$variables) {
     $track = "\n" . '        <track src="http://mediahub.unl.edu/media/' . $variables['video_id'] . '/vtt" kind="subtitles" srclang="en" />' . "\n    ";
   }
 
+  if (isset($json->type) && strrpos($json->type, 'audio') === 0) {
+    $variables['output'] = <<<OUTPUT
+<audio class="wdn_player" preload="auto" src="{$url}"></audio>
+
+OUTPUT;
+  }
+  else {
   $variables['output'] = <<<OUTPUT
 <video class="wdn_player" style="height:100%;width:100%" src="{$url}" {$type} controls poster="http://mediahub.unl.edu/media/{$variables['video_id']}/image">{$track}</video>
     <script>WDN.initializePlugin('mediaelement_wdn');</script>
 
 OUTPUT;
+  }
 }
