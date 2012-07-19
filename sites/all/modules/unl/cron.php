@@ -115,6 +115,19 @@ function unl_edit_sites() {
       $command = 'mv ' . escapeshellarg($sites_subdir) . ' ' . escapeshellarg($new_sites_subdir);
       shell_exec($command);
 
+      // Recreate all existing aliases so that they point to the new URI.
+      $existingAliases = db_select('unl_sites_aliases', 'a')
+        ->condition('site_id', $row['site_id'])
+        ->condition('installed', 2)
+        ->fields('a', array('site_alias_id', 'base_uri', 'path'))
+        ->execute()
+        ->fetchAll();
+      foreach ($existingAliases as $existingAlias) {
+          unl_remove_alias($existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
+          unl_add_alias($new_uri, $existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
+      }
+      
+      // Add the old location as a new alias.
       unl_add_alias($new_uri, $alias['base_uri'], $row['site_path'], $alias['site_alias_id']);
 
       db_update('unl_sites')
@@ -335,7 +348,11 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
 }
 
 function unl_add_alias($site_uri, $base_uri, $path, $alias_id) {
-  unl_add_alias_to_sites_php($site_uri, $base_uri, $path, $alias_id);
+  $alias_uri = $base_uri . $path;
+  $real_config_dir = unl_get_sites_subdir($site_uri);
+  $alias_config_dir = unl_get_sites_subdir($alias_uri, FALSE);
+
+  unl_add_alias_to_sites_php($alias_config_dir, $real_config_dir, $alias_id);
   if ($path) {
     unl_add_site_to_htaccess($alias_id, $path, TRUE);
   }
@@ -464,12 +481,8 @@ function unl_remove_page_alias_from_htaccess($site_id) {
   _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
-function unl_add_alias_to_sites_php($site_uri, $base_uri, $path, $alias_id) {
+function unl_add_alias_to_sites_php($alias_site_dir, $real_site_dir, $alias_id) {
   unl_require_writable(DRUPAL_ROOT . '/sites/sites.php');
-
-  $alias_uri = $base_uri . $path;
-  $real_site_dir = unl_get_sites_subdir($site_uri);
-  $alias_site_dir = unl_get_sites_subdir($alias_uri, FALSE);
 
   $stub_token = '# %UNL_CREATION_TOOL_STUB%';
   $sites_php = file_get_contents(DRUPAL_ROOT . '/sites/sites.php');
@@ -482,14 +495,8 @@ function unl_add_alias_to_sites_php($site_uri, $base_uri, $path, $alias_id) {
                  . "\$sites['$alias_site_dir'] = '$real_site_dir';\n"
                  . "# %UNL_END_ALIAS_ID_{$alias_id}%\n\n"
                  . $stub_token
-                 . substr($sites_php, $stub_pos + strlen($stub_token));
-
-  // Ensure every value in the $sites array is a genuine site dir and not an alias.
-  //   For the real dir c, this changes ($sites['a']='b'; $sites['b']='c';)
-  //   to ($sites['a']='c'; $sites['b']='c';) to ensure continued operation if alias b is deleted.
-  $old_real_site_dir = unl_get_sites_subdir($alias_uri);
-  $new_sites_php = str_replace("'".$old_real_site_dir."'", "'".$real_site_dir."'", $new_sites_php);
-
+                 . substr($sites_php, $stub_pos + strlen($stub_token))
+                 ;
   _unl_file_put_contents_atomic(DRUPAL_ROOT . '/sites/sites.php', $new_sites_php);
 }
 
