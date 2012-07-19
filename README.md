@@ -1,4 +1,4 @@
-## Get Started.
+## Get Started:
 
 In this example the web root is /Library/WebServer/Documents and Apache runs as _www - modify the instructions below according to your setup
 
@@ -102,12 +102,6 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
   *  drush/includes/environment.inc
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
-
-  *  Add Trigger Support Patch to Workbench Moderation
-
-     - Trigger support not in 7.x-1.1 - See http://drupal.org/files/issues/trigger_support_for_wb_moderation-1079134-23.patch from http://drupal.org/node/1079134
-
-     - Don't upgrade WB Moderation without first applying this patch unless the new version supports Triggers
 
   *  workbench_moderation.module
 
