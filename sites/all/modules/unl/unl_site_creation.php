@@ -1023,6 +1023,7 @@ function unl_user_audit($form, &$form_state) {
   $form['username'] = array(
     '#type' => 'textfield',
     '#title' => t('Username'),
+    '#description' => t('Will match a partial username. For example "smith" will match both jsmith2 and rsmithson1.'),
     '#required' => TRUE,
   );
 /*$form['ignore_shared_roles'] = array(
@@ -1064,14 +1065,16 @@ function _unl_get_user_audit_content($username) {
        '',
     );
     foreach ($site['roles'] as $role => $user) {
-      $audit_map[$site_id][1] .= "$role ($user) <br />";
+      $audit_map[$site_id][1] .= "$role ";
+      $audit_map[$site_id][1] .= ($GLOBALS['user']->name != $username ? "($user)" : '');
+      $audit_map[$site_id][1] .= "<br />";
     }
   }
 
   if (count($audit_map) > 0) {
     $header = array(
       t('Site'),
-      t('Role (User)'),
+      t('Role') . ($GLOBALS['user']->name != $username ? ' (' . t('User') . ')' : ''),
     );
     $content = array(
       '#theme' => 'table',
