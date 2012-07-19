@@ -115,6 +115,19 @@ function unl_edit_sites() {
       $command = 'mv ' . escapeshellarg($sites_subdir) . ' ' . escapeshellarg($new_sites_subdir);
       shell_exec($command);
 
+      // Recreate all existing aliases so that they point to the new URI.
+      $existingAliases = db_select('unl_sites_aliases', 'a')
+        ->condition('site_id', $row['site_id'])
+        ->condition('installed', 2)
+        ->fields('a', array('site_alias_id', 'base_uri', 'path'))
+        ->execute()
+        ->fetchAll();
+      foreach ($existingAliases as $existingAlias) {
+          unl_remove_alias($existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
+          unl_add_alias($new_uri, $existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
+      }
+      
+      // Add the old location as a new alias.
       unl_add_alias($new_uri, $alias['base_uri'], $row['site_path'], $alias['site_alias_id']);
 
       db_update('unl_sites')
