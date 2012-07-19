@@ -1059,23 +1059,30 @@ function _unl_get_user_audit_content($username) {
   $audit_map = array();
 
   foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
-    $audit_map[] = array(
-      'data' => l($site['uri'], $site['uri']),
-      'children' => $site['roles'],
+    $audit_map[$site_id] = array(
+       l($site['uri'], $site['uri']),
+       '',
     );
+    foreach ($site['roles'] as $role => $user) {
+      $audit_map[$site_id][1] .= "$role ($user) <br />";
+    }
   }
 
   if (count($audit_map) > 0) {
+    $header = array(
+      t('Site'),
+      t('Role (User)'),
+    );
     $content = array(
-      '#theme' => 'item_list',
-      '#type'  => 'ul',
-      '#items' => $audit_map,
+      '#theme' => 'table',
+      '#header' => $header,
+      '#rows' => $audit_map,
     );
     if ($username == $GLOBALS['user']->name) {
-      $content['#title'] = t('You belong to the following sites as a member of the listed roles.');
+      $content['#caption'] = t('You belong to the following sites as a member of the listed roles.');
     }
     else {
-      $content['#title'] = t('@user belongs to the following sites as a member of the listed roles.', array('user' => $username));
+      $content['#caption'] = t('Users matching "@user" belong to the following sites as a member of the listed roles.', array('@user' => $username));
     }
   }
   else {
@@ -1086,7 +1093,7 @@ function _unl_get_user_audit_content($username) {
       $content['#title'] = t('You do not belong to any roles on any sites.');
     }
     else {
-      $content['#title'] = t('@user does not belong to any roles on any sites.', array('user' => $username));
+      $content['#title'] = t('User matching "@user" does not belong to any roles on any sites.', array('@user' => $username));
     }
   }
 
@@ -1166,9 +1173,9 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
 
       if ($search_by == 'username') {
         $return_label = 'roles';
-        $select = 'r.name';
-        $where[] = 'u.name = :name';
-        $bound_params[':name'] = $username_or_role;
+        $select = 'r.name, u.name';
+        $where[] = 'u.name LIKE :name';
+        $bound_params[':name'] = "%".$username_or_role."%";
       }
       else {
         $return_label = 'users';
@@ -1188,9 +1195,9 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
         $query .= 'WHERE ' . implode(' AND ', $where) . ' ';
       }
 
-      $role_names = db_query($query, $bound_params)->fetchCol();
+      $role_user = db_query($query, $bound_params)->fetchAllKeyed();
 
-      if (count($role_names) == 0 && !$list_empty_sites) {
+      if (count($role_user) == 0 && !$list_empty_sites) {
         continue;
       }
 
@@ -1203,7 +1210,7 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       }
       $audit_map[$site->site_id] = array(
         'uri' => $uri,
-        $return_label => $role_names,
+        $return_label => $role_user,
       );
     } catch (Exception $e) {
       // Either the site has no settings.php or the db_prefix is wrong.
