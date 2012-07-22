@@ -10,7 +10,7 @@ while ($line = fgets($stdin)) {
   $line = trim($line, "\n");
   
   // Check for this result in the cache
-  if (!($output = $cache->get($line))) {
+  if (!($route = $cache->get($line))) {
 
     exec('/usr/bin/php ' . __DIR__ . '/rewrite_miss.php ' . escapeshellarg($line), $output, $return_var);
 
