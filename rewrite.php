@@ -12,6 +12,7 @@ while ($line = fgets($stdin)) {
   // Check for this result in the cache
   if (!($route = $cache->get($line))) {
 
+    $output = array();
     exec('/usr/bin/php ' . __DIR__ . '/rewrite_miss.php ' . escapeshellarg($line), $output, $return_var);
 
     // Set default route
