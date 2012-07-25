@@ -9,7 +9,7 @@
  * Implement hook_install().
  */
 function media_mediahub_install() {
-  return array();
+  variable_set('media__wysiwyg_browser_plugins', array('media_default--media_browser_1', 'media_internet'));
 }
 
 /**
