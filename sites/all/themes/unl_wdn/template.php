@@ -68,14 +68,16 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
     }
   }
 
-  // Set the <title> tag to UNL format: Page Title | Site Name | University of Nebraska–Lincoln
-  if ($vars['is_front']) {
-    unset($vars['head_title_array']['title']);
+  if (!module_exists('metatag')) {
+    // Set the <title> tag to UNL format: Page Title | Site Name | University of Nebraska–Lincoln
+    if ($vars['is_front']) {
+      unset($vars['head_title_array']['title']);
+    }
+    if (variable_get('site_name') != 'University of Nebraska–Lincoln') {
+      $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska–Lincoln'));
+    }
+    $vars['head_title'] = implode(' | ', $vars['head_title_array']);
   }
-  if (variable_get('site_name') != 'University of Nebraska–Lincoln') {
-    $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska–Lincoln'));
-  }
-  $vars['head_title'] = implode(' | ', $vars['head_title_array']);
 }
 
 /**

@@ -152,8 +152,8 @@ function unl_page_build(&$page) {
 function unl_field_attach_view_alter(&$output, $context) {
   // Replace the field named field_hrorgunit containing an org unit number with that unit's listing from the UNL directory
   foreach (element_children($output) as $field_name) {
-    $element = &$output[$field_name];
-    switch ($element['#field_name']) {
+    $element = isset($output[$field_name]['#field_name']) ? $output[$field_name]['#field_name'] : '';
+    switch ($element) {
       case 'field_hrorgunit':
         $result = file_get_contents('http://directory.unl.edu/departments/?view=deptlistings&org_unit='.$element['#items'][0]['value'].'&format=partial');
         if (!empty($result) && $result != '<div id="all_employees"></div>') {
@@ -1537,22 +1537,22 @@ function unl_filter_info()
 
 /**
  * Implementation of hook_filter_FILTER_process pseudo-hook
- * 
- * Replace any instances of [[node:X]] in the $text with the content of node X's body. 
+ *
+ * Replace any instances of [[node:X]] in the $text with the content of node X's body.
  */
 function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $cache_id)
 {
   static $processed_hashes = array();
-  
+
   $text_hash = hash('sha256', $text);
   if (in_array($text_hash, array_keys($processed_hashes))) {
     // Possible recursion detected, return the cache result.
     return $processed_hashes[$text_hash];
   }
-  
+
   // In case of recursion, set the cached result to this until we have the real result.
   $processed_hashes[$text_hash] = 'Error: Cannot embed a node in itself..';
-  
+
   $matches = NULL;
   preg_match_all('/\[\[node:([0-9]+)\]\]/', $text, $matches);
   $node_ids = $matches[1];
@@ -1561,8 +1561,8 @@ function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $c
   foreach ($node_ids as $node_id) {
     $content = node_view($nodes[$node_id]);
     $replace_array["[[node:$node_id]]"] = PHP_EOL . "<!-- Node $node_id start -->" . PHP_EOL
-    									. render($content['body'])
-    									. PHP_EOL . "<!-- Node $node_id end -->" . PHP_EOL;
+                                        . render($content['body'])
+                                        . PHP_EOL . "<!-- Node $node_id end -->" . PHP_EOL;
   }
   $text = strtr($text, $replace_array);
   // Set the cached result to the real result.
@@ -1572,20 +1572,20 @@ function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $c
 
 /**
  * Implementation of hook_filter_FILTER_process pseudo-hook
- * 
- * Replace any instances of <!--#include virtual="url"--> with the content 
+ *
+ * Replace any instances of <!--#include virtual="url"--> with the content
  * found at that URL.  If the url is in the unl.edu domain, format=partial
  * will be added to the query string.
  */
 function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cache_id) {
   $matches = NULL;
   preg_match_all('/<!-- *#include +virtual=((".*")|(\'.*\')) *-->/', $text, $matches);
-  
+
   $replacements = array();
-  
+
   foreach ($matches[1] as $match_index => $match) {
     $full_match = $matches[0][$match_index];
-    
+
     // Break down the URL target then rebuild it as absolute.
     $url = substr($match, 1, -1);
     $parts = parse_url($url);
@@ -1606,8 +1606,8 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $parts['path'] = '/';
     }
     $url = $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
-    
-    
+
+
     // If this is a request to another UNL site, add format=partial to the query.
     if (substr($parts['host'], -7) == 'unl.edu') {
       if (isset($parts['query']) && $parts['query']) {
@@ -1617,7 +1617,7 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       }
       $parts['query'] .= 'format=partial';
     }
-  
+
     // Finish rebuilding the URL.
     if (isset($parts['query'])) {
       $url .= '?' . $parts['query'];
@@ -1625,18 +1625,18 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
     if (isset($parts['fragment'])) {
       $url .= '#' . $parts['fragment'];
     }
-    
+
     $content = file_get_contents($url);
     $replacements[$full_match] = PHP_EOL
                                . '<!-- Begin content from ' . $url . ' -->' . PHP_EOL
                                . $content . PHP_EOL
                                . '<!-- End content from ' . $url . ' -->' . PHP_EOL;
   }
-  
+
   foreach ($replacements as $from => $to) {
     $text = str_replace($from, $to, $text);
   }
-  
+
   return $text;
 }
 
