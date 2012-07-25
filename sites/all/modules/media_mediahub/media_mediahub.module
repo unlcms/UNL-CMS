@@ -120,3 +120,20 @@ function media_mediahub_ctools_plugin_api($owner, $api) {
     return array('version' => $api_versions[$owner][$api]);
   }
 }
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function media_mediahub_form_media_admin_config_browser_alter(&$form, &$form_state, $form_id) {
+  // Disable changing the settings on admin/config/media/browser
+  // Stick to the default settings set in hook_install() and hook_update()
+  $form['#disabled'] = TRUE;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function media_mediahub_menu_alter(&$items) {
+  // Turn off access to the Media Files tab under Content
+  $items['admin/content/file']['access callback'] = FALSE;
+}
