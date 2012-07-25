@@ -273,7 +273,7 @@ function unl_wysiwyg_editor_settings_alter(&$settings, $context) {
 
       // Process a default order for the buttons
       $enabled_buttons = preg_split('/,/', $settings['theme_advanced_buttons1']);
-      $default_buttons = array('formatselect', '|', 'bold', 'italic', 'strikethrough', '|', 'bullist', 'numlist', 'blockquote', '|', 'justifyleft', 'justifycenter','justifyright','|','link', 'unlink', 'image', '|', 'pastetext', 'pasteword', 'removeformat', '|', 'pdw_toggle',
+      $default_buttons = array('formatselect', '|', 'bold', 'italic', 'strikethrough', '|', 'bullist', 'numlist', 'blockquote', '|', 'justifyleft', 'justifycenter','justifyright','|','link', 'unlink', 'image', 'media', '|', 'pastetext', 'pasteword', 'removeformat', '|', 'pdw_toggle',
                                'PAGEBREAK', 'styleselect', 'forecolor', 'backcolor', '|', 'underline', '|', 'justifyfull', '|', 'sup', 'sub', 'charmap', '|', 'indent', 'outdent', '|', 'anchor', '|', 'unlGrid', 'unlZenBox', 'unlTooltip', '|', 'undo', 'redo', '|', 'search', 'replace', '|', 'fullscreen', );
       foreach($default_buttons as $button) {
         if (in_array($button, $enabled_buttons)) {
