@@ -59,6 +59,7 @@ function unl_config($form, &$form_state) {
     '#options' => $modules,
     '#size' => 15,
     '#default_value' => unl_shared_variable_get('unl_module_whitelist', array()),
+    '#access' => unl_user_is_administrator(),
   );
 
   return $form;
