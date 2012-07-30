@@ -79,14 +79,29 @@ function wysiwyg_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 10,
   );
+  // @see wysiwyg_dialog()
   $items['wysiwyg/%'] = array(
     'page callback' => 'wysiwyg_dialog',
     'page arguments' => array(1),
+    'delivery callback' => 'wysiwyg_deliver_dialog_page',
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
     'file' => 'wysiwyg.dialog.inc',
   );
   return $items;
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function wysiwyg_element_info() {
+  // @see wysiwyg_dialog()
+  $types['wysiwyg_dialog_page'] = array(
+    '#theme' => 'wysiwyg_dialog_page',
+    '#theme_wrappers' => array('html'),
+    '#show_messages' => TRUE,
+  );
+  return $types;
 }
 
 /**
@@ -103,8 +118,9 @@ function wysiwyg_theme() {
     'wysiwyg_admin_button_table' => array(
       'render element' => 'form',
     ),
+    // @see wysiwyg_dialog()
     'wysiwyg_dialog_page' => array(
-      'variables' => array('content' => NULL, 'show_messages' => TRUE),
+      'render element' => 'page',
       'file' => 'wysiwyg.dialog.inc',
       'template' => 'wysiwyg-dialog-page',
     ),
@@ -117,7 +133,7 @@ function wysiwyg_theme() {
 function wysiwyg_help($path, $arg) {
   switch ($path) {
     case 'admin/config/content/wysiwyg':
-      $output = '<p>' . t('A Wysiwyg profile is associated with an input format. A Wysiwyg profile defines which client-side editor is loaded with a particular input format, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions.') . '</p>';
+      $output = '<p>' . t('A Wysiwyg profile is associated with a text format. A Wysiwyg profile defines which client-side editor is loaded with a particular text format, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions.') . '</p>';
       return $output;
   }
 }
@@ -619,7 +635,10 @@ function wysiwyg_get_css() {
   $files = array();
   foreach (drupal_add_css() as $filepath => $info) {
     if ($info['group'] >= CSS_THEME && $info['media'] != 'print') {
-      if (file_exists($filepath)) {
+      if ($info['type'] == 'external') {
+        $files[] = $filepath;
+      }
+      elseif (file_exists($filepath)) {
         $files[] = base_path() . $filepath;
       }
     }
@@ -809,6 +828,7 @@ function wysiwyg_get_all_editors() {
       'libraries' => array(),
       'version callback' => NULL,
       'themes callback' => NULL,
+      'settings form callback' => NULL,
       'settings callback' => NULL,
       'plugin callback' => NULL,
       'plugin settings callback' => NULL,
@@ -1077,3 +1097,19 @@ function _wysiwyg_process_include($module, $identifier, $path, $hook) {
 /**
  * @} End of "defgroup wysiwyg_api".
  */
+
+/**
+ * Implements hook_features_api().
+ */
+function wysiwyg_features_api() {
+  return array(
+    'wysiwyg' => array(
+      'name' => t('Wysiwyg profiles'),
+      'default_hook' => 'wysiwyg_default_profiles',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'feature_source' => TRUE,
+      'file' => drupal_get_path('module', 'wysiwyg') . '/wysiwyg.features.inc',
+    ),
+  );
+}
+
