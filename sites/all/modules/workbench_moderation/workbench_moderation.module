@@ -660,11 +660,13 @@ function workbench_moderation_node_presave($node) {
     else {
       $node->status = 0;
     }
-    if (isset($node->workbench_moderation['updating_live_revision']) && !empty($node->book['bid'])) {
-      // Book module forces new revision in book_node_presave() that needs to be cancelled.
-      $node->revision = 0;
-    }
   }
+  /* START UNL CHANGE */
+  if (isset($node->workbench_moderation['updating_live_revision']) && !empty($node->book['bid'])) {
+    // Book module forces new revision in book_node_presave() that needs to be cancelled.
+    $node->revision = 0;
+  }
+  /* END UNL CHANGE */
 }
 
 /**
