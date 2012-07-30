@@ -249,6 +249,7 @@ function unl_panels_field_default_fields() {
       'required' => 1,
       'settings' => array(
         'alt_field' => 0,
+        'default_image' => 0,
         'file_directory' => 'images',
         'file_extensions' => 'png gif jpg jpeg',
         'max_filesize' => '',
@@ -529,18 +530,20 @@ function unl_panels_field_default_fields() {
         'module' => 'media',
         'settings' => array(
           'allowed_schemes' => array(
+            'mediahub' => 'mediahub',
             'public' => 'public',
+            'youtube' => 'youtube',
           ),
           'allowed_types' => array(
-            0 => 0,
-            'audio' => 0,
-            'default' => 0,
+            'audio' => 'audio',
+            'default' => 'default',
             'image' => 'image',
-            'video' => 0,
+            'video' => 'video',
           ),
           'browser_plugins' => array(
             'library' => 0,
-            'media_default--media_browser_1' => 0,
+            'media_default--media_browser_1' => 'media_default--media_browser_1',
+            'media_default--media_browser_my_files' => 0,
             'media_internet' => 'media_internet',
             'upload' => 0,
           ),
