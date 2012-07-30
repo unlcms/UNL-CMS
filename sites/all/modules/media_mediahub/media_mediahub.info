@@ -1,0 +1,15 @@
+
+name = Media: MediaHub
+description = Provides MediaHub support to the Media module.
+package = "Media"
+core = 7.x
+files[] = media_mediahub.module
+files[] = includes/MediaInternetMediaHubHandler.inc
+files[] = includes/MediaMediaHubStreamWrapper.inc
+files[] = includes/MediaMediaHubStyles.inc
+files[] = includes/media_mediahub.formatters.inc
+files[] = includes/media_mediahub.styles.inc
+files[] = includes/media_mediahub.variables.inc
+dependencies[] = media_internet
+
+version = "7.x-1.0-beta1"

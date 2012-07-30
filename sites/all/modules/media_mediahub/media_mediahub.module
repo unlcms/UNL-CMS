@@ -1,0 +1,139 @@
+<?php
+
+/**
+ * @file media_mediahub/media_mediahub.module
+ *
+ * Media: MediaHub provides a stream wrapper and formatters for videos provided
+ * by MediaHub, available at http://mediahub.unl.edu/.
+ *
+ * @TODO:
+ * Tie in MediaHub API.
+ * Allow editors to search for videos to display on the browser.
+ * Allow editors to put in a mediahub username to display on the browser.
+ * Allow editors to log in w/ their credentials.
+ * Allow editors to upload videos to MediaHub.
+ */
+
+// A registry of variable_get defaults.
+include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'media_mediahub') . '/includes/media_mediahub.variables.inc';
+
+// Hooks and callbacks for integrating with Styles module for display.
+// @todo Can save a little overhead for people without Styles module by wrapping
+//   this inside a module_exists('styles'). However, is that safe to do in
+//   global context? If not, is there any down side to doing it in hook_init()?
+include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'media_mediahub') . '/includes/media_mediahub.styles.inc';
+
+// Hooks and callbacks for integrating with File Entity module for display.
+include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'media_mediahub') . '/includes/media_mediahub.formatters.inc';
+
+/**
+ * Implements hook_media_internet_providers().
+ */
+function media_mediahub_media_internet_providers() {
+  $path = drupal_get_path('module', 'media_mediahub');
+  return array(
+    'MediaInternetMediaHubHandler' => array(
+      'title' => 'mediahub.unl.edu',
+    ),
+  );
+}
+
+/**
+ * Implements hook_stream_wrappers().
+ */
+function media_mediahub_stream_wrappers() {
+  return array(
+    'mediahub' => array(
+      'name' => t('MediaHub videos'),
+      'class' => 'MediaMediaHubStreamWrapper',
+      'description' => t('Videos provided by MediaHub.'),
+      'type' => STREAM_WRAPPERS_READ_VISIBLE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function media_mediahub_theme($existing, $type, $theme, $path) {
+  return array(
+    'media_mediahub_preview_style' => array(
+      'variables' => array('style_name' => NULL),
+      'file' => 'media_mediahub.theme.inc',
+      'path' => $path . '/includes/themes',
+    ),
+    'media_mediahub_field_formatter_styles' => array(
+      'variables' => array('element' => NULL, 'style' => NULL),
+      'file' => 'media_mediahub.theme.inc',
+      'path' => $path . '/includes/themes',
+    ),
+    // Note that all the variables after options are now deprecated.
+    'media_mediahub_video' => array(
+      'variables' => array('uri' => NULL, 'options' => array(), 'width' => NULL, 'height' => NULL, 'autoplay' => NULL, 'fullscreen' => NULL, 'related' => NULL),
+      'file' => 'media_mediahub.theme.inc',
+      'path' => $path . '/includes/themes',
+      'template' => 'media-mediahub-video',
+    ),
+    'media_mediahub_embed' => array(
+      'variables' => array('style_name' => NULL, 'uri' => NULL, 'alt' => NULL, 'title' => NULL),
+      'file' => 'media_mediahub.theme.inc',
+      'path' => $path . '/includes/themes',
+    ),
+    'media_mediahub_styles' => array(
+      'variables' => array('element' => NULL, 'style' => NULL),
+      'file' => 'media_mediahub.theme.inc',
+      'path' => $path . '/includes/themes',
+    ),
+  );
+}
+
+/**
+ * Implements hook_media_parse().
+ *
+ * @todo This hook should be deprecated. Refactor Media module to not call it
+ *   any more, since media_internet should be able to automatically route to the
+ *   appropriate handler.
+ */
+function media_mediahub_media_parse($embed_code) {
+  $handler = new MediaInternetMediaHubHandler($embed_code);
+  return $handler->parse($embed_code);
+}
+
+/**
+ * Implements hook_media_format_form_prepare_alter().
+ */
+function media_mediahub_media_format_form_prepare_alter(&$form, &$form_state, $media) {
+  $settings = array('autosubmit' => ($media->type == "video"));
+  drupal_add_js(array('media_format_form' => $settings), 'setting');
+}
+
+/**
+ * Implements hook_ctools_plugin_api().
+ */
+function media_mediahub_ctools_plugin_api($owner, $api) {
+  static $api_versions = array(
+    'file_entity' => array(
+      'file_default_displays' => 1,
+    ),
+  );
+  if (isset($api_versions[$owner][$api])) {
+    return array('version' => $api_versions[$owner][$api]);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function media_mediahub_form_media_admin_config_browser_alter(&$form, &$form_state, $form_id) {
+  // Disable changing the settings on admin/config/media/browser
+  // Stick to the default settings set in hook_install() and hook_update()
+  $form['#disabled'] = TRUE;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function media_mediahub_menu_alter(&$items) {
+  // Turn off access to the Media Files tab under Content
+  $items['admin/content/file']['access callback'] = FALSE;
+}
