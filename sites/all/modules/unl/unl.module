@@ -604,7 +604,7 @@ function unl_menu_alter(&$items) {
  */
 function unl_file_validate($file) {
   // For IMCE uploads only, check if Drupal core just altered a *.js upload to *.js.txt and correct if permitted
-  if ($file->source == 'imce' && substr($file->filename, -7) == '.js.txt' && user_access('unl imce javascript upload')) {
+  if (isset($file->source) && $file->source == 'imce' && substr($file->filename, -7) == '.js.txt' && user_access('unl imce javascript upload')) {
     // Chop off the .txt extesnsion that's been added
     $file->destination = substr($file->destination, 0, -4);
     $file->filename = substr($file->filename, 0, -4);
