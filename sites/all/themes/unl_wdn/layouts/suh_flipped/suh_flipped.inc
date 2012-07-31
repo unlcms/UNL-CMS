@@ -2,7 +2,7 @@
 // Plugin definition
 $plugin = array(
   'title' => t('Suh Flipped'),
-  'icon' => 'suh_flipped.png',
+  'icon' => 'suh-flipped.png',
   'category' => t('UNL'),
   'theme' => 'suh_flipped',
   'regions' => array(
