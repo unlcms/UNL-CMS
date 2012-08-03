@@ -155,7 +155,7 @@ function unl_field_attach_view_alter(&$output, $context) {
     $element = isset($output[$field_name]['#field_name']) ? $output[$field_name]['#field_name'] : '';
     switch ($element) {
       case 'field_hrorgunit':
-        $result = file_get_contents('http://directory.unl.edu/departments/?view=deptlistings&org_unit='.$element['#items'][0]['value'].'&format=partial');
+        $result = unl_url_get_contents('http://directory.unl.edu/departments/?view=deptlistings&org_unit='.$element['#items'][0]['value'].'&format=partial');
         if (!empty($result) && $result != '<div id="all_employees"></div>') {
           drupal_add_css('http://directory.unl.edu/css/peoplefinder_default.css', 'external');
           drupal_add_js('http://directory.unl.edu/scripts/peoplefinder.js', 'external');
@@ -1626,7 +1626,7 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $url .= '#' . $parts['fragment'];
     }
 
-    $content = file_get_contents($url);
+    $content = unl_url_get_contents($url);
     $replacements[$full_match] = PHP_EOL
                                . '<!-- Begin content from ' . $url . ' -->' . PHP_EOL
                                . $content . PHP_EOL

@@ -160,7 +160,12 @@ function unl_wdn_username_alter(&$name, $account) {
   $context = stream_context_create(array(
     'http' => array('timeout' => 1)
   ));
-  $result = json_decode(@file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
+  if (function_exists('unl_url_get_contents')) {
+    $result = json_decode(@unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, $context));
+  }
+  else {
+    $result = json_decode(@file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
+  }
   if (!empty($result) && $result->sn) {
     $zero = '0';
     $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);

@@ -180,3 +180,80 @@ function unl_user_is_administrator() {
 
   return FALSE;
 }
+
+/**
+ * Fetch the contents at the given URL and cache the result using
+ * drupal's cache for as long as the response headers allow.
+ * @param string $url
+ * @param resource $context
+ */
+function unl_url_get_contents($url, $context = NULL)
+{
+  // get some per-request static storage
+  $static = &drupal_static(__FUNCTION__);
+  if (!isset($static)) {
+    $static = array();
+  }
+  
+  // If cached in the static array, return it.
+  if (array_key_exists($url, $static)) {
+    return $static[$url];
+  }
+  
+  // If cached in the drupla cache, return it.
+  $data = cache_get(__FUNCTION__ . $url);
+  if ($data && time() < $data->data['expires']) {
+    return $data->data['body'];
+  }
+
+  // Make the request
+  $http_response_header = array();
+  $body = file_get_contents($url, NULL, $context);
+  $headers = array();
+  foreach ($http_response_header as $rawHeader) {
+    $headerName = strtolower(trim(substr($rawHeader, 0, strpos($rawHeader, ':'))));
+    $headerValue = trim(substr($rawHeader, strpos($rawHeader, ':') + 1));
+    if ($headerName && $headerValue) {
+      $headers[$headerName] = $headerValue;
+    }
+  }
+  
+  $cacheable = NULL;
+  $expires = 0;
+  
+  // Check for a Cache-Control header and the max-age and/or private headers.
+  if (array_key_exists('cache-control', $headers)) {
+    $cacheControl = strtolower($headers['cache-control']);
+    $matches = array();
+    if (preg_match('/max-age=([0-9]+)/', $cacheControl, $matches)) {
+      $expires = time() + $matches[1];
+      $cacheable = TRUE;
+    }
+    if (strpos($cacheControl, 'private') !== FALSE) {
+      $cacheable = FALSE;
+    }
+    if (strpos($cacheControl, 'no-cache') !== FALSE) {
+      $cacheable = FALSE;
+    }
+  }
+  // If there was no Cache-Control header, or if it wasn't helpful, check for an Expires header.
+  if ($cacheable === NULL && array_key_exists('expires', $headers)) {
+    $cacheable = TRUE;
+    $expires = DateTime::createFromFormat(DateTime::RFC1123, $headers['expires'])->getTimestamp();
+  }
+  
+  // Save to the drupal cache if caching is ok
+  if ($cacheable && time() < $expires) {
+    $data = array(
+      'body' => $body,
+      'expires' => $expires,
+    );
+    cache_set(__FUNCTION__ . $url, $data, 'cache', $expires);
+  }
+  // Otherwise just save to the static per-request cache
+  else {
+    $static[$url] = $body;
+  }
+  
+  return $body;
+}
