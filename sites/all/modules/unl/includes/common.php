@@ -189,6 +189,12 @@ function unl_user_is_administrator() {
  */
 function unl_url_get_contents($url, $context = NULL)
 {
+  unl_load_zend_framework();
+  if (!Zend_Uri::check($url)) {
+    drupal_set_message('A non-url was passed to ' . __FUNCTION__ . '().', 'warning');
+    return FALSE;
+  }
+  
   // get some per-request static storage
   $static = &drupal_static(__FUNCTION__);
   if (!isset($static)) {
@@ -209,6 +215,13 @@ function unl_url_get_contents($url, $context = NULL)
   // Make the request
   $http_response_header = array();
   $body = file_get_contents($url, NULL, $context);
+  
+  // If an error occured, just return it now.
+  if ($body === FALSE) {
+    $static[$url] = $body;
+    return $body;
+  }
+  
   $headers = array();
   foreach ($http_response_header as $rawHeader) {
     $headerName = strtolower(trim(substr($rawHeader, 0, strpos($rawHeader, ':'))));

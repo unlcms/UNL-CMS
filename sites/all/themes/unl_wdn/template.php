@@ -161,10 +161,10 @@ function unl_wdn_username_alter(&$name, $account) {
     'http' => array('timeout' => 1)
   ));
   if (function_exists('unl_url_get_contents')) {
-    $result = json_decode(@unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, $context));
+    $result = json_decode(unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, $context));
   }
   else {
-    $result = json_decode(@file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
+    $result = json_decode(file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
   }
   if (!empty($result) && $result->sn) {
     $zero = '0';
