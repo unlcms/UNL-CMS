@@ -195,7 +195,7 @@ function unl_wdn_process_page(&$vars) {
 function unl_wdn_get_instance() {
   static $instance;
   if (!$instance) {
-    set_include_path(dirname(__FILE__) . '/lib/php');
+    set_include_path(dirname(__FILE__) . '/lib/php' . PATH_SEPARATOR . get_include_path());
     require_once "UNL/Templates.php";
     require_once "UNL/Templates/CachingService/Null.php";
 
