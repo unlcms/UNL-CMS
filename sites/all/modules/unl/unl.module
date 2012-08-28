@@ -671,6 +671,16 @@ function unl_form_system_modules_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
+ * Implementation of hook_form_FORM_ID_alter() for system_logging_settings.
+ */
+function unl_form_system_logging_settings_alter(&$form, $form_state, $form_id) {
+  // Disable ability of non-admins to turn on error reporting on on admin/config/development/logging.
+  if (!unl_user_is_administrator()) {
+    $form['#disabled'] = true;
+  }
+}
+
+/**
  * Implementation of hook_form_alter().
  */
 function unl_form_alter(&$form, $form_state, $form_id) {
