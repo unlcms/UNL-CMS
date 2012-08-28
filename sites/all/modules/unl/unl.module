@@ -218,9 +218,11 @@ function unl_node_presave($node) {
       $field_name = $field['field_name'];
       $lang = $node->language;
       $node_field = $node->$field_name;
-      $tidied_value = unl_tidy($node_field[$lang][0]['value']);
-      $node_field[$lang][0]['value'] = $tidied_value;
-      $node->$field_name = $node_field;
+      if (isset($node_field[$lang][0]['value'])) {
+        $tidied_value = unl_tidy($node_field[$lang][0]['value']);
+        $node_field[$lang][0]['value'] = $tidied_value;
+        $node->$field_name = $node_field;
+      }
     }
   }
 }
