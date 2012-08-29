@@ -1639,10 +1639,17 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
     ));
 
     if ($ssiDepth > 3) {
-      $content = '<p>Error: Too many recursive includes!</p>';
+      watchdog('unl', 'Server Side Include: Recursion depth limit reached.', array(), WATCHDOG_ERROR);
+      drupal_add_http_header('x-unl-ssi-error', 'Too deep!');
+      $content = '<!-- Error: Too many recursive includes! Content from ' . $url . ' was not included! -->';
     }
     else {
-      $content = unl_url_get_contents($url, $context);
+      $headers = array();
+      $content = unl_url_get_contents($url, $context, $headers);
+      if (array_key_exists('x-unl-ssi-error', $headers)) {
+        watchdog('unl', 'Server Side Include: An included URL reached the depth limit.', array(), WATCHDOG_WARNING);
+        drupal_add_http_header('x-unl-ssi-error', 'The included URL caused recursion that was too deep!');
+      }
     }
     $replacements[$full_match] = PHP_EOL
                                . '<!-- Begin content from ' . $url . ' -->' . PHP_EOL
