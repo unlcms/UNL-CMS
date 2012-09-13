@@ -187,7 +187,7 @@ function unl_user_is_administrator() {
  * @param string $url
  * @param resource $context
  */
-function unl_url_get_contents($url, $context = NULL)
+function unl_url_get_contents($url, $context = NULL, &$headers = array())
 {
   unl_load_zend_framework();
   if (!Zend_Uri::check($url)) {
@@ -203,12 +203,14 @@ function unl_url_get_contents($url, $context = NULL)
   
   // If cached in the static array, return it.
   if (array_key_exists($url, $static)) {
-    return $static[$url];
+    $headers = $static[$url]['headers'];
+    return $static[$url]['body'];
   }
   
   // If cached in the drupla cache, return it.
   $data = cache_get(__FUNCTION__ . $url);
   if ($data && time() < $data->data['expires']) {
+    $headers = $data->data['headers'];
     return $data->data['body'];
   }
 
@@ -224,19 +226,20 @@ function unl_url_get_contents($url, $context = NULL)
   
   $headers = array();
   foreach ($http_response_header as $rawHeader) {
-    $headerName = strtolower(trim(substr($rawHeader, 0, strpos($rawHeader, ':'))));
+    $headerName = trim(substr($rawHeader, 0, strpos($rawHeader, ':')));
     $headerValue = trim(substr($rawHeader, strpos($rawHeader, ':') + 1));
     if ($headerName && $headerValue) {
       $headers[$headerName] = $headerValue;
     }
   }
+  $lowercaseHeaders = array_change_key_case($headers);
   
   $cacheable = NULL;
   $expires = 0;
   
   // Check for a Cache-Control header and the max-age and/or private headers.
-  if (array_key_exists('cache-control', $headers)) {
-    $cacheControl = strtolower($headers['cache-control']);
+  if (array_key_exists('cache-control', $lowercaseHeaders)) {
+    $cacheControl = strtolower($lowercaseHeaders['cache-control']);
     $matches = array();
     if (preg_match('/max-age=([0-9]+)/', $cacheControl, $matches)) {
       $expires = time() + $matches[1];
@@ -250,22 +253,26 @@ function unl_url_get_contents($url, $context = NULL)
     }
   }
   // If there was no Cache-Control header, or if it wasn't helpful, check for an Expires header.
-  if ($cacheable === NULL && array_key_exists('expires', $headers)) {
+  if ($cacheable === NULL && array_key_exists('expires', $lowercaseHeaders)) {
     $cacheable = TRUE;
-    $expires = DateTime::createFromFormat(DateTime::RFC1123, $headers['expires'])->getTimestamp();
+    $expires = DateTime::createFromFormat(DateTime::RFC1123, $lowercaseHeaders['expires'])->getTimestamp();
   }
   
   // Save to the drupal cache if caching is ok
   if ($cacheable && time() < $expires) {
     $data = array(
       'body' => $body,
+      'headers' => $headers,
       'expires' => $expires,
     );
     cache_set(__FUNCTION__ . $url, $data, 'cache', $expires);
   }
   // Otherwise just save to the static per-request cache
   else {
-    $static[$url] = $body;
+    $static[$url] = array(
+        'body' => $body,
+        'headers' => $headers,
+    );
   }
   
   return $body;

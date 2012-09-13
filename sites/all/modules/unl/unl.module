@@ -1520,8 +1520,14 @@ function unl_query_alter(QueryAlterableInterface $query) {
     }
     // If we actually find a users table
     if ($usersTableAlias) {
+      // Get rid of pagination.
+      // @TODO: Even though users w/o role are not returned, pagination for them does. Fix this rather than using limit.
+      $query->limit(10000);
       // Join it with the users_roles tables so that only users with roles are seleceted.
       $query->join('users_roles', 'unl_distinct_prefix_r', $usersTableAlias . '.uid = unl_distinct_prefix_r.uid');
+      if (!unl_user_is_administrator()) {
+        $query->where('unl_distinct_prefix_r.rid != ' . unl_shared_variable_get('user_admin_role', -1));
+      }
     }
   }
 }
@@ -1638,7 +1644,31 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $url .= '#' . $parts['fragment'];
     }
 
-    $content = unl_url_get_contents($url);
+    $ssiDepth = 0;
+    if (array_key_exists('HTTP_X_UNL_SSI_DEPTH', $_SERVER)) {
+      $ssiDepth = $_SERVER['HTTP_X_UNL_SSI_DEPTH'];
+    }
+    $ssiDepth++;
+    
+    $context = stream_context_create(array(
+      'http' => array(
+        'header' => "x-unl-ssi-depth: $ssiDepth\r\n",
+      ),
+    ));
+
+    if ($ssiDepth > 3) {
+      watchdog('unl', 'Server Side Include: Recursion depth limit reached.', array(), WATCHDOG_ERROR);
+      drupal_add_http_header('x-unl-ssi-error', 'Too deep!');
+      $content = '<!-- Error: Too many recursive includes! Content from ' . $url . ' was not included! -->';
+    }
+    else {
+      $headers = array();
+      $content = unl_url_get_contents($url, $context, $headers);
+      if (array_key_exists('x-unl-ssi-error', $headers)) {
+        watchdog('unl', 'Server Side Include: An included URL reached the depth limit.', array(), WATCHDOG_WARNING);
+        drupal_add_http_header('x-unl-ssi-error', 'The included URL caused recursion that was too deep!');
+      }
+    }
     $replacements[$full_match] = PHP_EOL
                                . '<!-- Begin content from ' . $url . ' -->' . PHP_EOL
                                . $content . PHP_EOL

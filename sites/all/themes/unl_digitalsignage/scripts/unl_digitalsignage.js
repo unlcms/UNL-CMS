@@ -133,6 +133,7 @@ UNL.digitalSignage = (function() {
 						var videoUpdate = function() {
 							video.removeEventListener('ended', callVideoUpdate, false);
 
+							video.removeAttribute('src');
 							video.src = videos[videoCounter].link;
 							console.log('src for video #'+videoCounter+' loaded');
 
