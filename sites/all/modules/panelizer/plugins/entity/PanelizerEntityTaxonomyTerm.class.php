@@ -10,6 +10,10 @@
  * Handles term specific functionality for Panelizer.
  */
 class PanelizerEntityTaxonomyTerm extends PanelizerEntityDefault {
+  public $entity_admin_root = 'admin/structure/taxonomy/%';
+  public $entity_admin_bundle = 3;
+  public $views_table = 'taxonomy_term_data';
+  public $uses_page_manager = TRUE;
 
   public function entity_access($op, $entity) {
     // This must be implemented by the extending class.
@@ -29,14 +33,6 @@ class PanelizerEntityTaxonomyTerm extends PanelizerEntityDefault {
    */
   public function entity_save($entity) {
     taxonomy_term_save($entity);
-  }
-
-  /**
-   * Implement the save function for the entity.
-   */
-  public function entity_allows_revisions($entity) {
-    return array(FALSE, FALSE);
-
   }
 
   public function settings_form(&$form, &$form_state) {
@@ -71,10 +67,10 @@ class PanelizerEntityTaxonomyTerm extends PanelizerEntityDefault {
     return t('Taxonomy vocabulary');
   }
 
-  function get_default_display() {
+  function get_default_display($bundle, $view_mode) {
     // For now we just go with the empty display.
     // @todo come up with a better default display.
-    return parent::get_default_display();
+    return parent::get_default_display($bundle, $view_mode);
   }
 
   /**
@@ -102,6 +98,20 @@ class PanelizerEntityTaxonomyTerm extends PanelizerEntityDefault {
     $handlers['term_view_panelizer'] = $handler;
 
     return $handlers;
+  }
+
+  /**
+   * Implements a delegated hook_form_alter.
+   *
+   * We want to add Panelizer settings for the bundle to the node type form.
+   */
+  public function hook_form_alter(&$form, &$form_state, $form_id) {
+    if ($form_id == 'taxonomy_form_vocabulary') {
+      if (isset($form['#vocabulary'])) {
+        $bundle = $form['#vocabulary']->machine_name;
+        $this->add_bundle_setting_form($form, $form_state, $bundle, array('machine_name'));
+      }
+    }
   }
 
 }

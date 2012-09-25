@@ -74,6 +74,7 @@ function fieldable_panels_panes_fieldable_panels_pane_content_type_render($subty
   if ($entity && !empty($entity->fpid) && fieldable_panels_panes_access('view', $entity)) {
     $settings = field_bundle_settings('fieldable_panels_pane', $entity->bundle);
     $block = new stdClass();
+    $block->title = '';
     if (empty($settings['extra_fields']['display']) || !empty($settings['extra_fields']['display']['title']['default']['visible'])) {
       $block->title = !empty($entity->title) ? filter_xss_admin($entity->title) : '';
     }
@@ -297,6 +298,10 @@ function _fieldable_panels_panes_load_entity($subtype_name) {
     if ($content = entity_uuid_load('fieldable_panels_pane', array($id))) {
       $content = reset($content);
     }
+  }
+  elseif ($type == 'vid') {
+    $fpid = db_query('SELECT fpid FROM {fieldable_panels_panes_revision} WHERE vid = :vid', array(':vid' => $id))->fetchField();
+    $content = fieldable_panels_panes_load($fpid, $id);
   }
   else {
     $content = fieldable_panels_panes_load($id);

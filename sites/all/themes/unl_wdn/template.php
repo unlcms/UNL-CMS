@@ -156,15 +156,22 @@ function unl_wdn_preprocess_username(&$vars) {
  * Implements hook_username_alter().
  */
 function unl_wdn_username_alter(&$name, $account) {
-  // Drupal does not support "display names" so convert the user name (jdoe2 to Jane Doe) using UNL Directory service
-  $context = stream_context_create(array(
-    'http' => array('timeout' => 1)
-  ));
-  $result = json_decode(@file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
-  if (!empty($result) && $result->sn) {
-    $zero = '0';
-    $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);
-    $name = $firstname . ' ' . $result->sn->$zero;
+  if ($account->uid) {
+    // Drupal does not support "display names" so convert the user name (jdoe2 to Jane Doe) using UNL Directory service.
+    $context = stream_context_create(array(
+      'http' => array('timeout' => 1)
+    ));
+    if (function_exists('unl_url_get_contents')) {
+      $result = json_decode(unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, $context));
+    }
+    else {
+      $result = json_decode(file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
+    }
+    if (!empty($result) && $result->sn) {
+      $zero = '0';
+      $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);
+      $name = $firstname . ' ' . $result->sn->$zero;
+    }
   }
 }
 
@@ -195,7 +202,7 @@ function unl_wdn_process_page(&$vars) {
 function unl_wdn_get_instance() {
   static $instance;
   if (!$instance) {
-    set_include_path(dirname(__FILE__) . '/lib/php');
+    set_include_path(dirname(__FILE__) . '/lib/php' . PATH_SEPARATOR . get_include_path());
     require_once "UNL/Templates.php";
     require_once "UNL/Templates/CachingService/Null.php";
 
