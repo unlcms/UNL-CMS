@@ -1,0 +1,10 @@
+name = UNL Multisite
+description = Admin interface to create and manage multiple site installations.
+package = UNL
+dependencies[] = unl
+core = 7.x
+version = "7.x-1.0"
+
+files[] = unl_multisite.install
+files[] = unl_multisite.module
+files[] = unl_site_creation.php
