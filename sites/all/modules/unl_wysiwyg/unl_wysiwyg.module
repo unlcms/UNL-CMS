@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * Implements of hook_element_info_alter().
+ */
+function unl_wysiwyg_element_info_alter(&$type) {
+  // Change text format processing on elements to our version.
+  if (isset($type['text_format'])) {
+    $type['text_format']['#process'][] = 'unl_filter_process_format';
+  }
+}
+
+/**
+ * Callback for processing the text_format element
+ */
+function unl_wysiwyg_filter_process_format($element) {
+  // Only remove the plain_text and filtered_html options on the node edit form. They need to be available on comment forms, etc.
+  if (isset($element['#entity_type']) && $element['#entity_type'] == 'node') {
+    unset($element['format']['format']['#options']['plain_text']);
+    unset($element['format']['format']['#options'][1]); // On production the machine names are integers
+    unset($element['format']['format']['#options']['filtered_html']);
+    unset($element['format']['format']['#options'][11]);
+    $element['format']['format']['#title'] = 'Editor: ';
+  }
+  return $element;
+}
+
+/**
+ * Implementation of hook_wysiwyg_editor_settings_alter().
+ */
+function unl_wysiwyg_wysiwyg_editor_settings_alter(&$settings, $context) {
+  switch($context['editor']['name']) {
+    case 'tinymce':
+      // Set custom settings
+      $settings['theme'] = 'advanced';
+      $settings['skin'] = 'unl';
+      $settings['forced_root_block'] = false;
+      $settings['plugins'] .= ',pdw,inlinepopups';
+
+      // Process a default order for the buttons
+      $enabled_buttons = preg_split('/,/', $settings['theme_advanced_buttons1']);
+      $default_buttons = array('formatselect', '|', 'bold', 'italic', 'strikethrough', '|', 'bullist', 'numlist', 'blockquote', '|', 'justifyleft', 'justifycenter','justifyright','|','link', 'unlink', 'image', '|', 'pastetext', 'pasteword', 'removeformat', '|', 'pdw_toggle',
+                               'PAGEBREAK', 'styleselect', 'forecolor', 'backcolor', '|', 'underline', '|', 'justifyfull', '|', 'sup', 'sub', 'charmap', '|', 'indent', 'outdent', '|', 'anchor', '|', 'unlGrid', 'unlZenBox', 'unlTooltip', '|', 'undo', 'redo', '|', 'search', 'replace', '|', 'fullscreen', );
+      foreach($default_buttons as $button) {
+        if (in_array($button, $enabled_buttons)) {
+          unset($enabled_buttons[array_search($button, $enabled_buttons)]);
+        }
+        elseif ($button != '|' && $button != 'PAGEBREAK' && $button != 'pdw_toggle') {
+          unset($default_buttons[array_search($button, $default_buttons)]);
+        }
+      }
+
+      // Don't show the button for the codeprotect plugin if the php filter module is disabled
+      if (!module_exists('php')) {
+        unset($enabled_buttons[array_search('codeprotect', $enabled_buttons)]);
+      }
+
+      // Define the final button settings
+      $default_buttons_list = preg_split('/,PAGEBREAK,/', implode(',', $default_buttons));
+      $settings['theme_advanced_buttons1'] = $default_buttons_list[0];
+      $settings['theme_advanced_buttons2'] = $default_buttons_list[1];
+      $settings['theme_advanced_buttons3'] = (count($enabled_buttons) > 0) ? implode(',', $enabled_buttons) : NULL;
+      $settings['pdw_toggle_on'] = '1';
+      $settings['pdw_toggle_toolbars'] = (count($enabled_buttons) > 0) ? '2,3' : '2';
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_wywiwyg_plugin() found in wysiwyg.api.php
+ */
+function unl_wysiwyg_wysiwyg_plugin($editor) {
+  switch ($editor) {
+    case 'tinymce':
+      return array(
+        'unl' => array(
+          'url' => 'http://github.unl.edu/iim/TinyMCE',
+          'path' => $editor['library path'] . '/plugins/unl',
+          'internal' => TRUE,
+          'load' => TRUE,
+          'buttons' => array(
+            'unlZenBox' => 'UNL Zenbox',
+            'unlGrid' => 'UNL Grid',
+            'unlTooltip' => 'UNL Tooltip',
+          ),
+        ),
+        'codeprotect' => array(
+          'title' => t('CodeProtect'),
+          'url' => 'http://sourceforge.net/tracker/?func=detail&aid=2859676&group_id=103281&atid=738747',
+          'path' => wysiwyg_get_path('tinymce_plugins') . '/codeprotect',
+          'filename' => 'editor_plugin.js',
+          'buttons' => array(
+            'codeprotect' => t('CodeProtect'),
+          ),
+          'load' => TRUE,
+          'internal' => FALSE,
+        ),
+      );
+      break;
+  }
+}
+
