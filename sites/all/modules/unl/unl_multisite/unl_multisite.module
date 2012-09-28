@@ -1,5 +1,7 @@
 <?php
 
+require_once  drupal_get_path('module', 'unl') . '/includes/common.php';
+
 /**
  * Implements hook_block_info()
  */
@@ -306,5 +308,61 @@ function _unl_multisite_cron_import_wdn_registry_sites() {
         ->execute();
     }
     db_set_active();
+  }
+}
+
+/**
+ * Custom function.
+ */
+function _unl_multisite_send_site_created_email($site = NULL) {
+  $shared_prefix = unl_get_shared_db_prefix();
+
+  // If no site was specified, get the current site.
+  if (!$site) {
+    if (!is_array($GLOBALS['databases']['default']['default']['prefix'])) {
+      return;
+    }
+
+    $db_prefix = $GLOBALS['databases']['default']['default']['prefix']['default'];
+    $db_prefix = substr($db_prefix, 0, 0 - strlen($shared_prefix) - 1);
+    $data = db_query(
+      "SELECT * "
+      . "FROM {$shared_prefix}unl_sites "
+      . "WHERE db_prefix = :prefix ",
+      array(':prefix' => $db_prefix)
+    )->fetchAll();
+    if (count($data) == 0) {
+      return;
+    }
+    $site = $data[0];
+  }
+
+  $unl_site_created_email_address = unl_shared_variable_get('unl_site_created_email_address');
+  $unl_site_created_alert_admins = unl_shared_variable_get('unl_site_created_alert_admins');
+
+  $recipients = array();
+
+  if ($unl_site_created_email_address) {
+    $recipients[] = $unl_site_created_email_address;
+  }
+
+  if ($unl_site_created_alert_admins) {
+    $role = user_role_load_by_name('Site Admin');
+    $select = db_select('users_roles', 'r');
+    $select->fields('r', array('uid'));
+    $select->condition('r.rid', $role->rid);
+    $uids = $select->execute()->fetchCol();
+
+    $users = user_load_multiple($uids);
+    foreach ($users as $user) {
+      if (!$user->mail) {
+        continue;
+      }
+      $recipients[] = $user->mail;
+    }
+  }
+
+  foreach ($recipients as $recipient) {
+    drupal_mail('unl', 'site_created', $recipient, language_default(), array('site' => $site), unl_shared_variable_get('site_mail'));
   }
 }
