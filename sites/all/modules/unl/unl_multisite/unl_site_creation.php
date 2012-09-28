@@ -121,7 +121,7 @@ function unl_site_create_submit($form, &$form_state) {
     'db_prefix' => $db_prefix
   ))->execute();
 
-  drupal_set_message(t('The site @uri has been scheduled for creation. Run sites/all/modules/unl/cron.php to finish install.', array('@uri' => $uri)));
+  drupal_set_message(t('The site @uri has been scheduled for creation. Run cron.php to finish install.', array('@uri' => $uri)));
   $form_state['redirect'] = 'admin/sites/unl/add';
   return;
 }
