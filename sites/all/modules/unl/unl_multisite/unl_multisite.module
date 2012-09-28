@@ -1,7 +1,5 @@
 <?php
 
-require_once dirname(dirname(__FILE__)) . '/includes/common.php';
-
 /**
  * Implements hook_block_info()
  */
