@@ -3,8 +3,9 @@ description = Enables CAS authentication/registration of users through login.unl
 package = UNL
 dependencies[] = unl
 core = 7.x
-version = "7.x-1.0-beta1"
+version = "7.x-1.x"
 configure = admin/config/people/unl_cas
 
+files[] = unl_cas.install
 files[] = unl_cas.module
-files[] = unl_loader.php
+files[] = unl_cas.admin.inc
