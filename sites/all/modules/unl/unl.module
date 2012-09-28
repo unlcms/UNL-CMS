@@ -332,11 +332,6 @@ function unl_filter_process_format($element) {
  */
 function unl_permission() {
   return array(
-    'unl migration' => array(
-      'title'       => t('Migration'),
-      'description' => t('Migrate UNL Template based sites to drupal'),
-    ),
-
     'unl site creation' => array(
       'title'       => t('Site Creation'),
       'description' => t('Create new drupal sites using the UNL profile'),
@@ -411,17 +406,6 @@ function unl_menu() {
     'page arguments' => array('unl_technical_feedback'),
     'type' => MENU_NORMAL_ITEM,
     'file' => 'technical_feedback.php',
-  );
-
-  // Adds UNL Migration Tool to the Content menu for admin
-  $items['admin/content/unl/migration'] = array(
-    'title' => 'UNL Migration Tool',
-    'description' => 'Migrate a static UNL template page into Drupal.',
-    'access arguments' => array('unl migration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('unl_migration'),
-    'type' => MENU_LOCAL_TASK,
-    'file' => 'unl_migration.php',
   );
 
   $items['admin/content/unl/reset'] = array(
@@ -971,28 +955,7 @@ function unl_user_admin_role_validate($form, &$form_state) {
  * Implementation of hook_cron().
  */
 function unl_cron() {
-  _unl_cron_migration_step();
   _unl_cron_import_wdn_registry_sites();
-}
-
-/**
- * If a site is being migrated via cron jobs, do some work towards that migration.
- */
-function _unl_cron_migration_step() {
-  // We don't want this running as system user, only the web user.
-  if (PHP_SAPI == 'cli') {
-    return;
-  }
-
-  $queue = DrupalQueue::get('unl_migration');
-  if ($queue->numberOfItems() > 0) {
-    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
-    $item = $queue->claimItem(120);
-    $queue->deleteItem($item);
-    if (unl_migration_queue_step($item->data)) {
-      unl_send_site_created_email();
-    }
-  }
 }
 
 /**
@@ -1649,7 +1612,7 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $ssiDepth = $_SERVER['HTTP_X_UNL_SSI_DEPTH'];
     }
     $ssiDepth++;
-    
+
     $context = stream_context_create(array(
       'http' => array(
         'header' => "x-unl-ssi-depth: $ssiDepth\r\n",
