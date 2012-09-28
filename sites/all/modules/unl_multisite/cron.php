@@ -15,13 +15,13 @@ if (PHP_SAPI != 'cli') {
   exit;
 }
 
-chdir(dirname(__FILE__) . '/../../../../..');
+chdir(dirname(__FILE__) . '/../../../..');
 define('DRUPAL_ROOT', getcwd());
 
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
-require_once dirname(dirname(__FILE__)) . '/includes/common.php';
 drupal_override_server_variables();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+require_once drupal_get_path('module', 'unl') . '/includes/common.php';
 
 unl_edit_sites();
 unl_remove_aliases();
