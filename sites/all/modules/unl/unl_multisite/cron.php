@@ -15,11 +15,11 @@ if (PHP_SAPI != 'cli') {
   exit;
 }
 
-chdir(dirname(__FILE__) . '/../../../..');
+chdir(dirname(__FILE__) . '/../../../../..');
 define('DRUPAL_ROOT', getcwd());
 
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
-require_once dirname(__FILE__) . '/includes/common.php';
+require_once dirname(dirname(__FILE__)) . '/includes/common.php';
 drupal_override_server_variables();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
