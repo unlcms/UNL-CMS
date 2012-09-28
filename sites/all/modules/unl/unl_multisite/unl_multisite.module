@@ -363,6 +363,6 @@ function _unl_multisite_send_site_created_email($site = NULL) {
   }
 
   foreach ($recipients as $recipient) {
-    drupal_mail('unl', 'site_created', $recipient, language_default(), array('site' => $site), unl_shared_variable_get('site_mail'));
+    drupal_mail('unl_multisite', 'site_created', $recipient, language_default(), array('site' => $site), unl_shared_variable_get('site_mail'));
   }
 }
