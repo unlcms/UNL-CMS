@@ -84,7 +84,8 @@ if (isset($site_name) && $site_name) {
     $t->titlegraphic = '<abbr title="' . $site_name . '">' 
                      . theme_get_setting('site_name_abbreviation')
                      . '</abbr>';
-  } else {
+  }
+  else {
     $t->titlegraphic = $site_name;
   }
   if (!empty($site_slogan)) {
