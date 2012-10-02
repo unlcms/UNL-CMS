@@ -80,7 +80,13 @@ $t->navlinks = PHP_EOL . render($page['navlinks']);
 
 // Site Title and Page Title
 if (isset($site_name) && $site_name) {
-  $t->titlegraphic = $site_name;
+  if (theme_get_setting('site_name_abbreviation')) { 
+    $t->titlegraphic = '<abbr title="' . $site_name . '">' 
+                     . theme_get_setting('site_name_abbreviation')
+                     . '</abbr>';
+  } else {
+    $t->titlegraphic = $site_name;
+  }
   if (!empty($site_slogan)) {
     $t->titlegraphic .= '<span>' . $site_slogan . '</span>';
   }
