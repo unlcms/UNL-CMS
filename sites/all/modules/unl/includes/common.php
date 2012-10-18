@@ -18,7 +18,10 @@ function unl_load_zend_framework() {
  * Custom function to get the db prefix of the 'main' site.
  */
 function unl_get_shared_db_prefix() {
-  require 'sites/default/settings.php';
+  if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
+    require DRUPAL_ROOT . '/sites/all/settings.php';
+  }
+  require DRUPAL_ROOT . '/sites/default/settings.php';
   $shared_prefix = $databases['default']['default']['prefix'];
 
   return $shared_prefix;
