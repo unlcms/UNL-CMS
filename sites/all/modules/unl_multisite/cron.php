@@ -393,24 +393,24 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
     $site_path .= '/';
   }
 
-  unl_require_writable(DRUPAL_ROOT . '/.htaccess');
+  unl_require_writable(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
 
-  $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
-  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
+  $stub_token = '# %UNL_CREATION_TOOL_STUB%';
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
   $stub_pos = strpos($htaccess, $stub_token);
   if ($stub_pos === FALSE) {
-    throw new Exception('Unable to find stub site entry in .htaccess.');
+    throw new Exception('Unable to find stub site entry in .htaccess-subsite-map.txt.');
   }
   $new_htaccess = substr($htaccess, 0, $stub_pos)
-                . "  # %UNL_START_{$site_or_alias}_ID_{$site_id}%\n";
+                . "# %UNL_START_{$site_or_alias}_ID_{$site_id}%\n";
   foreach (array('misc', 'modules', 'sites', 'themes') as $drupal_dir) {
-    $new_htaccess .=  "  RewriteRule $site_path$drupal_dir/(.*) $drupal_dir/$1\n";
+    $new_htaccess .=  "$site_path$drupal_dir $drupal_dir\n";
   }
-  $new_htaccess .= "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n"
+  $new_htaccess .= "# %UNL_END_{$site_or_alias}_ID_{$site_id}%\n\n"
                  . $stub_token
                  . substr($htaccess, $stub_pos + strlen($stub_token));
 
-  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess-subsite-map.txt', $new_htaccess);
 }
 
 function unl_remove_site_from_htaccess($site_id, $is_alias) {
@@ -421,11 +421,11 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
     $site_or_alias = 'SITE';
   }
 
-  unl_require_writable(DRUPAL_ROOT . '/.htaccess');
+  unl_require_writable(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
 
-  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
-  $site_start_token = "\n  # %UNL_START_{$site_or_alias}_ID_{$site_id}%";
-  $site_end_token = "  # %UNL_END_{$site_or_alias}_ID_{$site_id}%\n";
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
+  $site_start_token = "\n# %UNL_START_{$site_or_alias}_ID_{$site_id}%";
+  $site_end_token = "# %UNL_END_{$site_or_alias}_ID_{$site_id}%\n";
 
   $start_pos = strpos($htaccess, $site_start_token);
   $end_pos = strpos($htaccess, $site_end_token);
@@ -437,36 +437,34 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
   $new_htaccess = substr($htaccess, 0, $start_pos)
                 . substr($htaccess, $end_pos + strlen($site_end_token))
                 ;
-  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess-subsite-map.txt', $new_htaccess);
 }
 
 function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
-  unl_require_writable(DRUPAL_ROOT . '/.htaccess');
+  unl_require_writable(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
 
-  $stub_token = '  # %UNL_CREATION_TOOL_STUB%';
-  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
+  $stub_token = '# %UNL_CREATION_TOOL_STUB%';
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
   $stub_pos = strpos($htaccess, $stub_token);
   if ($stub_pos === FALSE) {
-    throw new Exception('Unable to find stub page alias entry in .htaccess.');
+    throw new Exception('Unable to find stub page alias entry in .htaccess-subsite-map.txt.');
   }
   $new_htaccess = substr($htaccess, 0, $stub_pos)
-                . "  # %UNL_START_PAGE_ALIAS_ID_{$site_id}%\n"
-                . "  RewriteCond %{HTTP_HOST} ^{$host}$\n"
-                . "  RewriteCond %{REQUEST_URI} ^{$path}$\n"
-                . "  RewriteRule (.*) {$to_uri} [R,L]\n"
-                . "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n\n"
+                . "# %UNL_START_PAGE_ALIAS_ID_{$site_id}%\n"
+                . "//$host$path $to_uri\n"
+                . "# %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n\n"
                 . $stub_token
                 . substr($htaccess, $stub_pos + strlen($stub_token));
 
-  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess-subsite-map.txt', $new_htaccess);
 }
 
 function unl_remove_page_alias_from_htaccess($site_id) {
-  unl_require_writable(DRUPAL_ROOT . '/.htaccess');
+  unl_require_writable(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
 
-  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess');
-  $site_start_token = "\n  # %UNL_START_PAGE_ALIAS_ID_{$site_id}%";
-  $site_end_token = "  # %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n";
+  $htaccess = file_get_contents(DRUPAL_ROOT . '/.htaccess-subsite-map.txt');
+  $site_start_token = "\n# %UNL_START_PAGE_ALIAS_ID_{$site_id}%";
+  $site_end_token = "# %UNL_END_PAGE_ALIAS_ID_{$site_id}%\n";
 
   $start_pos = strpos($htaccess, $site_start_token);
   $end_pos = strpos($htaccess, $site_end_token);
@@ -478,7 +476,7 @@ function unl_remove_page_alias_from_htaccess($site_id) {
   $new_htaccess = substr($htaccess, 0, $start_pos)
                 . substr($htaccess, $end_pos + strlen($site_end_token))
                 ;
-  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess-subsite-map.txt', $new_htaccess);
 }
 
 function unl_add_alias_to_sites_php($alias_site_dir, $real_site_dir, $alias_id) {
