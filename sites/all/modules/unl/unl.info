@@ -3,7 +3,7 @@ description = Adds various needed features to support the UNL templates includin
 package = UNL
 dependencies[] = wysiwyg
 core = 7.x
-version = "7.x-1.0-20100920"
+version = "7.x-7.6"
 configure = admin/config/system/unl
 
 files[] = unl.install
