@@ -1,33 +1,36 @@
 <?php
 
 /**
+ * Implements hook_form_FORM_ID_alter().
  * Modifies the system performance settings form to add a button to purge the varnish cache.
  */
 function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state, $form_id) {
   $form['clear_cache']['#weight'] = -2;
-  $form['purge_varnish'] = array(
+
+  // Add system-wide varnish purge for the default site only
+  $form['purge_varnish_all_sites'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Purge Varnish',
-    '#access' => user_access('administer varnish'),
+    '#title' => 'Purge varnish on all sites',
+    '#access' => user_access('administer varnish') && conf_path() == 'sites/default',
     '#weight' => -1,
-  
+
     'varnish_path' => array(
       '#type' => 'radios',
       '#required' => TRUE,
       '#options' => array(
-        '^/wdn' => 'Just WDN template files (/wdn)',
-        '^/'	=> 'Everything',
+        '^/wdn' => 'Only WDN template files (/wdn)',
+        '^/' => 'Everything',
       ),
       '#default_value' => '^/wdn',
     ),
-    
+
     'purge' => array(
       '#type' => 'submit',
       '#value' => 'Purge varnish cache',
       '#submit' => array('unl_varnish_purge_submit'),
     ),
   );
-  
+
   return $form;
 }
 
