@@ -86,9 +86,11 @@ function unl_varnish_node_update($node) {
 }
 
 /**
- * Implements hook_form_FORM_ID_alter().
- * Purges varnish when a Draggable Views form is saved.
+ * Implements hook_form_alter().
  */
-function unl_varnish_form_views_form_drag_page_alter(&$form, $form_state, $form_id) {
-  $form['#submit'][] = 'varnish_purge_all_pages';
+function unl_varnish_form_alter(&$form, $form_state, $form_id) {
+  // Purges varnish when a Draggable Views form is saved.
+  if (array_key_exists('draggableviews', $form)) {
+    $form['#submit'][] = 'varnish_purge_all_pages';
+  }
 }
