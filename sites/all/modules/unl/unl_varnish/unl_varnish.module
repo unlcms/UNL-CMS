@@ -5,15 +5,27 @@
  * Modifies the system performance settings form to add a button to purge the varnish cache.
  */
 function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state, $form_id) {
-  $form['clear_cache']['#weight'] = -2;
+  $form['clear_cache']['#weight'] = -3;
+
+  // Add purge varnish button for single site
+  $form['purge_varnish'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Purge varnish'),
+    '#access' => user_access('administer site configuration'),
+    '#weight' => -2,
+    'purge' => array(
+      '#type' => 'submit',
+      '#value' => t('Purge varnish cache'),
+      '#submit' => array('unl_varnish_purge_submit'),
+    ),
+  );
 
   // Add system-wide varnish purge for the default site only
   $form['purge_varnish_all_sites'] = array(
     '#type' => 'fieldset',
-    '#title' => 'Purge varnish on all sites',
+    '#title' => t('Purge varnish on all sites'),
     '#access' => user_access('administer varnish') && conf_path() == 'sites/default',
     '#weight' => -1,
-
     'varnish_path' => array(
       '#type' => 'radios',
       '#required' => TRUE,
@@ -23,11 +35,10 @@ function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state
       ),
       '#default_value' => '^/wdn',
     ),
-
     'purge' => array(
       '#type' => 'submit',
-      '#value' => 'Purge varnish cache',
-      '#submit' => array('unl_varnish_purge_submit'),
+      '#value' => t('Purge varnish system-wide'),
+      '#submit' => array('unl_varnish_purge_all_sites_submit'),
     ),
   );
 
@@ -35,9 +46,17 @@ function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state
 }
 
 /**
- * Uses the varnish module to purge varnish at the requested path.
+ * Submit callback: Uses the varnish module to purge varnish.
  */
 function unl_varnish_purge_submit($form, &$form_state) {
+  varnish_purge_all_pages();
+  drupal_set_message(t('Varnish purged.'));
+}
+
+/**
+ * Submit callback: Uses the varnish module to purge varnish at the requested path.
+ */
+function unl_varnish_purge_all_sites_submit($form, &$form_state) {
   $path = $form_state['values']['varnish_path'];
   _varnish_terminal_run("purge.url $path");
   drupal_set_message("Varnish purged paths matching $path.", 'status');
