@@ -306,6 +306,8 @@ class Unl_Migration_Tool
         if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
             $path = substr($path, 0, $fragmentStart);
         }
+        $path = strtolower($path);
+        $path = trim($path, '/');
         $this->_siteMap[hash('SHA256', $path)] = $path;
     }
     
@@ -414,6 +416,9 @@ class Unl_Migration_Tool
                 if (!$path) {
                     $path = '';
                 }
+                $path = strtolower($path);
+                $path = trim($path, '/');
+                
                 if ($fragmentPos = strrpos($path, '#') !== FALSE) {
                     $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                     $path = substr($path, 0, $fragmentPos);
@@ -458,6 +463,9 @@ class Unl_Migration_Tool
                     if (!$path) {
                         $path = '';
                     }
+                    $path = strtolower($path);
+                    $path = trim($path, '/');
+                    
                     if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
                         $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                         $path = substr($path, 0, $fragmentPos);
