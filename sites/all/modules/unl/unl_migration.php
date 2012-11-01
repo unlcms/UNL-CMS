@@ -846,9 +846,15 @@ class Unl_Migration_Tool
       
       $urlParts = parse_url($url);
       $pathParts = explode('/', ltrim($urlParts['path'], '/'));
-      
-      
-      if (count($pathParts) >= 2 && $pathParts[0] == 'web') {
+
+      $exceptions = array(
+        'cropwatch.unl.edu' => array('corn', 'drybeans', 'forages', 'organic', 'potato', 'sorghum', 'soybeans', 'wheat', 'bioenergy', 'insect', 'economics', 'ssm', 'soils', 'tillage', 'weed', 'varietytest', 'biotechnology', 'farmresearch', 'cropwatch-youth', 'militaryresources', 'gaps', 'sugarbeets'),
+      );
+      if (
+           count($pathParts) >= 2 && $pathParts[0] == 'web'
+        && !(in_array($urlParts['host'], array_keys($exceptions)) && in_array($pathParts[1], $exceptions[$urlParts['host']]))
+      ) {
+        
         $urlParts['host'] = strtolower($pathParts[1]) . '.unl.edu';
         $pathParts = array_splice($pathParts, 2);
         $urlParts['path'] = '/' . implode('/', $pathParts);
