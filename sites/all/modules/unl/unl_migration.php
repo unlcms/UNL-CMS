@@ -234,7 +234,7 @@ class Unl_Migration_Tool
         if ($this->_state == self::STATE_PROCESSING_PAGES) {
             // Process all of the pages on the site (Takes a while)
             do {
-                set_time_limit(30);
+                set_time_limit(max(30, $time_limit));
                 
                 $pagesToProcess = $this->_getPagesToProcess();
                 foreach ($pagesToProcess as $pageToProcess) {
@@ -264,6 +264,7 @@ class Unl_Migration_Tool
             $this->_state = self::STATE_CREATING_NODES;
         }
         
+        
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
             foreach ($this->_content as $path => $content) {
@@ -273,10 +274,12 @@ class Unl_Migration_Tool
                 if (time() - $this->_start_time > $time_limit) {
                     return FALSE;
                 }
-                set_time_limit(30);
+                set_time_limit(max(30, $time_limit));
                 
-                $hrefTransform = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
-                $content = strtr($content, $hrefTransform);
+                $hrefTransforms = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
+                foreach ($hrefTransforms as $hrefTransformFrom => $hrefTransformTo) {
+                  $content = str_replace(htmlspecialchars($hrefTransformFrom), htmlspecialchars($hrefTransformTo), $content);
+                }
                 
                 $pageTitle = $this->_pageTitles[$path];
                 $this->_createPage($pageTitle, $content, $path, '' == $path);
@@ -596,7 +599,7 @@ class Unl_Migration_Tool
         $link_node = $link_nodes->item($i);
         $this->_breadcrumbs[] = array(
           'text' => trim($link_node->textContent),
-          'href' => $this->_makeLinkAbsolute($link_node->getAttribute('href', ''))
+          'href' => $this->_makeLinkAbsolute($link_node->getAttribute('href'), ''),
         );
       }
     }
@@ -636,21 +639,36 @@ class Unl_Migration_Tool
             $this->_lastModifications[$path] = $data['lastModified'];
         }
         if (strpos($data['contentType'], 'html') === FALSE) {
-            if (!$data['contentType']) {
-                $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.', WATCHDOG_ERROR);
-                return;
-            }
-            @drupal_mkdir('public://' . urldecode(dirname($path)), NULL, TRUE);
-            if (!mb_check_encoding($path, 'UTF-8')) {
-                $path = iconv('ISO-8859-1', 'UTF-8', $path); 
-            }
-            try {
-              $file = file_save_data($data['content'], 'public://' . urldecode($path), FILE_EXISTS_REPLACE);
-            } catch (Exception $e) {
-              $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
-            }
-            $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $path));
+          if (!$data['contentType']) {
+            $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.', WATCHDOG_ERROR);
             return;
+          }
+          
+          $filePath = $path;
+          $pathParts = parse_url($path);
+          // If the path contains a query, we'll have to change it.
+          if (array_key_exists('query', $pathParts)) {
+            $matches = array();
+            if (array_key_exists('Content-Disposition', $data['headers']) &&
+                preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
+              $filePath = $pathParts['path'] . '/' . $matches[1];
+            } else {
+              $filePath = $pathParts['path'] . '/' . $pathParts['query'];
+            }
+          }
+          
+          @drupal_mkdir('public://' . urldecode(dirname($filePath)), NULL, TRUE);
+          if (!mb_check_encoding($path, 'UTF-8')) {
+              $path = iconv('ISO-8859-1', 'UTF-8', $path); 
+          }
+          
+          try {
+            $file = file_save_data($data['content'], 'public://' . urldecode($filePath), FILE_EXISTS_REPLACE);
+          } catch (Exception $e) {
+            $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
+          }
+          $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $filePath));
+          return;
         }
         $html = $data['content'];
         
@@ -777,30 +795,32 @@ class Unl_Migration_Tool
         }
     }
     
-    private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL)
-    {
-        if (substr($originalHref, 0, 1) == '#') {
-            return;
+    private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL) {
+      if (substr($originalHref, 0, 1) == '#') {
+        return;
+      }
+      
+      if (!$page_base) {
+        $page_base = $path;
+      }
+      
+      $href = $this->_makeLinkAbsolute($originalHref, $page_base);
+      
+      if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+        $newPath = substr($href, strlen($this->_baseUrl));
+        if ($newPath === FALSE) {
+          $newPath = '';
         }
-        
-        if (!$page_base) {
-          $page_base = $path;
-        }
-        
-        $href = $this->_makeLinkAbsolute($originalHref, $page_base);
-        
-        if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
-            $newPath = substr($href, strlen($this->_baseUrl));
-            if ($newPath === FALSE) {
-                $newPath = '';
-            }
-            if ($tag) {
-                $this->_hrefTransform[$tag][$originalHref] = $newPath;
-            } else {
-                $this->_hrefTransform[$path][$originalHref] = $newPath;
-            }
-            $this->_addSitePath($newPath);
-        }
+        $this->_addSitePath($newPath);
+      } else {
+        $newPath = $href;
+      }
+
+      if ($tag) {
+        $this->_hrefTransform[$tag][$originalHref] = $newPath;
+      } else {
+        $this->_hrefTransform[$path][$originalHref] = $newPath;
+      }
     }
     
     private function _makeLinkAbsolute($href, $path)
@@ -835,8 +855,11 @@ class Unl_Migration_Tool
         } else if (isset($parts['path']) && substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
             $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
+            if (isset($parts['query'])) {
+              $absoluteUrl .= '?' . $parts['query'];
+            }
             if (isset($parts['fragment'])) {
-                $absoluteUrl .= '#' . $parts['fragment'];
+              $absoluteUrl .= '#' . $parts['fragment'];
             }
         } else if (substr($href, 0, 1) == '#') {
             $absoluteUrl = $this->_baseUrl . $path . $href;
@@ -1033,6 +1056,7 @@ class Unl_Migration_Tool
         $data = array(
             'content' => $content,
             'contentType' => $meta['content_type'],
+            'headers' => $headers,
         );
         
         if ($this->_frontierPath) {
@@ -1046,8 +1070,10 @@ class Unl_Migration_Tool
     
         // Convert non-UTF-8 data to UTF-8.
         if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
-            $charset = $matches[1];
+          $charset = $matches[1];
+          if ($charset != 'UTF-8') {
             $data['content'] = iconv($charset, 'UTF-8', $data['content']);
+          }
         }
         
         return $data;
