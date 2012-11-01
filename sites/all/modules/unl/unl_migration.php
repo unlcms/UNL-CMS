@@ -309,6 +309,10 @@ class Unl_Migration_Tool
         if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
             $path = substr($path, 0, $fragmentStart);
         }
+        $path = trim($path, '/');
+        if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE) {
+          return;
+        }
         $this->_siteMap[hash('SHA256', $path)] = $path;
     }
     
@@ -417,6 +421,8 @@ class Unl_Migration_Tool
                 if (!$path) {
                     $path = '';
                 }
+                $path = trim($path, '/');
+                
                 if ($fragmentPos = strrpos($path, '#') !== FALSE) {
                     $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                     $path = substr($path, 0, $fragmentPos);
@@ -424,7 +430,7 @@ class Unl_Migration_Tool
                 if (substr($path, -1) == '/') {
                     $path = substr($path, 0, -1);
                 }
-                $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                $nodeId = array_search(strtolower($path), array_map('strtolower', $this->_nodeMap), TRUE);
                 if ($nodeId) {
                     $item['link_path'] = 'node/' . $nodeId;
                 }  
@@ -461,6 +467,8 @@ class Unl_Migration_Tool
                     if (!$path) {
                         $path = '';
                     }
+                    $path = trim($path, '/');
+                    
                     if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
                         $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                         $path = substr($path, 0, $fragmentPos);
@@ -468,7 +476,7 @@ class Unl_Migration_Tool
                     if (substr($path, -1) == '/') {
                         $path = substr($path, 0, -1);
                     }
-                    $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                    $nodeId = array_search(strtolower($path), array_map('strtolower', $this->_nodeMap), TRUE);
                     if ($nodeId) {
                         $item['link_path'] = 'node/' . $nodeId;
                     }
