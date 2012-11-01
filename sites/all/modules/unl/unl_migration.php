@@ -813,6 +813,7 @@ class Unl_Migration_Tool
       }
       
       $href = $this->_makeLinkAbsolute($originalHref, $page_base);
+      $href = $this->_translateLiferayWeb($href);
       
       if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
         $newPath = substr($href, strlen($this->_baseUrl));
@@ -829,6 +830,36 @@ class Unl_Migration_Tool
       } else {
         $this->_hrefTransform[$path][$originalHref] = $newPath;
       }
+    }
+    
+    /**
+     * Provided an absolute URL, handles translating Liferay /web/site/some/path
+     * paths to http://site.unl.edu/some/path/
+     * 
+     * @param string $url
+     * @return string
+     */
+    private function _translateLiferayWeb($url) {
+      if (substr($url, 0, strlen($this->_baseUrl)) != $this->_baseUrl) {
+        return $url;
+      }
+      
+      $urlParts = parse_url($url);
+      $pathParts = explode('/', ltrim($urlParts['path'], '/'));
+      
+      
+      if (count($pathParts) >= 2 && $pathParts[0] == 'web') {
+        $urlParts['host'] = strtolower($pathParts[1]) . '.unl.edu';
+        $pathParts = array_splice($pathParts, 2);
+        $urlParts['path'] = '/' . implode('/', $pathParts);
+
+        $url = $urlParts['scheme'] . '://' . $urlParts['host'];
+        $url .= isset($urlParts['path']) ? $urlParts['path'] : '';
+        $url .= isset($urlParts['query']) ? '?' . $urlParts['query'] : '';
+        $url .= isset($urlParts['fragment']) ? '#'.$urlParts['fragment'] : '';
+      }
+      
+      return $url;
     }
     
     private function _makeLinkAbsolute($href, $path)
