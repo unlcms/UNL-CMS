@@ -680,7 +680,12 @@ class Unl_Migration_Tool
         }
         $html = $data['content'];
         
-        $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        $maincontentarea = $this->_get_liferay_content_area($html);
+        
+        if (!$maincontentarea) {
+          $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        }
+        
         if (!$maincontentarea) {
             $maincontentarea = $this->_get_old_main_content_area($html);
         }
@@ -1286,6 +1291,14 @@ class Unl_Migration_Tool
     ));
     
     return $content;
+  }
+  
+  private function _get_liferay_content_area($html) {
+    return $this->_get_text_between_tokens(
+      $html,
+      "<!-- End of shared left start of right -->\n<div class=\"three_col right\">",
+      '<form action="" method="post" name="hrefFm">'
+    );
   }
   
   private function _get_text_between_tokens($text, $start_token, $end_token, $tidy_output = TRUE) {
