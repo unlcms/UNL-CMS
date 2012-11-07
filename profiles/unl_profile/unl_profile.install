@@ -352,6 +352,9 @@ EOF;
  * Load the default site's config file and return the db_prefix value from it.
  */
 function unl_profile_get_default_site_db_settings() {
+  if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
+    require DRUPAL_ROOT . '/sites/all/settings.php';
+  }
   $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
   require $default_site_settings_file;
 
