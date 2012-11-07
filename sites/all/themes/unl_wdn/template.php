@@ -528,11 +528,10 @@ EOF;
 }
 
 /**
- * Return the abbreviated site name, assuming it has been set and we're not on the front page.
- * Otherwise, it returns the full site name.
+ * Return the abbreviated site name, assuming it has been set. Otherwise return the full site name.
  */
 function unl_wdn_get_site_name_abbreviated() {
-  if (!drupal_is_front_page() && theme_get_setting('site_name_abbreviation')) {
+  if (theme_get_setting('site_name_abbreviation')) {
     return theme_get_setting('site_name_abbreviation');
   }
   else {

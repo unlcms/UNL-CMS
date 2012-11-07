@@ -19,29 +19,37 @@ This package allows you to render UNL Template styled pages using PHP Objects.
   <email>nhummel2@math.unl.edu</email>
   <active>yes</active>
  </lead>
- <date>2012-04-23</date>
- <time>13:18:13</time>
+ <date>2012-10-02</date>
+ <time>11:50:32</time>
  <version>
-  <release>1.3.0RC2</release>
+  <release>1.3.0</release>
   <api>1.0.0</api>
  </version>
  <stability>
-  <release>beta</release>
+  <release>stable</release>
   <api>stable</api>
  </stability>
  <license uri="http://www1.unl.edu/wdn/wiki/Software_License">BSD License</license>
- <notes>New features:
+ <notes>Stable Release!
 
- - Add support for version 3.1 of the UNL Templates</notes>
+New features:
+
+* Add support for version 3.1 of the UNL Templates
+
+Changes since RC2:
+
+* Update template cache files with validation fixes
+* Reflect UNL_DWT API changes
+</notes>
  <contents>
   <dir name="/">
    <file role="test" name="test/pear.unl.edu/UNL_Templates/UNL_TemplatesTest.php" md5sum="12aa5989d1255dccc299a3dcdd6c6ba8"/>
-   <file role="php" name="php/UNL/Templates/Version3x1/Unlaffiliate_local.php" md5sum="9f3867901ad594901d11ffff07b36843"/>
-   <file role="php" name="php/UNL/Templates/Version3x1/Unlaffiliate_debug.php" md5sum="4e006ca79895e0f9676d0ac792d2376a"/>
-   <file role="php" name="php/UNL/Templates/Version3x1/Unlaffiliate.php" md5sum="d04b37bd1e8da510610b9ad66de26487"/>
-   <file role="php" name="php/UNL/Templates/Version3x1/Local.php" md5sum="bab0b09eabc5d2fe041c4379dfa0634c"/>
-   <file role="php" name="php/UNL/Templates/Version3x1/Fixed.php" md5sum="8800d08ea41dcd31b7f444924d0e96c6"/>
-   <file role="php" name="php/UNL/Templates/Version3x1/Debug.php" md5sum="53764519ccbb2cda9d35f77843d85a61"/>
+   <file role="php" name="php/UNL/Templates/Version3x1/Unlaffiliate_local.php" md5sum="e3f4b2b27e5cbbd81f3a434fdcd949d4"/>
+   <file role="php" name="php/UNL/Templates/Version3x1/Unlaffiliate_debug.php" md5sum="0e7a53d410d00748c53cb9036d43a178"/>
+   <file role="php" name="php/UNL/Templates/Version3x1/Unlaffiliate.php" md5sum="c9e2423f1508286947525968dddd56cb"/>
+   <file role="php" name="php/UNL/Templates/Version3x1/Local.php" md5sum="b18901fcb9b7d59f0de947f649e0cba7"/>
+   <file role="php" name="php/UNL/Templates/Version3x1/Fixed.php" md5sum="1cdda4bc708879eaeb6052aa50980820"/>
+   <file role="php" name="php/UNL/Templates/Version3x1/Debug.php" md5sum="880a7ec565da26995e7fa4b21163e1d3"/>
    <file role="php" name="php/UNL/Templates/Version3x1.php" md5sum="3db6efc4892a2b68869a27941673bb5a"/>
    <file role="php" name="php/UNL/Templates/Version3/Unlaffiliate.php" md5sum="40eeca840e02c9e5b2b2b7846bd73397"/>
    <file role="php" name="php/UNL/Templates/Version3/Shared_column_right.php" md5sum="f9b3c237b7a6b8500ef0d18f4e1c9595"/>
@@ -64,26 +72,26 @@ This package allows you to render UNL Template styled pages using PHP Objects.
    <file role="php" name="php/UNL/Templates/Version2/Liquid.php" md5sum="55c715aa91f18226f5be4c3f427b2dea"/>
    <file role="php" name="php/UNL/Templates/Version2/Fixed.php" md5sum="3fbccc1b6e7a0287577972b4c25a0d19"/>
    <file role="php" name="php/UNL/Templates/Version2/Document.php" md5sum="ef2068426bb8f73ac706b18a472df967"/>
-   <file role="php" name="php/UNL/Templates/Version2.php" md5sum="8472e8942eb062eb06568386c237f9c1"/>
+   <file role="php" name="php/UNL/Templates/Version2.php" md5sum="d8f5200292c4216e423fc7c5da502e44"/>
    <file role="php" name="php/UNL/Templates/Version.php" md5sum="c7df0501ec102431d7be6a6cfd133b5b"/>
    <file role="php" name="php/UNL/Templates/Scanner.php" md5sum="82740c1fadfd1160bb9c67006947ab3b"/>
    <file role="php" name="php/UNL/Templates/CachingService/UNLCacheLite.php" md5sum="4fa04418d0aa08834b4795caeae5b8c8"/>
    <file role="php" name="php/UNL/Templates/CachingService/Null.php" md5sum="47991f0e5cffed6d138725a3294f4e6a"/>
    <file role="php" name="php/UNL/Templates/CachingService/CacheLite.php" md5sum="5b09b184e7d59a2520e99c0b5c66428a"/>
    <file role="php" name="php/UNL/Templates/CachingService.php" md5sum="07884c3a9bf75657e54782423a088eb4"/>
-   <file role="php" name="php/UNL/Templates.php" md5sum="1f39ddc40f5a2b2ba0f68ca3367de923"/>
+   <file role="php" name="php/UNL/Templates.php" md5sum="6f844645177ff75a899210f3a29bfd04"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_Templates/examples/scanner.php" md5sum="2b116cf09b8d73c439718217d83a32c2"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_Templates/examples/example1.php" md5sum="c3de6bfef1cee16be4135f310e5e601d"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_Templates/examples/customization/customization_example.php" md5sum="e9769bdf0cf9ec36430b3f70ec687037"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_Templates/examples/customization/customization_example.html" md5sum="26c8d867af8ffd4d8d60e348573f9c3d"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_Templates/examples/customization/CustomClass.php" md5sum="43bc783b2215f9668800ce2e80ad457b"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_Templates/examples/convert.php" md5sum="a7114a3868d0ba54d4ff76b370ea3201"/>
-   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Unlaffiliate_local.tpl" md5sum="8801aaa43aaca9d820728f665ed6e64d"/>
-   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Unlaffiliate_debug.tpl" md5sum="6c2891e91facb216e7f4c13d5be3c339"/>
-   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Unlaffiliate.tpl" md5sum="26907bf294eba52039c49cbde60b2693"/>
-   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Local.tpl" md5sum="278f3cefa48d8aca1b6f316909ed3a50"/>
-   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Fixed.tpl" md5sum="1e00218790ec2552d5b02e7a1e83c1fd"/>
-   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Debug.tpl" md5sum="8074ddde1770dd571bd8c21917cf3607"/>
+   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Unlaffiliate_local.tpl" md5sum="0802ccd854dfe1d6a3f0a22ad7ff09c4"/>
+   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Unlaffiliate_debug.tpl" md5sum="241be8cc9780847dece60b54358de9a3"/>
+   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Unlaffiliate.tpl" md5sum="5b30670bdbd48ecf9eaa9d6f505693f2"/>
+   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Local.tpl" md5sum="4eef418e9e527224b9347e635e95dfba"/>
+   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Fixed.tpl" md5sum="a2151b63d3861496e785f4b10f3b44be"/>
+   <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3x1/Debug.tpl" md5sum="037f834d2e9cd17856d83a6fbd0465dc"/>
    <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3/Unlaffiliate.tpl" md5sum="6644923a681f49bfd425f5768d01e4a3"/>
    <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3/Shared_column_right.tpl" md5sum="84cc265b12115d9c2733a6d03f5a4d85"/>
    <file role="data" name="data/pear.unl.edu/UNL_Templates/tpl_cache/Version3/Shared_column_left.tpl" md5sum="6003b105b79241b8e001d0f375265747"/>
@@ -118,7 +126,7 @@ This package allows you to render UNL Template styled pages using PHP Objects.
    <package>
     <name>UNL_DWT</name>
     <channel>pear.unl.edu</channel>
-    <min>0.7.1</min>
+    <min>0.8.0</min>
    </package>
   </required>
   <optional>
