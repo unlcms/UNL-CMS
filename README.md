@@ -109,7 +109,7 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
   *  webform.module
 
-     - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6063650 patch applied: http://drupal.org/files/webform-1340010-18.patch
+     - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
 
   *  workbench_moderation.module
 
