@@ -107,6 +107,10 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Add 'uri callback' for file entities. See http://drupal.org/node/1481372#comment-6529650
 
+  *  webform.module
+
+     - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6063650 patch applied: http://drupal.org/files/webform-1340010-18.patch
+
   *  workbench_moderation.module
 
      - Fix broken books in workbench_moderation_node_presave(). See http://drupal.org/node/1505060
