@@ -2956,6 +2956,10 @@ function _webform_filter_values($string, $node = NULL, $submission = NULL, $emai
         $display_element['#id'] = drupal_html_id('edit-' . implode('-', $display_element['#parents']));
       }
       $replacements['email'][$format]['%email[' . $form_key . ']'] = render($display_element);
+      if (isset($display_element['#options'])) {
+        $display_element_email_safe_key = array_diff_key($display_element, array('#options' => '')) + array('#options' => array_flip($display_element['#options']));
+        $replacements['email'][$format]['%email_safe_key[' . $form_key . ']'] = render($display_element_email_safe_key);
+      }
       $display_element['#theme_wrappers'] = array(); // Remove label and wrappers.
       $replacements['email'][$format]['%value[' . $form_key . ']'] = render($display_element);
       if (isset($display_element['#options'])) {
@@ -2969,6 +2973,7 @@ function _webform_filter_values($string, $node = NULL, $submission = NULL, $emai
       $parents = webform_component_parent_keys($node, $component);
       $form_key = implode('][', $parents);
       $replacements['email'][$format]['%email[' . $form_key . ']'] = '';
+      $replacements['email'][$format]['%email_safe_key[' . $form_key . ']'] = '';
       $replacements['email'][$format]['%value[' . $form_key . ']'] = '';
       $replacements['email'][$format]['%safe_key[' . $form_key . ']'] = '';
     }
@@ -3227,6 +3232,7 @@ function theme_webform_token_help($variables) {
       'tokens' => array(
         '%email_values' => t('All included components in a hierarchical structure.'),
         '%email[' . t('key') . '] ' => t('A formatted value and field label. Elements may be accessed such as <em>%email[fieldset_a][key_b]</em>. Do not include quotes.'),
+        '%email_safe_key[' . t('key') . '] ' => t('A formatted safe_key for a select options field. Elements may be accessed such as <em>%email_safe_key[fieldset_a][key_b]</em>. Do not include quotes.'),
         '%submission_url' => t('The URL for viewing the completed submission.'),
       ),
     );
