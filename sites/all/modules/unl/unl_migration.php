@@ -48,6 +48,12 @@ function unl_migration($form, &$form_state)
         '#title' => t('Ignore Duplicate Pages/Files'),
         '#description' => t("This may be needed if your site has an unlimited number of dynamicly generated paths."),
     );
+    $form['root']['use_liferay_code'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Use Liferay Detection'),
+        '#description' => t("Normally, this won't interfere with non-liferay sites. If you have a /web directory, you should turn this off."),
+        '#default_value' => 1,
+    );
     
     $form['submit'] = array(
         '#type' => 'submit',
@@ -64,7 +70,8 @@ function unl_migration_submit($form, &$form_state) {
     $form_state['values']['frontier_path'],
     $form_state['values']['frontier_user'],
     $form_state['values']['frontier_pass'],
-    $form_state['values']['ignore_duplicates']
+    $form_state['values']['ignore_duplicates'],
+    $form_state['values']['use_liferay_code']
   );
   
   $operations = array(
@@ -157,6 +164,7 @@ class Unl_Migration_Tool
     private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
     private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
+    private $_useLiferayCode      = TRUE;
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -171,7 +179,7 @@ class Unl_Migration_Tool
     
     private $_start_time;
     
-    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates)
+    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates, $useLiferayCode = FALSE)
     {
         header('Content-type: text/plain');
 
@@ -198,6 +206,7 @@ class Unl_Migration_Tool
         $this->_frontierPass = $frontierPass;
         
         $this->_ignoreDuplicates = (bool) $ignoreDuplicates;
+        $this->_useLiferayCode = (bool) $useLiferayCode;
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
@@ -234,7 +243,7 @@ class Unl_Migration_Tool
         if ($this->_state == self::STATE_PROCESSING_PAGES) {
             // Process all of the pages on the site (Takes a while)
             do {
-                set_time_limit(30);
+                set_time_limit(max(30, $time_limit));
                 
                 $pagesToProcess = $this->_getPagesToProcess();
                 foreach ($pagesToProcess as $pageToProcess) {
@@ -264,6 +273,7 @@ class Unl_Migration_Tool
             $this->_state = self::STATE_CREATING_NODES;
         }
         
+        
         if ($this->_state == self::STATE_CREATING_NODES) {
             // Update links and then create new page nodes. (Takes a while)
             foreach ($this->_content as $path => $content) {
@@ -273,10 +283,12 @@ class Unl_Migration_Tool
                 if (time() - $this->_start_time > $time_limit) {
                     return FALSE;
                 }
-                set_time_limit(30);
+                set_time_limit(max(30, $time_limit));
                 
-                $hrefTransform = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
-                $content = strtr($content, $hrefTransform);
+                $hrefTransforms = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
+                foreach ($hrefTransforms as $hrefTransformFrom => $hrefTransformTo) {
+                  $content = str_replace(htmlspecialchars($hrefTransformFrom), htmlspecialchars($hrefTransformTo), $content);
+                }
                 
                 $pageTitle = $this->_pageTitles[$path];
                 $this->_createPage($pageTitle, $content, $path, '' == $path);
@@ -305,6 +317,10 @@ class Unl_Migration_Tool
     {
         if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
             $path = substr($path, 0, $fragmentStart);
+        }
+        $path = trim($path, '/');
+        if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE) {
+          return;
         }
         $this->_siteMap[hash('SHA256', $path)] = $path;
     }
@@ -414,6 +430,8 @@ class Unl_Migration_Tool
                 if (!$path) {
                     $path = '';
                 }
+                $path = trim($path, '/');
+                
                 if ($fragmentPos = strrpos($path, '#') !== FALSE) {
                     $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                     $path = substr($path, 0, $fragmentPos);
@@ -421,7 +439,7 @@ class Unl_Migration_Tool
                 if (substr($path, -1) == '/') {
                     $path = substr($path, 0, -1);
                 }
-                $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                $nodeId = array_search(strtolower($path), array_map('strtolower', $this->_nodeMap), TRUE);
                 if ($nodeId) {
                     $item['link_path'] = 'node/' . $nodeId;
                 }  
@@ -458,6 +476,8 @@ class Unl_Migration_Tool
                     if (!$path) {
                         $path = '';
                     }
+                    $path = trim($path, '/');
+                    
                     if (($fragmentPos = strrpos($path, '#')) !== FALSE) {
                         $item['options']['fragment'] = substr($path, $fragmentPos + 1);
                         $path = substr($path, 0, $fragmentPos);
@@ -465,7 +485,7 @@ class Unl_Migration_Tool
                     if (substr($path, -1) == '/') {
                         $path = substr($path, 0, -1);
                     }
-                    $nodeId = array_search($path, $this->_nodeMap, TRUE);
+                    $nodeId = array_search(strtolower($path), array_map('strtolower', $this->_nodeMap), TRUE);
                     if ($nodeId) {
                         $item['link_path'] = 'node/' . $nodeId;
                     }
@@ -596,7 +616,7 @@ class Unl_Migration_Tool
         $link_node = $link_nodes->item($i);
         $this->_breadcrumbs[] = array(
           'text' => trim($link_node->textContent),
-          'href' => $this->_makeLinkAbsolute($link_node->getAttribute('href', ''))
+          'href' => $this->_makeLinkAbsolute($link_node->getAttribute('href'), ''),
         );
       }
     }
@@ -635,26 +655,48 @@ class Unl_Migration_Tool
         if (isset($data['lastModified'])) {
             $this->_lastModifications[$path] = $data['lastModified'];
         }
+        
+        $cleanPath = $path;
+        $pathParts = parse_url($path);
+        // If the path contains a query, we'll have to change it.
+        if (array_key_exists('query', $pathParts)) {
+            $matches = array();
+            if (array_key_exists('Content-Disposition', $data['headers']) &&
+                    preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
+                $cleanPath = $pathParts['path'] . '/' . $matches[1];
+            } else {
+                $cleanPath = $pathParts['path'] . '/' . $pathParts['query'];
+            }
+            $cleanPath = strtr($cleanPath, array('%2f' => '/', '%2F' => '/'));
+        }
+        
         if (strpos($data['contentType'], 'html') === FALSE) {
-            if (!$data['contentType']) {
-                $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.', WATCHDOG_ERROR);
-                return;
-            }
-            @drupal_mkdir('public://' . urldecode(dirname($path)), NULL, TRUE);
-            if (!mb_check_encoding($path, 'UTF-8')) {
-                $path = iconv('ISO-8859-1', 'UTF-8', $path); 
-            }
-            try {
-              $file = file_save_data($data['content'], 'public://' . urldecode($path), FILE_EXISTS_REPLACE);
-            } catch (Exception $e) {
-              $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
-            }
-            $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $path));
+          if (!$data['contentType']) {
+            $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.', WATCHDOG_ERROR);
             return;
+          }
+          
+          @drupal_mkdir('public://' . urldecode(dirname($cleanPath)), NULL, TRUE);
+          if (!mb_check_encoding($path, 'UTF-8')) {
+              $path = iconv('ISO-8859-1', 'UTF-8', $path); 
+          }
+          
+          try {
+            $file = file_save_data($data['content'], 'public://' . urldecode($cleanPath), FILE_EXISTS_REPLACE);
+          } catch (Exception $e) {
+            $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
+          }
+          $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $cleanPath));
+          return;
         }
         $html = $data['content'];
         
-        $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        $maincontentarea = $this->_get_liferay_content_area($html);
+        
+        if (!$maincontentarea) {
+          $maincontentarea = $this->_get_instance_editable_content($html, 'maincontentarea');
+        }
+        
         if (!$maincontentarea) {
             $maincontentarea = $this->_get_old_main_content_area($html);
         }
@@ -753,8 +795,8 @@ class Unl_Migration_Tool
             $this->_processLinks($linkNode->getAttribute('src'), $path, $page_base);
         }
         
-        $this->_content[$path] = $maincontentarea;
-        $this->_pageTitles[$path] = $pageTitle;
+        $this->_content[$cleanPath] = $maincontentarea;
+        $this->_pageTitles[$cleanPath] = $pageTitle;
         
         // Scan the page for the parent breadcrumb
         $breadcrumbs = $dom->getElementById('breadcrumbs');
@@ -772,35 +814,91 @@ class Unl_Migration_Tool
             if ($pageParentLink == $path) {
               $pageParentLink = '';
             }
-            $this->_pageParentLinks[$path] = $pageParentLink;
+            $this->_pageParentLinks[$cleanPath] = $pageParentLink;
           }
+        }
+        if ($cleanPath != $path) {
+          $this->_hrefTransformFiles[$path] = $cleanPath;
         }
     }
     
-    private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL)
-    {
-        if (substr($originalHref, 0, 1) == '#') {
-            return;
+    private function _processLinks($originalHref, $path, $page_base = NULL, $tag = NULL) {
+      if (substr($originalHref, 0, 1) == '#') {
+        return;
+      }
+      
+      if (!$page_base) {
+        $page_base = $path;
+      }
+      
+      $href = $this->_makeLinkAbsolute($originalHref, $page_base);
+      $href = $this->_translateLiferayWeb($href);
+      
+      if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
+        $newPath = substr($href, strlen($this->_baseUrl));
+        if ($newPath === FALSE) {
+          $newPath = '';
         }
+        $this->_addSitePath($newPath);
+      } else {
+        $newPath = $href;
+      }
+
+      if ($tag) {
+        $this->_hrefTransform[$tag][$originalHref] = $newPath;
+      } else {
+        $this->_hrefTransform[$path][$originalHref] = $newPath;
+      }
+    }
+    
+    /**
+     * Provided an absolute URL, handles translating Liferay /web/site/some/path
+     * paths to http://site.unl.edu/some/path/
+     * 
+     * @param string $url
+     * @return string
+     */
+    private function _translateLiferayWeb($url) {
+      if (!$this->_useLiferayCode) {
+        return $url;
+      }
+      
+      if (substr($url, 0, strlen($this->_baseUrl)) != $this->_baseUrl) {
+        return $url;
+      }
+      
+      $urlParts = parse_url($url);
+      $pathParts = explode('/', ltrim($urlParts['path'], '/'));
+
+      $exceptions = array(
+        'cropwatch.unl.edu'     => array('corn', 'drybeans', 'forages', 'organic', 'potato', 'sorghum', 'soybeans', 'wheat', 'bioenergy', 'insect', 'economics', 'ssm', 'soils', 'tillage', 'weed', 'varietytest', 'biotechnology', 'farmresearch', 'cropwatch-youth', 'militaryresources', 'gaps', 'sugarbeets'),
+        '4h.unl.edu'            => array('extension-4-h-horse', '4hcamps', '4hcurriclum'),
+        'animalscience.unl.edu' => array('fernando-lab', 'anscgenomics', 'rprb-lab', 'ruminutrition-lab'),
+        'beef.unl.edu'          => array('cattleproduction'),
+        'biochem.unl.edu'       => array('barycki', 'bailey', 'becker', 'adamec', 'wilson', 'biochem-fatttlab', 'simpson'),
+        'bse.unl.edu'           => array('p2guidelines'),
+        'edmedia.unl.edu'       => array('techtraining'),
+        'food.unl.edu'          => array('localfoods', 'allergy', 'fnh', 'preservation', 'fpc', 'safety', 'meatproducts', 'youth'),
+        'ianrhome.unl.edu'      => array('ianrinternational'),
+        'water.unl.edu'         => array('crops', 'cropswater', 'drinkingwater', 'drought', 'wildlife', 'hydrology', 'lakes', 'landscapes', 'landscapewater', 'laweconomics', 'manure', 'propertydesign', 'research', 'sewage', 'students', 'watershed', 'wells', 'wetlands'),
+        'westcentral.unl.edu'   => array('wcentomology', 'wcacreage'),
+      );
+      if (
+           count($pathParts) >= 2 && $pathParts[0] == 'web'
+        && !(in_array($urlParts['host'], array_keys($exceptions)) && in_array($pathParts[1], $exceptions[$urlParts['host']]))
+      ) {
         
-        if (!$page_base) {
-          $page_base = $path;
-        }
-        
-        $href = $this->_makeLinkAbsolute($originalHref, $page_base);
-        
-        if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
-            $newPath = substr($href, strlen($this->_baseUrl));
-            if ($newPath === FALSE) {
-                $newPath = '';
-            }
-            if ($tag) {
-                $this->_hrefTransform[$tag][$originalHref] = $newPath;
-            } else {
-                $this->_hrefTransform[$path][$originalHref] = $newPath;
-            }
-            $this->_addSitePath($newPath);
-        }
+        $urlParts['host'] = strtolower($pathParts[1]) . '.unl.edu';
+        $pathParts = array_splice($pathParts, 2);
+        $urlParts['path'] = '/' . implode('/', $pathParts);
+
+        $url = $urlParts['scheme'] . '://' . $urlParts['host'];
+        $url .= isset($urlParts['path']) ? $urlParts['path'] : '';
+        $url .= isset($urlParts['query']) ? '?' . $urlParts['query'] : '';
+        $url .= isset($urlParts['fragment']) ? '#'.$urlParts['fragment'] : '';
+      }
+      
+      return $url;
     }
     
     private function _makeLinkAbsolute($href, $path)
@@ -835,8 +933,11 @@ class Unl_Migration_Tool
         } else if (isset($parts['path']) && substr($parts['path'], 0, 1) == '/') {
             $baseParts = parse_url($this->_baseUrl);
             $absoluteUrl = $baseParts['scheme'] . '://' . $baseParts['host'] . $parts['path'];
+            if (isset($parts['query'])) {
+              $absoluteUrl .= '?' . $parts['query'];
+            }
             if (isset($parts['fragment'])) {
-                $absoluteUrl .= '#' . $parts['fragment'];
+              $absoluteUrl .= '#' . $parts['fragment'];
             }
         } else if (substr($href, 0, 1) == '#') {
             $absoluteUrl = $this->_baseUrl . $path . $href;
@@ -1033,6 +1134,7 @@ class Unl_Migration_Tool
         $data = array(
             'content' => $content,
             'contentType' => $meta['content_type'],
+            'headers' => $headers,
         );
         
         if ($this->_frontierPath) {
@@ -1046,8 +1148,10 @@ class Unl_Migration_Tool
     
         // Convert non-UTF-8 data to UTF-8.
         if (preg_match('/charset=(.*);?/', $data['contentType'], $matches)) {
-            $charset = $matches[1];
+          $charset = $matches[1];
+          if ($charset != 'UTF-8') {
             $data['content'] = iconv($charset, 'UTF-8', $data['content']);
+          }
         }
         
         return $data;
@@ -1205,6 +1309,18 @@ class Unl_Migration_Tool
     ));
     
     return $content;
+  }
+  
+  private function _get_liferay_content_area($html) {
+    if (!$this->_useLiferayCode) {
+      return FALSE;
+    }
+    
+    return $this->_get_text_between_tokens(
+      $html,
+      "<!-- End of shared left start of right -->\n<div class=\"three_col right\">",
+      '<form action="" method="post" name="hrefFm">'
+    );
   }
   
   private function _get_text_between_tokens($text, $start_token, $end_token, $tidy_output = TRUE) {
