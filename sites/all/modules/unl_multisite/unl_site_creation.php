@@ -1,7 +1,7 @@
 <?php
 /**
  * Contains the callback functions for the pages/forms located at
- * admin/sites/unl as specified in unl_menu().
+ * admin/sites/unl as specified in unl_multisite_menu().
  */
 
 require_once DRUPAL_ROOT . '/includes/install.core.inc';
@@ -103,7 +103,7 @@ function unl_site_create_submit($form, &$form_state) {
   $site_path = $form_state['values']['site_path'];
   $clean_url = $form_state['values']['clean_url'];
 
-  $db_prefix = unl_create_db_prefix($site_path);
+  $db_prefix = _unl_multisite_create_db_prefix($site_path);
 
   $site_path = explode('/', $site_path);
   foreach (array_keys($site_path) as $i) {
@@ -121,7 +121,7 @@ function unl_site_create_submit($form, &$form_state) {
     'db_prefix' => $db_prefix
   ))->execute();
 
-  drupal_set_message(t('The site @uri has been scheduled for creation. Run sites/all/modules/unl/cron.php to finish install.', array('@uri' => $uri)));
+  drupal_set_message(t('The site @uri has been scheduled for creation. Run cron.php to finish install.', array('@uri' => $uri)));
   $form_state['redirect'] = 'admin/sites/unl/add';
   return;
 }
