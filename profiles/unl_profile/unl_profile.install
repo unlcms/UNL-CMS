@@ -312,7 +312,8 @@ EOF;
       }
       else {
         // If there's no migration to be done, we can send the site created email now.
-        unl_send_site_created_email($row);
+        module_load_include('module', 'unl_multisite');
+        _unl_multisite_send_site_created_email($row);
       }
     }
   }
@@ -352,6 +353,9 @@ EOF;
  * Load the default site's config file and return the db_prefix value from it.
  */
 function unl_profile_get_default_site_db_settings() {
+  if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
+    require DRUPAL_ROOT . '/sites/all/settings.php';
+  }
   $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
   require $default_site_settings_file;
 
