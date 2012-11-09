@@ -232,12 +232,6 @@ function unl_node_presave($node) {
  */
 function unl_permission() {
   return array(
-    'unl site creation' => array(
-      'title'       => t('Site Creation'),
-      'description' => t('Create new drupal sites using the UNL profile'),
-      'restrict access' => TRUE,
-    ),
-
     'unl grant all permissions' => array(
       'title'       => t('Grant All Permissions'),
       'description' => t('If this is not checked, a user can only grant permissions that they themselves have. Requires the "Administer permissions" permission.'),
@@ -810,79 +804,6 @@ function unl_user_admin_role_validate($form, &$form_state) {
  */
 function unl_cron() {
   _unl_cron_import_wdn_registry_sites();
-}
-
-/**
- * Checks the wdn registry for any sites that need to be imported and does so.
- */
-function _unl_cron_import_wdn_registry_sites() {
-  // We don't want this running as system user, only the web user.
-  if (PHP_SAPI == 'cli') {
-    return;
-  }
-
-  // We don't want this running on sub-sites.
-  if (conf_path() != 'sites/default') {
-    return;
-  }
-
-  $wdn_registry_info = array(
-    'database' => variable_get('unl_wdn_registry_database'),
-    'username' => variable_get('unl_wdn_registry_username'),
-    'password' => variable_get('unl_wdn_registry_password'),
-    'host'     => variable_get('unl_wdn_registry_host'),
-    'driver'   => 'mysql',
-  );
-
-  if (!$wdn_registry_info['database']) {
-    return;
-  }
-
-  Database::addConnectionInfo('wdn_registry', 'default', $wdn_registry_info);
-
-  try {
-    db_set_active('wdn_registry');
-    $data = db_select('site_request', 'r')
-      ->fields('r')
-      ->where('`url` IS NULL')
-      ->execute()
-      ->fetchAll();
-    db_set_active();
-  }
-  catch (Exception $e) {
-    db_set_active();
-    return;
-  }
-
-  $sites_to_create = array();
-  foreach ($data as $site) {
-    $path = unl_sanitize_url_part($site->department) . '/' . unl_sanitize_url_part($site->site_name);
-    $db_prefix = unl_create_db_prefix($site->department . '/' . $site->site_name);
-
-    $sites_to_create[$site->id] = array(
-      'site_path'      => $path,
-      'uri'            => url($path),
-      'clean_url'      => TRUE,
-      'db_prefix'      => $db_prefix,
-      'site_admin'     => $site->site_admin ? $site->site_admin : '',
-      'migration_url'  => $site->migration_url ? $site->migration_url : '',
-      'migration_path' => $site->migration_path ? $site->migration_path : '',
-      'department'     => $site->department,
-    );
-  }
-
-  foreach ($sites_to_create as $wdn_site_id => $site_to_create) {
-    try {
-      db_insert('unl_sites')->fields($site_to_create)->execute();
-    }
-    catch (PDOException $e) {
-      // Ignore duplicate records.
-      if ($e->getCode() != 23000) {
-        throw $e;
-      }
-      continue;
-    }
-  }
 }
 
 /**
