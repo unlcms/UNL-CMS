@@ -655,36 +655,38 @@ class Unl_Migration_Tool
         if (isset($data['lastModified'])) {
             $this->_lastModifications[$path] = $data['lastModified'];
         }
+        
+        $cleanPath = $path;
+        $pathParts = parse_url($path);
+        // If the path contains a query, we'll have to change it.
+        if (array_key_exists('query', $pathParts)) {
+            $matches = array();
+            if (array_key_exists('Content-Disposition', $data['headers']) &&
+                    preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
+                $cleanPath = $pathParts['path'] . '/' . $matches[1];
+            } else {
+                $cleanPath = $pathParts['path'] . '/' . $pathParts['query'];
+            }
+            $cleanPath = strtr($cleanPath, array('%2f' => '/', '%2F' => '/'));
+        }
+        
         if (strpos($data['contentType'], 'html') === FALSE) {
           if (!$data['contentType']) {
             $this->_log('The file type at ' . $fullPath . ' was not specified. Ignoring.', WATCHDOG_ERROR);
             return;
           }
           
-          $filePath = $path;
-          $pathParts = parse_url($path);
-          // If the path contains a query, we'll have to change it.
-          if (array_key_exists('query', $pathParts)) {
-            $matches = array();
-            if (array_key_exists('Content-Disposition', $data['headers']) &&
-                preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
-              $filePath = $pathParts['path'] . '/' . $matches[1];
-            } else {
-              $filePath = $pathParts['path'] . '/' . $pathParts['query'];
-            }
-          }
-          
-          @drupal_mkdir('public://' . urldecode(dirname($filePath)), NULL, TRUE);
+          @drupal_mkdir('public://' . urldecode(dirname($cleanPath)), NULL, TRUE);
           if (!mb_check_encoding($path, 'UTF-8')) {
               $path = iconv('ISO-8859-1', 'UTF-8', $path); 
           }
           
           try {
-            $file = file_save_data($data['content'], 'public://' . urldecode($filePath), FILE_EXISTS_REPLACE);
+            $file = file_save_data($data['content'], 'public://' . urldecode($cleanPath), FILE_EXISTS_REPLACE);
           } catch (Exception $e) {
             $this->_log('Could not migrate file "' . $path . '"! File name too long?', WATCHDOG_ERROR);
           }
-          $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $filePath));
+          $this->_hrefTransformFiles[$path] = $this->_makeRelativeUrl(file_create_url('public://' . $cleanPath));
           return;
         }
         $html = $data['content'];
@@ -793,8 +795,8 @@ class Unl_Migration_Tool
             $this->_processLinks($linkNode->getAttribute('src'), $path, $page_base);
         }
         
-        $this->_content[$path] = $maincontentarea;
-        $this->_pageTitles[$path] = $pageTitle;
+        $this->_content[$cleanPath] = $maincontentarea;
+        $this->_pageTitles[$cleanPath] = $pageTitle;
         
         // Scan the page for the parent breadcrumb
         $breadcrumbs = $dom->getElementById('breadcrumbs');
@@ -812,8 +814,11 @@ class Unl_Migration_Tool
             if ($pageParentLink == $path) {
               $pageParentLink = '';
             }
-            $this->_pageParentLinks[$path] = $pageParentLink;
+            $this->_pageParentLinks[$cleanPath] = $pageParentLink;
           }
+        }
+        if ($cleanPath != $path) {
+          $this->_hrefTransformFiles[$path] = $cleanPath;
         }
     }
     
