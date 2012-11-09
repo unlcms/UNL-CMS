@@ -23,7 +23,7 @@ function unl_migration_menu() {
 /**
  * Implementation of hook_permission().
  */
-function unl_permission() {
+function unl_migration_permission() {
   return array(
     'unl migration' => array(
       'title' => t('Migration'),
