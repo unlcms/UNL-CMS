@@ -800,13 +800,6 @@ function unl_user_admin_role_validate($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_cron().
- */
-function unl_cron() {
-  _unl_cron_import_wdn_registry_sites();
-}
-
-/**
  * Custom function to sanitize user created URLs
  */
 function unl_sanitize_url_part($url_part) {
