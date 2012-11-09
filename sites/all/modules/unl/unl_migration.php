@@ -48,6 +48,12 @@ function unl_migration($form, &$form_state)
         '#title' => t('Ignore Duplicate Pages/Files'),
         '#description' => t("This may be needed if your site has an unlimited number of dynamicly generated paths."),
     );
+    $form['root']['use_liferay_code'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Use Liferay Detection'),
+        '#description' => t("Normally, this won't interfere with non-liferay sites. If you have a /web directory, you should turn this off."),
+        '#default_value' => 1,
+    );
     
     $form['submit'] = array(
         '#type' => 'submit',
@@ -64,7 +70,8 @@ function unl_migration_submit($form, &$form_state) {
     $form_state['values']['frontier_path'],
     $form_state['values']['frontier_user'],
     $form_state['values']['frontier_pass'],
-    $form_state['values']['ignore_duplicates']
+    $form_state['values']['ignore_duplicates'],
+    $form_state['values']['use_liferay_code']
   );
   
   $operations = array(
@@ -157,6 +164,7 @@ class Unl_Migration_Tool
     private $_frontierIndexFiles  = array('low_bandwidth.shtml', 'index.shtml', 'index.html', 'index.htm', 'default.shtml');
     private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
+    private $_useLiferayCode      = TRUE;
     
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -171,7 +179,7 @@ class Unl_Migration_Tool
     
     private $_start_time;
     
-    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates)
+    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates, $useLiferayCode = FALSE)
     {
         header('Content-type: text/plain');
 
@@ -198,6 +206,7 @@ class Unl_Migration_Tool
         $this->_frontierPass = $frontierPass;
         
         $this->_ignoreDuplicates = (bool) $ignoreDuplicates;
+        $this->_useLiferayCode = (bool) $useLiferayCode;
         
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
@@ -845,6 +854,10 @@ class Unl_Migration_Tool
      * @return string
      */
     private function _translateLiferayWeb($url) {
+      if (!$this->_useLiferayCode) {
+        return $url;
+      }
+      
       if (substr($url, 0, strlen($this->_baseUrl)) != $this->_baseUrl) {
         return $url;
       }
@@ -1294,6 +1307,10 @@ class Unl_Migration_Tool
   }
   
   private function _get_liferay_content_area($html) {
+    if (!$this->_useLiferayCode) {
+      return FALSE;
+    }
+    
     return $this->_get_text_between_tokens(
       $html,
       "<!-- End of shared left start of right -->\n<div class=\"three_col right\">",
