@@ -30,5 +30,6 @@ dependencies[] = imce_mkdir
 dependencies[] = imce_rename
 dependencies[] = imce_wysiwyg
 dependencies[] = unl
+dependencies[] = unl_migration
 dependencies[] = unl_wysiwyg
 dependencies[] = unl_varnish
