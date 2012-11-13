@@ -844,11 +844,17 @@ function unl_page_alias_create_validate($form, &$form_state) {
 
   $from = $form_state['values']['from_uri'];
   $to = $form_state['values']['to_uri'];
+  $root = url('', array('absolute' => TRUE));
 
   if (parse_url($from, PHP_URL_HOST)  == parse_url($to, PHP_URL_HOST) &&
       parse_url($from, PHP_URL_PATH)  == parse_url($to, PHP_URL_PATH) &&
       parse_url($from, PHP_URL_QUERY) == parse_url($to, PHP_URL_QUERY)) {
-    form_set_error('to_uri', 'The destination must not be the same as the origin.');
+    form_set_error('to_uri', 'From URL cannot equal To URL.');
+  }
+  if (parse_url($from, PHP_URL_HOST)  == parse_url($root, PHP_URL_HOST) &&
+      parse_url($from, PHP_URL_PATH)  == parse_url($root, PHP_URL_PATH) &&
+      parse_url($from, PHP_URL_QUERY) == parse_url($root, PHP_URL_QUERY)) {
+    form_set_error('from_uri', 'From URL cannot be the root of the default site.');
   }
 }
 
