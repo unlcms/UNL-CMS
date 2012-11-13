@@ -232,11 +232,6 @@ function unl_node_presave($node) {
  */
 function unl_permission() {
   return array(
-    'unl migration' => array(
-      'title'       => t('Migration'),
-      'description' => t('Migrate UNL Template based sites to drupal'),
-    ),
-
     'unl grant all permissions' => array(
       'title'       => t('Grant All Permissions'),
       'description' => t('If this is not checked, a user can only grant permissions that they themselves have. Requires the "Administer permissions" permission.'),
@@ -313,17 +308,6 @@ function unl_menu() {
     'page arguments' => array('unl_technical_feedback'),
     'type' => MENU_NORMAL_ITEM,
     'file' => 'technical_feedback.php',
-  );
-
-  // Adds UNL Migration Tool to the Content menu for admin
-  $items['admin/content/unl/migration'] = array(
-    'title' => 'UNL Migration Tool',
-    'description' => 'Migrate a static UNL template page into Drupal.',
-    'access arguments' => array('unl migration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('unl_migration'),
-    'type' => MENU_LOCAL_TASK,
-    'file' => 'unl_migration.php',
   );
 
   $items['admin/content/unl/reset'] = array(
@@ -811,34 +795,6 @@ function unl_user_admin_role_validate($form, &$form_state) {
     $role = user_role_load_by_name($form_state['values']['name']);
     if ($role && $role->rid == $admin_role_id) {
       form_set_error('name', t('The role name %name can not be deleted. Seriously dude. Seriously.', array('%name' => $form_state['values']['name'])));
-    }
-  }
-}
-
-/**
- * Implementation of hook_cron().
- */
-function unl_cron() {
-  _unl_cron_migration_step();
-}
-
-/**
- * If a site is being migrated via cron jobs, do some work towards that migration.
- */
-function _unl_cron_migration_step() {
-  // We don't want this running as system user, only the web user.
-  if (PHP_SAPI == 'cli') {
-    return;
-  }
-
-  $queue = DrupalQueue::get('unl_migration');
-  if ($queue->numberOfItems() > 0) {
-    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
-    $item = $queue->claimItem(120);
-    $queue->deleteItem($item);
-    if (unl_migration_queue_step($item->data)) {
-      module_load_include('module', 'unl_multisite');
-      _unl_multisite_send_site_created_email();
     }
   }
 }
