@@ -818,14 +818,14 @@ function unl_page_alias_create($form, &$form_state) {
     '#type' => 'textfield',
     '#title' => t('From URL'),
     '#description' => t('The URL that users will visit.'),
-    '#default_value' => url('', array('https' => FALSE)),
+    '#default_value' => url('from/url', array('https' => FALSE)),
     '#required' => TRUE,
   );
   $form['root']['to_uri'] = array(
     '#type' => 'textfield',
     '#title' => t('To URL'),
     '#description' => t('The URL users will be redirected to.'),
-    '#default_value' => url('', array('https' => FALSE)),
+    '#default_value' => url('to/url', array('https' => FALSE)),
     '#required' => TRUE,
   );
   $form['root']['submit'] = array(
