@@ -836,6 +836,19 @@ function unl_page_alias_create($form, &$form_state) {
 }
 
 /**
+ * Form Validate: Create New Page Alias
+ */
+function unl_page_alias_create_validate($form, &$form_state) {//echo '<pre>';var_dump(url('', array('https' => TRUE)));var_dump($form_state);exit;
+  if ($form_state['values']['from_uri'] == $form_state['values']['to_uri']) {
+    form_set_error('', t('From URL cannot equal To URL.'));
+  }
+  if ($form_state['values']['from_uri'] == url('', array('https' => FALSE)) ||
+      $form_state['values']['from_uri'] == str_replace('http://', 'https://', url('', array('https' => FALSE)))) {
+    form_set_error('', t('From URL cannot be the root of the default site.'));
+  }
+}
+
+/**
  * Form Submit: Create New Page Alias
  */
 function unl_page_alias_create_submit($form, &$form_state) {
