@@ -836,6 +836,23 @@ function unl_page_alias_create($form, &$form_state) {
 }
 
 /**
+ * Form Validate: Create New Page Alias
+ */
+function unl_page_alias_create_validate($form, &$form_state) {
+  $form_state['values']['from_uri'] = trim($form_state['values']['from_uri']);
+  $form_state['values']['to_uri']   = trim($form_state['values']['to_uri']);
+
+  $from = $form_state['values']['from_uri'];
+  $to = $form_state['values']['to_uri'];
+
+  if (parse_url($from, PHP_URL_HOST)  == parse_url($to, PHP_URL_HOST) &&
+      parse_url($from, PHP_URL_PATH)  == parse_url($to, PHP_URL_PATH) &&
+      parse_url($from, PHP_URL_QUERY) == parse_url($to, PHP_URL_QUERY)) {
+    form_set_error('to_uri', 'The destination must not be the same as the origin.');
+  }
+}
+
+/**
  * Form Submit: Create New Page Alias
  */
 function unl_page_alias_create_submit($form, &$form_state) {
