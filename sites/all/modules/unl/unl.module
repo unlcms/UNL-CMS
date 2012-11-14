@@ -313,10 +313,9 @@ function unl_menu() {
   $items['admin/content/unl/reset'] = array(
     'title' => 'Reset Site',
     'description' => 'Remove all nodes, menu items, etc from this site.',
-    'access callback' => 'unl_user_is_administrator',
+    'access arguments' => array('administer nodes'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('unl_reset_site'),
-    'type' => MENU_LOCAL_TASK,
     'file' => 'includes/reset_site.php',
   );
 
