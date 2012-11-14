@@ -742,10 +742,18 @@ class Unl_Migration_Tool
         $pageTitle = '';
         $pageTitleNode = $dom->getElementById('pagetitle');
         if ($pageTitleNode) {
+          // Search for the WDN 3.1 page title
+          $pageTitleH1Nodes = $pageTitleNode->getElementsByTagName('h1');
+          if ($pageTitleH1Nodes->length > 0) {
+            $pageTitle = $pageTitleH1Nodes->item(0)->textContent;
+          }
+          if (!$pageTitle) {
+            // If not found, search for the earlier version of the WDN page title
             $pageTitleH2Nodes = $pageTitleNode->getElementsByTagName('h2');
             if ($pageTitleH2Nodes->length > 0) {
-                $pageTitle = $pageTitleH2Nodes->item(0)->textContent;
+              $pageTitle = $pageTitleH2Nodes->item(0)->textContent;
             }
+          }
         }
 
         // If there is no WDN compliant title, search for others
