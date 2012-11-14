@@ -15,13 +15,23 @@ function unl_load_zend_framework() {
 }
 
 /**
- * Custom function to get the db prefix of the 'main' site.
+ * Custom function to get the db settings for the 'main' site.
+ * @return array
  */
-function unl_get_shared_db_prefix() {
+function unl_get_shared_db_settings() {
   if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
     require DRUPAL_ROOT . '/sites/all/settings.php';
   }
   require DRUPAL_ROOT . '/sites/default/settings.php';
+  
+  return $databases;
+}
+
+/**
+ * Custom function to get the db prefix of the 'main' site.
+ */
+function unl_get_shared_db_prefix() {
+  $databases = unl_get_shared_db_settings();
   $shared_prefix = $databases['default']['default']['prefix'];
 
   return $shared_prefix;
@@ -279,4 +289,17 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
   }
   
   return $body;
+}
+
+/**
+ * Drop-in replacement for db_select that creates a query on default site's database.
+ * @see db_select
+ * @return SelectQuery
+ */
+function unl_shared_db_select($table, $alias = NULL, array $options = array()) {
+  $databases = unl_get_shared_db_settings();
+  Database::addConnectionInfo('default', 'unl_parent_site', $databases['default']['default']);
+  $options['target'] = 'unl_parent_site';
+  
+  return db_select($table, $alias, $options);
 }

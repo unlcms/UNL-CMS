@@ -818,14 +818,14 @@ function unl_page_alias_create($form, &$form_state) {
     '#type' => 'textfield',
     '#title' => t('From URL'),
     '#description' => t('The URL that users will visit.'),
-    '#default_value' => url('', array('https' => FALSE)),
+    '#default_value' => url('from/url', array('https' => FALSE)),
     '#required' => TRUE,
   );
   $form['root']['to_uri'] = array(
     '#type' => 'textfield',
     '#title' => t('To URL'),
     '#description' => t('The URL users will be redirected to.'),
-    '#default_value' => url('', array('https' => FALSE)),
+    '#default_value' => url('to/url', array('https' => FALSE)),
     '#required' => TRUE,
   );
   $form['root']['submit'] = array(
@@ -833,6 +833,29 @@ function unl_page_alias_create($form, &$form_state) {
     '#value' => t('Create alias'),
   );
   return $form;
+}
+
+/**
+ * Form Validate: Create New Page Alias
+ */
+function unl_page_alias_create_validate($form, &$form_state) {
+  $form_state['values']['from_uri'] = trim($form_state['values']['from_uri']);
+  $form_state['values']['to_uri']   = trim($form_state['values']['to_uri']);
+
+  $from = $form_state['values']['from_uri'];
+  $to = $form_state['values']['to_uri'];
+  $root = url('', array('absolute' => TRUE));
+
+  if (parse_url($from, PHP_URL_HOST)  == parse_url($to, PHP_URL_HOST) &&
+      parse_url($from, PHP_URL_PATH)  == parse_url($to, PHP_URL_PATH) &&
+      parse_url($from, PHP_URL_QUERY) == parse_url($to, PHP_URL_QUERY)) {
+    form_set_error('to_uri', 'From URL cannot equal To URL.');
+  }
+  if (parse_url($from, PHP_URL_HOST)  == parse_url($root, PHP_URL_HOST) &&
+      parse_url($from, PHP_URL_PATH)  == parse_url($root, PHP_URL_PATH) &&
+      parse_url($from, PHP_URL_QUERY) == parse_url($root, PHP_URL_QUERY)) {
+    form_set_error('from_uri', 'From URL cannot be the root of the default site.');
+  }
 }
 
 /**
