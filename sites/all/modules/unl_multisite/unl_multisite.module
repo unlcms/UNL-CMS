@@ -22,7 +22,7 @@ function unl_multisite_block_info() {
 function unl_multisite_block_view($delta = '') {
   switch ($delta) {
     case 'my_sites':
-      return unl_block_view_my_sites();
+      return unl_multisite_block_view_my_sites();
       break;
     default:
       return array();
