@@ -68,14 +68,16 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
     }
   }
 
-  // Set the <title> tag to UNL format: Page Title | Site Name | University of Nebraska–Lincoln
-  if ($vars['is_front']) {
-    unset($vars['head_title_array']['title']);
+  if (!module_exists('metatag')) {
+    // Set the <title> tag to UNL format: Page Title | Site Name | University of Nebraska–Lincoln
+    if ($vars['is_front']) {
+      unset($vars['head_title_array']['title']);
+    }
+    if (variable_get('site_name') != 'University of Nebraska–Lincoln') {
+      $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska–Lincoln'));
+    }
+    $vars['head_title'] = implode(' | ', $vars['head_title_array']);
   }
-  if (variable_get('site_name') != 'University of Nebraska–Lincoln') {
-    $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska–Lincoln'));
-  }
-  $vars['head_title'] = implode(' | ', $vars['head_title_array']);
 }
 
 /**
@@ -154,15 +156,22 @@ function unl_wdn_preprocess_username(&$vars) {
  * Implements hook_username_alter().
  */
 function unl_wdn_username_alter(&$name, $account) {
-  // Drupal does not support "display names" so convert the user name (jdoe2 to Jane Doe) using UNL Directory service
-  $context = stream_context_create(array(
-    'http' => array('timeout' => 1)
-  ));
-  $result = json_decode(@file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
-  if (!empty($result) && $result->sn) {
-    $zero = '0';
-    $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);
-    $name = $firstname . ' ' . $result->sn->$zero;
+  if ($account->uid) {
+    // Drupal does not support "display names" so convert the user name (jdoe2 to Jane Doe) using UNL Directory service.
+    $context = stream_context_create(array(
+      'http' => array('timeout' => 1)
+    ));
+    if (function_exists('unl_url_get_contents')) {
+      $result = json_decode(unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, $context));
+    }
+    else {
+      $result = json_decode(file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
+    }
+    if (!empty($result) && $result->sn) {
+      $zero = '0';
+      $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);
+      $name = $firstname . ' ' . $result->sn->$zero;
+    }
   }
 }
 
@@ -193,7 +202,7 @@ function unl_wdn_process_page(&$vars) {
 function unl_wdn_get_instance() {
   static $instance;
   if (!$instance) {
-    set_include_path(dirname(__FILE__) . '/lib/php');
+    set_include_path(dirname(__FILE__) . '/lib/php' . PATH_SEPARATOR . get_include_path());
     require_once "UNL/Templates.php";
     require_once "UNL/Templates/CachingService/Null.php";
 
@@ -519,11 +528,10 @@ EOF;
 }
 
 /**
- * Return the abbreviated site name, assuming it has been set and we're not on the front page.
- * Otherwise, it returns the full site name.
+ * Return the abbreviated site name, assuming it has been set. Otherwise return the full site name.
  */
 function unl_wdn_get_site_name_abbreviated() {
-  if (!drupal_is_front_page() && theme_get_setting('site_name_abbreviation')) {
+  if (theme_get_setting('site_name_abbreviation')) {
     return theme_get_setting('site_name_abbreviation');
   }
   else {

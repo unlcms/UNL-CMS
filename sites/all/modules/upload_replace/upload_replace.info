@@ -1,0 +1,8 @@
+name = Upload replace
+description = Make the most recent version of a file always retain its original filename, older file with the same name are renamed by drupal standards "_0, _1, etc"
+core = 7.x
+files[] = upload_replace.module
+; patched with http://drupal.org/files/upload_replace_error-1115484-13.patch
+version = "7.x-1.0-beta1-patched"
+core = "7.x"
+project = "upload_replace"

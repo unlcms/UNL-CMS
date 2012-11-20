@@ -15,10 +15,23 @@ function unl_load_zend_framework() {
 }
 
 /**
+ * Custom function to get the db settings for the 'main' site.
+ * @return array
+ */
+function unl_get_shared_db_settings() {
+  if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
+    require DRUPAL_ROOT . '/sites/all/settings.php';
+  }
+  require DRUPAL_ROOT . '/sites/default/settings.php';
+  
+  return $databases;
+}
+
+/**
  * Custom function to get the db prefix of the 'main' site.
  */
 function unl_get_shared_db_prefix() {
-  require 'sites/default/settings.php';
+  $databases = unl_get_shared_db_settings();
   $shared_prefix = $databases['default']['default']['prefix'];
 
   return $shared_prefix;
@@ -179,4 +192,114 @@ function unl_user_is_administrator() {
   }
 
   return FALSE;
+}
+
+/**
+ * Fetch the contents at the given URL and cache the result using
+ * drupal's cache for as long as the response headers allow.
+ * @param string $url
+ * @param resource $context
+ */
+function unl_url_get_contents($url, $context = NULL, &$headers = array())
+{
+  unl_load_zend_framework();
+  if (!Zend_Uri::check($url)) {
+    drupal_set_message('A non-url was passed to ' . __FUNCTION__ . '().', 'warning');
+    return FALSE;
+  }
+  
+  // get some per-request static storage
+  $static = &drupal_static(__FUNCTION__);
+  if (!isset($static)) {
+    $static = array();
+  }
+  
+  // If cached in the static array, return it.
+  if (array_key_exists($url, $static)) {
+    $headers = $static[$url]['headers'];
+    return $static[$url]['body'];
+  }
+  
+  // If cached in the drupla cache, return it.
+  $data = cache_get(__FUNCTION__ . $url);
+  if ($data && time() < $data->data['expires']) {
+    $headers = $data->data['headers'];
+    return $data->data['body'];
+  }
+
+  // Make the request
+  $http_response_header = array();
+  $body = file_get_contents($url, NULL, $context);
+  
+  // If an error occured, just return it now.
+  if ($body === FALSE) {
+    $static[$url] = $body;
+    return $body;
+  }
+  
+  $headers = array();
+  foreach ($http_response_header as $rawHeader) {
+    $headerName = trim(substr($rawHeader, 0, strpos($rawHeader, ':')));
+    $headerValue = trim(substr($rawHeader, strpos($rawHeader, ':') + 1));
+    if ($headerName && $headerValue) {
+      $headers[$headerName] = $headerValue;
+    }
+  }
+  $lowercaseHeaders = array_change_key_case($headers);
+  
+  $cacheable = NULL;
+  $expires = 0;
+  
+  // Check for a Cache-Control header and the max-age and/or private headers.
+  if (array_key_exists('cache-control', $lowercaseHeaders)) {
+    $cacheControl = strtolower($lowercaseHeaders['cache-control']);
+    $matches = array();
+    if (preg_match('/max-age=([0-9]+)/', $cacheControl, $matches)) {
+      $expires = time() + $matches[1];
+      $cacheable = TRUE;
+    }
+    if (strpos($cacheControl, 'private') !== FALSE) {
+      $cacheable = FALSE;
+    }
+    if (strpos($cacheControl, 'no-cache') !== FALSE) {
+      $cacheable = FALSE;
+    }
+  }
+  // If there was no Cache-Control header, or if it wasn't helpful, check for an Expires header.
+  if ($cacheable === NULL && array_key_exists('expires', $lowercaseHeaders)) {
+    $cacheable = TRUE;
+    $expires = DateTime::createFromFormat(DateTime::RFC1123, $lowercaseHeaders['expires'])->getTimestamp();
+  }
+  
+  // Save to the drupal cache if caching is ok
+  if ($cacheable && time() < $expires) {
+    $data = array(
+      'body' => $body,
+      'headers' => $headers,
+      'expires' => $expires,
+    );
+    cache_set(__FUNCTION__ . $url, $data, 'cache', $expires);
+  }
+  // Otherwise just save to the static per-request cache
+  else {
+    $static[$url] = array(
+        'body' => $body,
+        'headers' => $headers,
+    );
+  }
+  
+  return $body;
+}
+
+/**
+ * Drop-in replacement for db_select that creates a query on default site's database.
+ * @see db_select
+ * @return SelectQuery
+ */
+function unl_shared_db_select($table, $alias = NULL, array $options = array()) {
+  $databases = unl_get_shared_db_settings();
+  Database::addConnectionInfo('default', 'unl_parent_site', $databases['default']['default']);
+  $options['target'] = 'unl_parent_site';
+  
+  return db_select($table, $alias, $options);
 }

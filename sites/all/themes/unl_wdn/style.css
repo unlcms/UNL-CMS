@@ -5,7 +5,6 @@
  */
 
 /* Position tabs at the top right of maincontent */
-body.fixed #maincontent {min-width: 960px;}
 #maincontent ul.wdn_tabs.cms_tabs {position: absolute; right: 0; top: -60px; width: auto;}
 /* Fix for a Views page */
 #pagetitle {position: relative;}
@@ -23,7 +22,7 @@ ul.links.inline {padding-left: 0 !important;}
 #wdn_search_form fieldset {background: none; border: none; margin: 0; padding: 0; position: static;}
 #wdn_search_form label {font-weight: normal;}
 #wdn_search_form input {margin: 0; padding: 0;}
-#wdn_feedback fieldset, #wdn_feedback_comments fieldset {position: static; padding: 0; margin: 0; border: none; background: none;}
+#wdn_footer_feedback fieldset {position: static; padding: 0; margin: 0; border: none; background: none;}
 #wdn_feedback legend, #wdn_feedback_comments legend {position: static; top: auto; left: auto; color: #333; line-height:1.7em; text-indent: 0; border: none; background: none; height: inherit; width: inherit;}
 #wdn_copyright .block {margin: 0;}
 #toolbarcontent fieldset {border: none; margin: 0; padding: 0;}
@@ -201,12 +200,12 @@ ul.links.inline {padding-left: 0 !important;}
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
-} 
+}
 
 /* .node-teaser
 *********/
 .node-teaser {
-  margin-bottom: 10px; 
+  margin-bottom: 10px;
   padding: 10px;
 }
 .node-teaser.node-sticky {
@@ -251,7 +250,7 @@ ul.links.inline {padding-left: 0 !important;}
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
-} 
+}
 .node-teaser .field-type-image .field-item {
   float: left;
   margin: 0 20px 30px 0;

@@ -1,4 +1,4 @@
-## Get Started.
+## Get Started:
 
 In this example the web root is /Library/WebServer/Documents and Apache runs as _www - modify the instructions below according to your setup
 
@@ -103,11 +103,13 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
-  *  Add Trigger Support Patch to Workbench Moderation
+  *  entity/entity.module, entity/modules/callbacks.inc
 
-     - Trigger support not in 7.x-1.1 - See http://drupal.org/files/issues/trigger_support_for_wb_moderation-1079134-23.patch from http://drupal.org/node/1079134
+     - Add 'uri callback' for file entities. See http://drupal.org/node/1481372#comment-6529650
 
-     - Don't upgrade WB Moderation without first applying this patch unless the new version supports Triggers
+  *  webform.module
+
+     - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
 
   *  workbench_moderation.module
 

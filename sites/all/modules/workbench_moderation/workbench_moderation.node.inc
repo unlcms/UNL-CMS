@@ -154,6 +154,7 @@ function workbench_moderation_node_history_view($node) {
     $query->leftJoin('users', 'u', 'm.uid = u.uid');
     $query->condition('m.vid', $revision->vid)
       ->orderBy('m.stamp', 'DESC')
+      ->orderBy('m.hid', 'DESC')
       ->fields('m')
       ->fields('u', array('name'));
 
@@ -172,7 +173,7 @@ function workbench_moderation_node_history_view($node) {
     if (!empty($node->workbench_moderation['published']) && $revision->vid == $node->workbench_moderation['published']->vid) {
       $row['data']['moderation'] = '<div class="moderation-state"><strong>' . t('This is the published revision.') . '</strong></div>';
       // Provide an unpublish link.
-      $next_states = workbench_moderation_states_next(workbench_moderation_state_published(), $user, $node->type);
+      $next_states = workbench_moderation_states_next(workbench_moderation_state_published(), $user, $node);
       if (!empty($next_states)) {
         $row['data']['moderation'] .= '<div class="moderation-actions">' . l(t('Unpublish'), "node/{$revision->nid}/moderation/{$revision->live_revision}/unpublish") . '</div>';
       }
@@ -258,7 +259,7 @@ function workbench_moderation_node_unpublish_form($form, &$form_state, $node) {
   );
 
   $current_state = $node->workbench_moderation['my_revision']->state;
-  if ($next_states = workbench_moderation_states_next($current_state, $user, $node->type)) {
+  if ($next_states = workbench_moderation_states_next($current_state, $user, $node)) {
     $form['state'] = array(
       '#title' => t('Set moderation state:'),
       '#type' => 'select',
