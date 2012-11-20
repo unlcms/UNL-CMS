@@ -318,7 +318,7 @@ class Unl_Migration_Tool
         if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
             $path = substr($path, 0, $fragmentStart);
         }
-        $path = trim($path, '/');
+        $path = trim($path, '/ ');
         if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE) {
           return;
         }
@@ -838,6 +838,9 @@ class Unl_Migration_Tool
       if (substr($originalHref, 0, 1) == '#') {
         return;
       }
+      
+      // Tidy will remove any spaces later, so we need to remove them here too.
+      $originalHref = trim($originalHref);
 
       if (!$page_base) {
         $page_base = $path;
