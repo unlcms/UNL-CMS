@@ -1,0 +1,14 @@
+; $Id$
+name = "Feeds Image Grabber"
+description = "Grabs image for each feed-item from their respective web pages and stores it in an image field."
+core = 7.x
+package = Feeds Addon
+dependencies[] = feeds
+dependencies[] = image
+files[] = libraries/url_to_absolute.inc
+; Information added by drupal.org packaging script on 2012-11-01
+version = "7.x-1.0-alpha2"
+core = "7.x"
+project = "feeds_imagegrabber"
+datestamp = "1351773135"
+

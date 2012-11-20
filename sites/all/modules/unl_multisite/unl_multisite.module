@@ -22,7 +22,7 @@ function unl_multisite_block_info() {
 function unl_multisite_block_view($delta = '') {
   switch ($delta) {
     case 'my_sites':
-      return unl_block_view_my_sites();
+      return unl_multisite_block_view_my_sites();
       break;
     default:
       return array();
@@ -94,6 +94,12 @@ EOF;
 function unl_multisite_menu() {
   $items = array();
 
+  $items['mysites'] = array(
+    'title' => 'My Sites',
+    'description' => 'Your sites.',
+    'access callback' => 'user_is_logged_in',
+    'page callback' => 'unl_multisite_block_view_my_sites',
+  );
   $items['admin/sites/unl'] = array(
     'title' => 'Site Management',
     'description' => 'Create and manage sites and aliases.',
