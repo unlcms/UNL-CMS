@@ -107,6 +107,10 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Add 'uri callback' for file entities. See http://drupal.org/node/1481372#comment-6529650
 
+  *  media/includes/media.variables.inc
+
+     - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
+
   *  webform.module
 
      - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
