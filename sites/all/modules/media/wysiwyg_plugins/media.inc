@@ -30,6 +30,7 @@ function media_media_plugin() {
     'settings' => array(
       'global' => array(
         'enabledPlugins' => media_variable_get('wysiwyg_browser_plugins'),
+        'file_directory' => media_variable_get('wysiwyg_upload_directory'),
         'types' => media_variable_get('wysiwyg_allowed_types'),
         'id' => 'media_wysiwyg',
       ),
@@ -63,7 +64,7 @@ function media_include_browser_js() {
     }
   }
   // Add wysiwyg-specific settings.
-  $settings = array('blacklist' => array('src', 'fid', 'view_mode', 'format'));
+  $settings = array('wysiwyg_allowed_attributes' => media_variable_get('wysiwyg_allowed_attributes'));
   drupal_add_js(array('media' => $settings), 'setting');
 }
 
