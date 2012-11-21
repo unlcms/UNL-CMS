@@ -560,6 +560,15 @@ class Unl_Migration_Tool
       $this->_blocks['optional_footer'] = $this->_get_instance_editable_content($html, 'optionalfooter');
       $this->_blocks['footer_content'] = $this->_get_instance_editable_content($html, 'footercontent');
 
+      foreach ($this->_blocks as $blockName => $block) {
+        $dom = new DOMDocument();
+        @$dom->loadHTML($block);
+        $linkNodes = $dom->getElementsByTagName('a');
+        foreach ($linkNodes as $linkNode) {
+          $this->_processLinks($linkNode->getAttribute('href'), '', '', '<' . $blockName . '>');
+        }
+      }
+
       // Filter out the existing headers.
       $this->_blocks['related_links'] = preg_replace('/\s*<h3>\s*Related Links\s*<\/h3>\s*/', '', $this->_blocks['related_links']);
       $this->_blocks['contact_info'] = preg_replace('/\s*<h3>\sContacting Us*\s*<\/h3>\s*/', '', $this->_blocks['contact_info']);
@@ -567,6 +576,16 @@ class Unl_Migration_Tool
     }
 
     private function _create_blocks() {
+
+      foreach ($this->_blocks as $blockName => $block) {
+        if (!isset($this->_hrefTransform['<' . $blockName . '>'])) {
+          continue;
+        }
+        foreach ($this->_hrefTransform['<' . $blockName . '>'] as $hrefTransformFrom => $hrefTransformTo) {
+          $this->_blocks[$blockName] = str_replace(htmlspecialchars($hrefTransformFrom), htmlspecialchars($hrefTransformTo), $block);
+        }
+      }
+      
       db_update('block_custom')
         ->fields(array(
           'body'   => $this->_blocks['contact_info'],
