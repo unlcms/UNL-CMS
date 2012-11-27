@@ -1,3 +1,9 @@
+## Requirements:
+
+  * [Core drupal requirements](http://drupal.org/requirements)
+  * PHP LDAP Extension
+  * PHP Tidy Extension (for migration tool)
+
 ## Get Started:
 
 In this example the web root is /Library/WebServer/Documents and Apache runs as _www - modify the instructions below according to your setup
