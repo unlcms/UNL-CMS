@@ -299,7 +299,7 @@ EOF;
 
       if ($row->migration_url) {
         // If there's a site to migrate, add the job to the queue.
-        require_once DRUPAL_ROOT . '/sites/all/modules/unl/unl_migration.php';
+        require_once drupal_get_path('module', 'unl_migration') . '/unl_migration.php';
         $migration = new Unl_Migration_Tool(
           $row->migration_url,
           $row->migration_path,
