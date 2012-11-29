@@ -7,3 +7,5 @@ configure = admin/config/system/unl
 
 files[] = unl.install
 files[] = unl.module
+
+scripts[] = unl.js
