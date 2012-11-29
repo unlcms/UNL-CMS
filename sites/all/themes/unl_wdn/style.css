@@ -30,7 +30,7 @@ ul.links.inline {padding-left: 0 !important;}
 /* taxonomy
 *********/
 .taxonomy-term-description {
-  box-shadow: 0 1px 3px #999999;
+  box-shadow: 0 0 1px #bbb;
   margin: 0 0 20px;
   padding: 10px;
 }
@@ -54,37 +54,24 @@ ul.links.inline {padding-left: 0 !important;}
   font-size: .9em;
 }
 /* book nav block and menu-block */
-#block-book-navigation,
-.block-menu-block {box-shadow: 0 1px 3px #999; padding-bottom: 0 !important;}
-#block-book-navigation a,
+.block-menu-block {box-shadow: 0 0 1px #bbb;}
 #maincontent .block-menu-block a {color: #333;}
 #maincontent .block-menu-block a:hover {color: #EE0000;}
-#block-book-navigation a.active {background-color: #F1F499 !important;}
-#block-book-navigation h3,
-.block-menu-block h3 {background-color: #3388BB; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
-#block-book-navigation h3 a {color: #FFF !important;}
-#block-book-navigation h3 a.active {background-color: transparent !important;}
-.block-menu-block .content > ul > li > a {display: none;}
-
-#block-book-navigation ul,
+.block-menu-block a.active {background-color: #F2E8B1 !important;}
+.block-menu-block h3 {background-color: #95B8CC; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
+.block-menu-block h3 a {color: #FFF !important;}
 .block-menu-block ul {padding: 0 !important; list-style-image: none !important; list-style-type: none !important;}
-#block-book-navigation li,
 .block-menu-block li {padding: 0 !important;}
-
-#block-book-navigation .content > ul > li, #block-book-navigation .content > ul > li > ul > li,
-.block-menu-block .content > ul > li, .block-menu-block .content > ul > li > ul > li, .block-menu-block .content > ul > li > ul > li > ul > li { list-style-image: none !important; list-style-type: none !important;}
-#block-book-navigation .content > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #E8E8DF; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
-#block-book-navigation .content > ul > li.collapsed > a, #block-book-navigation .content > ul > li > ul > li.collapsed > a,
-.block-menu-block .content > ul > li > ul > li.has-children > a, .block-menu-block .content > ul > li > ul > li > ul > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
-#block-book-navigation .content > ul > li:last-child > a,
-.block-menu-block .content > ul > li > ul > li:last-child > a {border: none; margin: 0;}
-#block-book-navigation .content > ul > li > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 25px; margin-bottom: 1px;}
-#block-book-navigation .content > ul > li > ul > li > ul,
-.block-menu-block .content > ul > li > ul > li > ul > li > ul {padding: 5px 0 5px 50px !important;}
-#block-book-navigation .content > ul > li > ul > li > ul ul,
-.block-menu-block .content > ul > li > ul > li > ul > li > ul ul {padding: 0 0 0 15px !important;}
+.block-menu-block .content > ul > li,
+.block-menu-block .content > ul > li > ul > li {list-style-image: none !important; list-style-type: none !important;}
+.block-menu-block .content > ul > li > a {display: block; background-color: #F2EDDE; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+.block-menu-block .content > ul > li.collapsed > a,
+.block-menu-block .content > ul > li > ul > li.collapsed > a,
+.block-menu-block .content > ul > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
+.block-menu-block .content > ul > li:last-child > a {border: none; margin: 0;}
+.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 20px; margin-bottom: 1px;}
+.block-menu-block .content > ul > li > ul > li > ul {padding: 5px 0 5px 40px !important;}
+.block-menu-block .content > ul > li > ul > li > ul ul {padding: 0 0 0 10px !important;}
 
 /* unl_newsitem full page
 *********/
@@ -155,7 +142,7 @@ ul.links.inline {padding-left: 0 !important;}
   position: relative;
   padding: 10px;
   margin: 0 0 30px 0;
-  box-shadow: 0 1px 3px #999;
+  box-shadow: 0 0 1px #bbb;
 }
 .block-views .view-teaser-abbr .feed-icon {
   top: 8px;
