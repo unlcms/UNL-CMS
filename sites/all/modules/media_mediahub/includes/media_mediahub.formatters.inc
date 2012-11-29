@@ -92,6 +92,16 @@ function media_mediahub_file_default_displays() {
 
   // Default settings for displaying as a video.
   $default_video_settings = array(
+    'default' => array(
+      'width' => 480,
+      'height' => 360,
+      'autoplay' => FALSE,
+    ),
+    'teaser' => array(
+      'width' => 480,
+      'height' => 360,
+      'autoplay' => FALSE,
+    ),
     'media_large' => array(
       'width' => 480,
       'height' => 360,
@@ -119,9 +129,12 @@ function media_mediahub_file_default_displays() {
   // WYSIWYG editor. The higher weight ensures that the video display is used
   // where possible.
   $default_image_styles = array(
+    'default' => 'large',
+    'preview' => 'medium',
+    'teaser' => 'large',
     'media_preview' => 'square_thumbnail',
     'media_large' => 'large',
-    'media_original' => ''
+    'media_original' => '',
   );
   foreach ($default_image_styles as $view_mode => $image_style) {
     $display_name = 'video__' . $view_mode . '__media_mediahub_image';
