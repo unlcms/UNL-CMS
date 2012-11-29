@@ -9,8 +9,6 @@
 /* Fix for a Views page */
 #pagetitle {position: relative;}
 #wdn_content_wrapper.contextual-links-region {position: static;}
-/* Hide the contextual links in the UNL nav */
-#navigation div.contextual-links-wrapper {display: none;}
 /* UNL css displays all ul in copyright area as inline, need to hide this */
 #wdn_copyright ul.contextual-links {display: none;}
 /* Overrides of system.menus.css due to conflicts with UNL navigation */
@@ -27,16 +25,14 @@ ul.links.inline {padding-left: 0 !important;}
 #wdn_copyright .block {margin: 0;}
 #toolbarcontent fieldset {border: none; margin: 0; padding: 0;}
 
-/* taxonomy
-*********/
+/* taxonomy */
 .taxonomy-term-description {
   box-shadow: 0 0 1px #bbb;
   margin: 0 0 20px;
   padding: 10px;
 }
 
-/* book
-*********/
+/* book */
 .book-navigation ul {
   border-top: 1px solid #E1E1DB;
   padding: 1em 0 1em 3em !important;
@@ -53,7 +49,8 @@ ul.links.inline {padding-left: 0 !important;}
   color: #777 !important;
   font-size: .9em;
 }
-/* book nav block and menu-block */
+
+/* menu block */
 .block-menu-block {box-shadow: 0 0 1px #bbb;}
 #maincontent .block-menu-block a {color: #333;}
 #maincontent .block-menu-block a:hover {color: #EE0000;}
@@ -73,8 +70,7 @@ ul.links.inline {padding-left: 0 !important;}
 .block-menu-block .content > ul > li > ul > li > ul {padding: 5px 0 5px 40px !important;}
 .block-menu-block .content > ul > li > ul > li > ul ul {padding: 0 0 0 10px !important;}
 
-/* unl_newsitem full page
-*********/
+/* unl_newsitem full page */
 .page-node .node-unl-newsitem .submitted {
   border-color: #F2EDDE;
   border-width:  0 0 2px 0;
@@ -117,8 +113,7 @@ ul.links.inline {padding-left: 0 !important;}
   margin: 0 10px 10px 0;
 }
 
-/* sidebar
-*********/
+/* sidebar */
 .sidebar .block {
   margin: 0 0 30px 0;
 }
@@ -130,14 +125,12 @@ ul.links.inline {padding-left: 0 !important;}
   visibility: hidden;
 }
 
-/* block
-*********/
+/* block */
 .block {
   margin: 0 0 30px 0;
 }
 
-/* block made with Views
-*********/
+/* block made with Views */
 .block-views {
   position: relative;
   padding: 10px;
@@ -148,8 +141,7 @@ ul.links.inline {padding-left: 0 !important;}
   top: 8px;
 }
 
-/* .view-teaser-abbr
-*********/
+/* .view-teaser-abbr */
 .view-teaser-abbr .feed-icon {
   position: absolute;
   right: 5px;
@@ -189,8 +181,7 @@ ul.links.inline {padding-left: 0 !important;}
   color: #eee !important;
 }
 
-/* .node-teaser
-*********/
+/* .node-teaser */
 .node-teaser {
   margin-bottom: 10px;
   padding: 10px;
@@ -199,8 +190,11 @@ ul.links.inline {padding-left: 0 !important;}
   background-color: #E8F4FF !important;
   border: 1px solid #E1EAF0;
 }
-.content > .node-teaser:nth-child(odd) {background-color: #f7f7f7;}
-.views-row-even .node-teaser {background-color: #f7f7f7;}
+.content > .node-teaser:nth-child(odd) {
+  background-color: #f7f7f7;
+}
+.views-row-even .node-teaser {
+  background-color: #f7f7f7;
 }
 .node-teaser .content {
   margin-bottom: 5px;
