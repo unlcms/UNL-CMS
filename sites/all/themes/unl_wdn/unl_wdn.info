@@ -7,8 +7,6 @@ engine = phptemplate
 stylesheets[all][] = style.css
 stylesheets[all][] = css/colors.css
 
-scripts[] = theme.js
-
 regions[page_top] = Page top
 regions[page_bottom] = Page bottom
 
