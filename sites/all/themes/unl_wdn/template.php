@@ -18,6 +18,21 @@ function unl_wdn_css_alter(&$css) {
 }
 
 /**
+ * Implements template_preprocess_block().
+ */
+function unl_wdn_preprocess_block(&$vars) {
+    if($vars['block_html_id'] != 'block-system-main-menu' &&
+       $vars['block_html_id'] != 'block-menu-block-1' &&
+       $vars['block_html_id'] != 'block-system-main'        )
+    {echo '<pre>';var_dump($vars);echo '</pre>'; }
+
+  // Add Menu Block class to book navigation block so that they can share CSS.
+  if ($vars['block_html_id'] == 'block-book-navigation') {
+    $vars['classes_array'][] = 'block-menu-block';
+  }
+}
+
+/**
  * Implements template_preprocess_field().
  */
 function unl_wdn_preprocess_field(&$vars, $hook) {
