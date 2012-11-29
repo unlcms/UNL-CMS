@@ -33,3 +33,4 @@ dependencies[] = unl
 dependencies[] = unl_migration
 dependencies[] = unl_wysiwyg
 dependencies[] = unl_varnish
+dependencies[] = module_filter
