@@ -54,8 +54,8 @@ function _unl_migration_cron_migration_step() {
     $item = $queue->claimItem(120);
     $queue->deleteItem($item);
     if (unl_migration_queue_step($item->data)) {
-      module_load_include('module', 'unl');
-      unl_send_site_created_email();
+      module_load_include('module', 'unl_multisite');
+      _unl_multisite_send_site_created_email();
     }
   }
 }
