@@ -60,16 +60,16 @@ ul.links.inline {padding-left: 0 !important;}
 .block-menu-block h3 a.active {background-color: transparent !important;}
 .block-menu-block ul {padding: 0 !important; list-style-image: none !important; list-style-type: none !important;}
 .block-menu-block li {padding: 0 !important;}
-.block-menu-block .content > ul > li,
-.block-menu-block .content > ul > li > ul > li {list-style-image: none !important; list-style-type: none !important;}
-.block-menu-block .content > ul > li > a {display: block; background-color: #F2EDDE; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
-.block-menu-block .content > ul > li.collapsed > a,
-.block-menu-block .content > ul > li > ul > li.collapsed > a,
-.block-menu-block .content > ul > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
-.block-menu-block .content > ul > li:last-child > a {border: none; margin: 0;}
-.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 20px; margin-bottom: 1px;}
-.block-menu-block .content > ul > li > ul > li > ul {padding: 5px 0 5px 40px !important;}
-.block-menu-block .content > ul > li > ul > li > ul ul {padding: 0 0 0 10px !important;}
+.block-menu-block .content ul:first-child > li,
+.block-menu-block .content ul:first-child > li > ul > li {list-style-image: none !important; list-style-type: none !important;}
+.block-menu-block .content ul:first-child > li > a {display: block; background-color: #F2EDDE; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+.block-menu-block .content ul:first-child > li.collapsed > a,
+.block-menu-block .content ul:first-child > li > ul > li.collapsed > a,
+.block-menu-block .content ul:first-child > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
+.block-menu-block .content ul:first-child > li:last-child > a {border: none; margin: 0;}
+.block-menu-block .content ul:first-child > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 20px; margin-bottom: 1px;}
+.block-menu-block .content ul:first-child > li > ul > li > ul {padding: 5px 0 5px 40px !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul ul {padding: 0 0 0 10px !important;}
 
 /* unl_newsitem full page */
 .page-node .node-unl-newsitem .submitted {
