@@ -40,3 +40,12 @@ function unl_update_7112() {
   );
   variable_set('unl_module_whitelist', $modules);
 }
+
+/**
+ * If site does not have custom 404 set, set it to the central UNL page.
+ */
+function unl_update_7113() {
+  if (!variable_get('site_404')) {
+    variable_set('site_404', 'unl-404');
+  }
+}
