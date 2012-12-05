@@ -84,8 +84,8 @@ function unl_migration_submit($form, &$form_state) {
   );
 
   $batch = array(
-  	'operations' => $operations,
-  	'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
+    'operations' => $operations,
+    'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
   );
   batch_set($batch);
 }
@@ -237,6 +237,7 @@ class Unl_Migration_Tool
             $this->_processMenu();
             $this->_process_blocks();
             $this->_process_breadcrumbs();
+            $this->_process_liferay_sitemap();
             $this->_state = self::STATE_PROCESSING_PAGES;
         }
 
@@ -644,6 +645,25 @@ class Unl_Migration_Tool
       $current_settings = variable_get('theme_unl_wdn_settings', array());
       $current_settings['intermediate_breadcrumbs'] = $this->_breadcrumbs;
       variable_set('theme_unl_wdn_settings', $current_settings);
+    }
+    
+    private function _process_liferay_sitemap() {
+      if (!$this->_useLiferayCode) {
+        return;
+      }
+      
+      $data = $this->_getUrl($this->_baseUrl . '?p_p_id=EXT_SITEMAP&p_p_state=exclusive&p_p_mode=view');
+      if (strpos($data['contentType'], 'html') === FALSE) {
+        return;
+      }
+
+      $dom = new DOMDocument();
+      @$dom->loadHTML($data['content']);
+      
+      $linkNodes = $dom->getElementsByTagName('a');
+      foreach ($linkNodes as $linkNode) {
+        $this->_processLinks($linkNode->getAttribute('href'), '');
+      }
     }
 
     private function _processPage($path)
