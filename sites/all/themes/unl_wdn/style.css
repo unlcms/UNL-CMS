@@ -57,6 +57,7 @@ ul.links.inline {padding-left: 0 !important;}
 .block-menu-block a.active {background-color: #F2E8B1 !important;}
 .block-menu-block h3 {background-color: #95B8CC; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
 .block-menu-block h3 a {color: #FFF !important;}
+.block-menu-block h3 a.active {background-color: transparent !important;}
 .block-menu-block ul {padding: 0 !important; list-style-image: none !important; list-style-type: none !important;}
 .block-menu-block li {padding: 0 !important;}
 .block-menu-block .content > ul > li,
