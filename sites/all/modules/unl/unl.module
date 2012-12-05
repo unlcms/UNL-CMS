@@ -886,7 +886,7 @@ function unl_init() {
   drupal_add_js(array('unl' => array('use_base_tag' => variable_get('unl_use_base_tag', TRUE))), 'setting');
 
   // Add JS
-  drupal_add_js('sites/all/modules/unl/unl.js');
+  drupal_add_js(drupal_get_path('module', 'unl') . '/unl.js', array('weight' => 50));
 
   // Handle unneeded index.html references
   _unl_handle_directory_index();
