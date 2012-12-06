@@ -55,21 +55,24 @@ ul.links.inline {padding-left: 0 !important;}
 #maincontent .block-menu-block a {color: #333;}
 #maincontent .block-menu-block a:hover {color: #EE0000;}
 .block-menu-block a.active {background-color: #F2E8B1 !important;}
-.block-menu-block h3 {background-color: #95B8CC; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
+.block-menu-block h3 {background-color: #95B8CC; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 0 .5em;}
 .block-menu-block h3 a {color: #FFF !important;}
 .block-menu-block h3 a.active {background-color: transparent !important;}
 .block-menu-block ul {padding: 0 !important; list-style-image: none !important; list-style-type: none !important;}
 .block-menu-block li {padding: 0 !important;}
 .block-menu-block .content ul:first-child > li,
 .block-menu-block .content ul:first-child > li > ul > li {list-style-image: none !important; list-style-type: none !important;}
-.block-menu-block .content ul:first-child > li > a {display: block; background-color: #F2EDDE; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
-.block-menu-block .content ul:first-child > li.collapsed > a,
-.block-menu-block .content ul:first-child > li > ul > li.collapsed > a,
-.block-menu-block .content ul:first-child > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
+.block-menu-block .content ul:first-child > li > a {display: block; background-color: #F2EDDE; padding: .5em .5em .5em 1.5em; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+.block-menu-block .content ul:first-child > li > a {background-position: .3em center; background-repeat: no-repeat;}
+.block-menu-block .content ul:first-child > li > ul > li > a {background-position: 1em center; background-repeat: no-repeat;}
+.block-menu-block .content li.collapsed > a {background-image: url("../../../../misc/menu-collapsed.png");}
+.block-menu-block .content li.expanded > a {background-image: url("../../../../misc/menu-expanded.png");}
 .block-menu-block .content ul:first-child > li:last-child > a {border: none; margin: 0;}
-.block-menu-block .content ul:first-child > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 20px; margin-bottom: 1px;}
-.block-menu-block .content ul:first-child > li > ul > li > ul {padding: 5px 0 5px 40px !important;}
-.block-menu-block .content ul:first-child > li > ul > li > ul ul {padding: 0 0 0 10px !important;}
+.block-menu-block .content ul:first-child > li > ul > li > a {display: block; background-color: #F2F2F2; padding: .5em .5em .5em 2.2em; margin-bottom: 1px;}
+.block-menu-block .content ul:first-child > li > ul > li > ul {padding: .5em 0 .5em 3.2em !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul ul {padding: .4em 0 0 1em !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul li {padding: 0 0 .2em 0em !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul a {background: none; padding: .2em;}
 
 /* unl_newsitem full page */
 .page-node .node-unl-newsitem .submitted {
