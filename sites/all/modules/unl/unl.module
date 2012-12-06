@@ -452,10 +452,15 @@ function unl_404_page() {
   $default_404 = unl_shared_variable_get('site_404');
   // @TODO: $default_404 should look like "node/182" but is there a safer way to retrieve nid?
   $node = node_load(substr($default_404, 5));
-  drupal_set_title($node->title);
-  $build = node_view($node, 'full');
-  $build['links']['#access'] = FALSE;
-  $build['#contextual_links'] = NULL;
+  if ($node) {
+    drupal_set_title($node->title);
+    $build = node_view($node, 'full');
+    $build['links']['#access'] = FALSE;
+    $build['#contextual_links'] = NULL;
+  }
+  else {
+    $build = array();
+  }
 
   // Restore database connection.
   db_set_active();
