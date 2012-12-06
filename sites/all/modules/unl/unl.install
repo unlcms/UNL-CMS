@@ -1,7 +1,7 @@
 <?php
 
 function unl_install() {
-
+  variable_set('site_404', 'unl-404');
 }
 
 // Update blocks to have correct titles, to correspond to a profile/theme update.
