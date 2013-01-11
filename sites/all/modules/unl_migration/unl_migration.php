@@ -314,12 +314,17 @@ class Unl_Migration_Tool
       return TRUE;
     }
 
-    private function _addSitePath($path)
+    private function _addSitePath($path, $allowTralingSlash = FALSE)
     {
         if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
             $path = substr($path, 0, $fragmentStart);
         }
-        $path = trim($path, '/ ');
+        if ($allowTralingSlash) {
+          $path = trim($path, ' ');
+        }
+        else {
+          $path = trim($path, '/ ');
+        }
         if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE) {
           return;
         }
@@ -1182,7 +1187,8 @@ class Unl_Migration_Tool
         if (in_array($meta['http_code'], array(301, 302))) {
             $location = $headers['Location'];
             $path = substr($location, strlen($this->_baseUrl));
-            $this->_addSitePath($path);
+            // keep trailing slash only if this is a redirect from the non-trailing slash URL.
+            $this->_addSitePath($path, $url . '/' == $this->_baseUrl . $path);
 
             if (substr($location, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
                 $this->_redirects[substr($url, strlen($this->_baseUrl))] = substr($location, strlen($this->_baseUrl));
