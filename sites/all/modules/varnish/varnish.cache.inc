@@ -35,11 +35,11 @@ class VarnishCache implements DrupalCacheInterface {
   function clear($cid = NULL, $wildcard = FALSE) {
     global $user;
     // Check that we really want to do a cache flush.
-    if (!module_exists('varnish') || variable_get('varnish_cache_clear', VARNISH_DEFAULT_CLEAR) != VARNISH_DEFAULT_CLEAR ||
+    if (!module_exists('varnish') ||
       (variable_get('varnish_flush_cron', 0) && lock_may_be_available('cron'))) {
       return;
     }
-    if (empty($cid)) {
+    if (empty($cid) && variable_get('varnish_cache_clear', 1)) {
       if (variable_get('cache_lifetime', 0)) {
         // We store the time in the current user's $user->cache variable which
         // will be saved into the sessions bin by _drupal_session_write(). We then
@@ -56,6 +56,7 @@ class VarnishCache implements DrupalCacheInterface {
           // Clear the cache for everyone, cache_lifetime seconds have
           // passed since the first request to clear the cache.
           varnish_purge_all_pages();
+          variable_set('cache_flush_' . $this->bin, 0);
         }
       }
       else {
