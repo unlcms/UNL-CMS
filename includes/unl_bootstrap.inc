@@ -19,24 +19,25 @@ function unl_bootstrap_short_hostname_redirect() {
   if (PHP_SAPI == 'cli') {
     return;
   }
-  
+
   $hostname = $_SERVER['HTTP_HOST'];
   if (gethostbynamel($hostname)) {
     // The provided host name is just fine.
     return;
   }
-  
+
   // Otherwise, try adding .unl.edu.
   $hostname .= '.unl.edu';
   if (gethostbynamel($hostname)) {
     // If its a valid domain, redirect to it.
     if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') {
       $uri = 'https://';
-    } else {
+    }
+    else {
       $uri = 'http://';
     }
     $uri .= $hostname . $_SERVER['REQUEST_URI'];
-    
+
     header('Location: ' . $uri);
     exit;
   }
@@ -49,7 +50,7 @@ function unl_bootstrap_short_hostname_redirect() {
 function unl_bootstrap_multisite_without_symlinks() {
   $original_script_name = $_SERVER['SCRIPT_NAME'];
   $php_file = basename($original_script_name);
-  
+
   $request_uri = parse_url($_SERVER['REQUEST_URI']);
   $path_parts = explode('/', $request_uri['path']);
   foreach ($path_parts as $path_index => $path_part) {
@@ -57,7 +58,7 @@ function unl_bootstrap_multisite_without_symlinks() {
       unset($path_parts[$path_index]);
     }
   }
-  
+
   $previous_conf_path = '';
   $previous_script_name = '';
   for ($i = count($path_parts); $i >= 0; $i--) {
@@ -68,19 +69,19 @@ function unl_bootstrap_multisite_without_symlinks() {
       $_SERVER['SCRIPT_NAME'] = '/' . implode('/', array_slice($path_parts, 0, $i)) . '/' . $php_file;
     }
     $conf_path = conf_path(TRUE, TRUE);
-    
+
     if ($previous_conf_path && ($conf_path != $previous_conf_path)) {
       $_SERVER['SCRIPT_NAME'] = $previous_script_name;
       break;
     }
-    
+
     if ($_SERVER['SCRIPT_NAME'] == $original_script_name) {
       break;
     }
     $previous_conf_path = $conf_path;
     $previous_script_name = $_SERVER['SCRIPT_NAME'];
   }
-  
+
   conf_path(TRUE, TRUE);
 }
 
@@ -118,7 +119,7 @@ function unl_bootstrap_is_mobile_user() {
     // If Varnish set the X-UNL-Mobile header, use it instead of checking again.
     return $_SERVER['X-UNL-Mobile'] == 'Yes';
   }
-  
+
   if (!isset($_SERVER['HTTP_ACCEPT'], $_SERVER['HTTP_USER_AGENT'])) {
     // We have no vars to check
     return false;
@@ -129,7 +130,7 @@ function unl_bootstrap_is_mobile_user() {
     // The user has a cookie set, requesting no mobile views
     return false;
   }
-  
+
   if ( // Check the http_accept and user agent and see
     preg_match('/text\/vnd\.wap\.wml|application\/vnd\.wap\.xhtml\+xml/i', $_SERVER['HTTP_ACCEPT'])
     ||
