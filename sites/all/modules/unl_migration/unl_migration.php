@@ -84,8 +84,8 @@ function unl_migration_submit($form, &$form_state) {
   );
 
   $batch = array(
-  	'operations' => $operations,
-  	'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
+    'operations' => $operations,
+    'file' => substr(__FILE__, strlen(DRUPAL_ROOT) + 1),
   );
   batch_set($batch);
 }
@@ -237,6 +237,7 @@ class Unl_Migration_Tool
             $this->_processMenu();
             $this->_process_blocks();
             $this->_process_breadcrumbs();
+            $this->_process_liferay_sitemap();
             $this->_state = self::STATE_PROCESSING_PAGES;
         }
 
@@ -313,12 +314,17 @@ class Unl_Migration_Tool
       return TRUE;
     }
 
-    private function _addSitePath($path)
+    private function _addSitePath($path, $allowTralingSlash = FALSE)
     {
         if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
             $path = substr($path, 0, $fragmentStart);
         }
-        $path = trim($path, '/ ');
+        if ($allowTralingSlash) {
+          $path = trim($path, ' ');
+        }
+        else {
+          $path = trim($path, '/ ');
+        }
         if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE) {
           return;
         }
@@ -644,6 +650,25 @@ class Unl_Migration_Tool
       $current_settings = variable_get('theme_unl_wdn_settings', array());
       $current_settings['intermediate_breadcrumbs'] = $this->_breadcrumbs;
       variable_set('theme_unl_wdn_settings', $current_settings);
+    }
+    
+    private function _process_liferay_sitemap() {
+      if (!$this->_useLiferayCode) {
+        return;
+      }
+      
+      $data = $this->_getUrl($this->_baseUrl . '?p_p_id=EXT_SITEMAP&p_p_state=exclusive&p_p_mode=view');
+      if (strpos($data['contentType'], 'html') === FALSE) {
+        return;
+      }
+
+      $dom = new DOMDocument();
+      @$dom->loadHTML($data['content']);
+      
+      $linkNodes = $dom->getElementsByTagName('a');
+      foreach ($linkNodes as $linkNode) {
+        $this->_processLinks($linkNode->getAttribute('href'), '');
+      }
     }
 
     private function _processPage($path)
@@ -1162,7 +1187,8 @@ class Unl_Migration_Tool
         if (in_array($meta['http_code'], array(301, 302))) {
             $location = $headers['Location'];
             $path = substr($location, strlen($this->_baseUrl));
-            $this->_addSitePath($path);
+            // keep trailing slash only if this is a redirect from the non-trailing slash URL.
+            $this->_addSitePath($path, $url . '/' == $this->_baseUrl . $path);
 
             if (substr($location, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
                 $this->_redirects[substr($url, strlen($this->_baseUrl))] = substr($location, strlen($this->_baseUrl));

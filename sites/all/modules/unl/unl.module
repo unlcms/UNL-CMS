@@ -114,8 +114,23 @@ function unl_context_page_reaction() {
 function unl_page_alter(&$page) {
   // Add UNLcms technical feedback link to toolbar
   if (isset($page['page_top']['toolbar'])) {
-      $page['page_top']['toolbar']['#pre_render'][] = 'unl_toolbar_add_links';
+    $page['page_top']['toolbar']['#pre_render'][] = 'unl_toolbar_add_links';
+  }
+}
+
+/**
+ * Implements hook_block_list_alter().
+ */
+function unl_block_list_alter(&$blocks) {
+  // Hide all content area blocks on 404 page if using the 'unl-404' menu callback.
+  $status = drupal_get_http_header('status');
+  if ($status == '404 Not Found' && variable_get('site_404') == 'unl-404') {
+    foreach ($blocks as $key => $block) {
+      if (in_array($block->region, array('content', 'sidebar_first', 'sidebar_second'))) {
+        unset($blocks[$key]);
+      }
     }
+  }
 }
 
 /**
@@ -256,6 +271,17 @@ function unl_permission() {
 }
 
 /**
+ * Implements hook_preprocess_node().
+ */
+function unl_preprocess_node(&$vars) {
+  // Full page representation wanted for 404 page
+  $status = drupal_get_http_header('status');
+  if ($status == '404 Not Found') {
+    $vars['page'] = TRUE;
+  }
+}
+
+/**
  * Implements hook_preprocess_page().
  */
 function unl_preprocess_page(&$vars) {
@@ -278,10 +304,18 @@ function unl_preprocess_page(&$vars) {
 }
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function unl_menu() {
   $items = array();
+
+  // 404 page pulled from default site.
+  $items['unl-404'] = array(
+    'title' => 'Page not found',
+    'access callback' => TRUE,
+    'page callback' => 'unl_404_page',
+    'type' => MENU_CALLBACK,
+  );
 
   // Output html snippets for regions.
    $items['sharedcode/%'] = array(
@@ -377,7 +411,7 @@ function unl_menu() {
 }
 
 /**
- * Implementation of hook_menu_alter().
+ * Implements hook_menu_alter().
  */
 function unl_menu_alter(&$items) {
   // This duplicates the form at admin/appearance/settings/unl_wdn for roles that can't 'administer themes' but have 'unl theme settings' permission.
@@ -403,6 +437,34 @@ function unl_menu_alter(&$items) {
   }
 
   $items['admin/modules/uninstall']['access callback'] = 'unl_user_is_administrator';
+}
+
+/**
+ * Custom page callback.
+ */
+function unl_404_page() {
+  $database = $GLOBALS['databases']['default']['default'];
+  $database['prefix'] = unl_get_shared_db_prefix();
+  Database::addConnectionInfo('default_site', 'default', $database);
+  // Switch database connection to default site.
+  db_set_active('default_site');
+
+  $default_404 = unl_shared_variable_get('site_404');
+  // @TODO: $default_404 should look like "node/182" but is there a safer way to retrieve nid?
+  $node = node_load(substr($default_404, 5));
+  if ($node) {
+    drupal_set_title($node->title);
+    $build = node_view($node, 'full');
+    $build['links']['#access'] = FALSE;
+    $build['#contextual_links'] = NULL;
+  }
+  else {
+    $build = array();
+  }
+
+  // Restore database connection.
+  db_set_active();
+  return drupal_render($build);
 }
 
 /**
@@ -861,7 +923,12 @@ function unl_init() {
     $primary_base_url = $current_url_schema . substr($primary_base_url, strlen($primary_base_url_schema));
 
     if (conf_path() != 'sites/default' && $primary_base_url != url() && PHP_SAPI != 'cli') {
-      drupal_goto(url($primary_base_url . request_path(), array('query' => drupal_get_query_parameters())));
+      // Ripped off from request_path(), but without removing things like cron.php
+      $request_path = strtok($_SERVER['REQUEST_URI'], '?');
+      $base_path_len = strlen(rtrim(dirname($_SERVER['SCRIPT_NAME']), '\/'));
+      $path = substr(urldecode($request_path), $base_path_len + 1);
+      
+      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())));
     }
   }
 
@@ -886,7 +953,7 @@ function unl_init() {
   drupal_add_js(array('unl' => array('use_base_tag' => variable_get('unl_use_base_tag', TRUE))), 'setting');
 
   // Add JS
-  drupal_add_js('sites/all/modules/unl/unl.js');
+  drupal_add_js(drupal_get_path('module', 'unl') . '/unl.js', array('weight' => 50));
 
   // Handle unneeded index.html references
   _unl_handle_directory_index();
