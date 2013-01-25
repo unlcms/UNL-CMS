@@ -923,7 +923,12 @@ function unl_init() {
     $primary_base_url = $current_url_schema . substr($primary_base_url, strlen($primary_base_url_schema));
 
     if (conf_path() != 'sites/default' && $primary_base_url != url() && PHP_SAPI != 'cli') {
-      drupal_goto(url($primary_base_url . request_path(), array('query' => drupal_get_query_parameters())));
+      // Ripped off from request_path(), but without removing things like cron.php
+      $request_path = strtok($_SERVER['REQUEST_URI'], '?');
+      $base_path_len = strlen(rtrim(dirname($_SERVER['SCRIPT_NAME']), '\/'));
+      $path = substr(urldecode($request_path), $base_path_len + 1);
+      
+      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())));
     }
   }
 
