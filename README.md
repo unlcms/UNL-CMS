@@ -40,8 +40,11 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
         echo 'Resetting .htaccess'
         cd /Library/WebServer/Documents/workspace/UNL-CMS
         sudo rm .htaccess
+        sudo rm .htaccess-subsite-map.txt
         cp .htaccess.sample .htaccess
+        cp .htaccess-subsite-map.txt.sample .htaccess-subsite-map.txt
         sudo chown YOURUSER .htaccess
+        sudo chown YOURUSER .htaccess-subsite-map.txt
         sed -i "" 's/# RewriteBase \/drupal\//RewriteBase \/workspace\/UNL-CMS\//' ".htaccess"
 
         echo 'Done.'
