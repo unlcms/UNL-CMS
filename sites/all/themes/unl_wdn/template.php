@@ -189,6 +189,15 @@ function unl_wdn_username_alter(&$name, $account) {
  * Implements template_preprocess_page().
  */
 function unl_wdn_preprocess_page(&$vars, $hook) {
+
+  $loginUrl = url('user', array('query' => drupal_get_destination()));
+  $script = 'WDN.jQuery(function() {' . PHP_EOL
+          . '  WDN.idm.setLoginURL("' . $loginUrl . '");' . PHP_EOL
+          . '  WDN.idm.setLogoutURL("user/logout");' . PHP_EOL
+          . '});'
+          ;
+  drupal_add_js($script, 'inline');
+  
   // Unset the sidebars if on a user page (i.e. user profile or imce file browser)
   if (arg(0) == 'user') {
     $vars['page']['sidebar_first'] = array();
