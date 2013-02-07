@@ -26,6 +26,7 @@ function fieldable_panels_panes_entity_info() {
         'revision' => 'vid',
         'bundle' => 'bundle',
         'label' => 'admin_title',
+        'language' => 'language',
         'uuid' => 'uuid',
         'revision uuid' => 'vuuid',
       ),
@@ -56,6 +57,38 @@ function fieldable_panels_panes_entity_info() {
       'creation callback' => 'fieldable_panels_panes_create',
       'access callback' => 'fieldable_panels_panes_access',
       'save callback' => 'fieldable_panels_panes_save',
+
+      // Entity translation support
+      'translation' => array(
+        'entity_translation' => array(
+          'class' => 'EntityTranslationFieldablePanelsPaneHandler',
+          'base path' =>  'admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes',
+          'edit path' =>  'admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/edit',
+          'path wildcard' => '%fieldable_panels_panes',
+        ),
+      ),
+
+      // Title module support
+      'field replacement' => array(
+        'title' => array(
+          'field' => array(
+            'type' => 'text',
+            'cardinality' => 1,
+            'translatable' => TRUE,
+          ),
+          'instance' => array(
+            'label' => t('Title'),
+            'description' => t('A field replacing fieldable panel pane title.'),
+            'required' => FALSE,
+            'settings' => array(
+              'text_processing' => 0,
+            ),
+            'widget' => array(
+              'weight' => -10,
+            ),
+          ),
+        ),
+      ),
     ),
   );
 }
@@ -135,11 +168,12 @@ function fieldable_panels_panes_menu() {
   $items['admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/edit'] = array(
     'title' => 'Edit',
     'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'page callback' => 'fieldable_panels_panes_entity_edit_page',
     'page arguments' => array(4),
     'access callback' => 'fieldable_panels_panes_access',
     'access arguments' => array('update', 4),
-    'weight' => -8,
+    'weight' => -9,
   ) + $base;
 
   $items['admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/view-access'] = array(
@@ -165,6 +199,7 @@ function fieldable_panels_panes_menu() {
   $items['admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/delete'] = array(
     'title' => 'Delete',
     'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fieldable_panels_panes_entity_delete_form', 4),
     'access callback' => 'fieldable_panels_panes_access',
@@ -206,6 +241,7 @@ function fieldable_panels_panes_menu() {
   $items['admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/revision/%/edit'] = array(
     'title' => 'Edit',
     'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'page callback' => 'fieldable_panels_panes_entity_edit_page',
     'page arguments' => array(4),
     'access callback' => 'fieldable_panels_panes_access',
@@ -217,6 +253,7 @@ function fieldable_panels_panes_menu() {
   $items['admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/revision/%/delete'] = array(
     'title' => 'Delete',
     'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fieldable_panels_panes_entity_delete_revision_form', 4),
     'access callback' => 'fieldable_panels_panes_access',
@@ -227,7 +264,8 @@ function fieldable_panels_panes_menu() {
 
   $items['admin/structure/fieldable-panels-panes/view/%fieldable_panels_panes/revision/%/make-current'] = array(
     'title' => 'Make current',
-    'type' => MENU_CALLBACK,
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
     'page callback' => 'fieldable_panels_panes_entity_make_current_page',
     'page arguments' => array(4),
     'access callback' => 'fieldable_panels_panes_access',
@@ -281,12 +319,12 @@ function fieldable_panels_panes_menu() {
   );
 
   $items['admin/structure/fieldable-panels-panes/manage/%fieldable_panels_panes_type/add'] = array(
-    'title' => 'Add',
+    'title' => 'Add fieldable panel pane',
     'page callback' => 'fieldable_panels_panes_entities_add_page',
     'page arguments' => array(4),
     'access callback' => 'fieldable_panels_panes_access',
-    'access arguments' => array('create', 5),
-    'type' => MENU_LOCAL_TASK,
+    'access arguments' => array('create', 4),
+    'type' => MENU_LOCAL_ACTION,
   ) + $base;
 
   return $items;
@@ -338,25 +376,29 @@ function fieldable_panels_panes_theme() {
  * Implements hook_admin_menu_map().
  */
 function fieldable_panels_panes_admin_menu_map() {
+  $map = array();
+
   $bundles = array();
   $info = entity_get_info('fieldable_panels_pane');
-
   foreach ($info['bundles'] as $bundle_name => $bundle_info) {
     $bundles[] = strtr($bundle_name, '_', '-');
 
-    if (isset($bundle_info['admin'])) {
-      $admin_path = $bundle_info['admin']['path'];
-      $fields = array();
+    // Add mapping for the individual fields if the Field UI module is enabled.
+    if (module_exists('field_ui')) {
+      if (isset($bundle_info['admin'])) {
+        $admin_path = $bundle_info['admin']['path'];
+        $fields = array();
 
-      foreach (field_info_instances('fieldable_panels_pane', $bundle_name) as $field) {
-        $fields[] = $field['field_name'];
+        foreach (field_info_instances('fieldable_panels_pane', $bundle_name) as $field) {
+          $fields[] = $field['field_name'];
+        }
+
+        $map["$admin_path/fields/%field_ui_menu"]['parent'] = "$admin_path/fields";
+        $map["$admin_path/fields/%field_ui_menu"]['arguments'][] = array(
+          '%fieldable_panels_panes_type' => array($bundle_name),
+          '%field_ui_menu' => $fields,
+        );
       }
-
-      $map["$admin_path/fields/%field_ui_menu"]['parent'] = "$admin_path/fields";
-      $map["$admin_path/fields/%field_ui_menu"]['arguments'][] = array(
-        '%fieldable_panels_panes_type' => array($bundle_name),
-        '%field_ui_menu' => $fields,
-      );
     }
   }
 
@@ -578,11 +620,12 @@ function template_preprocess_fieldable_panels_pane(&$vars) {
  */
 function fieldable_panels_panes_preprocess_panels_pane(&$vars) {
   if ($vars['pane']->type == 'fieldable_panels_pane') {
-    $entity = fieldable_panels_panes_load_entity($vars['pane']->subtype);
-    if ($entity->link && !empty($vars['title'])) {
-      $vars['title'] = l($vars['title'], $entity->path);
+    if ($entity = fieldable_panels_panes_load_entity($vars['pane']->subtype)) {
+      if ($entity->link && !empty($vars['title'])) {
+        $vars['title'] = l($vars['title'], $entity->path);
+      }
+      $vars['classes_array'][] = 'pane-bundle-' . ctools_cleanstring($entity->bundle, array('lower case' => TRUE));
     }
-    $vars['classes_array'][] = 'pane-bundle-' . ctools_cleanstring($entity->bundle, array('lower case' => TRUE));
   }
 }
 
@@ -681,6 +724,18 @@ function fieldable_panels_panes_view($entity, $view_mode = 'full', $langcode = N
 }
 
 /**
+ * Entity API callback to view a fieldable panel pane.
+ *
+ * This is essentially a duplicate of fieldable_panels_panes_view() but the
+ * function name has to match the entity type with is singular.
+ *
+ * @see entity_view()
+ */
+function fieldable_panels_pane_view($entity, $view_mode = 'full', $langcode) {
+  return entity_get_controller('fieldable_panels_pane')->view($entity, $view_mode, $langcode);
+}
+
+/**
  * Callback to create a new entity.
  */
 function fieldable_panels_panes_create($values = array()) {
@@ -761,6 +816,13 @@ function fieldable_panels_panes_get_base_context($entity = NULL) {
 function fieldable_panels_panes_entity_edit_form($form, &$form_state) {
   $entity = $form_state['entity'];
 
+  // Map these properties for entity translations.
+  $form['#entity_type'] = array(
+    '#type' => 'value',
+    '#value' => $entity->bundle,
+  );
+  $form_state['fieldable_panels_pane'] = $form_state['entity'];
+
   // fixes a bug in wysiwyg
   // oh wysiwyg. We need a better way to address this.
 //  drupal_add_css('sites/all/libraries/ckeditor/skins/kama/editor.css');
@@ -770,6 +832,11 @@ function fieldable_panels_panes_entity_edit_form($form, &$form_state) {
     '#title' => t('Title'),
     '#default_value' => $entity->title,
     '#weight' => -10,
+  );
+
+  $form['language'] = array(
+    '#type' => 'value',
+    '#value' => $entity->language,
   );
 
   // Make the other form items dependent upon it.
@@ -859,7 +926,12 @@ function fieldable_panels_panes_entity_edit_form($form, &$form_state) {
     '#default_value' => '',
   );
 
-  field_attach_form('fieldable_panels_pane', $entity, $form, $form_state);
+  $language = NULL;
+  if (function_exists('entity_language')) {
+    // entity_language() was added in Drupal 7.15.
+    $language = entity_language('fieldable_panels_pane', $entity);
+  }
+  field_attach_form('fieldable_panels_pane', $entity, $form, $form_state, $language);
 
   if (!empty($form_state['add submit'])) {
     $form['actions'] = array(
@@ -892,6 +964,7 @@ function fieldable_panels_panes_entity_edit_form_submit($form, &$form_state) {
   $entity->title = $form_state['values']['title'];
   $entity->link = $form_state['values']['link'];
   $entity->path = $form_state['values']['path'];
+  $entity->language = $form_state['values']['language'];
   $entity->reusable = $form_state['values']['reusable'];
   $entity->category = $form_state['values']['category'];
   $entity->admin_title = $form_state['values']['admin_title'];
@@ -910,4 +983,18 @@ function fieldable_panels_panes_entity_edit_form_submit($form, &$form_state) {
   if (!empty($form_state['add submit'])) {
     drupal_set_message(t('The entity has been saved.'));
   }
+}
+
+/**
+ * Returns whether the current page is the preview view of the passed-in pane.
+ *
+ * @param object $pane
+ *   A fieldable panel pane object.
+ *
+ * @return bool
+ *   TRUE if this is a full pane page view, otherwise FALSE.
+ */
+function fieldable_panels_pane_is_page($pane) {
+  $page_page = menu_get_object('fieldable_panels_panes', 4);
+  return (!empty($page_page) ? $page_page->fpid == $pane->fpid : FALSE);
 }
