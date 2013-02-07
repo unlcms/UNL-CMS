@@ -24,12 +24,14 @@ class panelizer_defaults_ui extends ctools_export_ui {
     $this->plugin['menu']['items']['import']['path'] = 'list/import';
 
     // Edit is being handled elsewhere:
-    unset($this->plugin['menu']['items']['edit']);
     unset($this->plugin['menu']['items']['edit callback']);
-    unset($this->plugin['menu']['items']['context']);
-    unset($this->plugin['menu']['items']['content']);
-    unset($this->plugin['menu']['items']['layout']);
     unset($this->plugin['menu']['items']['access']);
+    foreach (panelizer_operations() as $path => $operation) {
+      $location = isset($operation['ui path']) ? $operation['ui path'] : $path;
+      if (isset($this->plugin['menu']['items'][$location])) {
+        unset($this->plugin['menu']['items'][$location]);
+      }
+    }
 
     // Change the callbacks for everything:
     foreach ($this->plugin['menu']['items'] as $key => $item) {
@@ -82,7 +84,7 @@ class panelizer_defaults_ui extends ctools_export_ui {
       $form_state['item']->panelizer_type = $this->entity_handler->entity_type;
       $form_state['item']->panelizer_key = $this->entity_bundle;
       $form_state['item']->view_mode = $this->entity_view_mode;
-      $form_state['item']->display = $this->entity_handler->get_default_display();
+      $form_state['item']->display = $this->entity_handler->get_default_display($this->entity_bundle, $this->entity_view_mode);
     }
     return parent::edit_execute_form_standard($form_state);
   }

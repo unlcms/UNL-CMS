@@ -25,19 +25,11 @@ function panelizer_admin_hook_menu(&$items) {
     'type' => MENU_NORMAL_ITEM,
   ) + $settings_base;
 
-  $items['admin/config/content/panelizer/%panelizer_handler/%'] = array(
-    'title callback' => 'panelizer_default_title_callback',
-    'title arguments' => array(4, 5),
+  $items['admin/config/content/panelizer/%panelizer_handler/%/allowed'] = array(
+    'title' => 'Allowed content',
     'page callback' => 'panelizer_allowed_content_page',
     'page arguments' => array(4, 5),
     'type' => MENU_CALLBACK,
-  ) + $settings_base;
-
-  $items['admin/config/content/panelizer/%panelizer_handler/%/allowed'] = array(
-    'title' => 'Available content',
-    'page callback' => 'panelizer_allowed_content_page',
-    'page arguments' => array(4, 5),
-    'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -10,
   ) + $settings_base;
 
@@ -49,29 +41,31 @@ function panelizer_admin_hook_menu(&$items) {
     'file' => 'includes/admin.inc',
   );
 
-  $items['admin/config/content/panelizer/%panelizer_handler/%/settings'] = array(
+  $items['admin/config/content/panelizer/%panelizer_handler/%'] = array(
+    'title callback' => 'panelizer_default_title_callback',
+    'title arguments' => array(4, 5),
     'title' => 'Settings',
     'page callback' => 'panelizer_default_settings_page',
     'weight' => -5,
+    'type' => MENU_SUGGESTED_ITEM,
   ) + $tabs_base;
 
-  $items['admin/config/content/panelizer/%panelizer_handler/%/context'] = array(
-    'title' => 'Contexts',
-    'page callback' => 'panelizer_default_context_page',
-    'weight' => -4,
-  ) + $tabs_base;
-
-  $items['admin/config/content/panelizer/%panelizer_handler/%/layout'] = array(
-    'title' => 'Layout',
-    'page callback' => 'panelizer_default_layout_page',
-    'weight' => -3,
-  ) + $tabs_base;
-
-  $items['admin/config/content/panelizer/%panelizer_handler/%/content'] = array(
-    'title' => 'Content',
-    'page callback' => 'panelizer_default_content_page',
-    'weight' => -2,
-  ) + $tabs_base;
+  $index = 0;
+  foreach (panelizer_operations() as $path => $operation) {
+    $items['admin/config/content/panelizer/%panelizer_handler/%/' . $path] = array(
+      'title' => $operation['menu title'],
+      'page callback' => $operation['admin callback'],
+      'weight' => $index - 5,
+      'type' => ($index === 0) ? MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+    ) + $tabs_base;
+    if (isset($operation['file'])) {
+      $items['admin/config/content/panelizer/%panelizer_handler/%/' . $path]['file'] = $operation['file'];
+    }
+    if (isset($operation['file path'])) {
+      $items['admin/config/content/panelizer/%panelizer_handler/%/' . $path]['file path'] = $operation['file path'];
+    }
+    $index++;
+  }
 
   $subtabs_base = array(
     'access callback' => 'panelizer_administer_panelizer_default',
@@ -88,29 +82,21 @@ function panelizer_admin_hook_menu(&$items) {
     'type' => MENU_CALLBACK,
   ) + $subtabs_base;
 
-  $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/settings'] = array(
-    'title' => 'Settings',
-    'page callback' => 'panelizer_default_settings_page',
-    'weight' => -5,
-  ) + $subtabs_base;
-
-  $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/context'] = array(
-    'title' => 'Contexts',
-    'page callback' => 'panelizer_default_context_page',
-    'weight' => -4,
-  ) + $subtabs_base;
-
-  $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/layout'] = array(
-    'title' => 'Layout',
-    'page callback' => 'panelizer_default_layout_page',
-    'weight' => -3,
-  ) + $subtabs_base;
-
-  $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/content'] = array(
-    'title' => 'Content',
-    'page callback' => 'panelizer_default_content_page',
-    'weight' => -2,
-  ) + $subtabs_base;
+  $index = 0;
+  foreach (panelizer_operations() as $path => $operation) {
+    $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/' . $path] = array(
+      'title' => $operation['menu title'],
+      'page callback' => $operation['admin callback'],
+      'weight' => $index - 5,
+    ) + $subtabs_base;
+    if (isset($operation['file'])) {
+      $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/' . $path]['file'] = $operation['file'];
+    }
+    if (isset($operation['file path'])) {
+      $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/' . $path]['file path'] = $operation['file path'];
+    }
+    $index++;
+  }
 
   $items['admin/config/content/panelizer/%panelizer_handler/%/list/%/access'] = array(
     'title' => 'Access',
@@ -210,6 +196,12 @@ function panelizer_settings_page_form_submit($form, &$form_state) {
  * Page to configure what content is available for a given node type.
  */
 function panelizer_allowed_content_page($handler, $bundle) {
+  // Old URLs would include a view mode, but allowed content does not
+  // change for view modes, so make that version of the page not found.
+  if (strpos($bundle, '.') !== FALSE) {
+    return MENU_NOT_FOUND;
+  }
+
   if (is_string($handler)) {
     $handler = panelizer_entity_plugin_get_handler($handler);
   }
@@ -220,31 +212,6 @@ function panelizer_allowed_content_page($handler, $bundle) {
 
   ctools_include('common', 'panels');
   return drupal_get_form('panels_common_settings', 'panelizer_' . $handler->entity_type . ':' . $bundle);
-}
-
-/**
- * Page callback to delegate to either the settings page or list page.
- */
-function panelizer_default_list_or_settings_page($handler, $bundle, $name, $view_mode) {
-  if (is_string($handler)) {
-    $handler = panelizer_entity_plugin_get_handler($handler);
-  }
-
-  // We need a version of $bundle with $view_mode but we need to retain one
-  // without it so we can pass straight $bundle to the settings page.
-  $test_bundle = $bundle;
-  if ($view_mode) {
-    $test_bundle .= '.' . $view_mode;
-  }
-
-  if ($handler->has_panel_choice($test_bundle)) {
-    // Call through to the UI switcher for the list
-    ctools_include('export-ui');
-    return panelizer_export_ui_switcher_page($handler, $test_bundle, 'panelizer_defaults', 'list');
-  }
-  else {
-    return panelizer_default_settings_page($handler, $bundle, $name, $view_mode);
-  }
 }
 
 /**
@@ -276,7 +243,6 @@ function panelizer_default_settings_page($handler, $bundle, $name, $view_mode) {
   $form_state = array(
     'panelizer' => &$panelizer,
     'no_redirect' => TRUE,
-    'reset button' => TRUE,
     'view_mode' => $mode,
   );
 
@@ -287,20 +253,13 @@ function panelizer_default_settings_page($handler, $bundle, $name, $view_mode) {
   ctools_include('common', 'panelizer');
   $output = drupal_build_form('panelizer_settings_form', $form_state);
   if (!empty($form_state['executed'])) {
-    if (empty($form_state['clicked_button']['#reset'])) {
-      ctools_include('export');
-      ctools_export_crud_save('panelizer_defaults', $panelizer);
-      drupal_set_message(t('The settings have been updated.'));
-    }
-    else {
-      panelizer_delete_panelizer_defaults($panelizer);
-      drupal_set_message(t('The panelizer settings have been reset to the default.'));
-    }
-
+    ctools_include('export');
+    ctools_export_crud_save('panelizer_defaults', $panelizer);
+    drupal_set_message(t('The settings have been updated.'));
     drupal_goto($_GET['q']);
   }
 
-  if ($view_mode) {
+  if ($view_mode && !$handler->has_panel_choice($bundle)) {
     $output = $handler->wrap_default_panelizer_pages($bundle, $output);
   }
 
@@ -362,7 +321,7 @@ function panelizer_default_context_page($handler, $bundle, $name, $view_mode) {
     drupal_goto($_GET['q']);
   }
 
-  if ($view_mode) {
+  if ($view_mode && !$handler->has_panel_choice($bundle)) {
     $output = $handler->wrap_default_panelizer_pages($bundle, $output);
   }
 
@@ -411,7 +370,7 @@ function panelizer_default_layout_page($handler, $bundle, $name, $view_mode, $st
     drupal_goto($path . '/content');
   }
 
-  if ($view_mode) {
+  if ($view_mode && !$handler->has_panel_choice($bundle)) {
     $output = $handler->wrap_default_panelizer_pages($bundle, $output);
   }
 
@@ -522,7 +481,7 @@ function panelizer_default_content_page($handler, $bundle, $name, $view_mode) {
 
   ctools_set_no_blocks(FALSE);
 
-  if ($view_mode) {
+  if ($view_mode && !$handler->has_panel_choice($bundle)) {
     $output = $handler->wrap_default_panelizer_pages($bundle, $output);
   }
 
