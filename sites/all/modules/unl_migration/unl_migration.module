@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function unl_migration_menu() {
+  $items = array();
+
+  // Adds UNL Migration Tool to the Content menu for admin
+  $items['admin/content/unl/migration'] = array(
+    'title' => 'UNL Migration Tool',
+    'description' => 'Migrate a static UNL template page into Drupal.',
+    'access arguments' => array('unl migration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_migration'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'unl_migration.php',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_permission().
+ */
+function unl_migration_permission() {
+  return array(
+    'unl migration' => array(
+      'title' => t('Migration'),
+      'description' => t('Migrate UNL Template based sites to drupal'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function unl_migration_cron() {
+  _unl_migration_cron_migration_step();
+}
+
+/**
+ * If a site is being migrated via cron jobs, do some work towards that migration.
+ */
+function _unl_migration_cron_migration_step() {
+  // We don't want this running as system user, only the web user.
+  if (PHP_SAPI == 'cli') {
+    return;
+  }
+
+  $queue = DrupalQueue::get('unl_migration');
+  if ($queue->numberOfItems() > 0) {
+    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
+    $item = $queue->claimItem(120);
+    $queue->deleteItem($item);
+    if (unl_migration_queue_step($item->data)) {
+      module_load_include('module', 'unl_multisite');
+      _unl_multisite_send_site_created_email();
+    }
+  }
+}

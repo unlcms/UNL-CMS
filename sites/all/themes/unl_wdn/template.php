@@ -18,6 +18,16 @@ function unl_wdn_css_alter(&$css) {
 }
 
 /**
+ * Implements template_preprocess_block().
+ */
+function unl_wdn_preprocess_block(&$vars) {
+  // Add Menu Block class to book navigation block so that they can share CSS.
+  if ($vars['block_html_id'] == 'block-book-navigation') {
+    $vars['classes_array'][] = 'block-menu-block';
+  }
+}
+
+/**
  * Implements template_preprocess_field().
  */
 function unl_wdn_preprocess_field(&$vars, $hook) {
@@ -528,11 +538,10 @@ EOF;
 }
 
 /**
- * Return the abbreviated site name, assuming it has been set and we're not on the front page.
- * Otherwise, it returns the full site name.
+ * Return the abbreviated site name, assuming it has been set. Otherwise return the full site name.
  */
 function unl_wdn_get_site_name_abbreviated() {
-  if (!drupal_is_front_page() && theme_get_setting('site_name_abbreviation')) {
+  if (theme_get_setting('site_name_abbreviation')) {
     return theme_get_setting('site_name_abbreviation');
   }
   else {

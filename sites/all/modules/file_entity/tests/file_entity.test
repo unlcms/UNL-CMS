@@ -23,6 +23,22 @@ class FileEntityTestHelper extends DrupalWebTestCase {
       }
     }
   }
+
+  protected function createFileType($overrides = array()) {
+    $type = new stdClass();
+    $type->type = 'test';
+    $type->label = "Test";
+    $type->description = '';
+    $type->mimetypes = array('image/jpeg', 'image/gif', 'image/png', 'image/tiff');
+    $type->streams = array('public', 'private');
+
+    foreach ($overrides as $k => $v) {
+      $type->$k = $v;
+    }
+
+    file_type_save($type);
+    return $type;
+  }
 }
 
 class FileEntityUnitTestCase extends FileEntityTestHelper {
@@ -55,7 +71,7 @@ class FileEntityUnitTestCase extends FileEntityTestHelper {
 
     // Test entity ID, revision ID, and bundle.
     $ids = entity_extract_ids('file', $file);
-    $this->assertIdentical($ids, array($file->fid, NULL, 'text'));
+    $this->assertIdentical($ids, array($file->fid, NULL, 'document'));
 
     // Test the entity URI callback.
     $uri = entity_uri('file', $file);
@@ -127,7 +143,7 @@ class FileEntityReplaceTestCase extends FileEntityTestHelper {
     $file = reset($this->files['text']);
 
     // Create a user with file edit permissions.
-    $user = $this->drupalCreateUser(array('edit file'));
+    $user = $this->drupalCreateUser(array('edit any files'));
     $this->drupalLogin($user);
 
     // Test that the Upload widget appears for a local file.
@@ -136,7 +152,7 @@ class FileEntityReplaceTestCase extends FileEntityTestHelper {
 
     // Test that file saves without uploading a file.
     $this->drupalPost(NULL, array(), t('Save'));
-    $this->assertText(t('Text @file has been updated.', array('@file' => $file->filename)), 'File was updated without file upload.');
+    $this->assertText(t('Document @file has been updated.', array('@file' => $file->filename)), 'File was updated without file upload.');
 
     // Get the next text file to use as a replacement.
     $original = clone $file;
@@ -146,7 +162,7 @@ class FileEntityReplaceTestCase extends FileEntityTestHelper {
     $edit = array();
     $edit['files[replace_upload]'] = drupal_realpath($replacement->uri);
     $this->drupalPost('file/' . $file->fid . '/edit', $edit, t('Save'));
-    $this->assertText(t('Text @file has been updated.', array('@file' => $file->filename)), 'File was updated with file upload.');
+    $this->assertText(t('Document @file has been updated.', array('@file' => $file->filename)), 'File was updated with file upload.');
 
     // Re-load the file from the database.
     $file = file_load($file->fid);
@@ -196,9 +212,9 @@ class FileEntityTokenTestCase extends FileEntityTestHelper {
 
   function testFileEntityTokens() {
     $tokens = array(
-      'type' => 'Text',
-      'type:name' => 'Text',
-      'type:machine-name' => 'text',
+      'type' => 'Document',
+      'type:name' => 'Document',
+      'type:machine-name' => 'document',
       'type:count' => count($this->files['text']),
     );
     $this->assertTokens('file', array('file' => $this->files['text'][0]), $tokens);
@@ -231,5 +247,282 @@ class FileEntityTokenTestCase extends FileEntityTestHelper {
     }
 
     return $values;
+  }
+}
+
+class FileEntityTypeTestCase extends FileEntityTestHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'File entity types',
+      'description' => 'Test the file entity types.',
+      'group' => 'File entity',
+    );
+  }
+
+  /**
+   * Test creating a new type. Basic CRUD.
+   */
+  function testCreate() {
+    $type_machine_type = 'foo';
+    $type_machine_label = 'foobar';
+    $type = $this->createFileType(array('type' => $type_machine_type, 'label' => $type_machine_label));
+    $loaded_type = file_type_load($type_machine_type);
+    $this->assertEqual($loaded_type->label, $type_machine_label, "Was able to create a type and retreive it.");
+  }
+
+
+  /**
+   * Ensures that the weight is respected when types are created.
+   * @return unknown_type
+   */
+  function testOrder() {
+//    $type = $this->createFileType(array('name' => 'last', 'label' => 'Last', 'weight' => 100));
+//    $type = $this->createFileType(array('name' => 'first', 'label' => 'First'));
+//    $types = media_type_get_types();
+//    $keys = array_keys($types);
+//    $this->assertTrue(isset($types['last']) && isset($types['first']), "Both types saved");
+//    $this->assertTrue(array_search('last', $keys) > array_search('first', $keys), 'Type which was supposed to be first came first');
+  }
+
+  /**
+   * Test view mode assignment.  Currently fails, don't know why.
+   * @return unknown_type
+   */
+  function testViewModesAssigned() {
+  }
+
+  /**
+   * Make sure candidates are presented in the case of multiple
+   * file types.
+   */
+  function testTypeWithCandidates() {
+    // Create multiple file types with the same mime types.
+    $types = array(
+      'image1' => $this->createFileType(array('type' => 'image1', 'label' => 'Image 1')),
+      'image2' => $this->createFileType(array('type' => 'image2', 'label' => 'Image 2'))
+    );
+
+    // Attach a text field to one of the file types.
+    $field = array(
+      'field_name' => drupal_strtolower($this->randomName()),
+      'type' => 'text',
+      'settings' => array(
+        'max_length' => 255,
+      )
+    );
+    field_create_field($field);
+    $instance = array(
+      'field_name' => $field['field_name'],
+      'entity_type' => 'file',
+      'bundle' => 'image2',
+      'widget' => array(
+        'type' => 'text_textfield',
+      ),
+      'display' => array(
+        'default' => array(
+          'type' => 'text_default',
+        ),
+      ),
+    );
+    field_create_instance($instance);
+
+    // Create a user with file creation access.
+    $user = $this->drupalCreateUser(array('create files'));
+    $this->drupalLogin($user);
+
+    // Step 1: Upload file
+    $file = reset($this->files['image']);
+    $edit = array();
+    $edit['files[upload]'] = drupal_realpath($file->uri);
+    $this->drupalPost('file/add', $edit, t('Next'));
+
+    // Step 2: Select file type candidate
+    $this->assertText('Image 1', 'File candidate list item found.');
+    $this->assertText('Image 2', 'File candidate list item found.');
+    $edit = array();
+    $edit['type'] = 'image2';
+    $this->drupalPost(NULL, $edit, t('Next'));
+
+    // Step 3: Complete field widgets
+    $langcode = LANGUAGE_NONE;
+    $edit = array();
+    $edit["{$field['field_name']}[$langcode][0][value]"] = $this->randomName();
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertText(t('The file @name was uploaded.', array('@name' => $file->filename)), 'File was uploaded.');
+    $this->assertText($field['field_name'], 'File text field was found.');
+  }
+
+  /**
+   * Make sure no candidates appear when only one mime type is available.
+   * NOTE: Depends on file_entity.module default 'image' type.
+   */
+  function testTypeWithoutCandidates() {
+    // Attach a text field to the default image file type.
+    $field = array(
+      'field_name' => drupal_strtolower($this->randomName()),
+      'type' => 'text',
+      'settings' => array(
+        'max_length' => 255,
+      )
+    );
+    field_create_field($field);
+    $instance = array(
+      'field_name' => $field['field_name'],
+      'entity_type' => 'file',
+      'bundle' => 'image',
+      'widget' => array(
+        'type' => 'text_textfield',
+      ),
+      'display' => array(
+        'default' => array(
+          'type' => 'text_default',
+        ),
+      ),
+    );
+    field_create_instance($instance);
+
+    // Create a user with file creation access.
+    $user = $this->drupalCreateUser(array('create files'));
+    $this->drupalLogin($user);
+
+    // Step 1: Upload file
+    $file = reset($this->files['image']);
+    $edit = array();
+    $edit['files[upload]'] = drupal_realpath($file->uri);
+    $this->drupalPost('file/add', $edit, t('Next'));
+
+    // Step 2: Complete field widgets
+    $langcode = LANGUAGE_NONE;
+    $edit = array();
+    $edit["{$field['field_name']}[$langcode][0][value]"] = $this->randomName();
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertText(t('The file @name was uploaded.', array('@name' => $file->filename)), 'File was uploaded.');
+    $this->assertText($field['field_name'], 'File text field was found.');
+  }
+}
+
+class FileEntityAccessTestCase extends FileEntityTestHelper {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'File entity access',
+      'description' => 'Test the access aspects of file entity.',
+      'group' => 'File entity',
+    );
+  }
+
+  /**
+   * Asserts file_entity_access correctly grants or denies access.
+   */
+  function assertFileEntityAccess($ops, $file, $account) {
+    foreach ($ops as $op => $result) {
+      $msg = t("file_entity_access returns @result with operation '@op'.", array('@result' => $result ? 'true' : 'false', '@op' => $op));
+      $this->assertEqual($result, file_entity_access($op, $file, $account), $msg);
+    }
+  }
+
+  /**
+   * Runs basic tests for file_entity_access function.
+   */
+  function testFileEntityAccess() {
+    $file = reset($this->files['image']);
+
+    // Ensures user with 'bypass file access' permission can do everything.
+    $web_user = $this->drupalCreateUser(array('bypass file access'));
+    $this->assertFileEntityAccess(array('create' => TRUE), NULL, $web_user);
+    $this->assertFileEntityAccess(array('view' => TRUE, 'update' => TRUE, 'delete' => TRUE), $file, $web_user);
+
+    // User cannot 'view files'.
+    $web_user = $this->drupalCreateUser(array('create files'));
+    $this->assertFileEntityAccess(array('view' => FALSE), $file, $web_user);
+    // But can upload new ones.
+    $this->assertFileEntityAccess(array('create' => TRUE), NULL, $web_user);
+
+    // User can view own files but no other files.
+    $web_user = $this->drupalCreateUser(array('create files', 'view own files'));
+    $this->assertFileEntityAccess(array('view' => FALSE), $file, $web_user);
+    $file->uid = $web_user->uid;
+    $file->status = FILE_STATUS_PERMANENT;
+    file_save($file);
+    $this->assertFileEntityAccess(array('view' => TRUE), $file, $web_user);
+
+    // User can update own files but no other files.
+    $web_user = $this->drupalCreateUser(array('create files', 'view own files', 'edit own files'));
+    $this->assertFileEntityAccess(array('update' => FALSE), $file, $web_user);
+    $file->uid = $web_user->uid;
+    $file->status = FILE_STATUS_PERMANENT;
+    file_save($file);
+    $this->assertFileEntityAccess(array('update' => TRUE), $file, $web_user);
+
+    // User can delete own files but no other files.
+    $web_user = $this->drupalCreateUser(array('create files', 'view own files', 'edit own files', 'delete own files'));
+    $this->assertFileEntityAccess(array('delete' => FALSE), $file, $web_user);
+    $file->uid = $web_user->uid;
+    $file->status = FILE_STATUS_PERMANENT;
+    file_save($file);
+    $this->assertFileEntityAccess(array('delete' => TRUE), $file, $web_user);
+
+    // User can view any file.
+    $web_user = $this->drupalCreateUser(array('create files', 'view files'));
+    $this->assertFileEntityAccess(array('view' => TRUE), $file, $web_user);
+
+    // User can edit any file.
+    $web_user = $this->drupalCreateUser(array('create files', 'view files', 'edit any files'));
+    $this->assertFileEntityAccess(array('update' => TRUE), $file, $web_user);
+
+    // User can delete any file.
+    $web_user = $this->drupalCreateUser(array('create files', 'view files', 'edit any files', 'delete any files'));
+    $this->assertFileEntityAccess(array('delete' => TRUE), $file, $web_user);
+  }
+
+  /**
+   * Test to see if we have access to view files when granted the permissions.
+   * In this test we aim to prove the permissions work in the following pages:
+   *  file/add
+   *  file/%/view
+   *  file/%/edit
+   *  file/%/delete
+   */
+  function testFileEntityPageAccess() {
+    $web_user = $this->drupalCreateUser(array());
+    $this->drupalLogin($web_user);
+    $this->drupalGet('file/add');
+    $this->assertResponse(403, 'Users without access can not access the file add page');
+    $web_user = $this->drupalCreateUser(array('create files'));
+    $this->drupalLogin($web_user);
+    $this->drupalGet('file/add');
+    $this->assertResponse(200, 'Users with access can access the file add page');
+
+    $file = reset($this->files['text']);
+    $file->status = FILE_STATUS_PERMANENT;
+    file_save($file);
+
+    // This fails.. No clue why but, tested manually and works as should.
+    //$web_user = $this->drupalCreateUser(array('view own files'));
+    //$this->drupalLogin($web_user);
+    //$this->drupalGet("file/{$file->fid}/view");
+    //$this->assertResponse(403, 'Users without access can not access the file view page');
+    $web_user = $this->drupalCreateUser(array('view files'));
+    $this->drupalLogin($web_user);
+    $this->drupalGet("file/{$file->fid}/view");
+    $this->assertResponse(200, 'Users with access can access the file view page');
+
+    $web_user = $this->drupalCreateUser(array());
+    $this->drupalLogin($web_user);
+    $this->drupalGet("file/{$file->fid}/edit");
+    $this->assertResponse(403, 'Users without access can not access the file edit page');
+    $web_user = $this->drupalCreateUser(array('edit any files'));
+    $this->drupalLogin($web_user);
+    $this->drupalGet("file/{$file->fid}/edit");
+    $this->assertResponse(200, 'Users with access can access the file add page');
+
+    $web_user = $this->drupalCreateUser(array());
+    $this->drupalLogin($web_user);
+    $this->drupalGet("file/{$file->fid}/delete");
+    $this->assertResponse(403, 'Users without access can not access the file view page');
+    $web_user = $this->drupalCreateUser(array('delete any files'));
+    $this->drupalLogin($web_user);
+    $this->drupalGet("file/{$file->fid}/delete");
+    $this->assertResponse(200, 'Users with access can access the file add page');
   }
 }

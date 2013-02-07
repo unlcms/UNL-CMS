@@ -1,6 +1,5 @@
 name = UNL
 description = Setup an empty UNL Drupal site.
-version = VERSION
 core = 7.x
 dependencies[] = block
 dependencies[] = color
@@ -31,12 +30,7 @@ dependencies[] = imce_mkdir
 dependencies[] = imce_rename
 dependencies[] = imce_wysiwyg
 dependencies[] = unl
+dependencies[] = unl_migration
+dependencies[] = unl_wysiwyg
 dependencies[] = unl_varnish
-
-files[] = unl.profile
-
-; Information added by drupal.org packaging script on 2010-05-23
-version = "7.0-alpha5"
-project = "drupal"
-datestamp = "1274628610"
-
+dependencies[] = module_filter

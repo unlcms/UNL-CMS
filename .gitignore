@@ -1,4 +1,5 @@
 .htaccess
+.htaccess-subsite-map.txt
 sites/sites.php
 sites/*/
 !sites/all/

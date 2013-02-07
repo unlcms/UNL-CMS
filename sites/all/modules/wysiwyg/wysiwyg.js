@@ -11,7 +11,6 @@ Drupal.wysiwygInit = function() {
   if (/KDE/.test(navigator.vendor)) {
     return;
   }
-
   jQuery.each(Drupal.wysiwyg.editor.init, function(editor) {
     // Clone, so original settings are not overwritten.
     this(jQuery.extend(true, {}, Drupal.settings.wysiwyg.configs[editor]));
@@ -160,6 +159,10 @@ Drupal.wysiwygAttach = function(context, params) {
  * @see Drupal.detachBehaviors
  */
 Drupal.wysiwygDetach = function (context, params, trigger) {
+  // Do not attempt to detach an unknown editor instance (Ajax).
+  if (typeof Drupal.wysiwyg.instances[params.field] == 'undefined') {
+    return;
+  }
   trigger = trigger || 'unload';
   var editor = Drupal.wysiwyg.instances[params.field].editor;
   if (jQuery.isFunction(Drupal.wysiwyg.editor.detach[editor])) {
@@ -257,5 +260,10 @@ Drupal.wysiwyg.getParams = function(element, params) {
  * Allow certain editor libraries to initialize before the DOM is loaded.
  */
 Drupal.wysiwygInit();
+
+// Respond to CTools detach behaviors event.
+$(document).bind('CToolsDetachBehaviors', function(event, context) {
+  Drupal.behaviors.attachWysiwyg.detach(context, {}, 'unload');
+});
 
 })(jQuery);

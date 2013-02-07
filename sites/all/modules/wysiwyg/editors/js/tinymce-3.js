@@ -11,12 +11,18 @@
  *   An object containing editor settings for each input format.
  */
 Drupal.wysiwyg.editor.init.tinymce = function(settings) {
-  // If JS compression is enabled, TinyMCE is unable to autodetect its global
-  // settinge, hence we need to define them manually.
-  // @todo Move global library settings somewhere else.
-  tinyMCE.baseURL = settings.global.editorBasePath;
-  tinyMCE.srcMode = (settings.global.execMode == 'src' ? '_src' : '');
-  tinyMCE.gzipMode = (settings.global.execMode == 'gzip');
+  // Fix Drupal toolbar obscuring editor toolbar in fullscreen mode.
+  var $drupalToolbar = $('#toolbar', Drupal.overlayChild ? window.parent.document : document);
+  tinyMCE.onAddEditor.add(function (mgr, ed) {
+    if (ed.id == 'mce_fullscreen') {
+      $drupalToolbar.hide();
+    }
+  });
+  tinyMCE.onRemoveEditor.add(function (mgr, ed) {
+    if (ed.id == 'mce_fullscreen') {
+      $drupalToolbar.show();
+    }
+  });
 
   // Fix Drupal toolbar obscuring editor toolbar in fullscreen mode.
   var $drupalToolbar = $('#toolbar', Drupal.overlayChild ? window.parent.document : document);
@@ -33,10 +39,6 @@ Drupal.wysiwyg.editor.init.tinymce = function(settings) {
 
   // Initialize editor configurations.
   for (var format in settings) {
-    if (format == 'global') {
-      continue;
-    };
-    tinyMCE.init(settings[format]);
     if (Drupal.settings.wysiwyg.plugins[format]) {
       // Load native external plugins.
       // Array syntax required; 'native' is a predefined token in JavaScript.
@@ -63,7 +65,9 @@ Drupal.wysiwyg.editor.attach.tinymce = function(context, params, settings) {
   ed.onEvent.add(function(ed, e) {
     Drupal.wysiwyg.activeId = ed.id;
   });
-  /* START UNL CHANGE
+  // Indicate that the DOM has been loaded (in case of Ajax).
+  tinymce.dom.Event.domLoaded = true;
+/* START UNL CHANGE
   // Make toolbar buttons wrappable (required for IE).
   ed.onPostRender.add(function (ed) {
     var $toolbar = $('<div class="wysiwygToolbar"></div>');
@@ -73,8 +77,7 @@ Drupal.wysiwyg.editor.attach.tinymce = function(context, params, settings) {
     $('#' + ed.editorContainer + ' table.mceLayout td.mceToolbar').append($toolbar);
     $('#' + ed.editorContainer + ' table.mceToolbar').remove();
   });
-  END UNL CHANGE */
-
+END UNL CHANGE */
   // Remove TinyMCE's internal mceItem class, which was incorrectly added to
   // submitted content by Wysiwyg <2.1. TinyMCE only temporarily adds the class
   // for placeholder elements. If preemptively set, the class prevents (native)

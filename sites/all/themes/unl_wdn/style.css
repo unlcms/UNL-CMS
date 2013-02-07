@@ -5,13 +5,10 @@
  */
 
 /* Position tabs at the top right of maincontent */
-body.fixed #maincontent {min-width: 960px;}
 #maincontent ul.wdn_tabs.cms_tabs {position: absolute; right: 0; top: -60px; width: auto;}
 /* Fix for a Views page */
 #pagetitle {position: relative;}
 #wdn_content_wrapper.contextual-links-region {position: static;}
-/* Hide the contextual links in the UNL nav */
-#navigation div.contextual-links-wrapper {display: none;}
 /* UNL css displays all ul in copyright area as inline, need to hide this */
 #wdn_copyright ul.contextual-links {display: none;}
 /* Overrides of system.menus.css due to conflicts with UNL navigation */
@@ -23,21 +20,19 @@ ul.links.inline {padding-left: 0 !important;}
 #wdn_search_form fieldset {background: none; border: none; margin: 0; padding: 0; position: static;}
 #wdn_search_form label {font-weight: normal;}
 #wdn_search_form input {margin: 0; padding: 0;}
-#wdn_feedback fieldset, #wdn_feedback_comments fieldset {position: static; padding: 0; margin: 0; border: none; background: none;}
+#wdn_footer_feedback fieldset {position: static; padding: 0; margin: 0; border: none; background: none;}
 #wdn_feedback legend, #wdn_feedback_comments legend {position: static; top: auto; left: auto; color: #333; line-height:1.7em; text-indent: 0; border: none; background: none; height: inherit; width: inherit;}
 #wdn_copyright .block {margin: 0;}
 #toolbarcontent fieldset {border: none; margin: 0; padding: 0;}
 
-/* taxonomy
-*********/
+/* taxonomy */
 .taxonomy-term-description {
-  box-shadow: 0 1px 3px #999999;
+  box-shadow: 0 0 1px #bbb;
   margin: 0 0 20px;
   padding: 10px;
 }
 
-/* book
-*********/
+/* book */
 .book-navigation ul {
   border-top: 1px solid #E1E1DB;
   padding: 1em 0 1em 3em !important;
@@ -54,41 +49,32 @@ ul.links.inline {padding-left: 0 !important;}
   color: #777 !important;
   font-size: .9em;
 }
-/* book nav block and menu-block */
-#block-book-navigation,
-.block-menu-block {box-shadow: 0 1px 3px #999; padding-bottom: 0 !important;}
-#block-book-navigation a,
+
+/* menu block */
+.block-menu-block {box-shadow: 0 0 1px #bbb;}
 #maincontent .block-menu-block a {color: #333;}
 #maincontent .block-menu-block a:hover {color: #EE0000;}
-#block-book-navigation a.active {background-color: #F1F499 !important;}
-#block-book-navigation h3,
-.block-menu-block h3 {background-color: #3388BB; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 5px 10px;}
-#block-book-navigation h3 a {color: #FFF !important;}
-#block-book-navigation h3 a.active {background-color: transparent !important;}
-.block-menu-block .content > ul > li > a {display: none;}
-
-#block-book-navigation ul,
+.block-menu-block a.active {background-color: #F2E8B1 !important;}
+.block-menu-block h3 {background-color: #95B8CC; color: #FFF !important; font-size: 1.4em !important; margin-bottom: 1px; padding: 0 .5em;}
+.block-menu-block h3 a {color: #FFF !important;}
+.block-menu-block h3 a.active {background-color: transparent !important;}
 .block-menu-block ul {padding: 0 !important; list-style-image: none !important; list-style-type: none !important;}
-#block-book-navigation li,
 .block-menu-block li {padding: 0 !important;}
+.block-menu-block .content ul:first-child > li,
+.block-menu-block .content ul:first-child > li > ul > li {list-style-image: none !important; list-style-type: none !important;}
+.block-menu-block .content ul:first-child > li > a {display: block; background-color: #F2EDDE; padding: .5em .5em .5em 1.5em; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
+.block-menu-block .content ul:first-child > li > a {background-position: .3em center; background-repeat: no-repeat;}
+.block-menu-block .content ul:first-child > li > ul > li > a {background-position: 1em center; background-repeat: no-repeat;}
+.block-menu-block .content li.collapsed > a {background-image: url("../../../../misc/menu-collapsed.png");}
+.block-menu-block .content li.expanded > a {background-image: url("../../../../misc/menu-expanded.png");}
+.block-menu-block .content ul:first-child > li:last-child > a {border: none; margin: 0;}
+.block-menu-block .content ul:first-child > li > ul > li > a {display: block; background-color: #F2F2F2; padding: .5em .5em .5em 2.2em; margin-bottom: 1px;}
+.block-menu-block .content ul:first-child > li > ul > li > ul {padding: .5em 0 .5em 3.2em !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul ul {padding: .4em 0 0 1em !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul li {padding: 0 0 .2em 0em !important;}
+.block-menu-block .content ul:first-child > li > ul > li > ul a {background: none; padding: .2em;}
 
-#block-book-navigation .content > ul > li, #block-book-navigation .content > ul > li > ul > li,
-.block-menu-block .content > ul > li, .block-menu-block .content > ul > li > ul > li, .block-menu-block .content > ul > li > ul > li > ul > li { list-style-image: none !important; list-style-type: none !important;}
-#block-book-navigation .content > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > a {display: block; background-color: #E8E8DF; padding: 5px 5px 5px 10px; margin-bottom: 1px; text-transform: uppercase; border-bottom: 1px solid #E2E2E2;}
-#block-book-navigation .content > ul > li.collapsed > a, #block-book-navigation .content > ul > li > ul > li.collapsed > a,
-.block-menu-block .content > ul > li > ul > li.has-children > a, .block-menu-block .content > ul > li > ul > li > ul > li.has-children > a {background-image: url("../../../../misc/menu-collapsed.png"); background-position: 97% center; background-repeat: no-repeat;}
-#block-book-navigation .content > ul > li:last-child > a,
-.block-menu-block .content > ul > li > ul > li:last-child > a {border: none; margin: 0;}
-#block-book-navigation .content > ul > li > ul > li > a,
-.block-menu-block .content > ul > li > ul > li > ul > li > a {display: block; background-color: #F2F2F2; padding: 5px 5px 5px 25px; margin-bottom: 1px;}
-#block-book-navigation .content > ul > li > ul > li > ul,
-.block-menu-block .content > ul > li > ul > li > ul > li > ul {padding: 5px 0 5px 50px !important;}
-#block-book-navigation .content > ul > li > ul > li > ul ul,
-.block-menu-block .content > ul > li > ul > li > ul > li > ul ul {padding: 0 0 0 15px !important;}
-
-/* unl_newsitem full page
-*********/
+/* unl_newsitem full page */
 .page-node .node-unl-newsitem .submitted {
   border-color: #F2EDDE;
   border-width:  0 0 2px 0;
@@ -131,8 +117,7 @@ ul.links.inline {padding-left: 0 !important;}
   margin: 0 10px 10px 0;
 }
 
-/* sidebar
-*********/
+/* sidebar */
 .sidebar .block {
   margin: 0 0 30px 0;
 }
@@ -144,26 +129,23 @@ ul.links.inline {padding-left: 0 !important;}
   visibility: hidden;
 }
 
-/* block
-*********/
+/* block */
 .block {
   margin: 0 0 30px 0;
 }
 
-/* block made with Views
-*********/
+/* block made with Views */
 .block-views {
   position: relative;
   padding: 10px;
   margin: 0 0 30px 0;
-  box-shadow: 0 1px 3px #999;
+  box-shadow: 0 0 1px #bbb;
 }
 .block-views .view-teaser-abbr .feed-icon {
   top: 8px;
 }
 
-/* .view-teaser-abbr
-*********/
+/* .view-teaser-abbr */
 .view-teaser-abbr .feed-icon {
   position: absolute;
   right: 5px;
@@ -201,20 +183,22 @@ ul.links.inline {padding-left: 0 !important;}
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
-} 
+}
 
-/* .node-teaser
-*********/
+/* .node-teaser */
 .node-teaser {
-  margin-bottom: 10px; 
+  margin-bottom: 10px;
   padding: 10px;
 }
 .node-teaser.node-sticky {
   background-color: #E8F4FF !important;
   border: 1px solid #E1EAF0;
 }
-.content > .node-teaser:nth-child(odd) {background-color: #f7f7f7;}
-.views-row-even .node-teaser {background-color: #f7f7f7;}
+.content > .node-teaser:nth-child(odd) {
+  background-color: #f7f7f7;
+}
+.views-row-even .node-teaser {
+  background-color: #f7f7f7;
 }
 .node-teaser .content {
   margin-bottom: 5px;
@@ -251,7 +235,7 @@ ul.links.inline {padding-left: 0 !important;}
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
-} 
+}
 .node-teaser .field-type-image .field-item {
   float: left;
   margin: 0 20px 30px 0;

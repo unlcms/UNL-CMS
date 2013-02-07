@@ -100,6 +100,24 @@ function media_mediahub_media_parse($embed_code) {
 }
 
 /**
+ * Implements hook_file_mimetype_mapping_alter().
+ *
+ * Regster the video/mediahub mimetype.
+ */
+function media_mediahub_file_mimetype_mapping_alter(&$mapping) {
+  $mapping['mimetypes'][] = 'video/mediahub';
+}
+
+/*
+ * Implements hook_file_default_types_alter().
+ *
+ * Adds the video/mediahub fake mimetype to video files.
+ */
+function media_mediahub_file_default_types_alter(&$types) {
+  $types['video']->mimetypes[] = 'video/mediahub';
+}
+
+/**
  * Implements hook_media_format_form_prepare_alter().
  */
 function media_mediahub_media_format_form_prepare_alter(&$form, &$form_state, $media) {
