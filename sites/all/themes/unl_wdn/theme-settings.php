@@ -117,7 +117,7 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
       '#type' => 'checkbox',
       '#title' => t('Disable drill-down menus'),
       '#default_value' => theme_get_setting('drill_down'),
-      '#description' => t('Turns off changing the navigation if you 2+ levels deep with deeper enabled menu links.'),
+      '#description' => t('Turns off changing the navigation if you are 2+ levels deep with even deeper enabled menu links.'),
     ),
     'zen_forms' => array(
       '#type' => 'checkbox',
