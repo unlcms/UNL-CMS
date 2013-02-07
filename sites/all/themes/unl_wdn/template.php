@@ -28,7 +28,7 @@ function _unl_wdn_block_view_system_main_menu_alter(&$data, $block) {
     return;
   }
   $submenu = _unl_wdn_get_current_submenu($data['content'], $current_menu_link->mlid);
-  if ($submenu && $submenu['#original_link']['depth'] > 1) {
+  if (!theme_get_setting('drill_down') && $submenu && $submenu['#original_link']['depth'] > 1) {
     $data['content'] = $submenu['#below'];
   }
   $data['content'] = _unl_wdn_limit_menu_depth($data['content'], 2);
@@ -98,6 +98,8 @@ function _unl_wdn_limit_menu_depth($menu_links, $depth) {
  * Implementation of hook_html_head_alter().
  */
 function unl_wdn_html_head_alter(&$head_elements) {
+  $home_path = '<front>';
+
   // If <link rel="home"> has already been set elsewhere (in a Context for example) then return...
   foreach ($head_elements as $key => $element) {
     if ($element["#tag"] == 'link' && isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'home') {
@@ -106,12 +108,11 @@ function unl_wdn_html_head_alter(&$head_elements) {
   }
 
   // If we are in a drilled down menu, change the home link to the drilled down item.
-  $current_menu_link = _unl_wdn_get_current_menu_link();
-  if ($current_menu_link && $current_menu_link->depth > 1) {
-    $home_path = drupal_get_path_alias($current_menu_link->link_path);
-  }
-  else {
-    $home_path = '<front>';
+  if (!theme_get_setting('drill_down')) {
+    $current_menu_link = _unl_wdn_get_current_menu_link();
+    if ($current_menu_link && $current_menu_link->depth > 1) {
+      $home_path = drupal_get_path_alias($current_menu_link->link_path);
+    }
   }
 
   // ...otherwise add a <link rel="home"> tag with the front page as the href attribute

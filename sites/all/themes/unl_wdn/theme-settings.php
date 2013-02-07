@@ -113,6 +113,12 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
       '#default_value' => theme_get_setting('sidebar_second_width'),
       '#description' => t('Enter only the numeral, for grid4 just enter 4.'),
     ),
+    'drill_down' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Disable drill-down menus'),
+      '#default_value' => theme_get_setting('drill_down'),
+      '#description' => t('Turns off changing the navigation if you 2+ levels deep with deeper enabled menu links.'),
+    ),
     'zen_forms' => array(
       '#type' => 'checkbox',
       '#title' => t('Use zen forms'),
