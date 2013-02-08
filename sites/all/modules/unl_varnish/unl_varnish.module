@@ -89,11 +89,11 @@ function unl_varnish_node_update($node) {
  * Implements hook_webform_component_update().
  */
 function unl_varnish_webform_component_update($component) {
-  // This functions runs once for every component in the form on save; flush varnish at most every 2 seconds.
-  static $unl_varnish_webform_component_update_time;
-  if (!isset($unl_varnish_webform_component_update_time) || time() - $unl_varnish_webform_component_update_time > 2) {
+  // Only flush for the first component in the form.
+  static $unl_varnish_webform_component_update;
+  if (!isset($unl_varnish_webform_component_update)) {
     unl_varnish_purge_all_pages();
-    $unl_varnish_webform_component_update_time = time();
+    $unl_varnish_webform_component_update = TRUE;
   }
 }
 
