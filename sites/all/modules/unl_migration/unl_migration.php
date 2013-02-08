@@ -1433,7 +1433,7 @@ class Unl_Migration_Tool
   }
   
   public function getFinished() {
-    return count($this->_processedPages) / count($this->_siteMap);
+    return min(0.99, count($this->_processedPages) / count($this->_siteMap));
   }
 
   static public function save_to_disk(Unl_Migration_Tool $instance)
@@ -1452,4 +1452,3 @@ class Unl_Migration_Tool
     return $instance;
   }
 }
-
