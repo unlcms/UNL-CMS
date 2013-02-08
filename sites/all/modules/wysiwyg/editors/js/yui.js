@@ -142,4 +142,19 @@ Drupal.wysiwyg.editor.instance.yui = {
   }
 };
 
+Drupal.wysiwyg.editor.instance.yui = {
+  insert: function (content) {
+    YAHOO.widget.EditorInfo.getEditorById(this.field).cmd_inserthtml(content);
+  },
+
+  setContent: function (content) {
+    YAHOO.widget.EditorInfo.getEditorById(this.field).setEditorHTML(content);
+  },
+
+  getContent: function () {
+    var instance = YAHOO.widget.EditorInfo.getEditorById(this.field);
+    return instance.cleanHTML(instance.getEditorHTML(content));
+  }
+};
+
 })(jQuery);

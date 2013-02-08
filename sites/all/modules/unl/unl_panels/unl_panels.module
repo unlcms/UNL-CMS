@@ -1,0 +1,272 @@
+<?php
+
+include_once('unl_panels.features.inc');
+
+/**
+ * Implementation of hook_init()
+ */
+function unl_panels_init() {
+  // Use user_access to avoid doing these things for non-site editors
+  if (user_access('use panels in place editing')) {
+    // Add CSS improvements for the IPE modal
+    drupal_add_css(drupal_get_path('module', 'unl_panels') . '/unl_panels.css', array('weight' => '100'));
+
+    // Set options for the Panels IPE
+    foreach (node_type_get_types() as $type) {
+      variable_set('panelizer_node:'.$type->type.'_allowed_types', array(
+        //'block-user-new' => 0, //Example: will turn off 'Activity->Who's new'
+        'fieldable_panels_pane-fieldable_panels_pane' => 0,
+      ));
+      variable_set('panelizer_node:'.$type->type.'_default', array(
+        'token' => 0,
+        'entity_form_field' => 0,
+        'entity_field' => 'entity_field', //Page Content: Field(s)
+        'entity_field_extra' => 'entity_field_extra',
+        'custom' => 0, //New Custom Content
+        'block' => 'block', //Activity, Custom blocks, Miscellaneous
+        'fieldable_panels_pane' => 'fieldable_panels_pane',
+        'menu_tree' => 'menu_tree',
+        'views_panes' => 'views_panes',
+        'other' => 'other', //Page Content, Page elements, Existing Node
+      ));
+    }
+
+    // Turn off the pre-packaged layouts in Panels IPE modal
+    $allowed_layouts = new panels_allowed_layouts();
+    $allowed_layouts->allow_new = TRUE;
+    $allowed_layouts->module_name = 'panels_page';
+    $allowed_layouts->allowed_layout_settings = array(
+      'flexible' => 0,
+      'onecol' => 0,
+      'twocol' => 0,
+      'twocol_stacked' => 0,
+      'twocol_bricks' => 0,
+      'threecol_25_50_25' => 0,
+      'threecol_25_50_25_stacked' => 0,
+      'threecol_33_34_33' => 0,
+      'threecol_33_34_33_stacked' => 0,
+    );
+    $allowed_layouts->save();
+  }
+}
+
+/**
+ * Implementation of hook_ctools_plugin_directory()
+ */
+function unl_panels_ctools_plugin_directory($module, $plugin) {
+  return 'plugins/' . $plugin;
+}
+
+/**
+ * Implementation of hook_ctools_content_subtype_alter()
+ */
+function unl_panels_ctools_content_subtype_alter(&$subtype, &$plugin) {
+  // Modify the menu block plugin to better fit into our UI
+  if ($plugin['module'] == 'menu_block' && $subtype['menu_title'] == 'Main menu') {
+    $subtype['category'][0] = 'Custom';
+    $subtype['top level'] = TRUE;
+    $subtype['title'] = 'Add submenu';
+    $subtype['icon'] = drupal_get_path('module', 'unl_panels') . '/images/icon_submenu.png';
+    $subtype['admin css'] = array(drupal_get_path('module', 'menu_block') . '/menu-block-admin.css');
+    $subtype['admin js'] = array(drupal_get_path('module', 'menu_block') . '/menu-block.js');
+  }
+
+  // Modify the plugins so we do away with this "node" thing
+  if ($subtype['category'] == 'Node') {
+    $subtype['category'] = 'Page Content';
+  }
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function unl_panels_form_alter(&$form, &$form_state, $form_id) {
+  // Hide pre-packaged layouts on Panelizer layout form (e.g. admin/config/content/panelizer/node/page/layout)
+  if (isset($form['layout'])) {
+    unset($form['categories']);
+    foreach ($form['layout'] as $key => $value) {
+      if (substr($key, 0, 1) !== '#' && substr($key, 0, 3) !== 'UNL') {
+        unset($form['layout'][$key]);
+      }
+    }
+  }
+
+  // Simplify the menu block edit form
+  if ($form_id == 'menu_block_menu_tree_content_type_edit_form') {
+    $form['admin_title']['#access'] = FALSE;
+    $form['depth']['#access'] = FALSE;
+    $form['display_options']['#default_value'] = 'advanced';
+    $form['display_options']['#access'] = FALSE;
+    $form['title_link']['#access'] = FALSE;
+    $form['buttons']['#prefix'] = '<div class="menu-block-ctools-buttons">';
+  }
+
+  if ($form_id == 'fieldable_panels_panes_fieldable_panels_pane_content_type_edit_form') {
+    // Remove the revisioning information
+    $form['revision']['revision']['#type'] = 'value';
+    $form['revision']['log']['#access'] = FALSE;
+
+    // Add a widget setting
+    $form['widget_settings']['#type'] = 'fieldset';
+    $form['widget_settings']['#title'] = t('General Settings');
+    $form['title']['#attributes']['placeholder'] = $form['title']['#title'];
+    unset($form['title']['#title']);
+    $form['widget_settings']['title'] = $form['title'];
+    unset($form['title']);
+
+    // Add a content settings fieldset and custom element_validate function
+    $form['content_settings']['#type'] = 'fieldset';
+    $form['content_settings']['#title'] = t('Content Settings');
+    foreach($form as $key => $value) {
+      if (substr($key, 0, 6) == 'field_') {
+        $form['content_settings'][$key] = $value;
+        if (!empty($value['und']['0']['#bundle']) && ($value['und']['0']['#bundle'] == 'image' || $value['und']['0']['#bundle'] == 'file')) {
+          foreach($value['und'] as $subkey => $subvalue) {
+            if (is_numeric($subkey)) {
+              // Set custom validate function to avoid errors with submission handling of file field
+              $form['content_settings'][$key]['und'][$subkey]['#element_validate'][] = 'unl_panels_file_hax';
+
+              // Change UUID to FID to resolve issue with UUID handling. This solves a bug with Fieldable Panels Panes that
+              // hopefully will be resolved soon.
+              if (!empty($subvalue['#default_value']['fid']) && strlen($subvalue['#default_value']['fid']) == 36){
+                $form['content_settings'][$key]['und'][$subkey]['#default_value']['fid'] = db_query('SELECT fid FROM {file_managed} WHERE uuid = :uuid', array(':uuid' => $subvalue['#default_value']['fid']))->fetchField();
+              }
+            }
+          }
+        }
+        unset($form[$key]);
+      }
+    }
+
+    // Improve the reusable interface
+    $form['reusable']['#title'] = t('Reusable Settings');
+    $form['reusable']['#type'] = 'fieldset';
+    $form['reusable']['#process'] = array('ctools_dependent_process');
+    $form['reusable']['#id'] = 'reusable-settings';
+    if ($form['reusable']['reusable']['#default_value'] != 1) {
+      $form['reusable']['warning']['#access'] = FALSE;
+    }
+    $form['reusable']['category']['#value'] = 'Reusable Content';
+    $form['reusable']['category']['#type'] = 'value';
+    $form['reusable']['admin_description']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Form API Hax to prevent errors with file fields being submitted in fieldsets. Related to http://drupal.org/node/1468686
+ * and http://drupal.org/node/1329856.
+ */
+function unl_panels_file_hax($element, &$form_state, $form) {
+  if (!empty($form_state['triggering_element']['#array_parents']) && $form_state['triggering_element']['#array_parents'][0] == 'content_settings') {
+    array_shift($form_state['triggering_element']['#array_parents']);
+  }
+  if (!empty($form_state['clicked_button']['#array_parents']) && $form_state['clicked_button']['#array_parents'][0] == 'content_settings') {
+    array_shift($form_state['clicked_button']['#array_parents']);
+  }
+  return $element;
+}
+
+/**
+ * Implementation of hook_entity_info_alter()
+ * This merely initializes entry on fieldable panel panes list at admin/structure/panels/entity
+ * Managing fields with these fieldable panel panes is done with Features
+ */
+function unl_panels_entity_info_alter(&$entity_info) {
+
+  // Quick links
+  $entity_info['fieldable_panels_pane']['bundles']['quick_links'] = array(
+    'label' => t('Add links'),
+    'pane category' => t('Custom'),
+    'pane top level' => TRUE,
+    'pane icon' => drupal_get_path('module', 'unl_panels') . '/images/icon_link.png',
+    'admin' => array(
+      'path' => 'admin/structure/panels/entity/manage/%fieldable_panels_panes_type',
+      'bundle argument' => 5,
+      'real path' => 'admin/structure/panels/entity/manage/quick_links',
+      'access arguments' => array('administer fieldable panels panes'),
+    ),
+  );
+
+  // Basic file
+  $entity_info['fieldable_panels_pane']['bundles']['basic_file'] = array(
+    'label' => 'Add file',
+    'pane category' => t('Custom'),
+    'pane top level' => TRUE,
+    'pane icon' => drupal_get_path('module', 'unl_panels') . '/images/icon_file.png',
+    'admin' => array(
+      'path' => 'admin/structure/panels/entity/manage/%fieldable_panels_panes_type',
+      'bundle argument' => 5,
+      'real path' => 'admin/structure/panels/entity/manage/basic_file',
+      'access arguments' => array('administer fieldable panels panes'),
+    ),
+  );
+
+  // Basic Image
+  $entity_info['fieldable_panels_pane']['bundles']['image'] = array(
+    'label' => t('Add image'),
+    'pane category' => t('Custom'),
+    'pane top level' => TRUE,
+    'pane icon' => drupal_get_path('module', 'unl_panels') . '/images/icon_image.png',
+    'admin' => array(
+      'path' => 'admin/structure/panels/entity/manage/%fieldable_panels_panes_type',
+      'bundle argument' => 5,
+      'real path' => 'admin/structure/panels/entity/manage/image',
+      'access arguments' => array('administer fieldable panels panes'),
+    ),
+  );
+
+  // Basic text
+  $entity_info['fieldable_panels_pane']['bundles']['text'] = array(
+    'label' => t('Add text/html'),
+    'pane category' => t('Custom'),
+    'pane top level' => TRUE,
+    'pane icon' => drupal_get_path('module', 'unl_panels') . '/images/icon_text.png',
+    'admin' => array(
+      'path' => 'admin/structure/panels/entity/manage/%fieldable_panels_panes_type',
+      'bundle argument' => 5,
+      'real path' => 'admin/structure/panels/entity/manage/text',
+      'access arguments' => array('administer fieldable panels panes'),
+    ),
+  );
+
+  // Basic video
+  $entity_info['fieldable_panels_pane']['bundles']['video'] = array(
+    'label' => t('Add video'),
+    'pane category' => t('Custom'),
+    'pane top level' => TRUE,
+    'pane icon' => drupal_get_path('module', 'unl_panels') . '/images/icon_video.png',
+    'admin' => array(
+      'path' => 'admin/structure/panels/entity/manage/%fieldable_panels_panes_type',
+      'bundle argument' => 5,
+      'real path' => 'admin/structure/panels/entity/manage/video',
+      'access arguments' => array('administer fieldable panels panes'),
+    ),
+  );
+}
+
+/**
+ * Implements of hook_element_info_alter().
+ */
+function unl_panels_element_info_alter(&$type) {
+  // Change text format processing on elements to our version.
+  if (isset($type['text_format'])) {
+    $type['text_format']['#process'][] = 'unl_panels_filter_process_format';
+  }
+}
+
+/**
+ * Callback for processing the text_format element
+ */
+function unl_panels_filter_process_format($element) {
+  if (isset($element['#entity_type']) && $element['#entity_type'] == 'fieldable_panels_pane') {
+    unset($element['format']['format']['#options']['plain_text']);
+    unset($element['format']['format']['#options'][1]); // On production the machine names are integers
+    unset($element['format']['format']['#options']['filtered_html']);
+    unset($element['format']['format']['#options'][11]);
+    unset($element['format']['#type']);
+    $element['format']['format']['#title'] = 'Editor: ';
+    $element['format']['help']['#access'] = FALSE;
+    $element['format']['guidelines']['#access'] = FALSE;
+  }
+  return $element;
+}
