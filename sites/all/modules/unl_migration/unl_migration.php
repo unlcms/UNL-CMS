@@ -96,8 +96,11 @@ function unl_migration_step($migration, &$context)
   if (isset($context['sandbox']['file']) && file_exists($context['sandbox']['file'])) {
     $migration = Unl_Migration_Tool::load_from_disk($context['sandbox']['file']);
   }
+  if (!isset($context['sandbox']['duration'])) {
+    $context['sandbox']['duration'] = 1;
+  }
 
-  if ($migration->migrate(60)) {
+  if ($migration->migrate($context['sandbox']['duration'])) {
     $context['finished'] = 1;
     $context['message'] = $migration->getMessage();
     return;
@@ -106,6 +109,7 @@ function unl_migration_step($migration, &$context)
   $context['finished'] = $migration->getFinished();
   $context['message'] = $migration->getMessage();
   $context['sandbox']['file'] = Unl_Migration_Tool::save_to_disk($migration);
+  $context['sandbox']['duration'] = min(300, ceil($context['sandbox']['duration'] * 1.5));
 }
 
 function unl_migration_queue_step($migration_storage_file) {
