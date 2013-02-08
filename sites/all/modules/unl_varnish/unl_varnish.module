@@ -90,10 +90,10 @@ function unl_varnish_node_update($node) {
  */
 function unl_varnish_webform_component_update($component) {
   // This functions runs once for every component in the form on save; flush varnish at most every 2 seconds.
-  if (!isset($_SESSION['unl_varnish']['webform_component_update_time'])
-      || time() - $_SESSION['unl_varnish']['webform_component_update_time'] > 2) {
+  static $unl_varnish_webform_component_update_time;
+  if (!isset($unl_varnish_webform_component_update_time) || time() - $unl_varnish_webform_component_update_time > 2) {
     unl_varnish_purge_all_pages();
-    $_SESSION['unl_varnish']['webform_component_update_time'] = time();
+    $unl_varnish_webform_component_update_time = time();
   }
 }
 
