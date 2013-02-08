@@ -24,12 +24,11 @@ function unl_wdn_block_view_alter(&$data, $block) {
  */
 function _unl_wdn_block_view_system_main_menu_alter(&$data, $block) {
   $current_menu_link = _unl_wdn_get_current_menu_link();
-  if (!$current_menu_link) {
-    return;
-  }
-  $submenu = _unl_wdn_get_current_submenu($data['content'], $current_menu_link->mlid);
-  if (!theme_get_setting('drill_down') && $submenu && $submenu['#original_link']['depth'] > 1) {
-    $data['content'] = $submenu['#below'];
+  if ($current_menu_link) {
+    $submenu = _unl_wdn_get_current_submenu($data['content'], $current_menu_link->mlid);
+    if (!theme_get_setting('disable_drill_down') && $submenu && $submenu['#original_link']['depth'] > 1) {
+      $data['content'] = $submenu['#below'];
+    }
   }
   $data['content'] = _unl_wdn_limit_menu_depth($data['content'], 2);
 }
@@ -108,7 +107,7 @@ function unl_wdn_html_head_alter(&$head_elements) {
   }
 
   // If we are in a drilled down menu, change the home link to the drilled down item.
-  if (!theme_get_setting('drill_down')) {
+  if (!theme_get_setting('disable_drill_down')) {
     $current_menu_link = _unl_wdn_get_current_menu_link();
     if ($current_menu_link && $current_menu_link->depth > 1) {
       $home_path = drupal_get_path_alias($current_menu_link->link_path);
