@@ -95,26 +95,26 @@ function unl_migration_step($migration, &$context)
   $finished = 0;
   if (isset($context['sandbox']['file']) && file_exists($context['sandbox']['file'])) {
     $migration = Unl_Migration_Tool::load_from_disk($context['sandbox']['file']);
-    $finished = $context['sandbox']['finished'];
+  }
+  if (!isset($context['sandbox']['duration'])) {
+    $context['sandbox']['duration'] = 1;
   }
 
-  if ($migration->migrate()) {
+  if ($migration->migrate($context['sandbox']['duration'])) {
     $context['finished'] = 1;
+    $context['message'] = $migration->getMessage();
     return;
   }
 
-  $finished += 0.01;
-  if ($finished > 0.99) {
-    $finished = 0.99;
-  }
-  $context['finished'] = $finished;
-  $context['sandbox']['finished'] = $finished;
+  $context['finished'] = $migration->getFinished();
+  $context['message'] = $migration->getMessage();
   $context['sandbox']['file'] = Unl_Migration_Tool::save_to_disk($migration);
+  $context['sandbox']['duration'] = min(300, ceil($context['sandbox']['duration'] * 1.5));
 }
 
 function unl_migration_queue_step($migration_storage_file) {
   $migration = Unl_Migration_Tool::load_from_disk($migration_storage_file);
-  if ($migration->migrate(30)) {
+  if ($migration->migrate(60)) {
     return TRUE;
   }
   DrupalQueue::get('unl_migration', TRUE)
@@ -244,7 +244,7 @@ class Unl_Migration_Tool
         if ($this->_state == self::STATE_PROCESSING_PAGES) {
             // Process all of the pages on the site (Takes a while)
             do {
-                set_time_limit(max(30, $time_limit));
+                set_time_limit(max(30, $time_limit * 1.5));
 
                 $pagesToProcess = $this->_getPagesToProcess();
                 foreach ($pagesToProcess as $pageToProcess) {
@@ -284,7 +284,7 @@ class Unl_Migration_Tool
                 if (time() - $this->_start_time > $time_limit) {
                     return FALSE;
                 }
-                set_time_limit(max(30, $time_limit));
+                set_time_limit(max(30, $time_limit * 1.5));
 
                 $hrefTransforms = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
                 foreach ($hrefTransforms as $hrefTransformFrom => $hrefTransformTo) {
@@ -1427,6 +1427,14 @@ class Unl_Migration_Tool
 
     return (string) $tidy;
   }
+  
+  public function getMessage() {
+    return 'Crawled ' . count($this->_processedPages) . ' of ' . count($this->_siteMap) . ' discovered links.';
+  }
+  
+  public function getFinished() {
+    return min(0.99, count($this->_processedPages) / count($this->_siteMap));
+  }
 
   static public function save_to_disk(Unl_Migration_Tool $instance)
   {
@@ -1444,4 +1452,3 @@ class Unl_Migration_Tool
     return $instance;
   }
 }
-
