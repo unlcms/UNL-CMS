@@ -464,11 +464,17 @@ class Unl_Migration_Tool
             }
 
             if ($item['link_path']) {
+              try {
                 menu_link_save($item);
                 $this->_log('Created menu item "' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
-            } else {
-                $this->_log('Could not find a node to link to the ' . $item['link_title'] . ' menu item.', WATCHDOG_ERROR);
+              }
+              catch (Exception $e) {
+                $this->_log('An exception occured creating the menu link for "' . $item['link_title'] . '".', WATCHDOG_ERROR);
                 continue;
+              }
+            } else {
+              $this->_log('Could not find a node to link to the ' . $item['link_title'] . ' menu item.', WATCHDOG_ERROR);
+              continue;
             }
 
             if (!array_key_exists('children', $primaryMenu)) {
@@ -510,8 +516,13 @@ class Unl_Migration_Tool
                 }
 
                 if ($item['link_path']) {
+                  try {
                     menu_link_save($item);
                     $this->_log('Created menu item "' . $parentTitle . ' / ' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
+                  }
+                  catch (Exception $e) {
+                    $this->_log('An exception occured creating the menu link for ' . $parentTitle . ' / ' . $item['link_title'] . '.', WATCHDOG_ERROR);
+                  }
                 } else {
                     $this->_log('Could not find a node to link to the "' . $parentTitle . ' / ' . $item['link_title'] . '" menu.', WATCHDOG_ERROR);
                 }
@@ -1100,7 +1111,6 @@ class Unl_Migration_Tool
 
     private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
     {
-
         if (substr($alias, -1) == '/') {
             $alias = substr($alias, 0, -1);
         }
