@@ -362,4 +362,6 @@ function unl_multisite_update_7112() {
   variable_del('unl_wdn_registry_database');
   variable_del('unl_frontier_username');
   variable_del('unl_frontier_password');
+  variable_del('unl_site_created_email_address');
+  variable_del('unl_site_created_alert_admins');
 }
