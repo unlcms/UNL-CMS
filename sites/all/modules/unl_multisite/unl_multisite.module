@@ -119,15 +119,6 @@ function unl_multisite_menu() {
     'type' => MENU_LOCAL_TASK,
     'file' => 'unl_site_creation.php',
   );
-  $items['admin/sites/unl/wdn_registry'] = array(
-    'title' => 'WDN Registry',
-    'description' => 'Settings for the connection to the WDN Registry.',
-    'access arguments' => array('unl site creation'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('unl_wdn_registry'),
-    'type' => MENU_LOCAL_TASK,
-    'file' => 'unl_site_creation.php',
-  );
   $items['admin/sites/unl/feed'] = array(
     'title' => 'Site Feed',
     'description' => 'JSON output of all UNL sites.',
