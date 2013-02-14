@@ -13,7 +13,6 @@ function unl_sites_page() {
   $page = array();
   $page[] = drupal_get_form('unl_site_list');
   $page[] = drupal_get_form('unl_site_updates');
-  $page[] = drupal_get_form('unl_site_email_settings');
   return $page;
 }
 
@@ -569,42 +568,6 @@ function unl_site_updates_step($site_uri, &$context) {
   $output .= shell_exec($command);
 
   drupal_set_message('Messages from ' . $site_uri . ':<br />' . PHP_EOL . '<pre>' . $output . '</pre>', 'status');
-}
-
-/**
- * Form: Email Alert Settings
- */
-function unl_site_email_settings($form, &$form_state) {
-  $form['root'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Email alert settings'),
-    '#description' => t('When a new site is created, who should be emailed?'),
-  );
-  $form['root']['unl_site_created_email_address'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Address for notification'),
-    '#description' => t('When a site has been been created and migrated, send an email to this address.'),
-    '#default_value' => variable_get('unl_site_created_email_address'),
-  );
-  $form['root']['unl_site_created_alert_admins'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Email site admins'),
-    '#description' => t('When a site has been created and migrated, send an email to the users with Site Admin role.'),
-    '#default_value' => variable_get('unl_site_created_alert_admins'),
-  );
-  $form['root']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Update settings'),
-  );
-  return $form;
-}
-
-/**
- * Form Submit: Email Alert Settings
- */
-function unl_site_email_settings_submit($form, &$form_state) {
-  variable_set('unl_site_created_email_address', $form_state['values']['unl_site_created_email_address']);
-  variable_set('unl_site_created_alert_admins',  $form_state['values']['unl_site_created_alert_admins']);
 }
 
 /**
