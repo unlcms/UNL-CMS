@@ -106,10 +106,10 @@ function unl_block_list_alter(&$blocks) {
  */
 function unl_toolbar_add_links($toolbar) {
   $link['html'] = TRUE;
-  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); background-repeat: no-repeat; width:17px; height:14px; text-indent:-9999px; display:block; margin: 3px 0;">Feedback</span>';
+  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); background-repeat: no-repeat; width:17px; height:14px; text-indent:-9999px; display:block; margin: 3px 0;">Support</span>';
   $link['title'] = t("!icon", array('!icon' => $icon));
-  $link['attributes']['title'] = t('Submit technical feedback/issues/problems about the UNLcms system');
-  $link['href'] = 'user/unl/technical_feedback';
+  $link['attributes']['title'] = t('Submit feedback/issues/problems concerning the UNLcms system');
+  $link['href'] = 'user/unl/support';
 
   $toolbar['toolbar_user']['#links'] = array_merge(array('unl' => $link), $toolbar['toolbar_user']['#links']);
   return $toolbar;
@@ -301,15 +301,15 @@ function unl_menu() {
     'file' => 'unl_whoami.php',
   );
 
-  // Returns UNLcms technical feedback form
-  $items['user/unl/technical_feedback'] = array(
-    'title' => 'UNLcms Technical Feeedback Form',
-    'description' => 'Submit technical feedback/issues/problems about the UNLcms system.',
+  // Returns UNLcms support form
+  $items['user/unl/support'] = array(
+    'title' => 'UNLcms Support Form',
+    'description' => 'Submit feedback/issues/problems concerning the UNLcms system.',
     'access callback' => 'user_is_logged_in',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('unl_technical_feedback'),
+    'page arguments' => array('unl_support'),
     'type' => MENU_NORMAL_ITEM,
-    'file' => 'technical_feedback.php',
+    'file' => 'unl_support.php',
   );
 
   $items['admin/content/unl/reset'] = array(
