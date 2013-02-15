@@ -16,7 +16,7 @@ class workbench_moderation_handler_field_history_link extends views_handler_fiel
 
     $this->options['alter']['make_link'] = TRUE;
     $this->options['alter']['path'] = "node/$node->nid/moderation";
-    $text = !empty($this->options['text']) ? $this->options['text'] : t('View Moderation History');
+    $text = !empty($this->options['text']) ? $this->options['text'] : t('View moderation history');
     return $text;
   }
 }

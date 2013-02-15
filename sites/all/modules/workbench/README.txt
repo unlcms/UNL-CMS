@@ -3,7 +3,7 @@
  * README file for Workbench.
  */
 
-Workbench 
+Workbench
 A framework for simplified content management.
 
 CONTENTS
@@ -93,7 +93,7 @@ immediately useful.
  Allows a user to see content that is not Published on the site.  This
  becomes even more useful when Workbench Moderation is enabled.
 
-A typical permission setup so that a user can take advangate of Workbench
+A typical permission setup so that a user can take advantage of Workbench
 looks like:
 
 Node Permissions

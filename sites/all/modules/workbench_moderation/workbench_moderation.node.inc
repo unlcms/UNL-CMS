@@ -80,7 +80,7 @@ function workbench_moderation_node_history_view($node) {
   global $user;
 
   // Page title.
-  drupal_set_title(t('@title History', array('@title' => $node->title)), PASS_THROUGH);
+  drupal_set_title(t('History of %title', array('%title' => $node->title)), PASS_THROUGH);
 
   // Alert if there is no live node
   if (!isset($node->workbench_moderation['published'])) {
@@ -182,7 +182,7 @@ function workbench_moderation_node_history_view($node) {
       $node_current = workbench_moderation_node_current_load($node);
       $row['data']['moderation'] = '<div class="moderation-state"><strong>' . t('This is the current revision. The current state is %state.', array('%state' => workbench_moderation_state_label($node->workbench_moderation['current']->state))) . '</strong></div>';
       $moderate_form = drupal_get_form('workbench_moderation_moderate_form', $node_current);
-      $row['data']['moderation'] .= '<div class="moderation-actions">' . t('Moderate') . ': ' . drupal_render($moderate_form) . '</div>';
+      $row['data']['moderation'] .= '<div class="moderation-actions">' . t('Set moderation state: !moderation-actions-form', array('!moderation-actions-form' => drupal_render($moderate_form))) . '</div>';
     }
 
     // Build a table of the moderation history.
@@ -190,20 +190,19 @@ function workbench_moderation_node_history_view($node) {
     $items = array();
     foreach ($moderations as $moderation) {
       if ($moderation->from_state) {
-        $items[] = t('From @from_state --> @to_state on %date by !user',
+        $items[] = t('From %from_state --> %to_state on %date by !user',
           array(
-            '@from_state' => workbench_moderation_state_label($moderation->from_state),
-            '@to_state' => workbench_moderation_state_label($moderation->state),
+            '%from_state' => workbench_moderation_state_label($moderation->from_state),
+            '%to_state' => workbench_moderation_state_label($moderation->state),
             '%date' => format_date($moderation->stamp, 'short'),
             '!user' => theme('username', array('account' => $moderation)),
           )
         );
       }
       else {
-        $items[] = t('Created as @to_state on %date by !user',
+        $items[] = t('Created as %to_state on %date by !user',
           array(
-            '@from_state' => workbench_moderation_state_label($moderation->from_state),
-            '@to_state' => workbench_moderation_state_label($moderation->state),
+            '%to_state' => workbench_moderation_state_label($moderation->state),
             '%date' => format_date($moderation->stamp, 'short'),
             '!user' => theme('username', array('account' => $moderation)),
           )
@@ -216,7 +215,7 @@ function workbench_moderation_node_history_view($node) {
   }
 
   // Set the table header.
-  $header = array(t('Revision'), t('Title'), t('Date'), t('Revision Actions'), t('Moderation Actions'));
+  $header = array(t('Revision'), t('Title'), t('Date'), t('Revision actions'), t('Moderation actions'));
 
   // Return properly styled output.
   return array(
@@ -261,7 +260,7 @@ function workbench_moderation_node_unpublish_form($form, &$form_state, $node) {
   $current_state = $node->workbench_moderation['my_revision']->state;
   if ($next_states = workbench_moderation_states_next($current_state, $user, $node)) {
     $form['state'] = array(
-      '#title' => t('Set moderation state:'),
+      '#title' => t('Set moderation state'),
       '#type' => 'select',
       '#options' => $next_states,
       '#default_value' => _workbench_moderation_default_next_state($current_state, $next_states),
