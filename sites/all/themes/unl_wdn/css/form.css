@@ -1,5 +1,6 @@
 /**
  * Basic form styles copied from Bartik theme
+ * with #maincontent prepended where needed.
  */
 
 
@@ -87,7 +88,7 @@ fieldset.collapsed {
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-fieldset legend {
+#maincontent fieldset legend {
   background: #dbdbdb;
   border: 1px solid #ccc;
   border-bottom: none;
@@ -136,15 +137,15 @@ fieldset .fieldset-description {
   color: #3c3c3c;
   font-style: italic;
 }
-input {
+#maincontent input {
   margin: 2px 0;
   padding: 4px;
 }
-input,
-textarea {
+#maincontent input,
+#maincontent textarea {
   font-size: 0.929em;
 }
-textarea {
+#maincontent textarea {
   line-height: 1.5;
 }
 textarea.form-textarea,
