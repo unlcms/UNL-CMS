@@ -47,8 +47,14 @@ foreach ($tables as $key => $table) {
   if (!empty($prefix)) {
     $pieces[0] = 's' . $site_prefixes[$prefix]->site_id . '_' . $database['prefix'];
     $new_name = implode('', $pieces);
-    echo "RENAME TABLE ".$table." TO ".$new_name . "\n";
-    $query = db_query("RENAME TABLE ".$table." TO ".$new_name);
+    if ($table !== $new_name && $site_prefixes[$prefix]->site_id !== NULL) {
+      echo "RENAME TABLE " . $table . " TO ". $new_name . "\n";
+      $query = db_query("RENAME TABLE ".$table." TO ".$new_name);
+    }
+    else {
+      echo "Dropping abandoned table " . $table . "\n";
+      $query = db_query("DROP TABLE " . $table);
+    }
   }
 }
 
