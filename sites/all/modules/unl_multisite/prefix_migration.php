@@ -1,8 +1,10 @@
 <?php
 
+// Run as sudo to be able to write to settings.php
+
 if (PHP_SAPI != 'cli') {
   echo 'This script must be run from the shell!';
-  //exit;
+  exit;
 }
 
 chdir(dirname(__FILE__) . '/../../../..');
@@ -34,6 +36,7 @@ $database_noprefix['prefix'] = '';
 Database::addConnectionInfo('NoPrefix', 'default', $database_noprefix);
 db_set_active('NoPrefix');
 
+
 // Rename the tables
 foreach ($tables as $key => $table) {
   /**
@@ -50,10 +53,16 @@ foreach ($tables as $key => $table) {
 }
 
 
-// Change db_prefix col in default site unl_sites to what we created above
 foreach ($site_prefixes as $site_prefix => $site) {
+  // Change db_prefix col in default site unl_sites to what we created above
   echo "Changing $site_prefix db_prefix to s$site->site_id in the {$database['prefix']}unl_sites table\n";
   $query = db_query("UPDATE " . $database['prefix'] . "unl_sites SET db_prefix='s" . $site->site_id . "' WHERE site_id='" . $site->site_id . "'");
+
+  // Alter the settings.php file
+  echo "Rewriting the db_prefix in settings.php\n";
+  $command = "find sites -name 'settings.php' -print | xargs sed -i -e 's/" . $site_prefix . "/s" . $site->site_id . "/g'";
+  exec($command);
 }
+
 
 exit;
