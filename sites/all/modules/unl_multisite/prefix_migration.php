@@ -70,5 +70,8 @@ foreach ($site_prefixes as $site_prefix => $site) {
   exec($command);
 }
 
+echo "Remove the settings.php-e files that were created by sed";
+$command = "find sites -name 'settings.php-e' -exec rm -rf {} \;" . "\n";
+exec($command);
 
 exit;
