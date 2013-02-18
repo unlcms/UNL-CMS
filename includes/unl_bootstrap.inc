@@ -85,13 +85,16 @@ function unl_bootstrap_multisite_without_symlinks() {
 }
 
 /**
- * Fix some paths when used through a ProxyPass
+ * Fix some paths when used through a ProxyPass.
  */
 function unl_bootstrap_proxy_pass_support() {
   if (isset($_SERVER['HTTP_X_FORWARDED_HOST']) && isset($_SERVER['HTTP_X_FORWARDED_PATH'])) {
     $GLOBALS['base_url'] = 'http://' . $_SERVER['HTTP_X_FORWARDED_HOST'] . $_SERVER['HTTP_X_FORWARDED_PATH'];
     $GLOBALS['cookie_domain'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
     $_SERVER['REQUEST_URI'] = $_SERVER['HTTP_X_FORWARDED_PATH'] . '/' . request_path();
+    if (isset($_SERVER['REDIRECT_QUERY_STRING'])) {
+      $_SERVER['REQUEST_URI'] .= '?' . $_SERVER['REDIRECT_QUERY_STRING'];
+    }
   }
 }
 
