@@ -92,8 +92,8 @@ function unl_bootstrap_proxy_pass_support() {
     $GLOBALS['base_url'] = 'http://' . $_SERVER['HTTP_X_FORWARDED_HOST'] . $_SERVER['HTTP_X_FORWARDED_PATH'];
     $GLOBALS['cookie_domain'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
     $_SERVER['REQUEST_URI'] = $_SERVER['HTTP_X_FORWARDED_PATH'] . '/' . request_path();
-    if (isset($_SERVER['REDIRECT_QUERY_STRING'])) {
-      $_SERVER['REQUEST_URI'] .= '?' . $_SERVER['REDIRECT_QUERY_STRING'];
+    if (isset($_SERVER['QUERY_STRING'])) {
+      $_SERVER['REQUEST_URI'] .= '?' . $_SERVER['QUERY_STRING'];
     }
   }
 }
