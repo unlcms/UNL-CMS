@@ -165,6 +165,7 @@ class Unl_Migration_Tool
     private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
     private $_useLiferayCode      = TRUE;
+    private $_logger;
 
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -181,8 +182,6 @@ class Unl_Migration_Tool
 
     public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates, $useLiferayCode = FALSE)
     {
-        header('Content-type: text/plain');
-
         // Check to see if we're migrating from frontier so we can make some extra assumptions.
         $baseUrlParts = parse_url($baseUrl);
         $remoteHostname = @gethostbyaddr(gethostbyname($baseUrlParts['host']));
@@ -696,6 +695,8 @@ class Unl_Migration_Tool
     {
         $this->_addProcessedPage($path);
         $fullPath = $this->_baseUrl . $path;
+        
+        $this->_log('Processing page: ' . $path, WATCHDOG_DEBUG);
 
         $url = $this->_baseUrl . $path;
 
@@ -1354,6 +1355,11 @@ class Unl_Migration_Tool
 
     private function _log($message, $severity = WATCHDOG_INFO)
     {
+      if (is_callable($this->_logger)) {
+        $logger = $this->_logger;
+        return $logger($message, $severity);
+      }
+      
       $this->_log[] = $message;
 
       if ($severity == WATCHDOG_INFO) {
@@ -1454,6 +1460,10 @@ class Unl_Migration_Tool
   
   public function getFinished() {
     return min(0.99, count($this->_processedPages) / count($this->_siteMap));
+  }
+  
+  public function setLogger(callable $logger) {
+    $this->_logger = $logger;
   }
 
   static public function save_to_disk(Unl_Migration_Tool $instance)
