@@ -326,19 +326,24 @@ class Unl_Migration_Tool
     
     private function _addSitePath($path, $allowTralingSlash = FALSE, $caseSensitive = FALSE)
     {
-        if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
-            $path = substr($path, 0, $fragmentStart);
-        }
-        if ($allowTralingSlash) {
-          $path = trim($path, ' ');
-        }
-        else {
-          $path = trim($path, '/ ');
-        }
-        if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE && !$caseSensitive) {
-          return;
-        }
-        $this->_siteMap[hash('SHA256', $path)] = $path;
+      // Blacklist any liferay calendars to avoid crawling an infinite number of pages
+      if ($this->_useLiferayCode && strpos($path, 'struts_action=%2Fcalendar%2Fview') !== FALSE) {
+        return;
+      }
+      
+      if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
+          $path = substr($path, 0, $fragmentStart);
+      }
+      if ($allowTralingSlash) {
+        $path = trim($path, ' ');
+      }
+      else {
+        $path = trim($path, '/ ');
+      }
+      if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE && !$caseSensitive) {
+        return;
+      }
+      $this->_siteMap[hash('SHA256', $path)] = $path;
     }
 
     private function _getPagesToProcess()
