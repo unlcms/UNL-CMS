@@ -53,9 +53,6 @@ function _unl_migration_cron_migration_step() {
     require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
     $item = $queue->claimItem(120);
     $queue->deleteItem($item);
-    if (unl_migration_queue_step($item->data)) {
-      module_load_include('module', 'unl_multisite');
-      _unl_multisite_send_site_created_email();
-    }
+    unl_migration_queue_step($item->data);
   }
 }
