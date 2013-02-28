@@ -31,28 +31,3 @@ function unl_migration_permission() {
     ),
   );
 }
-
-/**
- * Implementation of hook_cron().
- */
-function unl_migration_cron() {
-  _unl_migration_cron_migration_step();
-}
-
-/**
- * If a site is being migrated via cron jobs, do some work towards that migration.
- */
-function _unl_migration_cron_migration_step() {
-  // We don't want this running as system user, only the web user.
-  if (PHP_SAPI == 'cli') {
-    return;
-  }
-
-  $queue = DrupalQueue::get('unl_migration');
-  if ($queue->numberOfItems() > 0) {
-    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
-    $item = $queue->claimItem(120);
-    $queue->deleteItem($item);
-    unl_migration_queue_step($item->data);
-  }
-}
