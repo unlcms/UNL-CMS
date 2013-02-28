@@ -112,16 +112,6 @@ function unl_migration_step($migration, &$context)
   $context['sandbox']['duration'] = min(300, ceil($context['sandbox']['duration'] * 1.5));
 }
 
-function unl_migration_queue_step($migration_storage_file) {
-  $migration = Unl_Migration_Tool::load_from_disk($migration_storage_file);
-  if ($migration->migrate(60)) {
-    return TRUE;
-  }
-  DrupalQueue::get('unl_migration', TRUE)
-    ->createItem(Unl_Migration_Tool::save_to_disk($migration));
-  return FALSE;
-}
-
 
 class Unl_Migration_Tool
 {
@@ -165,6 +155,7 @@ class Unl_Migration_Tool
     private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
     private $_useLiferayCode      = TRUE;
+    private $_logger;
 
     /**
      * Keep track of the state of the migration progress so that we can resume later
@@ -181,8 +172,6 @@ class Unl_Migration_Tool
 
     public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates, $useLiferayCode = FALSE)
     {
-        header('Content-type: text/plain');
-
         // Check to see if we're migrating from frontier so we can make some extra assumptions.
         $baseUrlParts = parse_url($baseUrl);
         $remoteHostname = @gethostbyaddr(gethostbyname($baseUrlParts['host']));
@@ -323,22 +312,27 @@ class Unl_Migration_Tool
       }
       return TRUE;
     }
-
-    private function _addSitePath($path, $allowTralingSlash = FALSE)
+    
+    private function _addSitePath($path, $allowTralingSlash = FALSE, $caseSensitive = FALSE)
     {
-        if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
-            $path = substr($path, 0, $fragmentStart);
-        }
-        if ($allowTralingSlash) {
-          $path = trim($path, ' ');
-        }
-        else {
-          $path = trim($path, '/ ');
-        }
-        if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE) {
-          return;
-        }
-        $this->_siteMap[hash('SHA256', $path)] = $path;
+      // Blacklist any liferay calendars to avoid crawling an infinite number of pages
+      if ($this->_useLiferayCode && strpos($path, 'struts_action=%2Fcalendar%2Fview') !== FALSE) {
+        return;
+      }
+      
+      if (($fragmentStart = strrpos($path, '#')) !== FALSE) {
+          $path = substr($path, 0, $fragmentStart);
+      }
+      if ($allowTralingSlash) {
+        $path = trim($path, ' ');
+      }
+      else {
+        $path = trim($path, '/ ');
+      }
+      if (array_search(strtolower($path), array_map('strtolower', $this->_siteMap)) !== FALSE && !$caseSensitive) {
+        return;
+      }
+      $this->_siteMap[hash('SHA256', $path)] = $path;
     }
 
     private function _getPagesToProcess()
@@ -696,6 +690,8 @@ class Unl_Migration_Tool
     {
         $this->_addProcessedPage($path);
         $fullPath = $this->_baseUrl . $path;
+        
+        $this->_log('Processing page: ' . $path, WATCHDOG_DEBUG);
 
         $url = $this->_baseUrl . $path;
 
@@ -725,14 +721,38 @@ class Unl_Migration_Tool
         $pathParts = parse_url($path);
         // If the path contains a query, we'll have to change it.
         if (array_key_exists('query', $pathParts)) {
-            $matches = array();
-            if (array_key_exists('Content-Disposition', $data['headers']) &&
-                    preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
-                $cleanPath = $pathParts['path'] . '/' . $matches[1];
-            } else {
-                $cleanPath = $pathParts['path'] . '/' . $pathParts['query'];
+          // If a Content-Disposition header exists with a filename, grab it.
+          $altFileName = '';
+          $matches = array();
+          if (array_key_exists('Content-Disposition', $data['headers']) &&
+              preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
+            $altFileName = $matches[1];
+          }
+
+          // Parse the query string
+          $query = array();
+          parse_str($pathParts['query'], $query);
+          
+          // If this is a liferay file, just save it as <uuid>.<ext> in the root files directory.
+          if ($pathParts['path'] == 'c/document_library/get_file' && $query['uuid']) {
+            if (strrpos($pathParts['query'], '.') > strrpos($pathParts['query'], '&') && strrpos($pathParts['query'], '.') !== FALSE) {
+              $cleanPath = $query['uuid'] . substr($pathParts['query'], strrpos($pathParts['query'], '.'));
             }
-            $cleanPath = strtr($cleanPath, array('%2f' => '/', '%2F' => '/'));
+            else if ($altFileName && strpos($altFileName, '.') !== FALSE) {
+              $cleanPath = $query['uuid'] . substr($altFileName, strrpos($altFileName, '.'));
+            } else {
+              $cleanPath = $query['uuid'];
+            }
+          }
+          // Or, if it exists, save it as the content-disposition name.
+          else if ($altFileName) {
+            $cleanPath = $pathParts['path'] . '/' . $altFileName;
+          }
+          // Otherwise, just save it with a / instead of a ?.
+          else {
+            $cleanPath = $pathParts['path'] . '/' . $pathParts['query'];
+          }
+          $cleanPath = strtr($cleanPath, array('%2f' => '/', '%2F' => '/'));
         }
 
         if (strpos($data['contentType'], 'html') === FALSE) {
@@ -1175,6 +1195,7 @@ class Unl_Migration_Tool
         curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
         curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
         curl_setopt($this->_curl, CURLOPT_NOBODY, TRUE);
+        curl_setopt($this->_curl, CURLOPT_USERAGENT, 'UNL-CMS Migration Tool');
 
         $data = curl_exec($this->_curl);
         $meta = curl_getinfo($this->_curl);
@@ -1207,8 +1228,9 @@ class Unl_Migration_Tool
         if (in_array($meta['http_code'], array(301, 302))) {
             $location = $headers['Location'];
             $path = substr($location, strlen($this->_baseUrl));
-            // keep trailing slash only if this is a redirect from the non-trailing slash URL.
-            $this->_addSitePath($path, $url . '/' == $this->_baseUrl . $path);
+            // Keep trailing slash only if this is a redirect from the non-trailing slash URL
+            // and switch to case sensitive site paths if the redirect just changes case.
+            $this->_addSitePath($path, $url . '/' == $this->_baseUrl . $path, strtolower($url) == strtolower($this->_baseUrl . $path));
 
             if (substr($location, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
                 $this->_redirects[substr($url, strlen($this->_baseUrl))] = substr($location, strlen($this->_baseUrl));
@@ -1354,6 +1376,11 @@ class Unl_Migration_Tool
 
     private function _log($message, $severity = WATCHDOG_INFO)
     {
+      if (is_callable($this->_logger)) {
+        $logger = $this->_logger;
+        return $logger($message, $severity);
+      }
+      
       $this->_log[] = $message;
 
       if ($severity == WATCHDOG_INFO) {
@@ -1362,10 +1389,13 @@ class Unl_Migration_Tool
       else if ($severity == WATCHDOG_WARNING) {
         $type = 'warning';
       }
+      else if ($severity == WATCHDOG_DEBUG) {
+        return;
+      }
       else {
         $type = 'error';
       }
-      drupal_set_message($message, $type, FALSE);
+      drupal_set_message(check_plain($message), $type, FALSE);
 
       watchdog('unl migration', $message, NULL, $severity);
     }
@@ -1454,6 +1484,10 @@ class Unl_Migration_Tool
   
   public function getFinished() {
     return min(0.99, count($this->_processedPages) / count($this->_siteMap));
+  }
+  
+  public function setLogger(callable $logger) {
+    $this->_logger = $logger;
   }
 
   static public function save_to_disk(Unl_Migration_Tool $instance)

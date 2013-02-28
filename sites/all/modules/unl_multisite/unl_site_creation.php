@@ -13,7 +13,6 @@ function unl_sites_page() {
   $page = array();
   $page[] = drupal_get_form('unl_site_list');
   $page[] = drupal_get_form('unl_site_updates');
-  $page[] = drupal_get_form('unl_site_email_settings');
   return $page;
 }
 
@@ -572,42 +571,6 @@ function unl_site_updates_step($site_uri, &$context) {
 }
 
 /**
- * Form: Email Alert Settings
- */
-function unl_site_email_settings($form, &$form_state) {
-  $form['root'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Email alert settings'),
-    '#description' => t('When a new site is created, who should be emailed?'),
-  );
-  $form['root']['unl_site_created_email_address'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Address for notification'),
-    '#description' => t('When a site has been been created and migrated, send an email to this address.'),
-    '#default_value' => variable_get('unl_site_created_email_address'),
-  );
-  $form['root']['unl_site_created_alert_admins'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Email site admins'),
-    '#description' => t('When a site has been created and migrated, send an email to the users with Site Admin role.'),
-    '#default_value' => variable_get('unl_site_created_alert_admins'),
-  );
-  $form['root']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Update settings'),
-  );
-  return $form;
-}
-
-/**
- * Form Submit: Email Alert Settings
- */
-function unl_site_email_settings_submit($form, &$form_state) {
-  variable_set('unl_site_created_email_address', $form_state['values']['unl_site_created_email_address']);
-  variable_set('unl_site_created_alert_admins',  $form_state['values']['unl_site_created_alert_admins']);
-}
-
-/**
  * Page callback for admin/sites/unl/aliases
  */
 function unl_aliases_page($site_id = null) {
@@ -939,73 +902,6 @@ function unl_page_alias_list_submit($form, &$form_state) {
     ->fields(array('installed' => 3))
     ->condition('page_alias_id', $page_alias_ids, 'IN')
     ->execute();
-}
-
-/**
- * Page callback for admin/sites/unl/wdn_registry
- */
-function unl_wdn_registry($form, &$form_state) {
-  $form['production'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('This is production.'),
-    '#description' => t('If this box checked, sites imported will be marked as imported.'),
-    '#default_value' => variable_get('unl_wdn_registry_production'),
-  );
-  $form['host'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Host'),
-    '#description' => t('Hostname of the WDN Registry database.'),
-    '#default_value' => variable_get('unl_wdn_registry_host'),
-    '#required' => TRUE,
-  );
-  $form['username'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Username'),
-    '#description' => t('Username for the WDN Registry database.'),
-    '#default_value' => variable_get('unl_wdn_registry_username'),
-    '#required' => TRUE,
-  );
-  $form['password'] = array(
-    '#type' => 'password',
-    '#title' => t('Password'),
-    '#description' => t('Password for the WDN Registry database.'),
-    '#required' => TRUE,
-  );
-  $form['database'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Database'),
-    '#description' => t('Database for the WDN Registry database.'),
-    '#default_value' => variable_get('unl_wdn_registry_database'),
-    '#required' => TRUE,
-  );
-  $form['frontier_username'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Frontier username'),
-    '#description' => t('Username to connect to frontier FTP.'),
-    '#default_value' => variable_get('unl_frontier_username'),
-    '#required' => TRUE,
-  );
-  $form['frontier_password'] = array(
-    '#type' => 'password',
-    '#title' => t('Frontier password'),
-    '#description' => t('Password to connect to frontier FTP.'),
-    '#required' => TRUE,
-  );
-  $form['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Update'),
-  );
-  return $form;
-}
-
-function unl_wdn_registry_submit($form, &$form_state) {
-  variable_set('unl_wdn_registry_production', $form_state['values']['production']);
-  variable_set('unl_wdn_registry_host', $form_state['values']['host']);
-  variable_set('unl_wdn_registry_username', $form_state['values']['username']);
-  variable_set('unl_wdn_registry_password', $form_state['values']['password']);
-  variable_set('unl_wdn_registry_database', $form_state['values']['database']);
-  variable_set('unl_frontier_username', $form_state['values']['frontier_username']);
-  variable_set('unl_frontier_password', $form_state['values']['frontier_password']);
 }
 
 function _unl_get_install_status_text($id) {

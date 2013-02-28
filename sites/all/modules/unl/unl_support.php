@@ -1,24 +1,21 @@
 <?php
 
-function unl_technical_feedback($form, &$form_state) {
+function unl_support($form, &$form_state) {
   $form['root'] = array(
-    '#title' => 'UNLcms Technical Feeedback Form',
+    '#title' => 'UNLcms support form',
   );
-
    $form['root']['cas_username'] = array(
     '#type' => 'textfield',
     '#title' => t('Username'),
     '#value' => ($GLOBALS['user']->name),
     '#disabled' => 'disabled',
   );
-
   $form['root']['email'] = array(
     '#type' => 'textfield',
     '#title' => t('Email'),
     '#value' => ($GLOBALS['user']->mail),
     '#disabled' => 'disabled',
   );
-
   $form['root']['browser_useragent'] = array(
     '#type' => 'textfield',
     '#title' => t('Browser UserAgent'),
@@ -26,7 +23,6 @@ function unl_technical_feedback($form, &$form_state) {
     '#disabled' => 'disabled',
     '#size' => 120,
   );
-
   $form['root']['site'] = array(
     '#type' => 'textfield',
     '#title' => t('Site'),
@@ -34,20 +30,17 @@ function unl_technical_feedback($form, &$form_state) {
     '#disabled' => 'disabled',
     '#size' => 120,
   );
-
   $form['root']['current_url'] = array(
     '#type' => 'textfield',
     '#title' => t('Page address in question'),
     '#value' => $_SERVER['HTTP_REFERER'],
     '#size' => 120,
   );
-
   $form['root']['technical_feedback'] = array(
     '#type' => 'textarea',
-    '#title' => t('Please give your feedback or describe the issue you are having'),
+    '#title' => t('Your feedback or the issue you are having'),
     '#required' => TRUE,
   );
-
   $form['root']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit'),
@@ -56,27 +49,32 @@ function unl_technical_feedback($form, &$form_state) {
   return $form;
 }
 
-function unl_technical_feedback_submit($form, &$form_state) {
-  $to = "unlcms-dev@listserv.unl.edu";
-  $from = $form_state['values']['email'];
-  $subject = "UNLcms technical feedback from " . $form_state['values']['cas_username'];
+function unl_support_submit($form, &$form_state) {
+  $to = 'mysupport@unl.edu';
+  $subject = 'UNLcms: ' . substr($form_state['values']['technical_feedback'], 0, 44) . '...';
 
-  $message = '
-Username: '.$form_state['values']['cas_username'].'
-Email: '.$form_state['values']['email'].'
-UserAgent: '.$form_state['values']['browser_useragent'].'
-Site: '.$form_state['values']['site'].'
-Page: '.$form_state['input']['current_url'].'
-Comment:
-'.$form_state['values']['technical_feedback'];
+  $message = <<< EOF
+contact={$form_state['values']['email']}
+assignees="UNLCMS and Web Support"
 
-  $headers   = 'From: ' . $form_state['values']['email'] . "\n";
-  $headers  .= "MIME-Version: 1.0\n";
-  $headers  .= "Content-type:text/plain; charset=UTF-8\n";
+{$form_state['values']['technical_feedback']}
+
+Requestor: {$form_state['values']['cas_username']}
+Email: {$form_state['values']['email']}
+UserAgent: {$form_state['values']['browser_useragent']}
+Site: {$form_state['values']['site']}
+Page: {$form_state['input']['current_url']}
+
+(This request was sent from a UNLcms support form at {$form_state['values']['site']}user/unl/support)
+EOF;
+
+  $headers = "From: mysupportform@unl.edu\n"
+           . "MIME-Version: 1.0\n"
+           . "Content-type:text/plain; charset=UTF-8\n";
 
   mail($to, $subject, $message, $headers);
 
-  drupal_set_message(t('Your feedback has been emailed to the UNLcms dev team. Thank you!'));
+  drupal_set_message(t('Your message was submitted as a support ticket to MySupport (http://mysupport.unl.edu/) and the UNLcms team was notified.'));
 
   return;
 }
