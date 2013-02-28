@@ -112,16 +112,6 @@ function unl_migration_step($migration, &$context)
   $context['sandbox']['duration'] = min(300, ceil($context['sandbox']['duration'] * 1.5));
 }
 
-function unl_migration_queue_step($migration_storage_file) {
-  $migration = Unl_Migration_Tool::load_from_disk($migration_storage_file);
-  if ($migration->migrate(60)) {
-    return TRUE;
-  }
-  DrupalQueue::get('unl_migration', TRUE)
-    ->createItem(Unl_Migration_Tool::save_to_disk($migration));
-  return FALSE;
-}
-
 
 class Unl_Migration_Tool
 {
