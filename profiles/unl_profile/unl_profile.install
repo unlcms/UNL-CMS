@@ -296,25 +296,6 @@ EOF;
         );
         user_save($account, $userData);
       }
-
-      if ($row->migration_url) {
-        // If there's a site to migrate, add the job to the queue.
-        require_once drupal_get_path('module', 'unl_migration') . '/unl_migration.php';
-        $migration = new Unl_Migration_Tool(
-          $row->migration_url,
-          $row->migration_path,
-          $frontier_config['unl_frontier_username'],
-          $frontier_config['unl_frontier_password'],
-          FALSE
-        );
-        DrupalQueue::get('unl_migration', TRUE)
-          ->createItem(Unl_Migration_Tool::save_to_disk($migration));
-      }
-      else {
-        // If there's no migration to be done, we can send the site created email now.
-        module_load_include('module', 'unl_multisite');
-        _unl_multisite_send_site_created_email($row);
-      }
     }
   }
 
