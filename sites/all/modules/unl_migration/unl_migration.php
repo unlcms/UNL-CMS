@@ -157,6 +157,20 @@ class Unl_Migration_Tool
     private $_useLiferayCode      = TRUE;
     private $_logger;
 
+    private $_liferaySubsites     = array(
+      'cropwatch.unl.edu'     => array('corn', 'drybeans', 'forages', 'organic', 'potato', 'sorghum', 'soybeans', 'wheat', 'bioenergy', 'insect', 'economics', 'ssm', 'soils', 'tillage', 'weed', 'varietytest', 'biotechnology', 'farmresearch', 'cropwatch-youth', 'militaryresources', 'gaps', 'sugarbeets'),
+      '4h.unl.edu'            => array('extension-4-h-horse', '4hcamps', '4hcurriclum'),
+      'animalscience.unl.edu' => array('fernando-lab', 'anscgenomics', 'rprb-lab', 'ruminutrition-lab'),
+      'beef.unl.edu'          => array('cattleproduction'),
+      'biochem.unl.edu'       => array('barycki', 'bailey', 'becker', 'adamec', 'wilson', 'biochem-fatttlab', 'simpson'),
+      'bse.unl.edu'           => array('p2guidelines'),
+      'edmedia.unl.edu'       => array('techtraining'),
+      'food.unl.edu'          => array('localfoods', 'allergy', 'fnh', 'preservation', 'fpc', 'safety', 'meatproducts', 'youth'),
+      'ianrhome.unl.edu'      => array('ianrinternational'),
+      'water.unl.edu'         => array('crops', 'cropswater', 'drinkingwater', 'drought', 'wildlife', 'hydrology', 'lakes', 'landscapes', 'landscapewater', 'laweconomics', 'manure', 'propertydesign', 'research', 'sewage', 'students', 'watershed', 'wells', 'wetlands'),
+      'westcentral.unl.edu'   => array('wcentomology', 'wcacreage'),
+    );
+
     /**
      * Keep track of the state of the migration progress so that we can resume later
      * @var int
@@ -672,17 +686,30 @@ class Unl_Migration_Tool
         return;
       }
       
-      $data = $this->_getUrl($this->_baseUrl . '?p_p_id=EXT_SITEMAP&p_p_state=exclusive&p_p_mode=view');
-      if (strpos($data['contentType'], 'html') === FALSE) {
-        return;
-      }
-
-      $dom = new DOMDocument();
-      @$dom->loadHTML($data['content']);
+      $urls = array();
+      $urls[] = $this->_baseUrl . '?p_p_id=EXT_SITEMAP&p_p_state=exclusive&p_p_mode=view';
       
-      $linkNodes = $dom->getElementsByTagName('a');
-      foreach ($linkNodes as $linkNode) {
-        $this->_processLinks($linkNode->getAttribute('href'), '');
+      $host = parse_url($this->_baseUrl, PHP_URL_HOST);
+      if (array_key_exists($host, $this->_liferaySubsites)) {
+        foreach ($this->_liferaySubsites[$host] as $subSite) {
+          $urls[] = $this->_baseUrl . 'web/' . $subSite . '/?p_p_id=EXT_SITEMAP&p_p_state=exclusive&p_p_mode=view';
+        }
+      }
+      
+      foreach ($urls as $url) {
+        $data = $this->_getUrl($url);
+        
+        if (strpos($data['contentType'], 'html') === FALSE) {
+          return;
+        }
+  
+        $dom = new DOMDocument();
+        @$dom->loadHTML($data['content']);
+        
+        $linkNodes = $dom->getElementsByTagName('a');
+        foreach ($linkNodes as $linkNode) {
+          $this->_processLinks($linkNode->getAttribute('href'), '');
+        }
       }
     }
 
@@ -968,20 +995,6 @@ class Unl_Migration_Tool
 
       $urlParts = parse_url($url);
       $pathParts = explode('/', ltrim($urlParts['path'], '/'));
-
-      $exceptions = array(
-        'cropwatch.unl.edu'     => array('corn', 'drybeans', 'forages', 'organic', 'potato', 'sorghum', 'soybeans', 'wheat', 'bioenergy', 'insect', 'economics', 'ssm', 'soils', 'tillage', 'weed', 'varietytest', 'biotechnology', 'farmresearch', 'cropwatch-youth', 'militaryresources', 'gaps', 'sugarbeets'),
-        '4h.unl.edu'            => array('extension-4-h-horse', '4hcamps', '4hcurriclum'),
-        'animalscience.unl.edu' => array('fernando-lab', 'anscgenomics', 'rprb-lab', 'ruminutrition-lab'),
-        'beef.unl.edu'          => array('cattleproduction'),
-        'biochem.unl.edu'       => array('barycki', 'bailey', 'becker', 'adamec', 'wilson', 'biochem-fatttlab', 'simpson'),
-        'bse.unl.edu'           => array('p2guidelines'),
-        'edmedia.unl.edu'       => array('techtraining'),
-        'food.unl.edu'          => array('localfoods', 'allergy', 'fnh', 'preservation', 'fpc', 'safety', 'meatproducts', 'youth'),
-        'ianrhome.unl.edu'      => array('ianrinternational'),
-        'water.unl.edu'         => array('crops', 'cropswater', 'drinkingwater', 'drought', 'wildlife', 'hydrology', 'lakes', 'landscapes', 'landscapewater', 'laweconomics', 'manure', 'propertydesign', 'research', 'sewage', 'students', 'watershed', 'wells', 'wetlands'),
-        'westcentral.unl.edu'   => array('wcentomology', 'wcacreage'),
-      );
       
       $siteNameMap = array(
         'extension' => 'www.extension.unl.edu',
@@ -990,7 +1003,7 @@ class Unl_Migration_Tool
       
       if (
            count($pathParts) >= 2 && $pathParts[0] == 'web'
-        && !(in_array($urlParts['host'], array_keys($exceptions)) && in_array($pathParts[1], $exceptions[$urlParts['host']]))
+        && !(in_array($urlParts['host'], array_keys($this->_liferaySubsites)) && in_array($pathParts[1], $this->_liferaySubsites[$urlParts['host']]))
       ) {
 
         // If the site name is "special" look it up in the map. Otherwise, just add .unl.edu
