@@ -86,6 +86,18 @@ function unl_varnish_node_update($node) {
 }
 
 /**
+ * Implements hook_webform_component_update().
+ */
+function unl_varnish_webform_component_update($component) {
+  // Only flush for the first component in the form.
+  static $unl_varnish_webform_component_update;
+  if (!isset($unl_varnish_webform_component_update)) {
+    unl_varnish_purge_all_pages();
+    $unl_varnish_webform_component_update = TRUE;
+  }
+}
+
+/**
  * Implements hook_form_alter().
  */
 function unl_varnish_form_alter(&$form, $form_state, $form_id) {
@@ -99,13 +111,12 @@ function unl_varnish_form_alter(&$form, $form_state, $form_id) {
  * A drop-in replacement for varnish_purge_all_pages()
  * that is aware of site aliases.
  */
-function unl_varnish_purge_all_pages()
-{
+function unl_varnish_purge_all_pages() {
   require_once drupal_get_path('module', 'unl') . '/includes/common.php';
-  
+
   // First, determine the current database prefix
   $sharedPrefix = unl_get_shared_db_prefix();
-  
+
   $currentPrefix = $GLOBALS['databases']['default']['default']['prefix'];
   if (is_array($currentPrefix)) {
     $currentPrefix = $currentPrefix['default'];
@@ -113,7 +124,7 @@ function unl_varnish_purge_all_pages()
 
   $currentPrefix = substr($currentPrefix, 0, -strlen($sharedPrefix));
   $currentPrefix = trim($currentPrefix, '_');
-  
+
   // Next, use the database prefix to get a list of aliases
   $query = unl_shared_db_select('unl_sites', 's');
   $query->join('unl_sites_aliases', 'a', 's.site_id = a.site_id');
@@ -123,22 +134,22 @@ function unl_varnish_purge_all_pages()
   $query->condition('s.installed', 2);
   $query->condition('a.installed', 2);
   $aliasData = $query->execute()->fetchAll();
-  
+
   // If the site has no aliases, just use the normal method.
   if (!$aliasData) {
     return varnish_purge_all_pages();
   }
-  
+
   $aliases = array($aliasData[0]->uri);
   foreach ($aliasData as $aliasRow) {
     $aliases[] = $aliasRow->base_uri . $aliasRow->path;
   }
-  
+
   // Otherwise do a purge for each alias.
   foreach ($aliases as $alias) {
     $host = parse_url($alias, PHP_URL_HOST);
     $path = parse_url($alias, PHP_URL_PATH);
-    
+
     _varnish_terminal_run("purge req.http.host ~ $host && req.url ~ ^$path");
   }
 }

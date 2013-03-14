@@ -37,8 +37,6 @@ $t->head .= PHP_EOL
           . $head . PHP_EOL
           . $styles . PHP_EOL
           . $scripts . PHP_EOL
-          . '<link rel="logout" href="user/logout" />' . PHP_EOL
-          . '<link rel="login" href="' . url('user', array('query' => drupal_get_destination())) . '" />' . PHP_EOL
           . theme_get_setting('head_html') . PHP_EOL
           ;
 

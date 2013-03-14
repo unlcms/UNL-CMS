@@ -24,6 +24,19 @@ Drupal.wysiwyg.editor.init.tinymce = function(settings) {
     }
   });
 
+  // Fix Drupal toolbar obscuring editor toolbar in fullscreen mode.
+  var $drupalToolbar = $('#toolbar', Drupal.overlayChild ? window.parent.document : document);
+  tinyMCE.onAddEditor.add(function (mgr, ed) {
+    if (ed.id == 'mce_fullscreen') {
+      $drupalToolbar.hide();
+    }
+  });
+  tinyMCE.onRemoveEditor.add(function (mgr, ed) {
+    if (ed.id == 'mce_fullscreen') {
+      $drupalToolbar.show();
+    }
+  });
+
   // Initialize editor configurations.
   for (var format in settings) {
     if (Drupal.settings.wysiwyg.plugins[format]) {
