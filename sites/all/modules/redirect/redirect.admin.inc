@@ -521,6 +521,7 @@ function redirect_edit_form_validate($form, &$form_state) {
 
   if (empty($form_state['values']['override'])) {
     if ($existing = redirect_load_by_source($redirect->source, $redirect->language)) {
+      $existing = $existing[1];
       if ($redirect->rid != $existing->rid && $redirect->language == $existing->language) {
         // The "from" path should not conflict with another redirect
         $form_state['storage']['override_messages']['redirect-conflict'] = t('The base source path %source is already being redirected. Do you want to <a href="@edit-page">edit the existing redirect</a>?', array('%source' => $redirect->source, '@edit-page' => url('admin/config/search/redirect/edit/'. $existing->rid)));
@@ -636,32 +637,40 @@ function redirect_settings_form($form, &$form_state) {
   $form['globals'] = array(
     '#type' => 'fieldset',
     '#title' => t('Always enabled redirections'),
-    '#description' => t('(formerly Global Redirect features)'),
-    '#access' => FALSE,
   );
   $form['globals']['redirect_global_home'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Redirect from paths like index.php and /node to the root directory.'),
-    '#default_value' => variable_get('redirect_global_home', 1),
-    '#access' => FALSE,
+    '#title' => t('Redirect alternative front page URLs to the root directory.'),
+    '#default_value' => variable_get('redirect_global_home', 0),
+    '#description' => t('Includes all aliases for the front page, %root, as well as %node if a default front page is not set.', array('%root' => '/index.php', '%node' => '/node')),
+  );
+  $form['globals']['redirect_global_index'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Remove index.php from all non-front page paths.'),
+    '#default_value' => variable_get('redirect_global_index', 0),
+    '#description' => t('Will remove index.php from paths such as %prepend and %append.', array('%prepend' => '/index.php?q=node/1', '%append' => '/page-alias/index.php')),
   );
   $form['globals']['redirect_global_clean'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect from non-clean URLs to clean URLs.'),
     '#default_value' => variable_get('redirect_global_clean', 1),
     '#disabled' => !variable_get('clean_url', 0),
-    '#access' => FALSE,
   );
   $form['globals']['redirect_global_canonical'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect from non-canonical URLs to the canonical URLs.'),
     '#default_value' => variable_get('redirect_global_canonical', 1),
   );
+  $form['globals']['redirect_global_canonical_front'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Redirect the front page to its canonical URL.'),
+    '#default_value' => variable_get('redirect_global_canonical_front', 0),
+    '#description' => t('Add a path to a request for the site root. For example, a request for %rootpath will redirect to %canonicalpath if the default front page is set to %defaultfrontpage.', array('%rootpath' => 'http://example.com/', '%canonicalpath' => 'http://example.com/node/1', '%defaultfrontpage' => 'node/1')),
+  );
   $form['globals']['redirect_global_deslash'] = array(
     '#type' => 'checkbox',
     '#title' => t('Remove trailing slashes from paths.'),
     '#default_value' => variable_get('redirect_global_deslash', 0),
-    '#access' => FALSE,
   );
   $form['globals']['redirect_global_admin_paths'] = array(
     '#type' => 'checkbox',
