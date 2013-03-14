@@ -1,0 +1,13 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Trailing Slash module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function trailing_slash_uninstall() {
+  variable_del('trailing_slash');
+}
