@@ -239,8 +239,7 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
   if ($path != $original_path && $original_path == current_path()) {
     $current_langcode = !empty($path_language) ? $path_language : $GLOBALS['language']->language;
     $current_query = drupal_get_query_parameters();
-    $redirect = redirect_load_by_source($original_path, $current_langcode, $current_query);
-    if ($redirect) {
+    if ($redirect = redirect_load_by_source($original_path, $current_langcode, $current_query)) {
       redirect_set_current_redirect($redirect);
     }
   }
@@ -1361,11 +1360,12 @@ function redirect_variables() {
     'redirect_passthrough_querystring' => 1,
     'redirect_page_cache' => 0,
     'redirect_purge_inactive' => 0,
-    'redirect_global_front' => 0,
+    'redirect_global_home' => 1,
     'redirect_global_index' => 0,
     'redirect_global_clean' => 1,
     'redirect_global_canonical' => 1,
     'redirect_global_canonical_front' => 0,
+    'redirect_global_deslash' => 1,
     'redirect_global_admin_paths' => 0,
   );
 }

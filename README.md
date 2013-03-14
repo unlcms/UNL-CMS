@@ -122,7 +122,7 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
   *  redirect
 
-     - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
+     - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914#comment-7178900
 
   *  webform.module
 

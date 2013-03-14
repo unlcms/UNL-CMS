@@ -59,17 +59,10 @@ index 176f105..3dcb630 100644
    $form['globals']['redirect_global_admin_paths'] = array(
      '#type' => 'checkbox',
 diff --git a/redirect.module b/redirect.module
-index a99bd9b..8fabd6f 100644
+index 8c47b75..2e0d3e2 100644
 --- a/redirect.module
 +++ b/redirect.module
-@@ -239,26 +239,52 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
-   if ($path != $original_path && $original_path == current_path()) {
-     $current_langcode = !empty($path_language) ? $path_language : $GLOBALS['language']->language;
-     $current_query = drupal_get_query_parameters();
--    if ($redirect = redirect_load_by_source($original_path, $current_langcode, $current_query)) {
-+    $redirect = redirect_load_by_source($original_path, $current_langcode, $current_query);
-+    if ($redirect) {
-       redirect_set_current_redirect($redirect);
+@@ -244,21 +244,46 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
      }
    }
  
@@ -130,7 +123,7 @@ index a99bd9b..8fabd6f 100644
    }
  }
  
-@@ -323,29 +349,49 @@ function redirect_init() {
+@@ -323,29 +348,49 @@ function redirect_init() {
  
    // Fetch the current redirect.
    if ($redirect = redirect_get_current_redirect()) {
@@ -194,7 +187,7 @@ index a99bd9b..8fabd6f 100644
  }
  
  /**
-@@ -596,7 +642,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
+@@ -596,7 +641,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
        $context = array('language' => $language, 'query' => $query);
        drupal_alter('redirect_load_by_source', $redirects, $source, $context);
  
@@ -203,7 +196,7 @@ index a99bd9b..8fabd6f 100644
      }
    }
  
-@@ -711,7 +757,7 @@ function redirect_validate($redirect, $form, &$form_state) {
+@@ -711,7 +756,7 @@ function redirect_validate($redirect, $form, &$form_state) {
    }
  }
  
@@ -212,7 +205,7 @@ index a99bd9b..8fabd6f 100644
    $defaults += array(
      'rid' => NULL,
      'type' => 'redirect',
-@@ -978,7 +1024,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
+@@ -979,7 +1024,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
   *
   * @ingroup redirect_api
   */
@@ -221,7 +214,7 @@ index a99bd9b..8fabd6f 100644
    // First check if we're in an infinite loop.
    $session_id = session_id();
    if (flood_is_allowed('redirection', 5, 15, $session_id ? $session_id : NULL)) {
-@@ -1028,6 +1074,12 @@ function redirect_redirect($redirect = NULL) {
+@@ -1028,6 +1073,12 @@ function redirect_redirect($redirect = NULL) {
   */
  function redirect_goto($redirect) {
    $redirect->redirect_options['absolute'] = TRUE;
@@ -234,16 +227,15 @@ index a99bd9b..8fabd6f 100644
    $url = url($redirect->redirect, $redirect->redirect_options);
    drupal_add_http_header('Location', $url);
    drupal_add_http_header('Status', redirect_status_code_options($redirect->status_code));
-@@ -1309,9 +1361,11 @@ function redirect_variables() {
-     'redirect_passthrough_querystring' => 1,
+@@ -1310,8 +1361,11 @@ function redirect_variables() {
      'redirect_page_cache' => 0,
      'redirect_purge_inactive' => 0,
--    'redirect_global_home' => 1,
-+    'redirect_global_front' => 0,
+     'redirect_global_home' => 1,
 +    'redirect_global_index' => 0,
      'redirect_global_clean' => 1,
      'redirect_global_canonical' => 1,
 +    'redirect_global_canonical_front' => 0,
++    'redirect_global_deslash' => 1,
      'redirect_global_admin_paths' => 0,
    );
  }
