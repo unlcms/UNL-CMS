@@ -521,7 +521,6 @@ function redirect_edit_form_validate($form, &$form_state) {
 
   if (empty($form_state['values']['override'])) {
     if ($existing = redirect_load_by_source($redirect->source, $redirect->language)) {
-      $existing = $existing[1];
       if ($redirect->rid != $existing->rid && $redirect->language == $existing->language) {
         // The "from" path should not conflict with another redirect
         $form_state['storage']['override_messages']['redirect-conflict'] = t('The base source path %source is already being redirected. Do you want to <a href="@edit-page">edit the existing redirect</a>?', array('%source' => $redirect->source, '@edit-page' => url('admin/config/search/redirect/edit/'. $existing->rid)));
@@ -638,17 +637,20 @@ function redirect_settings_form($form, &$form_state) {
     '#type' => 'fieldset',
     '#title' => t('Always enabled redirections'),
     '#description' => t('(formerly Global Redirect features)'),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_home'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect from paths like index.php and /node to the root directory.'),
-    '#default_value' => variable_get('redirect_global_home', 0),
+    '#default_value' => variable_get('redirect_global_home', 1),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_clean'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect from non-clean URLs to clean URLs.'),
     '#default_value' => variable_get('redirect_global_clean', 1),
     '#disabled' => !variable_get('clean_url', 0),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_canonical'] = array(
     '#type' => 'checkbox',
@@ -659,6 +661,7 @@ function redirect_settings_form($form, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Remove trailing slashes from paths.'),
     '#default_value' => variable_get('redirect_global_deslash', 0),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_admin_paths'] = array(
     '#type' => 'checkbox',
