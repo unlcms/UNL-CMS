@@ -1,5 +1,5 @@
 diff --git a/redirect.admin.inc b/redirect.admin.inc
-index 176f105..4fb2a54 100644
+index 176f105..a6610d5 100644
 --- a/redirect.admin.inc
 +++ b/redirect.admin.inc
 @@ -521,6 +521,7 @@ function redirect_edit_form_validate($form, &$form_state) {
@@ -10,7 +10,7 @@ index 176f105..4fb2a54 100644
        if ($redirect->rid != $existing->rid && $redirect->language == $existing->language) {
          // The "from" path should not conflict with another redirect
          $form_state['storage']['override_messages']['redirect-conflict'] = t('The base source path %source is already being redirected. Do you want to <a href="@edit-page">edit the existing redirect</a>?', array('%source' => $redirect->source, '@edit-page' => url('admin/config/search/redirect/edit/'. $existing->rid)));
-@@ -636,32 +637,40 @@ function redirect_settings_form($form, &$form_state) {
+@@ -636,32 +637,46 @@ function redirect_settings_form($form, &$form_state) {
    $form['globals'] = array(
      '#type' => 'fieldset',
      '#title' => t('Always enabled redirections'),
@@ -55,11 +55,48 @@ index 176f105..4fb2a54 100644
 -    '#default_value' => variable_get('redirect_global_deslash', 0),
 -    '#access' => FALSE,
 +    '#default_value' => variable_get('redirect_global_deslash', 1),
++  );
++  $form['globals']['redirect_global_add_slash'] = array(
++    '#type' => 'checkbox',
++    '#title' => t('Add trailing slashes to paths.'),
++    '#description' => t('For use with the Trailing Slash module instead of editing the .htaccess file.'),
++    '#default_value' => variable_get('redirect_global_add_slash', 0),
    );
    $form['globals']['redirect_global_admin_paths'] = array(
      '#type' => 'checkbox',
+@@ -669,7 +684,11 @@ function redirect_settings_form($form, &$form_state) {
+     '#default_value' => variable_get('redirect_global_admin_paths', 0),
+   );
+ 
+-  $form['#submit'][] = 'redirect_settings_form_submit';
++  $form['submit'] = array(
++    '#validate' => array('redirect_settings_form_validate'),
++    '#submit' => array('redirect_settings_form_submit'),
++  );
++
+   return system_settings_form($form);
+ }
+ 
+@@ -682,6 +701,17 @@ function redirect_settings_form_submit($form, &$form_state) {
+   redirect_page_cache_clear();
+ }
+ 
++/**
++ * Form validator; makes sure conflicting settings aren't chosen.
++ *
++ * @see redirect_settings_form()
++ */
++function redirect_settings_form_validate($form, &$form_state) {
++  if ($form_state['values']['redirect_global_deslash'] && $form_state['values']['redirect_global_add_slash']) {
++    form_set_error('info', t('You can not have both %deslash and %add_slash enabled.', array('%deslash' => rtrim($form['globals']['redirect_global_deslash']['#title'], '.'), '%add_slash' => rtrim($form['globals']['redirect_global_add_slash']['#title'], '.'))));
++  }
++}
++
+ function redirect_404_list($form = NULL) {
+   $destination = drupal_get_destination();
+ 
 diff --git a/redirect.module b/redirect.module
-index 8c47b75..2e0d3e2 100644
+index 8c47b75..65d5599 100644
 --- a/redirect.module
 +++ b/redirect.module
 @@ -244,21 +244,46 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
@@ -88,14 +125,6 @@ index 8c47b75..2e0d3e2 100644
 +  // Determine if front page. drupal_is_front_page() is not accurate here
 +  // because drupal_path_initialize() has not executed yet.
 +  $is_front_page = ($path == variable_get('site_frontpage', 'node') ? TRUE : FALSE);
-+
-+  // Redirect the front page to the root level.
-+  if ($is_front_page
-+      && variable_get('redirect_global_home', 0)
-+      && !variable_get('redirect_global_canonical_front', 0)
-+      && base_path() != request_uri()) {
-+    return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
-+  }
  
 -    // Redirect from default entity paths to the proper entity path.
 -    //if ($path_entity = redirect_load_entity_from_path($path)) {
@@ -105,6 +134,14 @@ index 8c47b75..2e0d3e2 100644
 -    //    }
 -    //  }
 -    //}
++  // Redirect the front page to the root level.
++  if ($is_front_page
++      && variable_get('redirect_global_home', 0)
++      && !variable_get('redirect_global_canonical_front', 0)
++      && base_path() != request_uri()) {
++    return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
++  }
++
 +  // Redirect to the canonical URL.
 +  $alias = drupal_get_path_alias($path, $path_language);
 +  if ((!$is_front_page && variable_get('redirect_global_canonical', 1)
@@ -123,7 +160,7 @@ index 8c47b75..2e0d3e2 100644
    }
  }
  
-@@ -323,29 +348,49 @@ function redirect_init() {
+@@ -323,29 +348,55 @@ function redirect_init() {
  
    // Fetch the current redirect.
    if ($redirect = redirect_get_current_redirect()) {
@@ -175,19 +212,25 @@ index 8c47b75..2e0d3e2 100644
 -
 -  if ($redirect_global && $request_uri != $original_uri) {
 -    redirect_redirect(array(/*'redirect' => $request_uri,*/ 'type' => 'global'));
-+  // Deslash
++  // Deslash (Remove trailing slashes from paths).
 +  $langcode = isset($options['language']->language) ? $options['language']->language : '';
 +  $alias = drupal_get_path_alias(current_path(), $langcode);
 +  if (variable_get('redirect_global_deslash', 0)
 +      && substr($request_uri, -1) == '/'
 +      && $request_uri !== $alias) {
 +    redirect_redirect((object)array('redirect' => rtrim($request_uri, '/'), 'type' => 'global'));
++  }
++  // Add slash (Add trailing slashes to paths).
++  elseif (variable_get('redirect_global_add_slash', 0)
++          && substr($request_uri, -1) !== '/'
++          && !drupal_is_front_page()) {
++    redirect_redirect((object)array('redirect' => $request_uri . '/', 'type' => 'global'));
    }
 +
  }
  
  /**
-@@ -596,7 +641,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
+@@ -596,7 +647,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
        $context = array('language' => $language, 'query' => $query);
        drupal_alter('redirect_load_by_source', $redirects, $source, $context);
  
@@ -196,7 +239,7 @@ index 8c47b75..2e0d3e2 100644
      }
    }
  
-@@ -711,7 +756,7 @@ function redirect_validate($redirect, $form, &$form_state) {
+@@ -711,7 +762,7 @@ function redirect_validate($redirect, $form, &$form_state) {
    }
  }
  
@@ -205,7 +248,7 @@ index 8c47b75..2e0d3e2 100644
    $defaults += array(
      'rid' => NULL,
      'type' => 'redirect',
-@@ -979,7 +1024,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
+@@ -979,7 +1030,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
   *
   * @ingroup redirect_api
   */
@@ -214,7 +257,7 @@ index 8c47b75..2e0d3e2 100644
    // First check if we're in an infinite loop.
    $session_id = session_id();
    if (flood_is_allowed('redirection', 5, 15, $session_id ? $session_id : NULL)) {
-@@ -1028,6 +1073,12 @@ function redirect_redirect($redirect = NULL) {
+@@ -1028,6 +1079,12 @@ function redirect_redirect($redirect = NULL) {
   */
  function redirect_goto($redirect) {
    $redirect->redirect_options['absolute'] = TRUE;
@@ -227,7 +270,7 @@ index 8c47b75..2e0d3e2 100644
    $url = url($redirect->redirect, $redirect->redirect_options);
    drupal_add_http_header('Location', $url);
    drupal_add_http_header('Status', redirect_status_code_options($redirect->status_code));
-@@ -1310,8 +1361,11 @@ function redirect_variables() {
+@@ -1310,8 +1367,12 @@ function redirect_variables() {
      'redirect_page_cache' => 0,
      'redirect_purge_inactive' => 0,
      'redirect_global_home' => 1,
@@ -236,6 +279,7 @@ index 8c47b75..2e0d3e2 100644
      'redirect_global_canonical' => 1,
 +    'redirect_global_canonical_front' => 0,
 +    'redirect_global_deslash' => 1,
++    'redirect_global_add_slash' => 0,
      'redirect_global_admin_paths' => 0,
    );
  }

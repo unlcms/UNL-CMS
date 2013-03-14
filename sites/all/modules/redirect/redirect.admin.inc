@@ -672,13 +672,23 @@ function redirect_settings_form($form, &$form_state) {
     '#title' => t('Remove trailing slashes from paths.'),
     '#default_value' => variable_get('redirect_global_deslash', 1),
   );
+  $form['globals']['redirect_global_add_slash'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Add trailing slashes to paths.'),
+    '#description' => t('For use with the Trailing Slash module instead of editing the .htaccess file.'),
+    '#default_value' => variable_get('redirect_global_add_slash', 0),
+  );
   $form['globals']['redirect_global_admin_paths'] = array(
     '#type' => 'checkbox',
     '#title' => t('Allow redirections on admin paths.'),
     '#default_value' => variable_get('redirect_global_admin_paths', 0),
   );
 
-  $form['#submit'][] = 'redirect_settings_form_submit';
+  $form['submit'] = array(
+    '#validate' => array('redirect_settings_form_validate'),
+    '#submit' => array('redirect_settings_form_submit'),
+  );
+
   return system_settings_form($form);
 }
 
@@ -689,6 +699,17 @@ function redirect_settings_form($form, &$form_state) {
  */
 function redirect_settings_form_submit($form, &$form_state) {
   redirect_page_cache_clear();
+}
+
+/**
+ * Form validator; makes sure conflicting settings aren't chosen.
+ *
+ * @see redirect_settings_form()
+ */
+function redirect_settings_form_validate($form, &$form_state) {
+  if ($form_state['values']['redirect_global_deslash'] && $form_state['values']['redirect_global_add_slash']) {
+    form_set_error('info', t('You can not have both %deslash and %add_slash enabled.', array('%deslash' => rtrim($form['globals']['redirect_global_deslash']['#title'], '.'), '%add_slash' => rtrim($form['globals']['redirect_global_add_slash']['#title'], '.'))));
+  }
 }
 
 function redirect_404_list($form = NULL) {

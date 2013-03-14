@@ -382,13 +382,19 @@ function redirect_init() {
     }
   }
 
-  // Deslash
+  // Deslash (Remove trailing slashes from paths).
   $langcode = isset($options['language']->language) ? $options['language']->language : '';
   $alias = drupal_get_path_alias(current_path(), $langcode);
   if (variable_get('redirect_global_deslash', 0)
       && substr($request_uri, -1) == '/'
       && $request_uri !== $alias) {
     redirect_redirect((object)array('redirect' => rtrim($request_uri, '/'), 'type' => 'global'));
+  }
+  // Add slash (Add trailing slashes to paths).
+  elseif (variable_get('redirect_global_add_slash', 0)
+          && substr($request_uri, -1) !== '/'
+          && !drupal_is_front_page()) {
+    redirect_redirect((object)array('redirect' => $request_uri . '/', 'type' => 'global'));
   }
 
 }
@@ -1366,6 +1372,7 @@ function redirect_variables() {
     'redirect_global_canonical' => 1,
     'redirect_global_canonical_front' => 0,
     'redirect_global_deslash' => 1,
+    'redirect_global_add_slash' => 0,
     'redirect_global_admin_paths' => 0,
   );
 }
