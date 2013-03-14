@@ -641,7 +641,7 @@ function redirect_settings_form($form, &$form_state) {
   $form['globals']['redirect_global_home'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect alternative front page URLs to the root directory.'),
-    '#default_value' => variable_get('redirect_global_home', 0),
+    '#default_value' => variable_get('redirect_global_home', 1),
     '#description' => t('Includes all aliases for the front page, %root, as well as %node if a default front page is not set.', array('%root' => '/index.php', '%node' => '/node')),
   );
   $form['globals']['redirect_global_index'] = array(
@@ -670,7 +670,7 @@ function redirect_settings_form($form, &$form_state) {
   $form['globals']['redirect_global_deslash'] = array(
     '#type' => 'checkbox',
     '#title' => t('Remove trailing slashes from paths.'),
-    '#default_value' => variable_get('redirect_global_deslash', 0),
+    '#default_value' => variable_get('redirect_global_deslash', 1),
   );
   $form['globals']['redirect_global_admin_paths'] = array(
     '#type' => 'checkbox',
