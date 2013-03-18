@@ -10,7 +10,7 @@ function workbench_moderation_nodedraft_page_manager_tasks() {
     // This is a 'page' task and will fall under the page admin UI
     'task type' => 'page',
 
-    'title' => t('Node Draft'),
+    'title' => t('Node draft'),
     'admin title' => t('The draft page for moderated nodes.'),
     'admin description' => t('When enabled, this overrides the default node view at node/%node/draft'),
     'admin path' => 'node/%node/draft',

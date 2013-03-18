@@ -15,7 +15,7 @@ function workbench_menu() {
     'title' => 'Workbench',
     'description' => 'Workbench',
     'page callback' => 'system_admin_menu_block_page',
-    'access arguments' => array('access workbench'),
+    'access arguments' => array('administer workbench'),
     'position' => 'right',
     'file' => 'system.admin.inc',
     'file path' => drupal_get_path('module', 'system'),
@@ -190,7 +190,7 @@ function workbench_preprocess_views_view_field(&$variables) {
     if (empty($variables['output'])) {
       // We could put the default picture here
       $variables['output'] = theme('image', array(
-        'path' => drupal_get_path('module', 'workbench') . '/images/profile_default.jpg',
+        'path' => drupal_get_path('module', 'workbench') . '/images/profile_default.png',
         'attributes' => array(
           'width' => '100px',
          ),
