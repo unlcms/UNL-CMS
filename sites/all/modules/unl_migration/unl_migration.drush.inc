@@ -12,9 +12,10 @@ function unl_migration_drush_command() {
       'frontier-pass'        => dt('Frontier FTP Password'),
       'ignore-duplicates'    => dt("This may be needed if your site has an unlimited number of dynamicly generated paths."),
       'disable-liferay-code' => dt("Normally, the liferay code won't interfere with non-liferay sites. If you have a /web directory, you should use this."),
+      'use-liferay-titles'   => dt("Liferay doesn't use WDN compliant page titles. This enables their alternate method of finding the page title."),
     ),
     'examples' => array(
-      'drush unl-migration http://example.unl.edu/path/ --use_liferay_code=no'
+      'drush unl-migration http://example.unl.edu/path/ --disable_liferay_code'
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUPAL_FULL,
   );
@@ -46,7 +47,8 @@ function drush_unl_migration() {
     drush_get_option('frontier-user'),
     drush_get_option('frontier-pass'),
     drush_get_option('ignore-duplicates'),
-    !drush_get_option('disable-liferay-code')
+    !drush_get_option('disable-liferay-code'),
+    drush_get_option('use-liferay-titles')
   );
   
   $migration->setLogger(function($message, $severity) {
