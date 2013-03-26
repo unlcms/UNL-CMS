@@ -102,8 +102,6 @@ function unl_site_create_submit($form, &$form_state) {
   $site_path = $form_state['values']['site_path'];
   $clean_url = $form_state['values']['clean_url'];
 
-  $db_prefix = _unl_multisite_create_db_prefix($site_path);
-
   $site_path = explode('/', $site_path);
   foreach (array_keys($site_path) as $i) {
     $site_path[$i] = unl_sanitize_url_part($site_path[$i]);
@@ -113,14 +111,24 @@ function unl_site_create_submit($form, &$form_state) {
 
   $clean_url = intval($clean_url);
 
-  db_insert('unl_sites')->fields(array(
-    'site_path' => $site_path,
-    'uri' => $uri,
-    'clean_url' => $clean_url,
-    'db_prefix' => $db_prefix
-  ))->execute();
+  $id = db_insert('unl_sites')
+    ->fields(array(
+      'site_path' => $site_path,
+      'uri' => $uri,
+      'clean_url' => $clean_url,
+      'db_prefix' => 'placeholder'.time(),
+    ))
+    ->execute();
 
-  drupal_set_message(t('The site @uri has been scheduled for creation. Run cron.php to finish install.', array('@uri' => $uri)));
+  // Replace the db_prefix placeholder with s+site_id e.g. s182
+  db_update('unl_sites')
+    ->fields(array(
+      'db_prefix' => 's'.$id,
+    ))
+    ->condition('site_id', $id, '=')
+    ->execute();
+
+  drupal_set_message(t('The site @uri has been scheduled for creation. Run unl_multisite/cron.php to finish install.', array('@uri' => $uri)));
   $form_state['redirect'] = 'admin/sites/unl/add';
   return;
 }
