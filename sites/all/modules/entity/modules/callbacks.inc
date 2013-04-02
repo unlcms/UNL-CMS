@@ -292,10 +292,11 @@ function entity_metadata_taxonomy_term_get_properties($term, array $options, $na
 function entity_metadata_taxonomy_term_setter($term, $name, $value) {
   switch ($name) {
     case 'vocabulary':
-      // Make sure to also update the taxonomy bundle key.
-      $vocabulary = taxonomy_vocabulary_load($value);
+      // Make sure to update the taxonomy bundle key, so load the vocabulary.
+      // Support both, loading by name or ID.
+      $vocabulary = is_numeric($value) ? taxonomy_vocabulary_load($value) : taxonomy_vocabulary_machine_name_load($value);
       $term->vocabulary_machine_name = $vocabulary->machine_name;
-      return $term->vid = $value;
+      return $term->vid = $vocabulary->vid;
     case 'parent':
       return $term->parent = $value;
   }
@@ -483,7 +484,7 @@ function entity_metadata_field_verbatim_get($entity, array $options, $name, $ent
  */
 function entity_metadata_field_verbatim_set($entity, $name, $items, $langcode, $entity_type) {
   $field = field_info_field($name);
-  $langcode = entity_metadata_field_get_language($entity_type, $entity, $entity_type, $langcode);
+  $langcode = entity_metadata_field_get_language($entity_type, $entity, $field, $langcode);
   $value = $field['cardinality'] == 1 ? array($items) : (array) $items;
   // Filter out any items set to NULL.
   $entity->{$name}[$langcode] = array_filter($value);
@@ -508,8 +509,13 @@ function entity_metadata_field_verbatim_set($entity, $name, $items, $langcode, $
  */
 function entity_metadata_field_get_language($entity_type, $entity, $field, $langcode = LANGUAGE_NONE, $fallback = FALSE) {
   // Try to figure out the default language used by the entity.
-  // @todo: Update once http://drupal.org/node/1260640 has been fixed.
-  $default_langcode = !empty($entity->language) ? $entity->language : LANGUAGE_NONE;
+  // With Drupal >= 7.15 we can use entity_language().
+  if (function_exists('entity_language')) {
+    $default_langcode = entity_language($entity_type, $entity);
+  }
+  else {
+    $default_langcode = !empty($entity->language) ? $entity->language : LANGUAGE_NONE;
+  }
 
   // Determine the right language to use.
   if ($default_langcode != LANGUAGE_NONE && field_is_translatable($entity_type, $field)) {

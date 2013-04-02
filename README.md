@@ -97,6 +97,9 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - theme_image_formatter ignores attributes so classes can't be added to an image in a theme (needed for photo frame). See http://drupal.org/node/1025796#comment-4298698 and http://drupal.org/files/issues/1025796.patch
 
+  *  modules/field/modules/text/text.module
+
+     - Add nl2br() on Plain Text processor. See http://drupal.org/node/1152216#comment-7174876
 
 ## Hacks of Contrib modules:
 
@@ -119,6 +122,10 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
   *  media/includes/media.variables.inc
 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
+
+  *  redirect
+
+     - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
 
   *  webform.module
 

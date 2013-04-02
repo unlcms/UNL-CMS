@@ -1,0 +1,29 @@
+diff --git a/modules/field/modules/text/text.module b/modules/field/modules/text/text.module
+index d73814f..9ba0051 100644
+--- a/modules/field/modules/text/text.module
++++ b/modules/field/modules/text/text.module
+@@ -284,7 +284,9 @@ function text_field_formatter_view($entity_type, $entity, $field, $instance, $la
+ 
+     case 'text_plain':
+       foreach ($items as $delta => $item) {
+-        $element[$delta] = array('#markup' => strip_tags($item['value']));
++        // The text value has no text format assigned to it, so the user input
++        // should equal the output, including newlines.
++        $element[$delta] = array('#markup' => nl2br(check_plain($item['value'])));
+       }
+       break;
+   }
+@@ -316,7 +318,12 @@ function _text_sanitize($instance, $langcode, $item, $column) {
+   if (isset($item["safe_$column"])) {
+     return $item["safe_$column"];
+   }
+-  return $instance['settings']['text_processing'] ? check_markup($item[$column], $item['format'], $langcode) : check_plain($item[$column]);
++  if ($instance['settings']['text_processing']) {
++    return check_markup($item[$column], $item['format'], $langcode);
++  }
++  // Escape all HTML and retain newlines.
++  // @see text_field_formatter_view()
++  return nl2br(check_plain($item[$column]));
+ }
+ 
+ /**

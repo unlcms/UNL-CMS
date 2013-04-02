@@ -47,6 +47,17 @@ function unl_multisite_block_view_my_sites() {
 }
 
 /**
+ * Implements hook_help().
+ */
+function unl_multisite_help($path, $arg) {
+  switch ($path) {
+    case 'admin/sites/unl/aliases':
+    case 'admin/sites/unl/%/aliases':
+      return '<p>Be careful when deleting aliases. While long, ugly paths may not appear to be needed they may still be in use -  for instance in a ProxyPass setup on another server.</p>';
+  }
+}
+
+/**
  * Implementation of hook_menu().
  */
 function unl_multisite_menu() {
@@ -157,34 +168,4 @@ function unl_multisite_theme() {
       'file' => 'unl_site_creation.php',
     ),
   );
-}
-
-/**
- * Creates a db_prefix short enough to not go over MySQL's max table name length.
- */
-function _unl_multisite_create_db_prefix($site_name) {
-  $parent_prefix = '_' . $GLOBALS['databases']['default']['default']['prefix'];
-
-  $site_name = strtolower($site_name);
-  $site_name = preg_replace('/[^[a-z0-9]/', '_', $site_name);
-  $site_name = explode('_', $site_name);
-  foreach ($site_name as $site_word) {
-    $site_words[$site_word] = strlen($site_word);
-  }
-  do {
-    $db_prefix = array();
-    $found = FALSE;
-    foreach ($site_words as $site_word => $length) {
-      $db_prefix[] = substr($site_word, 0, $length);
-      if (max($site_words) == $length && !$found) {
-        $found = TRUE;
-        $site_words[$site_word] = $length-1;
-      }
-    }
-    $db_prefix = implode('_', $db_prefix);
-    $db_prefix = preg_replace('/_+/', '_', $db_prefix);
-    $db_prefix = preg_replace('/(^_)|(_$)/', '', $db_prefix);
-  } while (strlen($db_prefix . '_' . $parent_prefix) > 32);
-
-  return $db_prefix;
 }

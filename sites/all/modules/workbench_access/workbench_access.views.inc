@@ -51,11 +51,7 @@ function workbench_access_views_data() {
       'left_field' => 'nid',
       'field' => 'nid',
     ),
-    //...to node_revision
-    'node_revision' => array(
-      'left_field' => 'nid',
-      'field' => 'nid',
-    ),
+
     //...to taxonomy_term_data
     'taxonomy_term_data' => array(
       'left_field' => 'tid',
@@ -151,7 +147,7 @@ function workbench_access_views_pre_view(&$view, &$display_id, &$args) {
       $style_options['columns']['section'] = 'section';
       $style_options['info']['section'] = array(
         // Only do a sortable section column on Views using the node table.
-        // A PDO error occurs with the node_revisions table.
+        // A PDO error occurs with the node_revision table.
         'sortable' => ($view->base_table == 'node'),
         'align' => '',
         'separator' => '',
@@ -223,11 +219,9 @@ function _workbench_access_views_section_field_definition() {
 function workbench_access_views_data_alter(&$data) {
   if (isset($data['menu_links'])) {
     // Add our join to {workbench_access_node}.
-    $data['menu_links']['table']['join'] = array(
-      'workbench_access_node' => array(
-        'left_field' => 'access_id',
-        'field' => 'mlid',
-      ),
+    $data['menu_links']['table']['join']['workbench_access_node'] = array(
+      'left_field' => 'access_id',
+      'field' => 'mlid',
     );
     return;
   }
@@ -287,7 +281,7 @@ function workbench_access_views_data_alter(&$data) {
   );
   $data['menu_links']['plid'] = array(
     'title' => t('Parent menu link id'),
-    'help' => t('The unique menu link identifier for this item\'s parent.'),
+    'help' => t("The unique menu link identifier for this item's parent."),
     'field' => array(
       'click sortable' => FALSE,
     ),

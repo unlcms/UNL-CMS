@@ -19,6 +19,12 @@ function theme_workbench_element($variables) {
     $title = '<h3>' . check_plain($element['#title']) . '</h3>';
   }
 
+  $contextual = '';
+  if (!empty($element['contextual_links'])) {
+    $contextual = drupal_render($element['contextual_links']);
+    $element['#attributes']['class'][] = 'contextual-links-region';
+  }
+
   // Use #attributes to customize a wrapper <div>.
   $attributes = '';
   if (!empty($element['#attributes'])) {
@@ -31,6 +37,6 @@ function theme_workbench_element($variables) {
   }
 
   // Build simple output.
-  $output = "<div{$attributes}>{$title}{$element['#children']}</div>";
+  $output = "<div{$attributes}>{$title}{$contextual}{$element['#children']}</div>";
   return $output;
 }
