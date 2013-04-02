@@ -7,8 +7,14 @@ require_once dirname(__FILE__) . '/includes/common.php';
  */
 function unl_help($path, $arg) {
   switch ($path) {
+    case 'admin/modules/uninstall':
+      if ((module_exists('unl_multisite') && conf_path() == 'sites/default') || unl_table_is_shared('role_permission')) {
+        return '<h1>Be careful! Uninstalling a module clears its permissions which are shared globally between sites!</h1>';
+      }
     case 'admin/people/permissions':
-      return '<h1>Be careful! Permissions are shared globally between sites on UNLcms!</h1>';
+      if ((module_exists('unl_multisite') && conf_path() == 'sites/default') || unl_table_is_shared('role_permission')) {
+        return '<h1>Be careful! Permissions are shared globally between sites!</h1>';
+      }
     case 'user/unl/technical_feedback':
       return '<p>Consider visiting the Web Developer Network <a href="http://wdn.unl.edu/help/irc.shtml" target="_blank">chat room</a> as well.</p>';
   }
