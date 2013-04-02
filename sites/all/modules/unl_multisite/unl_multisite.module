@@ -47,6 +47,17 @@ function unl_multisite_block_view_my_sites() {
 }
 
 /**
+ * Implements hook_help().
+ */
+function unl_multisite_help($path, $arg) {
+  switch ($path) {
+    case 'admin/sites/unl/aliases':
+    case 'admin/sites/unl/%/aliases':
+      return '<p>Be careful when deleting aliases. While long, ugly paths may not appear to be needed they may still be in use -  for instance in a ProxyPass setup on another server.</p>';
+  }
+}
+
+/**
  * Implementation of hook_menu().
  */
 function unl_multisite_menu() {
