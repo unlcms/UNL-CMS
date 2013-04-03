@@ -200,6 +200,7 @@ function scanner_view() {
     unset($_SESSION['scanner_mode']);
     unset($_SESSION['scanner_wholeword']);
     unset($_SESSION['scanner_published']);
+    unset($_SESSION['scanner_pathauto']);
     unset($_SESSION['scanner_regex']);
     unset($_SESSION['scanner_terms']);
     // Clear old status.
@@ -253,8 +254,9 @@ function scanner_form($form, &$form_state) {
 
   $mode = isset($_SESSION['scanner_mode']) ? $_SESSION['scanner_mode'] : variable_get('scanner_mode', 0);
   $wholeword = isset($_SESSION['scanner_wholeword']) ? $_SESSION['scanner_wholeword'] : variable_get('scanner_wholeword', 0);
-  $published = isset($_SESSION['scanner_published']) ? $_SESSION['scanner_published'] : variable_get('scanner_published', 1);
   $regex = isset($_SESSION['scanner_regex']) ? $_SESSION['scanner_regex'] : variable_get('scanner_regex', 0);
+  $published = isset($_SESSION['scanner_published']) ? $_SESSION['scanner_published'] : variable_get('scanner_published', 1);
+  $pathauto = isset($_SESSION['scanner_pathauto']) ? $_SESSION['scanner_pathauto'] : variable_get('scanner_pathauto', 1);
 
   if (isset($_SESSION['scanner_terms'])) {
     $terms = $_SESSION['scanner_terms'];
@@ -298,14 +300,12 @@ function scanner_form($form, &$form_state) {
     '#collapsible' => FALSE,
     '#description' => t('You can limit matches by providing the text that should appear immediately before or after the search text. Remember to account for spaces.  Note: Case sensitivity and regular expression options will all apply here, too. Whole word is not recommended.'),
   );
-
   $form['options']['surrounding']['preceded'] = array(
     '#type' => 'textfield',
     '#title' => t('Preceded by'),
     '#default_value' => $preceded,
     '#maxlength' => 256,
   );
-
   $form['options']['surrounding']['followed'] = array(
     '#type' => 'textfield',
     '#title' => t('Followed by'),
@@ -319,26 +319,29 @@ function scanner_form($form, &$form_state) {
     '#default_value' => $mode,
     '#description' => t("Check this if the search should only return results that exactly match the capitalization of your search terms."),
   );
-
   $form['options']['wholeword'] = array(
     '#type' => 'checkbox',
     '#title' => t('Match whole word'),
     '#default_value' => $wholeword,
     '#description' => t("Check this if you don't want the search to match any partial words. For instance, if you search for 'run', a whole word search will <em>not</em> match 'running'."),
   );
-
   $form['options']['regex'] = array(
     '#type' => 'checkbox',
     '#title' => t('Use regular expressions in search'),
     '#default_value' => $regex,
     '#description' => t('Check this if you want to use regular expressions in your search terms.'),
   );
-
   $form['options']['published'] = array(
     '#type' => 'checkbox',
     '#title' => t('Published nodes only'),
     '#default_value' => $published,
     '#description' => t('Check this if you only want your search and replace to affect fields in nodes that are published.'),
+  );
+  $form['options']['pathauto'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Maintain custom aliases'),
+    '#default_value' => $pathauto,
+    '#description' => t("Prevent custom URL aliases from being overwritten with ones generated from Path Auto's URL alias patterns."),
   );
 
   $scanner_vocabularies = array_filter(variable_get('scanner_vocabulary', array()));
@@ -399,8 +402,9 @@ function scanner_form_submit($form, &$form_state) {
   //$_SESSION['scanner_notfollowed'] = $form_state['values']['notfollowed'];
   $_SESSION['scanner_mode']      = $form_state['values']['mode'];
   $_SESSION['scanner_wholeword'] = $form_state['values']['wholeword'];
-  $_SESSION['scanner_published'] = $form_state['values']['published'];
   $_SESSION['scanner_regex']     = $form_state['values']['regex'];
+  $_SESSION['scanner_published'] = $form_state['values']['published'];
+  $_SESSION['scanner_pathauto']  = $form_state['values']['pathauto'];
   if (isset($form_state['values']['terms'])) {
     $_SESSION['scanner_terms']     = $form_state['values']['terms'];
   }
@@ -711,8 +715,9 @@ function scanner_execute($searchtype = 'search') {
   $mode        = $_SESSION['scanner_mode'];
   $flag        = $mode ? NULL : 'i'; // Case sensitivity flag for use in php preg_search and preg_replace
   $wholeword   = $_SESSION['scanner_wholeword'];
-  $published   = $_SESSION['scanner_published'];
   $regex       = $_SESSION['scanner_regex'];
+  $published   = $_SESSION['scanner_published'];
+  $pathauto    = $_SESSION['scanner_pathauto'];
   $terms       = isset($_SESSION['scanner_terms']) ? $_SESSION['scanner_terms'] : NULL;
   $results     = NULL;
 
@@ -935,9 +940,23 @@ function scanner_execute($searchtype = 'search') {
       }
       // Replace (and check to see if already processed).
       elseif (!isset($processed[$field][$row->nid])) {
+        // Check first if pathauto_persist, a newer version of pathauto, or some
+        // other module has already set $node->path['pathauto']. If not, set it
+        // to false (to prevent pathauto from touching the node during node_save())
+        // if a custom alias exists that doesn't follow pathauto rules.
+        if (!isset($node->path['pathauto']) && module_exists('pathauto') && $pathauto) {
+          list($id, , $bundle) = entity_extract_ids('node', $node);
+          if (!empty($id)) {
+            module_load_include('inc', 'pathauto');
+            $uri = entity_uri('node', $node);
+            $path = drupal_get_path_alias($uri['path']);
+            $pathauto_alias = pathauto_create_alias('node', 'return', $uri['path'], array('node' => $node), $bundle);
+            $node->path['pathauto'] = ($path != $uri['path'] && $path == $pathauto_alias);
+          }
+        }
+
         $hits = 0;
         $content_new = preg_replace("/$search_php/$flag", $replace, $content, -1, $hits);
-
         preg_match('/(.+)_value$/', $field, $matches);
         if (!empty($matches[0])) {
           // Text Field or Text Area.
@@ -1040,6 +1059,11 @@ function scanner_admin_form($node, &$form_state) {
     '#type' => 'checkbox',
     '#title' => t('Default: Search Published Nodes Only'),
     '#default_value' => variable_get('scanner_published', 1),
+  );
+  $form['settings']['scanner_pathauto'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Default: Maintain Custom Aliases'),
+    '#default_value' => variable_get('scanner_pathauto', 1),
   );
 
   if (module_exists('taxonomy')) {
