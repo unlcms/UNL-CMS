@@ -902,7 +902,7 @@ function unl_init() {
       $base_path_len = strlen(rtrim(dirname($_SERVER['SCRIPT_NAME']), '\/'));
       $path = substr(urldecode($request_path), $base_path_len + 1);
 
-      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())));
+      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())), array(), 301);
     }
   }
 
