@@ -1,0 +1,5 @@
+name = Search and Replace Scanner
+description = Perform search and replace on chosen text fields.
+
+core = 7.x
+configure = admin/config/content/formats
