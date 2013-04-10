@@ -16,6 +16,7 @@ function module_filter_uninstall() {
   variable_del('module_filter_dynamic_save_position');
   variable_del('module_filter_use_url_fragment');
   variable_del('module_filter_use_switch');
+  variable_del('module_filter_track_recent_modules');
   variable_del('module_filter_remember_update_state');
 }
 
