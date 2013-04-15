@@ -1101,7 +1101,7 @@ function scanner_admin_form($node, &$form_state) {
     $form['tables'][$key] = array(
       '#type' => 'checkbox',
       '#title' => filter_xss('<strong>' . $item['type'] . ':</strong> ' . $item['field'], $allowed_values = array('strong', 'p')),
-      '#default_value' => variable_get($key, FALSE),
+      '#default_value' => variable_get($key, TRUE),
     );
   }
 
@@ -1195,7 +1195,7 @@ function _scanner_get_selected_tables_map() {
   $tables_map = _scanner_get_all_tables_map();
   foreach ($tables_map as $i => $item) {
     $key = 'scanner_' . $item['field'] . '_' . $item['table'] . '_' . $item['type'];
-    if (!variable_get($key, FALSE)) {
+    if (!variable_get($key, TRUE)) {
       unset($tables_map[$i]);
     }
   }
