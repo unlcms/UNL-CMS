@@ -12,7 +12,7 @@
  *
  * The 'options' form element type is useful when collecting a series of
  * values in a list. The values within the list may optionally have unique
- * keys, such as that in a array structure. In addition, a default choice
+ * keys, such as that in an array structure. In addition, a default choice
  * (or several default choices) may be selected by the user.
  *
  * @code
@@ -89,13 +89,13 @@ function options_element_element_info() {
     '#optgroups' => TRUE,
     '#multiple' => FALSE,
     '#options' => array(),
+    '#options_readonly' => FALSE,
     '#key_type' => 'mixed',
     '#key_type_toggle' => NULL,
     '#key_type_toggled' => FALSE,
     '#default_value_allowed' => TRUE,
     '#default_value_pattern' => '',
     '#element_validate' => array('form_options_validate'),
-    '#disabled' => FALSE,
   );
 
   return $type;
