@@ -279,6 +279,22 @@ function form_builder_get_element_ids($form) {
 }
 
 /**
+ * Recursive function to get the types of all element within a form.
+ */
+function form_builder_get_element_types($form) {
+  $element_types = array();
+  foreach (element_children($form) as $key) {
+    if (isset($form[$key]['#form_builder']['element_type'])) {
+      $element_types[] = $form[$key]['#form_builder']['element_type'];
+    }
+    $additional_types = form_builder_get_element_types($form[$key]);
+    $element_types = array_merge($element_types, $additional_types);
+  }
+
+  return $element_types;
+}
+
+/**
  * Loader function to retrieve a form builder configuration array.
  *
  * @param $form_type
@@ -333,7 +349,7 @@ function form_builder_add_default_properties($form, $form_type, $key = NULL, $pa
       else {
         // If the type cannot be found, prevent editing of this field.
         unset($form['#form_builder']);
-        return;
+        return $form;
       }
     }
 

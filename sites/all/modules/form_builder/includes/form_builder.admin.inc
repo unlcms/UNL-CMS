@@ -67,14 +67,14 @@ function form_builder_add_page($form_type, $form_id, $element_type) {
 
     if (isset($_REQUEST['js'])) {
       $element = form_builder_cache_field_load($form_type, $form_id, $element_id);
-      $preview_form = form_builder_cache_load($form_type, $form_id);
+      $form_cache = form_builder_cache_load($form_type, $form_id);
 
       $data = array(
         'formType' => $form_type,
         'formId' => $form_id,
         'elementId' => $element_id,
         'html' => form_builder_field_render($form_type, $form_id, $element_id),
-        'positionForm' => drupal_render(drupal_get_form('form_builder_positions', $preview_form, $form_type, $form_id)),
+        'positionForm' => drupal_render(drupal_get_form('form_builder_positions', $form_cache, $form_type, $form_id)),
       );
 
       form_builder_json_output($data);
@@ -147,7 +147,7 @@ function form_builder_field_palette() {
     $groups = module_invoke_all('form_builder_palette_groups');
     // TODO: We shouldn't have to clear the cache here.
     $form = form_builder_cache_load($active['form_type'], $active['form_id'], NULL, TRUE);
-    $active_fields = form_builder_get_element_ids($form);
+    $active_fields = form_builder_get_element_types($form);
     foreach ($fields as $key => $field) {
       if ($field['unique'] && in_array($key, $active_fields)) {
         $fields[$key]['in_use'] = TRUE;
@@ -199,6 +199,9 @@ function form_builder_preview($f, &$form_state, $form, $form_type, $form_id) {
   $form['#attached']['js'][] = 'misc/form.js';
   $form['#attached']['js'][] = 'misc/collapse.js';
 
+  $form['#attached']['js'][] = drupal_get_path('module', 'filter') . '/filter.js';
+  $form['#attached']['css'][] = drupal_get_path('module', 'filter') . '/filter.css';
+
   $form['#attached']['js'][] = array('data' => array('machineName' => array()), 'type' => 'setting');
   $form['#attached']['js'][] = 'misc/machine-name.js';
 
@@ -220,17 +223,17 @@ function form_builder_preview($f, &$form_state, $form, $form_type, $form_id) {
 /**
  * Form containing all the current weights and parents of elements.
  */
-function form_builder_positions($form, &$form_state, $preview_form, $form_type, $form_id) {
+function form_builder_positions($form, &$form_state, $form_cache, $form_type, $form_id) {
   $form = array(
     '#tree' => TRUE,
     '#form_builder' => array(
       'form_type' => $form_type,
       'form_id' => $form_id,
-      'form' => $preview_form,
+      'form' => $form_cache,
     ),
   );
 
-  form_builder_positions_prepare($form, $preview_form);
+  _form_builder_positions_prepare($form, $form_cache);
 
   // Drupal MUST have a button to register submissions.
   // Add a button even though the form is only submitted via AJAX.
@@ -245,30 +248,30 @@ function form_builder_positions($form, &$form_state, $preview_form, $form_type, 
 /**
  * Recursive helper for form_builder_positions(). Add weight fields.
  */
-function form_builder_positions_prepare(&$form, &$preview_form, $parent_id = FORM_BUILDER_ROOT) {
-  foreach (element_children($preview_form) as $key) {
+function _form_builder_positions_prepare(&$form, $form_cache, $parent_id = FORM_BUILDER_ROOT) {
+  foreach (element_children($form_cache) as $key) {
     // Keep record of the current parent ID.
     $previous_parent_id = $parent_id;
 
-    if (isset($preview_form[$key]['#form_builder']['element_id'])) {
+    if (isset($form_cache[$key]['#form_builder']['element_id'])) {
       // Set the parent ID for this element.
-      $preview_form[$key]['#form_builder']['parent_id'] = $parent_id;
-      $element_id = $preview_form[$key]['#form_builder']['element_id'];
+      $form_cache[$key]['#form_builder']['parent_id'] = $parent_id;
+      $element_id = $form_cache[$key]['#form_builder']['element_id'];
       $parent_id = $element_id;
 
       $form[$element_id]['weight'] = array(
         '#type' => 'hidden',
-        '#default_value' => isset($preview_form[$key]['#weight']) ? $preview_form[$key]['#weight'] : 0,
+        '#default_value' => isset($form_cache[$key]['#weight']) ? $form_cache[$key]['#weight'] : 0,
         '#attributes' => array('class' => array('form-builder-weight form-builder-element-' . $element_id)),
       );
       $form[$element_id]['parent'] = array(
         '#type' => 'hidden',
-        '#default_value' => $preview_form[$key]['#form_builder']['parent_id'],
+        '#default_value' => $form_cache[$key]['#form_builder']['parent_id'],
         '#attributes' => array('class' => array('form-builder-parent form-builder-element-' . $element_id)),
       );
     }
 
-    form_builder_positions_prepare($form, $preview_form[$key], $parent_id);
+    _form_builder_positions_prepare($form, $form_cache[$key], $parent_id);
     $parent_id = $previous_parent_id;
   }
 }
@@ -282,7 +285,7 @@ function form_builder_positions_submit(&$form, &$form_state) {
 
   $form_type = $form['#form_builder']['form_type'];
   $form_id = $form['#form_builder']['form_id'];
-  $preview_form = $form['#form_builder']['form'];
+  $form_cache = $form['#form_builder']['form'];
 
   foreach (element_children($form) as $element_id) {
     // Skip items without weight value (like the form token, build_id, etc).
@@ -291,14 +294,17 @@ function form_builder_positions_submit(&$form, &$form_state) {
     }
 
     // Check for changed weights or parents.
-    $element = form_builder_get_element($preview_form, $element_id);
+    $element = form_builder_get_element($form_cache, $element_id);
     $element['#weight'] = $form_state['values'][$element_id]['weight'];
     $element['#form_builder']['parent_id'] = $form_state['values'][$element_id]['parent'];
-    form_builder_set_element($preview_form, $element);
+    form_builder_set_element($form_cache, $element);
   }
 
   // Save all the changes made.
-  form_builder_cache_save($form_type, $form_id, $preview_form);
+  form_builder_cache_save($form_type, $form_id, $form_cache);
+
+  // Don't redirect, which will cause an unnecessary HTTP request.
+  $form_state['redirect'] = FALSE;
 }
 
 /**

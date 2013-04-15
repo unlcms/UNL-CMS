@@ -242,7 +242,7 @@ function form_builder_property_default_value_form(&$form_state, $form_type, $ele
     // exception, though.
     '#type' => $element['#type'] == 'textarea' ? 'textarea' : 'textfield',
     '#title' => t('Default value'),
-    '#default_value' => $element['#default_value'],
+    '#default_value' => $element['#type'] == 'value' ? $element['#value'] : $element['#default_value'],
     '#weight' => 1,
   );
 

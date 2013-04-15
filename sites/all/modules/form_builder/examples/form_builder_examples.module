@@ -446,10 +446,10 @@ function form_builder_examples_export_recurse($form, $parents = array()) {
         }
         else {
           if (($property == '#title') || ($property == '#description')) {
-            $output .= "  '". $property . "' => t('" . $form[$property] ."'),\n";
+            $output .= "  '". $property . "' => t('" . str_replace("'", "\'", $form[$property]) ."'),\n";
           }
           else {
-            $output .= "  '". $property . "' => '" . $form[$property] ."',\n";
+            $output .= "  '". $property . "' => '" . str_replace("'", "\'", $form[$property]) ."',\n";
           }
         }
       }
