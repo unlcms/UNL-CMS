@@ -1144,7 +1144,7 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       );
     } catch (Exception $e) {
       // Either the site has no settings.php or the db_prefix is wrong.
-      drupal_set_message('Error querying database for site ' . $site->uri, 'warning');
+      watchdog('unl_multisite', 'Error querying database for site %uri', array('%uri' => $site->uri), WATCHDOG_WARNING);
     }
   }
 

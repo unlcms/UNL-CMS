@@ -204,7 +204,7 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
 {
   unl_load_zend_framework();
   if (!Zend_Uri::check($url)) {
-    drupal_set_message('A non-url was passed to ' . __FUNCTION__ . '().', 'warning');
+    watchdog('unl', 'A non-url was passed to %func().', array('%func' => __FUNCTION__), WATCHDOG_WARNING);
     return FALSE;
   }
   
