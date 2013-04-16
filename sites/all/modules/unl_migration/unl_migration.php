@@ -1022,6 +1022,7 @@ class Unl_Migration_Tool
       $siteNameMap = array(
         'extension' => 'www.extension.unl.edu',
         'webster'   => 'www.webster.unl.edu',
+        'ianr'      => 'ianrhome.unl.edu',
       );
 
       if (
