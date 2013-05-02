@@ -579,6 +579,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'checkbox',
       '#title' => 'SSL Enabled',
       '#default_value' => variable_get('https', FALSE),
+      '#disabled' => !unl_user_is_administrator(),
     );
 
     if (conf_path() != 'sites/default') {
@@ -592,6 +593,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
         '#type' => 'select',
         '#options' => $base_urls,
         '#default_value' => variable_get('unl_primary_base_url'),
+        '#disabled' => !unl_user_is_administrator(),
       );
       $form['#submit'][] = 'unl_system_settings_form_submit';
     }
