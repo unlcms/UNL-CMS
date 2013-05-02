@@ -256,7 +256,13 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     $matches = array();
     if (preg_match('/max-age=([0-9]+)/', $cacheControl, $matches)) {
       $expires = time() + $matches[1];
-      $cacheable = TRUE;
+      if (array_key_exists('age', $lowercaseHeaders)) {
+        $expires -= $lowercaseHeaders['age'];
+      }
+
+      if ($expires > time()) {
+        $cacheable = TRUE;
+      }
     }
     if (strpos($cacheControl, 'private') !== FALSE) {
       $cacheable = FALSE;
