@@ -236,6 +236,7 @@ function unl_cas_import_user($username) {
     'status'   => 1,
     'timezone' => variable_get('date_default_timezone', date_default_timezone_get()),
     'data'     => array('unl' => array(
+      'fullName'           => '',
       'affiliations'       => '',
       'primaryAffiliation' => '',
       'department'         => '',
@@ -249,6 +250,7 @@ function unl_cas_import_user($username) {
     $result = array_change_key_case($result, CASE_LOWER);
     $userData['mail'] = $result['mail'][0];
     $userData['data']['unl'] = array(
+      'fullName'           => (isset($result['edupersonnickname']) ? $result['edupersonnickname'][0] : $result['givenname'][0]) . ' ' . $result['sn'][0],
       'affiliations'       => $result['edupersonaffiliation'],
       'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
       'department'         => (isset($result['unlhrprimarydepartment']) ? $result['unlhrprimarydepartment'][0] : ''),
