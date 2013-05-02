@@ -227,6 +227,11 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     return $data->data['body'];
   }
 
+  if (!$context) {
+    // Set a 5 second timeout
+    $context = stream_context_create(array('http' => array('timeout' => 5)));
+  }
+
   // Make the request
   $http_response_header = array();
   $body = file_get_contents($url, NULL, $context);
