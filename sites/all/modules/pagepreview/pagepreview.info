@@ -1,4 +1,10 @@
-; $Id$
 name = Page Preview
 description = Allows node previews to be viewed as fully-rendered pages.
 core = 7.x
+
+; Information added by drupal.org packaging script on 2012-11-06
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "pagepreview"
+datestamp = "1352208035"
+
