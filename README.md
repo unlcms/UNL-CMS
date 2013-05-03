@@ -123,6 +123,10 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
 
+  *  upload_replace.module
+
+     - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558
+
   *  webform.module
 
      - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
