@@ -25,8 +25,6 @@ Disallow: /modules/
 Disallow: /profiles/
 Disallow: /scripts/
 Disallow: /themes/
-# UNL
-Disallow: /book/export/html/
 # Files
 Disallow: /CHANGELOG.txt
 Disallow: /cron.php
@@ -60,3 +58,6 @@ Disallow: /?q=user/password/
 Disallow: /?q=user/register/
 Disallow: /?q=user/login/
 Disallow: /?q=user/logout/
+# UNL
+Disallow: /book/export/html/
+Disallow: /?q=book/export/html/
