@@ -25,6 +25,8 @@ Disallow: /modules/
 Disallow: /profiles/
 Disallow: /scripts/
 Disallow: /themes/
+# UNL
+Disallow: /book/export/html/
 # Files
 Disallow: /CHANGELOG.txt
 Disallow: /cron.php
