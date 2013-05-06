@@ -4,3 +4,6 @@
 [submodule "vendor/NmcFramework"]
 	path = vendor/NmcFramework
 	url = git@github.unl.edu:UNL-Information-Services/NMC-PHP-Framework.git
+[submodule "sites/all/modules/diff"]
+	path = sites/all/modules/diff
+	url = http://git.drupal.org/project/diff.git
