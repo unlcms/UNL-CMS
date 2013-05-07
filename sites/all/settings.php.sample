@@ -1,0 +1,54 @@
+<?php
+
+// Enable or disable maintenance mode.
+// $conf['maintenance_mode'] = 0;
+
+// Tell drupal its ok to let varnish cache pages.
+$conf['page_cache_invoke_hooks'] = FALSE;
+
+$conf['unl_clean_file_url'] = TRUE;
+
+// Enable page caching with a 1 day lifetime.
+$conf['cache'] = true;
+$conf['page_cache_maximum_age'] = 86400;
+$conf['preprocess_css'] = 1;
+$conf['preprocess_js'] = 1;
+
+// If the UNL CAS cookie is set, we don't want pages cached.
+if (isset($_COOKIE['unl_sso']) && request_path() != 'admin/config/development/performance') {
+  $conf['cache'] = FALSE;
+}
+
+// Configure the memcache cache backend.
+$conf['cache_backends'][] = 'sites/all/modules/memcache/memcache.inc';
+$conf['memcache_servers'] = array('127.0.0.1:11211' => 'default');
+$conf['memcache_key_prefix'] = 'host.example.com/path' . conf_path();
+
+// Configure the varnish cache backend.
+$conf['cache_backends'][] = 'sites/all/modules/varnish/varnish.cache.inc';
+$conf['varnish_control_terminal'] = '127.0.0.1:6082';
+$conf['varnish_control_key'] = 'password';
+$conf['varnish_cache_clear'] = 1;
+
+// Set the default cache backend.
+$conf['cache_default_class'] = 'MemCacheDrupal';
+#$conf['cache_class_cache_page'] = 'VarnishCache';
+
+$databases = array (
+  'default' =>
+  array (
+    'default' =>
+    array (
+      'driver' => 'mysql',
+      'database' => 'drupal',
+      'username' => 'drupal',
+      'password' => 'password',
+      'host' => 'localhost',
+      'port' => '',
+      'prefix' => 'drupal_',
+    ),
+  ),
+);
+
+$conf['reverse_proxy'] = TRUE;
+$conf['reverse_proxy_addresses'] = array('127.0.0.1');
