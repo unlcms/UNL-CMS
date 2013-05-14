@@ -1119,9 +1119,11 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
     if (!isset($parts['host'])) {
       $parts['host'] = $_SERVER['SERVER_NAME'];
     }
+    /* We can't do this on production because we're running on port 8080.
     if (!isset($parts['port']) && !in_array($_SERVER['SERVER_PORT'], array(80, 443))) {
       $parts['port'] = $_SERVER['SERVER_PORT'];
     }
+    */
     if (isset($parts['path']) && substr($parts['path'], 0, 1) != '/') {
       if (variable_get('unl_use_base_tag')) {
         $parts['path'] = $GLOBALS['base_path'] . $parts['path'];
