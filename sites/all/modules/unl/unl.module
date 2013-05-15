@@ -1033,7 +1033,10 @@ function unl_query_alter(QueryAlterableInterface $query) {
       // Join it with the users_roles tables so that only users with roles are seleceted.
       $query->join('users_roles', 'unl_distinct_prefix_r', $usersTableAlias . '.uid = unl_distinct_prefix_r.uid');
       if (!unl_user_is_administrator()) {
+        // Hide users that are only in the administrator role
         $query->where('unl_distinct_prefix_r.rid != ' . unl_shared_variable_get('user_admin_role', -1));
+        // Hide the default admin user.
+        $query->where($usersTableAlias . '.uid != 1');
       }
     }
   }
