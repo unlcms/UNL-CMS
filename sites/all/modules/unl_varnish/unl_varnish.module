@@ -60,7 +60,7 @@ function unl_varnish_purge_submit($form, &$form_state) {
  */
 function unl_varnish_purge_all_sites_submit($form, &$form_state) {
   $path = $form_state['values']['varnish_path'];
-  _varnish_terminal_run("purge.url $path");
+  varnish_purge('.*', $path);
   drupal_set_message("Varnish purged paths matching $path.", 'status');
 }
 
@@ -150,6 +150,6 @@ function unl_varnish_purge_all_pages() {
     $host = parse_url($alias, PHP_URL_HOST);
     $path = parse_url($alias, PHP_URL_PATH);
 
-    _varnish_terminal_run("purge req.http.host ~ $host && req.url ~ ^$path");
+    varnish_purge($host, $path);
   }
 }
