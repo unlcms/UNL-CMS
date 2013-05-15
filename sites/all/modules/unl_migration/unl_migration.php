@@ -1031,6 +1031,7 @@ class Unl_Migration_Tool
       if (
            count($pathParts) >= 2 && $pathParts[0] == 'web'
         && !(in_array($urlParts['host'], array_keys($this->_liferaySubsites)) && in_array($pathParts[1], $this->_liferaySubsites[$urlParts['host']]))
+        && substr(parse_url($this->_baseUrl, PHP_URL_PATH), 0, 5) != '/web/'
       ) {
 
         // If the site name is "special" look it up in the map. Otherwise, just add .unl.edu
