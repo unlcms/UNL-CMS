@@ -13,10 +13,10 @@ This package generates php class files (objects) from Dreamweaver template files
   <email>brett.bieber@gmail.com</email>
   <active>yes</active>
  </lead>
- <date>2012-10-02</date>
- <time>11:50:32</time>
+ <date>2013-05-24</date>
+ <time>10:02:57</time>
  <version>
-  <release>0.8.0</release>
+  <release>0.9.0</release>
   <api>0.7.1</api>
  </version>
  <stability>
@@ -24,22 +24,21 @@ This package generates php class files (objects) from Dreamweaver template files
   <api>beta</api>
  </stability>
  <license uri="http://www1.unl.edu/wdn/wiki/Software_License">BSD</license>
- <notes>Feature Release:
+ <notes>Feature Release
+* Add support for immedaitely rendering a scanned DWT [saltybeagle]
 
-* Dreamweaver templates using params are now properly supported
-* Minor API changes
-** Add UNL_DWT::getTemplateFile() which is used during the rendering process
-
+Bug Fixes
+ * Prevent greedy matching of template regions [spam38]
 </notes>
  <contents>
   <dir name="/">
-   <file role="php" name="php/UNL/DWT/Scanner.php" md5sum="042fb529bbc104b3eb742e8946e0961e"/>
+   <file role="php" name="php/UNL/DWT/Scanner.php" md5sum="276e82e5db587c9c18a100e1e877082e"/>
    <file role="php" name="php/UNL/DWT/Region.php" md5sum="858136d43bf29868dca876783e51d196"/>
    <file role="php" name="php/UNL/DWT/Generator.php" md5sum="a3b933a0d7f8d81f72836bb2c5fb6914"/>
    <file role="php" name="php/UNL/DWT/Exception.php" md5sum="5b99b44fbfde7349c6b9e6d9be78e9dc"/>
    <file role="php" name="php/UNL/DWT/createTemplates.php" md5sum="9089565d275b52e0cd65c52edd50ef18"/>
-   <file role="php" name="php/UNL/DWT.php" md5sum="0889c13bcecd0ebf5e517367345772f9"/>
-   <file role="doc" name="doc/pear.unl.edu/UNL_DWT/examples/scanner_example.php" md5sum="f0807792c3c0c4a0524f9186e69e0be7"/>
+   <file role="php" name="php/UNL/DWT.php" md5sum="ca9d707c266ad9150e39d1a9a60c5643"/>
+   <file role="doc" name="doc/pear.unl.edu/UNL_DWT/examples/scanner_example.php" md5sum="2d16f0e62c4227aa28108bf78d74156a"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_DWT/examples/basic/Template_style1.tpl" md5sum="b524ef4684be7dba47ed8c245577347a"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_DWT/examples/basic/Template_style1.php" md5sum="096998b112a1e27bddc6c171380d590e"/>
    <file role="doc" name="doc/pear.unl.edu/UNL_DWT/examples/basic/template_style1.dwt" md5sum="0d5a4f5ca86e9c2a3c0050f39acbb034"/>
