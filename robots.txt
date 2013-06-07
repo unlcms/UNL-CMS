@@ -60,4 +60,6 @@ Disallow: /?q=user/login/
 Disallow: /?q=user/logout/
 # UNL
 Disallow: /book/export/html/
+Disallow: /*/book/export/html/
 Disallow: /?q=book/export/html/
+Disallow: /?q=*/book/export/html/
