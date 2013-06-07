@@ -1,0 +1,11 @@
+name = Trailing Slash
+description = Adds trailing slashes to all Drupal generated URLs.
+core = 7.x
+configure = admin/config/search/clean-urls
+
+; Information added by drupal.org packaging script on 2012-07-03
+version = "7.x-1.0"
+core = "7.x"
+project = "trailing_slash"
+datestamp = "1341302749"
+

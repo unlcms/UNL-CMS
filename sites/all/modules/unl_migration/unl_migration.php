@@ -168,16 +168,17 @@ class Unl_Migration_Tool
 
     private $_liferaySubsites     = array(
       'cropwatch.unl.edu'     => array('corn', 'drybeans', 'forages', 'organic', 'potato', 'sorghum', 'soybeans', 'wheat', 'bioenergy', 'insect', 'economics', 'ssm', 'soils', 'tillage', 'weed', 'varietytest', 'biotechnology', 'farmresearch', 'cropwatch-youth', 'militaryresources', 'gaps', 'sugarbeets'),
-      '4h.unl.edu'            => array('extension-4-h-horse', '4hcamps', '4hcurriclum'),
-      'animalscience.unl.edu' => array('fernando-lab', 'anscgenomics', 'rprb-lab', 'ruminutrition-lab'),
+      '4h.unl.edu'            => array('extension-4-h-horse'),
+      'animalscience.unl.edu' => array('fernando-lab', 'anscgenomics', 'rprb-lab', 'ruminutrition-lab', 'pre-vet-program'),
       'beef.unl.edu'          => array('cattleproduction'),
       'biochem.unl.edu'       => array('barycki', 'bailey', 'becker', 'adamec', 'wilson', 'biochem-fatttlab', 'simpson'),
       'bse.unl.edu'           => array('p2guidelines'),
       'edmedia.unl.edu'       => array('techtraining'),
       'food.unl.edu'          => array('localfoods', 'allergy', 'fnh', 'preservation', 'fpc', 'safety', 'meatproducts', 'youth'),
-      'ianrhome.unl.edu'      => array('ianrinternational'),
+      'ianrhome.unl.edu'      => array('ianrinternational', 'liaison'),
       'water.unl.edu'         => array('crops', 'cropswater', 'drinkingwater', 'drought', 'wildlife', 'hydrology', 'lakes', 'landscapes', 'landscapewater', 'laweconomics', 'manure', 'propertydesign', 'research', 'sewage', 'students', 'watershed', 'wells', 'wetlands'),
       'westcentral.unl.edu'   => array('wcentomology', 'wcacreage'),
+      'agecon.unl.edu'        => array('policy'),
     );
 
     /**
@@ -1020,13 +1021,17 @@ class Unl_Migration_Tool
       $pathParts = explode('/', ltrim($urlParts['path'], '/'));
 
       $siteNameMap = array(
-        'extension' => 'www.extension.unl.edu',
-        'webster'   => 'www.webster.unl.edu',
+        'anisci'     => 'animalscience.unl.edu',
+        'extension'  => 'www.extension.unl.edu',
+        'ianr'       => 'ianrhome.unl.edu',
+        'webster'    => 'www.webster.unl.edu',
+        'vetscience' => 'vbms.unl.edu',
       );
 
       if (
            count($pathParts) >= 2 && $pathParts[0] == 'web'
         && !(in_array($urlParts['host'], array_keys($this->_liferaySubsites)) && in_array($pathParts[1], $this->_liferaySubsites[$urlParts['host']]))
+        && substr(parse_url($this->_baseUrl, PHP_URL_PATH), 0, 5) != '/web/'
       ) {
 
         // If the site name is "special" look it up in the map. Otherwise, just add .unl.edu

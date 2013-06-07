@@ -37,13 +37,13 @@ function _form_builder_webform_form_builder_map_date() {
         'form_parents' => array('default', 'timezone'),
         'storage_parents' => array('extra', 'timezone'),
       ),
-      'year_start' => array(
-        'form_parents' => array('validation', 'year_start'),
-        'storage_parents' => array('extra', 'year_start'),
+      'start_date' => array(
+        'form_parents' => array('validation', 'start_date'),
+        'storage_parents' => array('extra', 'start_date'),
       ),
-      'year_end' => array(
-        'form_parents' => array('validation', 'year_end'),
-        'storage_parents' => array('extra', 'year_end'),
+      'end_date' => array(
+        'form_parents' => array('validation', 'end_date'),
+        'storage_parents' => array('extra', 'end_date'),
       ),
       'year_textfield' => array(
         'form_parents' => array('display', 'year_textfield'),
@@ -202,6 +202,22 @@ function _form_builder_webform_form_builder_map_file() {
       ),
     ),
   );
+}
+
+/**
+ * Implements _form_builder_webform_form_builder_load_component().
+ */
+function _form_builder_webform_form_builder_load_file($form_element) {
+  if (isset($form_element['#upload_validators'])) {
+    // Extension list and size comes from #upload_validators on load.
+    $form_element['#webform_file_extensions']['types'] = empty($form_element['#upload_validators']['file_validate_extensions'][0]) ? array() : explode(' ', $form_element['#upload_validators']['file_validate_extensions'][0]);
+    $form_element['#webform_file_size'] = empty($form_element['#upload_validators']['file_validate_size'][0]) ? '' : format_size($form_element['#upload_validators']['file_validate_size'][0]);
+    // File directory and scheme come from #upload_location on load.
+    $form_element['#webform_file_directory'] = preg_replace('/^webform[\/]?/', '', file_uri_target($form_element['#upload_location']));
+    $form_element['#webform_file_scheme'] = file_uri_scheme($form_element['#upload_location']);
+  }
+
+  return $form_element;
 }
 
 /**
@@ -385,6 +401,17 @@ function _form_builder_webform_form_builder_types_hidden() {
 }
 
 /**
+ * Implements _form_builder_webform_form_builder_load_component().
+ */
+function _form_builder_webform_form_builder_load_hidden($form_element) {
+  // Hidden elements may be #type "value" or "hidden". Set the internal property
+  // to keep track of hidden fields.
+  $form_element['#form_builder']['element_type'] = 'hidden';
+
+  return $form_element;
+}
+
+/**
  * Implements _form_builder_webform_form_builder_preview_alter_component().
  */
 function _form_builder_webform_form_builder_preview_alter_hidden($form_element) {
@@ -399,12 +426,7 @@ function _form_builder_webform_form_builder_preview_alter_hidden($form_element) 
 
   // Display the title of the hidden field as regular markup.
   $form_element['#children'] = t('@title - <em>hidden field</em>', array('@title' => $form_element['#title']));
-  $form_element['#title_display'] = 'none';
-
-  // Give the element a wrapper class so that themers can recognize it
-  // represents a hidden element.
-  $form_element['#attributes']['class'][] = 'form-builder-preview-hidden-webform-element';
-  array_unshift($form_element['#theme_wrappers'], 'container');
+  $form_element['#title'] = NULL;
 
   return $form_element;
 }
@@ -598,10 +620,28 @@ function _form_builder_webform_form_builder_load_pagebreak($form_element) {
   // Pagebreak components are rendered as hidden elements by webform, but
   // hidden elements do not have a #title property. So we have to convert the
   // rendered value to be used as the #title instead.
-  if ($form_element['#type'] == 'pagebreak') {
-    $form_element['#title'] = $form_element['#value'];
-  }
+  $form_element['#title'] = $form_element['#value'];
+  $form_element['#form_builder']['element_type'] = 'pagebreak';
+
   return $form_element;
+}
+
+/**
+ * Implements _form_builder_webform_form_builder_save_component().
+ */
+function _form_builder_webform_form_builder_save_pagebreak($component, $form_element) {
+  // Ensure pagebreaks are saved at the root level.
+  if ($component['pid'] !== 0) {
+    drupal_set_message(t('Page breaks may not be nested inside fieldsets. Each pagebreak has been moved outside of fieldsets.'), 'status', FALSE);
+
+    $form_cache = form_builder_cache_load('webform', $form_element['#form_builder']['form_id']);
+    $parent = form_builder_get_element($form_cache, $form_element['#form_builder']['parent_id']);
+
+    $component['weight'] = $parent['#weight'] + 1;
+    $component['pid'] = 0;
+  }
+
+  return $component;
 }
 
 /**
@@ -746,7 +786,7 @@ function _form_builder_webform_form_builder_save_select($component, $form_elemen
  */
 function form_builder_webform_property_select_options_form(&$form_state, $form_type, $element) {
   // Use the default options form, but enhance to allow Webform tokens.
-  $form = form_builder_property_options_form($form_state, $form_type, $element);
+  $form = form_builder_property_options_form($form_state, $form_type, $element, 'options');
   $form['options']['#default_value_pattern'] = '^%.+\[.+\]$';
   return $form;
 }
@@ -885,7 +925,7 @@ function _form_builder_webform_form_builder_map_time() {
         'storage_parents' => array('extra', 'timezone'),
       ),
       'hourformat' => array(
-        'storage_parents' => array('display', 'hourformat'),
+        'form_parents' => array('display', 'hourformat'),
         'storage_parents' => array('extra', 'hourformat'),
       ),
     ),
@@ -916,8 +956,9 @@ function _form_builder_webform_mapped_form(&$form_state, $form_type, $element, $
 function _form_builder_webform_save_mapped_component($component, $element) {
   if ($map = _form_builder_webform_property_map($component['type'])) {
     foreach ($map['properties'] as $property => $property_map) {
-      if (isset($element['#' . $property]) && isset($property_map['storage_parents'])) {
-        _form_builder_webform_save_mapped_component_value($component, $element['#' . $property], $property_map['storage_parents']);
+      if (isset($property_map['storage_parents'])) {
+        $property_value = isset($element['#' . $property]) ? $element['#' . $property] : NULL;
+        _form_builder_webform_save_mapped_component_value($component, $property_value, $property_map['storage_parents']);
       }
     }
   }
@@ -967,6 +1008,9 @@ function _form_builder_webform_default($component_type, $merge_extras = array())
   // Call the loading function to make sure that the default element gets the
   // same treatment as an existing one.
   $default_element = _form_builder_webform_set_mapped_type($default_element);
+  if ($element = form_builder_webform_component_invoke($component_type, 'form_builder_load', $default_element)) {
+    $default_element = $element;
+  }
 
   return $default_element;
 }
@@ -1016,11 +1060,12 @@ function _form_builder_webform_build_edit_form($component_type, $element, $prope
   // component.
   $defaults_function = '_webform_defaults_' . $component_type;
   $component = isset($element['#webform_component']) ? $element['#webform_component'] : $defaults_function();
+  $nid = isset($component['nid']) ? $component['nid'] : NULL;
 
   // The most up-to-date configuration data stored by Form Builder for the
   // part of the component we are editing is also stored in the passed-in
   // element, and should always take precedence.
-  if (isset($element["#$property"])) {
+  if (array_key_exists("#$property", $element)) {
     drupal_array_set_nested_value($component, $component_nested_keys, $element["#$property"]);
   }
 
@@ -1028,7 +1073,10 @@ function _form_builder_webform_build_edit_form($component_type, $element, $prope
   // the component, and obtain the slice of it that we want.
   $empty_form = array();
   $empty_form_state = form_state_defaults();
-  $node = (object) array('nid' => NULL);
+
+  // The full node is needed here so that the "private" option can be access
+  // checked.
+  $node = !isset($nid) ? (object) array('nid' => NULL) : node_load($nid);
   $form = webform_component_edit_form($empty_form, $empty_form_state, $node, $component);
   $form = drupal_array_get_nested_value($form, $form_nested_keys);
 
