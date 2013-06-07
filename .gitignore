@@ -12,3 +12,8 @@ sites/default/settings.php
 .project
 .settings
 .settings/*
+
+/sites/all/themes/explore_center
+/resetunlcms.sh
+/UNL_CMS.sublime-project
+/UNL_CMS.sublime-workspace
