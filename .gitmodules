@@ -13,3 +13,6 @@
 [submodule "vendor/Twig"]
 	path = vendor/Twig
 	url = https://github.com/fabpot/Twig.git
+[submodule "sites/all/themes/unl_wdn"]
+	path = sites/all/themes/unl_wdn
+	url = git@github.com:unlcms/unl_wdn.git
