@@ -16,3 +16,6 @@
 [submodule "sites/all/themes/unl_wdn"]
 	path = sites/all/themes/unl_wdn
 	url = git@github.com:unlcms/unl_wdn.git
+[submodule "sites/all/themes/unl_four"]
+	path = sites/all/themes/unl_four
+	url = git@github.com:unlcms/unl_four.git
