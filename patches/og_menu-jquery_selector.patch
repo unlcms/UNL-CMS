@@ -1,0 +1,29 @@
+diff --git a/sites/all/modules/og_menu/og_menu.js b/sites/all/modules/og_menu/og_menu.js
+index 7802b3f..2d58e79 100755
+--- a/sites/all/modules/og_menu/og_menu.js
++++ b/sites/all/modules/og_menu/og_menu.js
+@@ -1,7 +1,7 @@
+ /**
+  * @file
+  * Javascript magic. Shows the eligible menu options when switching groups.
+- * 
++ *
+  */
+ (function ($) {
+   Drupal.behaviors.og_menu = {
+@@ -44,7 +44,7 @@
+         if (values[0]) {
+           // Select the menu for the first available group.
+           for(var i in Drupal.settings.og_menu.menus) {
+-            if ((enabled === true) && $('.menu-parent-select option[value='+originalParent+']')) {
++            if ((enabled === true) && $('.menu-parent-select option[value="'+originalParent+'"]')) {
+               $('.menu-parent-select').val(originalParent);
+             }
+             else if (Drupal.settings.og_menu.menus[i] == values[0]) {
+@@ -73,4 +73,4 @@
+ 
+   }
+ 
+-}(jQuery));
+\ No newline at end of file
++}(jQuery));

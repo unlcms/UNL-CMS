@@ -119,6 +119,10 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
 
+  *  og_menu
+	
+     - Applied og_menu-jquery_selector.patch. See:http://drupal.org/node/1051542
+
   *  redirect
 
      - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
