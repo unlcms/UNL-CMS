@@ -9,15 +9,11 @@
  */
 
 
-if (db_field_exists('og_membership', 'group_type') && db_table_exists('og') && !db_table_exists('d6_og')) {
-
 class OgMigrateRoles extends OgEntityMigration {
 
   public $tableName = 'og_role';
 
   public $keyName = 'rid';
-
-  protected $dependencies = array('OgMigrateMembership');
 
   /**
    * Indicate we are updating existing data.
@@ -105,6 +101,4 @@ class OgMigrateRoles extends OgEntityMigration {
     $entity->gid = $gid;
     $entity->group_bundle = $bundle;
   }
-}
-
 }
