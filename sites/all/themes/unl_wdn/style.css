@@ -5,7 +5,6 @@
  */
 
 /* Position tabs at the top right of maincontent */
-body.fixed #maincontent {min-width: 960px;}
 #maincontent ul.wdn_tabs.cms_tabs {position: absolute; right: 0; top: -60px; width: auto;}
 /* Fix for a Views page */
 #pagetitle {position: relative;}
@@ -201,12 +200,12 @@ ul.links.inline {padding-left: 0 !important;}
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
-} 
+}
 
 /* .node-teaser
 *********/
 .node-teaser {
-  margin-bottom: 10px; 
+  margin-bottom: 10px;
   padding: 10px;
 }
 .node-teaser.node-sticky {
@@ -251,7 +250,7 @@ ul.links.inline {padding-left: 0 !important;}
   background: #3388bb;
   padding: 3px 8px;
   color: #eee !important;
-} 
+}
 .node-teaser .field-type-image .field-item {
   float: left;
   margin: 0 20px 30px 0;
