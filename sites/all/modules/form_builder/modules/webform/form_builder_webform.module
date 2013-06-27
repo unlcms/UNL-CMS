@@ -52,11 +52,14 @@ function form_builder_webform_save_form($form, &$form_state, $nid) {
     '#type' => 'value',
     '#value' => $nid,
   );
-  $form['save'] = array(
+  $form['actions'] = array(
+    '#type' => 'actions',
+  );
+  $form['actions']['save'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),
   );
-  $form['cancel'] = array(
+  $form['actions']['cancel'] = array(
     '#type' => 'submit',
     '#value' => t('Cancel'),
     '#submit' => array('form_builder_webform_cancel'),
@@ -81,22 +84,47 @@ function form_builder_webform_save_node($node) {
   $form_cache = form_builder_cache_load('webform', $node->nid);
   $element_ids = form_builder_preview_prepare($form_cache, 'webform', $node->nid);
 
-  // Save modified or created components.
-  foreach ($element_ids as $id) {
-    form_builder_webform_save_component($node, $id, $form_cache);
-  }
-
-  // Delete components that have been removed.
+  // Remove components if deleted and calculate the highest in-use CID.
+  $max_cid = 0;
   foreach ($node->webform['components'] as $component) {
     $element_id = 'cid_' . $component['cid'];
+    $cid = $component['cid'];
+
+    // Max CID is used in the creation of new components, preventing conflicts.
+    $max_cid = max($max_cid, $cid);
+
+    // Remove components from the $node that have been removed in the UI.
     if (!in_array($element_id, $element_ids)) {
-      webform_component_delete($node, $component);
+      if (isset($node->webform['components'][$cid])) {
+        unset($node->webform['components'][$cid]);
+      }
     }
   }
 
-  // Reset the node cache, since $node->webform['components'] has changed.
-  // @todo: Decide if this belongs in the above Webform API functions instead?
-  entity_get_controller('node')->resetCache(array($node->nid));
+  // Update any new/updated components in the node record.
+  foreach ($element_ids as $element_id) {
+    $component = form_builder_webform_get_component($node, $element_id, $form_cache);
+    if ($component) {
+      if (empty($component['cid'])) {
+        $cid = ++$max_cid;
+        $component['cid'] = $cid;
+        // Reassign the component ID to the form so that future elements that
+        // may depend on this one set their parent ID (pid) properly.
+        $element = form_builder_get_element($form_cache, $element_id);
+        $element['#webform_component']['cid'] = $cid;
+        form_builder_set_element($form_cache, $element);
+      }
+      else {
+        $cid = $component['cid'];
+      }
+      $node->webform['components'][$cid] = $component;
+    }
+  }
+
+  // Save the node itself to update components and allow other modules to
+  // respond to any changes. The Form Builder cache is intentionally left in
+  // place so other modules can check it for changes also.
+  node_save($node);
 
   // Remove the cached form_builder form.
   form_builder_cache_delete('webform', $node->nid);
@@ -105,7 +133,7 @@ function form_builder_webform_save_node($node) {
 /**
  * Save the contents of a form component into Webform's database tables.
  */
-function form_builder_webform_save_component($node, $element_id, $form) {
+function form_builder_webform_get_component($node, $element_id, $form) {
   module_load_include('inc', 'form_builder_webform', 'form_builder_webform.components');
 
   $element = form_builder_get_element($form, $element_id);
@@ -140,21 +168,9 @@ function form_builder_webform_save_component($node, $element_id, $form) {
   $component['pid'] = 0;
 
   // Set the parent ID for the component if it is nested inside another component.
-  // This must be done this way so that children of newly added components get a
-  // proper pid when the cid of the new component has just been generated.
   $parent = form_builder_get_element($form, $element['#form_builder']['parent_id']);
-  if ($parent) {
-    // If the parent is new, the database must be queried for the cid of the parent.
-    if (isset($parent['#webform_component']['is_new']) && $parent['#webform_component']['is_new']) {
-      $results = db_query('SELECT cid, form_key FROM {webform_component} WHERE form_key = :key AND nid = :nid', array(':key' => $element['#form_builder']['parent_id'], ':nid' => $node->nid));
-      foreach($results as $result) {
-        $component['pid'] = $result->cid;
-      }
-    }
-    // If the parent is already stored in the webform, grab its cid value.
-    elseif (isset($parent['#webform_component']['cid'])) {
-      $component['pid'] = $parent['#webform_component']['cid'];
-    }
+  if ($parent && isset($parent['#webform_component']['cid'])) {
+    $component['pid'] = $parent['#webform_component']['cid'];
   }
 
   // Set the component's value. If the form element doesn't have a default,
@@ -176,12 +192,7 @@ function form_builder_webform_save_component($node, $element_id, $form) {
     $component = $saved_component;
   }
 
-  if (!isset($component['cid'])) {
-    webform_component_insert($component);
-  }
-  elseif ($component != $node->webform['components'][$component['cid']]) {
-    webform_component_update($component);
-  }
+  return $component;
 }
 
 /**
@@ -272,31 +283,10 @@ function form_builder_webform_form_builder_load($form_builder_type, $form_builde
     $nid = $form_builder_id;
     $node = node_load($nid);
 
-    // Since webform_client_form() has special handling for the 'pagebreak'
-    // component that we do not want to occur here (here we want to display the
-    // entire webform on a single page, without page breaks), we temporarily
-    // change the component to 'pagebreak_clone' and then change it back
-    // afterwards. See _webform_render_pagebreak_clone().
-    // @todo: Replace this with something cleaner, if webform eventually allows
-    //   us to do that.
-    $pagebreak_component_keys = array();
-    foreach ($node->webform['components'] as &$component) {
-      if ($component['type'] == 'pagebreak') {
-        $component['type'] = 'pagebreak_clone';
-        $pagebreak_component_keys[] = $component['form_key'];
-      }
-    }
-
     // Get the unfiltered version of the client form.
     $form = array();
     $form_state = array();
     $form = webform_client_form($form, $form_state, $node, array(), TRUE, FALSE);
-
-    // Change 'pagebreak' components back, as described above.
-    foreach ($pagebreak_component_keys as $key) {
-      $form['submitted'][$key]['#type'] = 'pagebreak';
-      $form['submitted'][$key]['#webform_component']['type'] = 'pagebreak';
-    }
 
     // Perform final processing of the form, and return it.
     $form += array('submitted' => array());
@@ -340,6 +330,7 @@ function form_builder_webform_load_process(&$form, $node, $pid = 0) {
  */
 function form_builder_webform_form_builder_add_element_alter(&$element, $form_type, $form_id) {
   if ($form_type == 'webform') {
+    $element['#webform_component']['nid'] = is_numeric($form_id) ? $form_id : NULL;
     $element['#webform_component']['is_new'] = TRUE;
   }
 }
@@ -369,7 +360,7 @@ function form_builder_webform_form_builder_preview_alter(&$element, $form_type, 
     }
 
     // A #title_display property of 0 (as stored by Webform) means no setting.
-    if (isset($element['#title_display']) && $element['#title_display'] == 0) {
+    if (isset($element['#title_display']) && strcmp('0', $element['#title_display']) === 0) {
       unset($element['#title_display']);
     }
   }
@@ -455,20 +446,6 @@ function form_builder_webform_component_invoke($component_type, $callback) {
 }
 
 /**
- * Implements _webform_render_component().
- *
- * This "component" is only used as a temporary replacement for the standard
- * pagebreak component when the form builder version of the webform is being
- * rendered; this occurs when form_builder_webform_form_builder_load() calls
- * webform_client_form(). Therefore, we do not need to register it as a regular
- * webform component anywhere else (and don't want to, since we don't want it
- * to be available elsewhere in the webform UI).
- */
-function _webform_render_pagebreak_clone($component, $value = NULL, $filter = TRUE) {
-  return webform_component_invoke('pagebreak', 'render', $component, $value, $filter);
-}
-
-/**
  * Helper function; Retrieve a component's map and merge in generic properties.
  */
 function _form_builder_webform_property_map($component_type) {
@@ -501,7 +478,7 @@ function _form_builder_webform_property_map($component_type) {
     }
 
     if (webform_component_feature($component_type, 'private')) {
-      $map['properties']['private'] = array(
+      $map['properties']['webform_private'] = array(
         'form_parents' => array('display', 'private'),
         'storage_parents' => array('extra', 'private'),
       );
@@ -513,6 +490,8 @@ function _form_builder_webform_property_map($component_type) {
 
     // All components support the key property.
     $map['properties']['key'] = array();
+
+    drupal_alter('form_builder_webform_property_map', $map, $component_type);
 
     $maps[$component_type] = $map;
   }
