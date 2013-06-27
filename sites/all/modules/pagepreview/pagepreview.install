@@ -1,21 +1,17 @@
 <?php
-// $Id$
+/**
+ * Implementation of hook_schema().
+ */
+function pagepreview_schema() {
+  $schema['cache_pagepreview'] = drupal_get_schema_unprocessed('system', 'cache');
+
+  return $schema;
+}
 
 /**
- * @file
- * Install functions for the Page Preview module.
+ * Create a dedicated cache table.
  */
-
-/**
- * Implements hook_install().
- *
- * Set module weight to so that pagepreview_init() can run early.
- */
-function pagepreview_install() {
-  db_update('system')
-    ->fields(array(
-      'weight' => -1,
-    ))
-    ->condition('name', 'pagepreview', '=')
-    ->execute();
+function pagepreview_update_7100() {
+  $schema = pagepreview_schema();
+  db_create_table('cache_pagepreview', $schema['cache_pagepreview']);
 }
