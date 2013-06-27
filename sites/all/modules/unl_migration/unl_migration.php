@@ -1021,9 +1021,11 @@ class Unl_Migration_Tool
       $pathParts = explode('/', ltrim($urlParts['path'], '/'));
 
       $siteNameMap = array(
-        'extension' => 'www.extension.unl.edu',
-        'webster'   => 'www.webster.unl.edu',
-        'ianr'      => 'ianrhome.unl.edu',
+        'anisci'     => 'animalscience.unl.edu',
+        'extension'  => 'www.extension.unl.edu',
+        'ianr'       => 'ianrhome.unl.edu',
+        'webster'    => 'www.webster.unl.edu',
+        'vetscience' => 'vbms.unl.edu',
       );
 
       if (
