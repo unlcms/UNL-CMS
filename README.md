@@ -93,10 +93,9 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      Added an example of the $default_domains array. Added the stub record needed for creating site aliases.
 
-  *  modules/image/image.field.inc
+  *  modules/field/modules/text/text.module
 
-     - theme_image_formatter ignores attributes so classes can't be added to an image in a theme (needed for photo frame). See http://drupal.org/node/1025796#comment-4298698 and http://drupal.org/files/issues/1025796.patch
-
+     - Add nl2br() on Plain Text processor. See http://drupal.org/node/1152216#comment-7174876
 
 ## Hacks of Contrib modules:
 
@@ -119,6 +118,14 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
   *  media/includes/media.variables.inc
 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
+
+  *  redirect
+
+     - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
+
+  *  upload_replace.module
+
+     - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558
 
   *  webform.module
 

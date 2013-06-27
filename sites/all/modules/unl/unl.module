@@ -7,8 +7,14 @@ require_once dirname(__FILE__) . '/includes/common.php';
  */
 function unl_help($path, $arg) {
   switch ($path) {
+    case 'admin/modules/uninstall':
+      if ((module_exists('unl_multisite') && conf_path() == 'sites/default') || unl_table_is_shared('role_permission')) {
+        return '<h1>Be careful! Uninstalling a module clears its permissions which are shared globally between sites!</h1>';
+      }
     case 'admin/people/permissions':
-      return '<h1>Be careful! Permissions are shared globally between sites on UNLcms!</h1>';
+      if ((module_exists('unl_multisite') && conf_path() == 'sites/default') || unl_table_is_shared('role_permission')) {
+        return '<h1>Be careful! Permissions are shared globally between sites!</h1>';
+      }
     case 'user/unl/technical_feedback':
       return '<p>Consider visiting the Web Developer Network <a href="http://wdn.unl.edu/help/irc.shtml" target="_blank">chat room</a> as well.</p>';
   }
@@ -573,6 +579,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'checkbox',
       '#title' => 'SSL Enabled',
       '#default_value' => variable_get('https', FALSE),
+      '#disabled' => !unl_user_is_administrator(),
     );
 
     if (conf_path() != 'sites/default') {
@@ -586,6 +593,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
         '#type' => 'select',
         '#options' => $base_urls,
         '#default_value' => variable_get('unl_primary_base_url'),
+        '#disabled' => !unl_user_is_administrator(),
       );
       $form['#submit'][] = 'unl_system_settings_form_submit';
     }
@@ -896,7 +904,7 @@ function unl_init() {
       $base_path_len = strlen(rtrim(dirname($_SERVER['SCRIPT_NAME']), '\/'));
       $path = substr(urldecode($request_path), $base_path_len + 1);
 
-      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())));
+      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())), array(), 301);
     }
   }
 
@@ -1025,7 +1033,10 @@ function unl_query_alter(QueryAlterableInterface $query) {
       // Join it with the users_roles tables so that only users with roles are seleceted.
       $query->join('users_roles', 'unl_distinct_prefix_r', $usersTableAlias . '.uid = unl_distinct_prefix_r.uid');
       if (!unl_user_is_administrator()) {
+        // Hide users that are only in the administrator role
         $query->where('unl_distinct_prefix_r.rid != ' . unl_shared_variable_get('user_admin_role', -1));
+        // Hide the default admin user.
+        $query->where($usersTableAlias . '.uid != 1');
       }
     }
   }
@@ -1103,13 +1114,19 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
 
     // Break down the URL target then rebuild it as absolute.
     $url = substr($match, 1, -1);
+    $url = html_entity_decode($url);
     $parts = parse_url($url);
     if (!isset($parts['scheme'])) {
-      $parts['scheme'] = $_SERVER['HTTPS'] ? 'https' : 'http';
+      $parts['scheme'] = isset($_SERVER['HTTPS']) ? 'https' : 'http';
     }
     if (!isset($parts['host'])) {
-      $parts['host'] = $_SERVER['HTTP_HOST'];
+      $parts['host'] = $_SERVER['SERVER_NAME'];
     }
+    /* We can't do this on production because we're running on port 8080.
+    if (!isset($parts['port']) && !in_array($_SERVER['SERVER_PORT'], array(80, 443))) {
+      $parts['port'] = $_SERVER['SERVER_PORT'];
+    }
+    */
     if (isset($parts['path']) && substr($parts['path'], 0, 1) != '/') {
       if (variable_get('unl_use_base_tag')) {
         $parts['path'] = $GLOBALS['base_path'] . $parts['path'];
@@ -1120,8 +1137,10 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
     if (!isset($parts['path'])) {
       $parts['path'] = '/';
     }
-    $url = $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
-
+    $url = $parts['scheme']
+         . '://' . $parts['host']
+         . (isset($parts['port']) ? ':' . $parts['port'] : '')
+         . $parts['path'];
 
     // If this is a request to another UNL site, add format=partial to the query.
     if (substr($parts['host'], -7) == 'unl.edu') {
@@ -1141,31 +1160,19 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $url .= '#' . $parts['fragment'];
     }
 
-    $ssiDepth = 0;
-    if (array_key_exists('HTTP_X_UNL_SSI_DEPTH', $_SERVER)) {
-      $ssiDepth = $_SERVER['HTTP_X_UNL_SSI_DEPTH'];
+    // If the varnish module is enabled, and the SSI is for a URL on our server, do an ESI.
+    if (module_exists('varnish') &&
+        isset($_SERVER['HTTP_X_VARNISH']) &&
+        gethostbyname($parts['host']) == gethostbyname($_SERVER['SERVER_NAME']) &&
+        $parts['scheme'] == 'http'
+    ) {
+      $content = _unl_ssi_to_esi($url);
     }
-    $ssiDepth++;
-
-    $context = stream_context_create(array(
-      'http' => array(
-        'header' => "x-unl-ssi-depth: $ssiDepth\r\n",
-      ),
-    ));
-
-    if ($ssiDepth > 3) {
-      watchdog('unl', 'Server Side Include: Recursion depth limit reached.', array(), WATCHDOG_ERROR);
-      drupal_add_http_header('x-unl-ssi-error', 'Too deep!');
-      $content = '<!-- Error: Too many recursive includes! Content from ' . $url . ' was not included! -->';
-    }
+    // Otherwise, emulate the SSI in drupal.
     else {
-      $headers = array();
-      $content = unl_url_get_contents($url, $context, $headers);
-      if (array_key_exists('x-unl-ssi-error', $headers)) {
-        watchdog('unl', 'Server Side Include: An included URL reached the depth limit.', array(), WATCHDOG_WARNING);
-        drupal_add_http_header('x-unl-ssi-error', 'The included URL caused recursion that was too deep!');
-      }
+      $content = _unl_ssi_emulate($url);
     }
+
     $replacements[$full_match] = PHP_EOL
                                . '<!-- Begin content from ' . $url . ' -->' . PHP_EOL
                                . $content . PHP_EOL
@@ -1177,4 +1184,50 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
   }
 
   return $text;
+}
+
+/**
+ * Used by unl_filter_ssi_process() to emulate the SSI process inside drupal.
+ * @param $url
+ * @return string
+ */
+function _unl_ssi_emulate($url) {
+  $ssiDepth = 0;
+  if (array_key_exists('HTTP_X_UNL_SSI_DEPTH', $_SERVER)) {
+    $ssiDepth = $_SERVER['HTTP_X_UNL_SSI_DEPTH'];
+  }
+  $ssiDepth++;
+
+  $context = stream_context_create(array(
+    'http' => array(
+      'header' => "x-unl-ssi-depth: $ssiDepth\r\n",
+    ),
+  ));
+
+  if ($ssiDepth > 3) {
+    watchdog('unl', 'Server Side Include: Recursion depth limit reached.', array(), WATCHDOG_ERROR);
+    drupal_add_http_header('x-unl-ssi-error', 'Too deep!');
+    $content = '<!-- Error: Too many recursive includes! Content from ' . $url . ' was not included! -->';
+  }
+  else {
+    $headers = array();
+    $content = unl_url_get_contents($url, $context, $headers);
+    if (array_key_exists('x-unl-ssi-error', $headers)) {
+      watchdog('unl', 'Server Side Include: An included URL reached the depth limit.', array(), WATCHDOG_WARNING);
+      drupal_add_http_header('x-unl-ssi-error', 'The included URL caused recursion that was too deep!');
+    }
+  }
+
+  return $content;
+}
+
+/**
+ * Used by unl_filter_ssi_process() to change the SSI into an ESI
+ * @param $url
+ * @return string
+ */
+function _unl_ssi_to_esi($url) {
+  // Set a header so that Varnish knows to do ESI processing on this response.
+  drupal_add_http_header('X-ESI', 'yes');
+  return '<esi:include src="' . check_plain($url) . '"/>';
 }

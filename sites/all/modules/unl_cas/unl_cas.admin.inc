@@ -22,7 +22,7 @@ function unl_cas_user_import($form, &$form_state) {
     '#type' => 'submit',
     '#value' => 'Search',
     '#submit' => array('unl_cas_user_import_search'),
-#    '#validate' => array('unl_cas_user_validate'),
+    '#validate' => array('unl_cas_user_import_validate_search'),
   );
 
   if (isset($form_state['values']['name'])) {
@@ -93,22 +93,33 @@ function unl_cas_user_import($form, &$form_state) {
       '#type' => 'submit',
       '#value' => 'Add Selected User',
       '#submit' => array('unl_cas_user_import_submit'),
+      '#validate' => array('unl_cas_user_import_validate_add'),
     );
   }
   return $form;
 }
 
 function unl_cas_user_import_search($form, &$form_state) {
+  if (!$form_state['values']['name']) {
+    form_set_error('username', 'Please enter a search string.');
+  }
   // if only one result is returned should we instead create the user?
   $form_state['rebuild'] = TRUE;
 }
 
-function unl_cas_user_import_submit($form, &$form_state) {
-  if (!$form_state['values']['username']) {
-    drupal_set_message('Please select a user.', 'error');
-    $form_state['rebuild'] = TRUE;
-    return;
+function unl_cas_user_import_validate_search($form, &$form_state) {
+  if (!$form_state['values']['name']) {
+    form_set_error('username', 'Please enter a search term.');
   }
+}
+
+function unl_cas_user_import_validate_add($form, &$form_state) {
+  if (!$form_state['values']['username']) {
+    form_set_error('username', 'Please select a user.');
+  }
+}
+
+function unl_cas_user_import_submit($form, &$form_state) {
 
   $user = unl_cas_import_user($form_state['values']['username']);
 

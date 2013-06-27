@@ -663,6 +663,26 @@ function unl_site_alias_create_validate($form, &$form_state) {
   if (substr($form_state['values']['path'], 0, 1) == '/') {
     $form_state['values']['path'] = substr($form_state['values']['path'], 1);
   }
+
+  // Check that the alias does not already exist.
+  $query = db_select('unl_sites_aliases', 'a');
+  $query->fields('a', array('base_uri', 'path'));
+
+  $db_or = db_or();
+  $db_or->condition('a.path', $form_state['values']['path'], '=');
+  // Also consider legacy aliases that do not have a trailing slash.
+  $db_or->condition('a.path', substr($form_state['values']['path'], 0, -1), '=');
+
+  $db_and = db_and();
+  $db_and->condition('a.base_uri', $form_state['values']['base_uri'], '=');
+  $db_and->condition($db_or);
+
+  $query->condition($db_and);
+  $result = $query->execute()->fetchAssoc();
+
+  if ($result) {
+    form_set_error('alias_path', t('Site alias already exists.'));
+  }
 }
 
 /**
@@ -787,16 +807,16 @@ function unl_page_alias_create($form, &$form_state) {
   );
   $form['root']['from_uri'] = array(
     '#type' => 'textfield',
-    '#title' => t('From URL'),
-    '#description' => t('The URL that users will visit.'),
-    '#default_value' => url('from/url', array('https' => FALSE)),
+    '#title' => t('From URI'),
+    '#description' => t('The URI that users will visit.'),
+    '#default_value' => url('from/uri', array('https' => FALSE)),
     '#required' => TRUE,
   );
   $form['root']['to_uri'] = array(
     '#type' => 'textfield',
-    '#title' => t('To URL'),
-    '#description' => t('The URL users will be redirected to.'),
-    '#default_value' => url('to/url', array('https' => FALSE)),
+    '#title' => t('To URI'),
+    '#description' => t('The URI users will be redirected to.'),
+    '#default_value' => url('to/uri', array('https' => FALSE)),
     '#required' => TRUE,
   );
   $form['root']['submit'] = array(
@@ -820,12 +840,23 @@ function unl_page_alias_create_validate($form, &$form_state) {
   if (parse_url($from, PHP_URL_HOST)  == parse_url($to, PHP_URL_HOST) &&
       parse_url($from, PHP_URL_PATH)  == parse_url($to, PHP_URL_PATH) &&
       parse_url($from, PHP_URL_QUERY) == parse_url($to, PHP_URL_QUERY)) {
-    form_set_error('to_uri', 'From URL cannot equal To URL.');
+    form_set_error('to_uri', 'From URI cannot equal To URI.');
   }
   if (parse_url($from, PHP_URL_HOST)  == parse_url($root, PHP_URL_HOST) &&
       parse_url($from, PHP_URL_PATH)  == parse_url($root, PHP_URL_PATH) &&
       parse_url($from, PHP_URL_QUERY) == parse_url($root, PHP_URL_QUERY)) {
-    form_set_error('from_uri', 'From URL cannot be the root of the default site.');
+    form_set_error('from_uri', 'From URI cannot be the root of the default site.');
+  }
+
+  // Check that the alias from_uri does not already exist.
+  $query = db_select('unl_page_aliases', 'a');
+  $query->fields('a', array('from_uri', 'to_uri'));
+
+  $query->condition('a.from_uri', $form_state['values']['from_uri'], '=');
+  $result = $query->execute()->fetchAssoc();
+
+  if ($result) {
+    form_set_error('alias_path', t('Page alias From URI already exists.'));
   }
 }
 
@@ -856,7 +887,7 @@ function unl_page_alias_list($form, &$form_state) {
       'data' => t('Status'),
       'field' => 'a.installed',
     ),
-    'remove' => t('Remove (can not undo!)'),
+    'remove' => t('Remove'),
   );
 
   $query = db_select('unl_page_aliases', 'a')
@@ -1144,7 +1175,7 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       );
     } catch (Exception $e) {
       // Either the site has no settings.php or the db_prefix is wrong.
-      drupal_set_message('Error querying database for site ' . $site->uri, 'warning');
+      watchdog('unl_multisite', 'Error querying database for site %uri', array('%uri' => $site->uri), WATCHDOG_WARNING);
     }
   }
 

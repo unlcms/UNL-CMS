@@ -207,7 +207,7 @@ function unl_cas_user_logout($account) {
 function unl_cas_import_user($username) {
   unl_load_zend_framework();
   $user = array();
-
+  $result = array();
   // First, try getting the info from LDAP.
   try {
     $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
@@ -215,41 +215,49 @@ function unl_cas_import_user($username) {
     $results = $ldap->search('dc=unl,dc=edu', 'uid=' . $username);
     if (count($results) > 0) {
       $result = $results[0];
-
-      $user['firstName'] = $result['givenname'][0];
-      $user['lastName'] = $result['sn'][0];
-      $user['email'] = $result['mail'][0];
-      $user['displayName'] = $result['displayname'][0];
     }
   }
   catch (Exception $e) {
-    // don't do anything, just go on to try the peoplefinder method
+    // don't do anything, just go on to try the PeopleFinder method
   }
 
-  // Next, if LDAP didn't work, try peoplefinder/directory service.
-  if (!isset($user['email'])) {
-    $xml = @file_get_contents('http://directory.unl.edu/service.php?format=xml&uid=' . $username);
-    if ($xml) {
-      $dom = new DOMDocument();
-      $dom->loadXML($xml);
-      $user['firstName'] = $dom->getElementsByTagName('givenName')->item(0)->textContent;
-      $user['lastName'] = $dom->getElementsByTagName('sn')->item(0)->textContent;
-      $user['email'] = $dom->getElementsByTagName('mail')->item(0)->textContent;
-      $user['displayName'] = $dom->getElementsByTagName('displayName')->item(0)->textContent;
+  // Next, if LDAP didn't work, try PeopleFinder service.
+  if (!$result) {
+    $json = unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid=' . $username);
+    if ($json) {
+      $result = json_decode($json, TRUE);
     }
   }
 
-  // Finally, if peoplefinder didn't work either, just guess.
-  if (!isset($user['email'])) {
-    $user['email'] = $username . '@unl.edu';
-  }
-
+  // Create the fields we will be using, and make an initial guess at the email address.
   $userData = array(
     'name'     => $username,
-    'mail'     => $user['email'],
+    'mail'     => $username . '@unl.edu',
     'status'   => 1,
-    'timezone' => variable_get('date_default_timezone', @date_default_timezone_get()),
+    'timezone' => variable_get('date_default_timezone', date_default_timezone_get()),
+    'data'     => array('unl' => array(
+      'fullName'           => '',
+      'affiliations'       => '',
+      'primaryAffiliation' => '',
+      'department'         => '',
+      'major'              => '',
+      'studentStatus'      => array(),
+    )),
   );
+
+  // If either LDAP or PeopleFinder found data, use it.
+  if ($result) {
+    $result = array_change_key_case($result, CASE_LOWER);
+    $userData['mail'] = $result['mail'][0];
+    $userData['data']['unl'] = array(
+      'fullName'           => (isset($result['edupersonnickname']) ? $result['edupersonnickname'][0] : $result['givenname'][0]) . ' ' . $result['sn'][0],
+      'affiliations'       => $result['edupersonaffiliation'],
+      'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
+      'department'         => (isset($result['unlhrprimarydepartment']) ? $result['unlhrprimarydepartment'][0] : ''),
+      'major'              => (isset($result['unlsismajor']) ? $result['unlsismajor'][0] : ''),
+      'studentStatus'      => (isset($result['unlsisstudentstatus']) ? $result['unlsisstudentstatus'] : array()),
+    );
+  }
 
   $account = user_load_by_name($username);
 
