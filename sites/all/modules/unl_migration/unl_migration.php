@@ -168,7 +168,7 @@ class Unl_Migration_Tool
 
     private $_liferaySubsites     = array(
       'cropwatch.unl.edu'     => array('corn', 'drybeans', 'forages', 'organic', 'potato', 'sorghum', 'soybeans', 'wheat', 'bioenergy', 'insect', 'economics', 'ssm', 'soils', 'tillage', 'weed', 'varietytest', 'biotechnology', 'farmresearch', 'cropwatch-youth', 'militaryresources', 'gaps', 'sugarbeets'),
-      '4h.unl.edu'            => array('extension-4-h-horse', '4hcamps', '4hcurriclum'),
+      '4h.unl.edu'            => array('extension-4-h-horse'),
       'animalscience.unl.edu' => array('fernando-lab', 'anscgenomics', 'rprb-lab', 'ruminutrition-lab', 'pre-vet-program'),
       'beef.unl.edu'          => array('cattleproduction'),
       'biochem.unl.edu'       => array('barycki', 'bailey', 'becker', 'adamec', 'wilson', 'biochem-fatttlab', 'simpson'),
