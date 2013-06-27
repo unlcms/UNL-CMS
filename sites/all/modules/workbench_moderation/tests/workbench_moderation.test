@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Tests for node.module.
+ * Tests for workbench_moderation.module.
  */
 
 class WorkbenchModerationTestCase extends DrupalWebTestCase {
@@ -272,5 +272,58 @@ class WorkbenchModerationUnpublishTestCase extends WorkbenchModerationTestCase {
     $this->assertFalse($unpublished_node->status, t('The node is not published.'));
     $this->assertFalse(isset($unpublished_node->workbench_moderation['published']), t('Workbench moderation has no published revision.'));
   }
+}
 
+/**
+ * Tests behavior when title is changed after initial publication of the node.
+ * this matters when aliases exist using the title as a token.
+ */
+class WorkbenchRedirectAfterTitleChangeTestCase extends WorkbenchModerationTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Alias after title change',
+      'description' => 'Test whether the redirect keeps up with a changed alias',
+      'group' => 'Workbench Moderation',
+      'dependencies' => array(
+        'workbench', // Workbench is required for the mini moderation form.
+        'pathauto', // Pathauto is required for automatic aliases, without which this test is unnecessary.
+      ),
+    );
+  }
+
+  function setUp($modules = array()) {
+    // Make sure Workbench and Pathauto are both enabled.
+    $modules = array_merge($modules, array('workbench', 'pathauto'));
+    parent::setUp($modules);
+    $this->drupalLogin($this->moderator_user);
+  }
+
+  /**
+   * Tests whether a node with a changed alias correctly redirects upon re-publishing.
+   **/
+  function testAliasRedirect() {
+
+    // Create a new draft node.
+    $edit = array(
+      'title' => $this->randomName(),
+    );
+    $this->drupalPost("node/add/{$this->content_type}", $edit, t('Save'));
+
+    // Moderate node to published.
+    $moderate = array('state' => workbench_moderation_state_published());
+    $this->drupalPost(NULL, $moderate, t('Apply'));
+
+    // Edit node and change title.
+    $node = $this->drupalGetNodeByTitle($edit['title']);
+    $edit = array('title' => $this->randomName(10) . '_revision1');
+    $this->drupalPost("node/{$node->nid}/edit", $edit, t('Save'));
+
+    // Moderate node to published.
+    $moderate = array('state' => workbench_moderation_state_published());
+    $this->drupalPost(NULL, $moderate, t('Apply'));
+
+    // Check response code is 200.
+    $this->assertResponse(200);
+  }
 }

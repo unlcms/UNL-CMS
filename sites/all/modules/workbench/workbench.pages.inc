@@ -56,6 +56,13 @@ function workbench_content() {
     if (isset($output[$key]['#view']) && $view = views_get_view($output[$key]['#view'])) {
       $output[$key] += array('#markup' => '', '#view_display' => 'default');
       $display_id = $output[$key]['#view_display'];
+
+      // Build contextual links.
+      if (module_exists('contextual')) {
+        $output[$key] += contextual_element_info();
+        views_add_contextual_links($output[$key]['contextual_links'], 'block', $view, $display_id);
+      }
+
       if ($view->access($display_id)) {
         $output[$key]['#markup'] .= $view->preview($display_id, array());
         if ($title = $view->get_title()) {

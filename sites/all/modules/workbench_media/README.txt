@@ -4,7 +4,7 @@
  */
 
 Workbench Media
-Integration of Media module with the Workbench module.
+Workbench integration for the File, File Entity, and Media modules.
 
 CONTENTS
 --------
@@ -26,8 +26,12 @@ CONTENTS
 ----
 1.  Introduction
 
-Workbench Media provides the integration of the Media module with Workbench
-and its suite of modules.
+Workbench Media provides integration with the File, File Entity, and Media
+modules for Workbench and its suite of modules.
+
+Workbench Media provides some basic file management within the Workbench
+framework; essentially, it allows users to see all files that have been
+uploaded to the site.
 
 ----
 1.1  Use-case
@@ -36,6 +40,8 @@ Media module is a solution for managing various media files including
 images, video, and audio.  The Media Workbench module allows a user to add
 media items without having to leave the Workbench.
 
+A typical request from clients is to re-use files that have already been
+uploaded to a site.  Any type of file might be re-used: PDF, PNG, ZIP.
 
 ----
 1.2  Examples
@@ -48,12 +54,12 @@ Adding a media item on its own requires having access to Find Content -> Media
 tab.  We wanted to simplify where content administrators need to go to add
 any content.
 
+
 ----
 2.  Installation
 
-Media is required in order to install Workbench Media.
+Workbench and Media are required in order to install Workbench Media.
 
-Install the module and enable it according to Drupal standards.
 
 ----
 3.  Permissions
@@ -79,10 +85,16 @@ looks like:
   Workbench Media
    -- Use the media add form
 
+A user needs the "Access My Workbench" permission which is a general
+Workbench permission setting.  If a user has Access My Workbench permission,
+then she can access Workbench Files.
+
+
 ----
 4.  Configuration
 
 There is no specific configuration for Workbench Media.
+
 
 ----
 5.  Using the module
@@ -98,6 +110,18 @@ important meta data you want to store with the uploaded file.  Learn more at
 http://drupal.org/project/media
 
 Back in My Workbench, you can see media you have uploaded in the File List tab.
+
+When viewing My Workbench, you will see that Workbench Media adds a tab
+called "File List".  Click this tab.
+
+The File List tab provides a list of all files that have been uploaded to the
+site.  Typical web image file formats (like jpg, png, gif) will include a
+thumbnail of the image in the Type column.  Other file types like PDF display a
+icon representing the file type.
+
+The list includes which nodes use the file, the URL as well as the filepath
+(e.g. public://filename.pdf).
+
 
 ----
 6.  Troubleshooting
@@ -126,6 +150,6 @@ Workbench Media does not create any tables during installation.
 8.  Feature roadmap
 
 We think some of the changes made for Workbench Media may roll back into Media.
-It could be that Workbench Media and Workbench Files become just one module in
-the future.  For now, we felt it was important to provide multiple ways to
-support file management. Expect more changes to this module in the future.
+Workbench Media has been merged with Workbench Files. Please see "tasks" in the
+Workbench Media issue queue for information on the current direction:
+http://drupal.org/project/issues/workbench_media?status=Open&categories=task

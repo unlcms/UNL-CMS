@@ -27,7 +27,7 @@ function workbench_moderation_views_data() {
   );
 
   $data['workbench_moderation_node_history']['hid'] = array(
-    'title' => t('Moderation History ID'),
+    'title' => t('Moderation history ID'),
     'help' => t('Content moderation history record ID.'),
     'filter' => array(
       'handler' => 'views_handler_filter',
@@ -43,6 +43,18 @@ function workbench_moderation_views_data() {
       'handler' => 'views_handler_argument',
     ),
   );
+
+  $data['workbench_moderation_node_history']['nid'] = array(
+    'title' => t('Node'),
+    'help' => t('The node according to the Workbench Moderation.'),
+    'relationship' => array(
+        'base' => 'node',
+        'field' => 'nid',
+        'handler' => 'views_handler_relationship',
+        'label' => t('Node'),
+    ),
+  );
+
   $data['workbench_moderation_node_history']['state'] = array(
     'title' => t('State'),
     'help' => t('Content moderation state of the node revisision.'),
@@ -138,17 +150,17 @@ function workbench_moderation_views_data() {
     ),
   );
   $data['workbench_moderation_node_history']['moderation_actions'] = array(
-    'title' => t('Moderation Actions'),
+    'title' => t('Moderation actions'),
     'help' => t('Content moderation state of the node revisision.'),
     'real field' => 'state',
     'field' => array(
-      'title' => t('Moderation Links'),
+      'title' => t('Moderation links'),
       'handler' => 'workbench_moderation_handler_field_links',
       'click sortable' => FALSE,
       'additional fields' => array('nid', 'vid', 'current'),
     ),
     'filter' => array(
-      'title' => t('User Can Moderate'),
+      'title' => t('User can moderate'),
       'handler' => 'workbench_moderation_handler_filter_user_can_moderate',
       'label' => t('Can moderate'),
     ),
@@ -199,11 +211,11 @@ function workbench_moderation_views_data() {
   );
   $data['node']['workbench_moderation_history_link'] = array(
     'group' => t('Workbench Moderation'),
-    'title' => t('Moderation History'),
-    'help' => t('A link to the Moderation History page of the node'),
+    'title' => t('Moderation history'),
+    'help' => t('A link to the moderation history page of the node'),
     'real field' => 'nid',
     'field' => array(
-      'title' => t('Moderation History Link'),
+      'title' => t('Moderation history link'),
       'handler' => 'workbench_moderation_handler_field_history_link',
       'click sortable' => FALSE,
     ),

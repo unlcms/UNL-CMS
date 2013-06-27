@@ -42,7 +42,7 @@ function workbench_moderation_menu() {
   // Change the moderation state of a node.
   // Used in workbench_moderation_get_moderation_links()
   $items["node/%node/moderation/%/change-state/%"] = array(
-    'title' => 'Change Moderation State',
+    'title' => 'Change moderation state',
     'page callback' => 'workbench_moderation_moderate_callback',
     'page arguments' => array(1, 5),
     'load arguments' => array(3),
@@ -62,7 +62,7 @@ function workbench_moderation_menu() {
   $items["node/%node/current-revision"] = array(
     'page callback' => 'workbench_moderation_node_current_view',
     'page arguments' => array(1),
-    'access arguments' => array('view revisions'),
+    'access arguments' => array('access content'),
     'file' => 'workbench_moderation.node.inc',
   );
 
@@ -101,7 +101,7 @@ function workbench_moderation_menu() {
     'file' => 'workbench_moderation.admin.inc',
   );
   $items['admin/config/workbench/moderation/check-permissions'] = array(
-    'title' => 'Check Permissions',
+    'title' => 'Check permissions',
     'type' => MENU_LOCAL_TASK,
     'page callback' => 'drupal_get_form',
     'page arguments' => array('workbench_moderation_admin_check_role_form'),
@@ -117,7 +117,7 @@ function workbench_moderation_menu() {
     $items['node/%node/moderation/diff'] = array(
       'type' => MENU_LOCAL_TASK,
       'file path' => drupal_get_path('module', 'diff'),
-      'title' => 'Diff',
+      'title' => 'Compare revisions',
       'page arguments' => array(1),
     );
 
@@ -125,7 +125,7 @@ function workbench_moderation_menu() {
 
 
     $items['node/%node/moderation/diff/list'] = array(
-      'title' => 'Diff',
+      'title' => 'Compare revisions',
       'type' => MENU_DEFAULT_LOCAL_TASK,
       'weight' => -1,
     );
@@ -250,7 +250,7 @@ function workbench_moderation_node_revisions_redirect($node) {
  */
 function workbench_moderation_menu_local_tasks_alter(&$data, $router_item, $root_path) {
   // Do we need to bother doing anything?
-  if (empty($data['tabs'][0]['output']) || empty($router_item['page_arguments'][0])) {
+  if (empty($data['tabs'][0]['output'])) {
     return;
   }
 
@@ -261,23 +261,16 @@ function workbench_moderation_menu_local_tasks_alter(&$data, $router_item, $root
     return;
   }
 
-  // Devel module passes node as the first parameter, but we support it.
-  if (count($router_item['page_arguments']) > 1 && $router_item['page_arguments'][0] == 'node') {
-    array_shift($router_item['page_arguments']);
-  }
-  // Ensure that we have a proper node.
-  if (!is_object($router_item['page_arguments'][0])) {
-    return;
-  }
-  $node = $router_item['page_arguments'][0];
-
-  // Here is the reason this hook implementation exists:
-  // If this is a node type that gets moderated, don't show 'node/%/revisions'
-  if (workbench_moderation_node_type_moderated($node->type) === TRUE) {
-    foreach ($data['tabs'][0]['output'] as $key => $value) {
-      if (!empty($value['#link']['path']) && $value['#link']['path'] == 'node/%/revisions') {
-        unset($data['tabs'][0]['output'][$key]);
-        break;
+  // Get the node for the current menu router.
+  if ($node = menu_get_object()) {
+    // Here is the reason this hook implementation exists:
+    // If this is a node type that gets moderated, don't show 'node/%/revisions'
+    if (workbench_moderation_node_type_moderated($node->type) === TRUE) {
+      foreach ($data['tabs'][0]['output'] as $key => $value) {
+        if (!empty($value['#link']['path']) && $value['#link']['path'] == 'node/%/revisions') {
+          unset($data['tabs'][0]['output'][$key]);
+          break;
+        }
       }
     }
   }
@@ -401,10 +394,10 @@ function workbench_moderation_permission() {
     'title' => t('View the moderation messages on a node')
   );
   $permissions['use workbench_moderation my drafts tab'] = array(
-    'title' => t('Use "My Drafts" workbench tab')
+    'title' => t('Use "My drafts" workbench tab')
   );
   $permissions['use workbench_moderation needs review tab'] = array(
-    'title' => t('Use "Needs Review" workbench tab')
+    'title' => t('Use "Needs review" workbench tab')
   );
 
   // Per-node-type, per-transition permissions. Used by workbench_moderation_state_allowed().
@@ -417,7 +410,7 @@ function workbench_moderation_permission() {
 
     // Always set a permission to perform all moderation states.
     $permissions["moderate content from $from_state to $to_state"] = array(
-      'title' => t('Moderate all content from @from_state to @to_state', array('@from_state' => workbench_moderation_state_label($from_state), '@to_state' => workbench_moderation_state_label($to_state))),
+      'title' => t('Moderate all content from %from_state to %to_state', array('%from_state' => workbench_moderation_state_label($from_state), '%to_state' => workbench_moderation_state_label($to_state))),
     );
     // Per-node type permissions are very complex, and should only be used if
     // absolutely needed. For right now, this is hardcoded to OFF. To enable it,
@@ -426,7 +419,7 @@ function workbench_moderation_permission() {
     if (variable_get('workbench_moderation_per_node_type', FALSE)) {
       foreach ($node_types as $node_type) {
         $permissions["moderate $node_type state from $from_state to $to_state"] = array(
-          'title' => t('Moderate @node_type state from @from_state to @to_state', array('@node_type' => node_type_get_name($node_type), '@from_state' => workbench_moderation_state_label($from_state), '@to_state' => workbench_moderation_state_label($to_state))),
+          'title' => t('Moderate %node_type state from %from_state to %to_state', array('%node_type' => node_type_get_name($node_type), '%from_state' => workbench_moderation_state_label($from_state), '%to_state' => workbench_moderation_state_label($to_state))),
         );
       }
     }
@@ -586,28 +579,16 @@ function _workbench_moderation_access_current_draft($node) {
 function workbench_moderation_help($path, $arg) {
   switch ($path) {
     case 'admin/help#workbench_moderation':
-      return '<p>' . t("Enables you to control node display with a moderation
-        workflow. You can have a 'Live revision' for all visitors and pending
-        revisions which need to be approved to become the new 'Live Revision.'") . '</p>';
+      return '<p>' . t("Enables you to control node display with a moderation workflow. You can have a 'Live revision' for all visitors and pending revisions which need to be approved to become the new 'Live revision.'") . '</p>';
 
     case 'admin/config/workbench/moderation':
-      return '<p>' . t("These are the states through which a node passes in order to become published. By
-        default, the Workbench Moderation module provides the states 'Draft,' 'Needs Review,' and 'Published.'
-        On this screen you may create, delete and re-order states. Additional states might include
-        'Legal Review,' 'PR Review,' or any or state your site may need.") . '</p>';
+      return '<p>' . t("These are the states through which a node passes in order to become published. By default, the Workbench Moderation module provides the states 'Draft,' 'Needs review,' and 'Published'. On this screen you may create, delete and re-order states. Additional states might include 'Legal review,' 'PR review', or any or state your site may need.") . '</p>';
 
     case 'admin/config/workbench/moderation/transitions':
-      return '<p>' . t("The Workbench Moderation module keeps track of when a node moves from one state to
-        another. By default, nodes begin in the %draft state and end in the %published state. The transitions
-        on this page control how nodes move from state to state.", array('%draft' => workbench_moderation_state_label(workbench_moderation_state_none()),
-        '%published' => workbench_moderation_state_label(workbench_moderation_state_published()))) . ' ' . l(t('Permission to perform these transitions
-        is controlled on a role-by-role basis.'), 'admin/people/permissions', array('fragment' => 'module-workbench_moderation')) . '</p>';
+      return '<p>' . t('The Workbench Moderation module keeps track of when a node moves from one state to another. By default, nodes begin in the %draft state and end in the %published state. The transitions on this page control how nodes move from state to state. <a href="@permissions">Permission to perform these transitions is controlled on a role-by-role basis</a>.', array('%draft' => workbench_moderation_state_label(workbench_moderation_state_none()), '%published' => workbench_moderation_state_label(workbench_moderation_state_published()), '@permissions' => url('admin/people/permissions', array('fragment' => 'module-workbench_moderation')))) . '</p>';
 
     case 'admin/config/workbench/moderation/check-permissions':
-      return '<p>' . t("In order to participate in the moderation process,
-        Drupal users must be granted several node- and moderation- related
-        permissions. This page can help check whether roles have the correct
-        permissions to author, edit, moderate, and publish moderated content.") . '</p>';
+      return '<p>' . t("In order to participate in the moderation process, Drupal users must be granted several node- and moderation- related permissions. This page can help check whether roles have the correct permissions to author, edit, moderate, and publish moderated content.") . '</p>';
   }
 }
 
@@ -661,12 +642,10 @@ function workbench_moderation_node_presave($node) {
       $node->status = 0;
     }
   }
-  /* START UNL CHANGE */
   if (isset($node->workbench_moderation['updating_live_revision']) && !empty($node->book['bid'])) {
     // Book module forces new revision in book_node_presave() that needs to be cancelled.
     $node->revision = 0;
   }
-  /* END UNL CHANGE */
 }
 
 /**
@@ -870,8 +849,12 @@ function workbench_moderation_form_node_form_alter(&$form, $form_state) {
 
   // Set a default revision log message.
   $logged_name = (user_is_anonymous() ? variable_get('anonymous', t('Anonymous')) : $user->name);
-  $logged_action = !empty($form['#node']->nid) ? t('Edited') : t('Created');
-  $form['revision_information']['log']['#default_value'] = t('!action by @user.', array('!action' => $logged_action, '@user' => $logged_name));
+  if (!empty($form['#node']->nid)) {
+    $form['revision_information']['log']['#default_value'] = t('Edited by @user.', array('@user' => $logged_name));
+  }
+  else {
+    $form['revision_information']['log']['#default_value'] = t('Created by @user.', array('@user' => $logged_name));
+  }
 
   // Move the revision log into the publishing options to make things pretty.
   if ($form['options']['#access']) {
@@ -886,6 +869,12 @@ function workbench_moderation_form_node_form_alter(&$form, $form_state) {
     // The revision information section should now be empty.
     $form['revision_information']['#access'] = FALSE;
   }
+
+  // Setup the JS for the vertical tabs summary. The heavy weight allows this
+  // script to replace the default node summary callbacks that get registered by
+  // "lighter" scripts.
+  // Note: Form API '#attached' does not allow to set a weight.
+  drupal_add_js(drupal_get_path('module', 'workbench_moderation') . '/js/workbench_moderation.js', array('weight' => 90));
 
   // Users can not choose to publish content; content can only be published by
   // setting the content's moderation state to "Published".
@@ -1199,12 +1188,7 @@ function workbench_moderation_node_current_load($node) {
 function workbench_moderation_node_live_load($node) {
   // Is there a live revision of this node?
   if (isset($node->workbench_moderation['published']->vid)) {
-    // If the live revision is not this revision, we need to load that revision
-    if ($node->vid != $node->workbench_moderation['published']->vid) {
-      return node_load($node->nid, $node->workbench_moderation['published']->vid, TRUE);
-    }
-    // This is the live node, return it
-    return $node;
+    return node_load($node->nid, $node->workbench_moderation['published']->vid, TRUE);
   }
 }
 
@@ -1633,7 +1617,7 @@ function workbench_moderation_get_moderation_links($node, $url_options = array()
       && $next_states = workbench_moderation_states_next($my_revision->state, NULL, $node)) {
     foreach ($next_states as $state => $label) {
       $link = array_merge($url_options, array(
-        'title' => workbench_moderation_state_label($state),
+        'title' => t('Change to %label', array('%label' => workbench_moderation_state_label($state))),
         'href' => "node/{$node->nid}/moderation/{$node->vid}/change-state/{$state}",
       ));
       $link['query']['token'] = drupal_get_token("{$node->nid}:{$node->vid}:{$state}");
@@ -1716,9 +1700,9 @@ function workbench_moderation_moderate_form_validate($form, &$form_state) {
   }
 }
 
-function workbench_moderation_moderate_form_submit($form, $form_state) {
+function workbench_moderation_moderate_form_submit($form, &$form_state) {
   if (_workbench_moderation_moderate_access($form_state['values']['node'], $form_state['values']['state'])) {
-    workbench_moderation_moderate($form_state['values']['node'], $form_state['values']['state']);
+    workbench_moderation_moderate(node_load($form_state['values']['node']->nid, $form_state['values']['node']->vid), $form_state['values']['state']);
   }
 
   // This is not ideal, but if the form is invoked from a node's draft tab and
@@ -1728,6 +1712,9 @@ function workbench_moderation_moderate_form_submit($form, $form_state) {
   if (!empty($form['#destination'])) {
     if ($form_state['values']['state'] == workbench_moderation_state_published()) {
       if ($uri = entity_uri('node', $form['node']['#value'])) {
+        // Disable lookup of the path alias, since the path alias might get
+        // changed by modules such as Pathauto.
+        $uri['options']['alias'] = TRUE;
         $form_state['redirect'] = array($uri['path'], $uri['options']);
       }
     }
@@ -1798,7 +1785,7 @@ function workbench_moderation_messages($context, $node = NULL) {
     if ($revision_current && !$revision_published && _workbench_moderation_access('update', $node) && $moderate_form = drupal_get_form('workbench_moderation_moderate_form', $node, "node/{$node->nid}/current-revision")) {
       if ($moderate_form = drupal_render($moderate_form)) {
         $info_block_messages[] = array(
-          'label' => t('Moderate'),
+          'label' => t('Set moderation state'),
           'message' => $moderate_form,
         );
       }
@@ -2115,4 +2102,11 @@ function workbench_moderation_ctools_plugin_api($module, $api) {
   if ($module == 'page_manager' && $api == 'pages_default') {
     return array('version' => 1);
   }
+}
+
+/**
+ * Implement hook_migrate_api().
+ */
+function workbench_moderation_migrate_api() {
+  return array('api' => 2);
 }
