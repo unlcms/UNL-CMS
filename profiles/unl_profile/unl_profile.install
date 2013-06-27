@@ -312,7 +312,8 @@ EOF;
       }
       else {
         // If there's no migration to be done, we can send the site created email now.
-        unl_send_site_created_email($row);
+        module_load_include('module', 'unl_multisite');
+        _unl_multisite_send_site_created_email($row);
       }
     }
   }

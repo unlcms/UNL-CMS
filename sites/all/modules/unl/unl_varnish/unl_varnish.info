@@ -1,9 +1,0 @@
-; $Id$
-name = UNL Varnish
-description = Extends the Varnish module to do a few extra tasks.
-package = UNL
-dependencies[] = varnish
-core = 7.x
-version = "7.x-7.6"
-
-files[] = unl_varnish.module
