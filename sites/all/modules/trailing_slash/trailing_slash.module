@@ -1,0 +1,154 @@
+<?php
+
+/**
+ * @file
+ * Adds checkbox to the Clean URLs settings form and alters outbound URLs.
+ */
+
+/**
+ * Function to add a trailing slash to a path if there isn't one already.
+ */
+function trailing_slash_add(&$path) {
+  $path = preg_replace('/((?:^|\\/)[^\\/\\.]+?)$/isD', '$1/', $path);
+}
+
+/**
+ * Implements hook_url_outbound_alter().
+ */
+function trailing_slash_url_outbound_alter(&$path, &$options, $original_path) {
+  // If Clean URLs and Trailing Slashes aren't enabled, don't run.
+  if (empty($GLOBALS['conf']['clean_url']) || !variable_get('trailing_slash', TRUE)) {
+    return;
+  }
+
+  // If URL is empty but has a prefix, set the path to the prefix.
+  if (($path == '<front>' || empty($path)) && isset($options['prefix']) && $options['prefix'] != '') {
+    $path = $options['prefix'];
+    $options['prefix'] = '';
+  }
+
+  // If the URL is external, the front page, or an empty path, don't run.
+  if ($options['external'] || $path == '<front>' || empty($path)) {
+    return;
+  }
+
+  // If Global Redirect is installed but not being used to enforce trailing
+  // slashes, we need to not add a trailing slash when it checks to see if a
+  // page needs to be redirected.
+  if (module_exists('globalredirect') && ($settings = _globalredirect_get_settings()) && _globalredirect_is_active($settings) && !$settings['deslash']) {
+    // Use backtrace to find out if the globalredirect_init() function called
+    // this function.
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
+    if (isset($backtrace[2]) && isset($backtrace[2]['function']) && strtolower($backtrace[2]['function']) == 'globalredirect_init') {
+      return;
+    }
+    unset($backtrace);
+  }
+
+  // Pre-alias if not already an alias. The only available hook is before
+  // aliasing is done, so we need to pre-alias to modify the final URL path.
+  if (!$options['alias']) {
+    // This is a copy of Drupal core code.
+    $language = isset($options['language']) && isset($options['language']->language) ? $options['language']->language : '';
+    $alias = drupal_get_path_alias($original_path, $language);
+    if ($alias != $original_path) {
+      $path = $alias;
+    }
+    // This is where the copy of Drupal core code ends.
+
+    // Mark the path as an alias so the alias code isn't needlessly re-run.
+    $options['alias'] = TRUE;
+  }
+
+  // Add a trailing slash.
+  trailing_slash_add($path);
+
+}
+
+/**
+ * Implements hook_admin_paths_alter().
+ *
+ * Adds trailing slash versions of admin paths.
+ */
+function trailing_slash_admin_paths_alter(&$paths) {
+  $new_paths = array();
+  foreach ($paths as $path => $enabled) {
+    // Ignore paths that end in a wildcard (*) as these will already
+    // work with trailing slashes.
+    if (!preg_match('/\\*$/isD', $path)) {
+      $new_path = $path;
+      trailing_slash_add($new_path);
+
+      // Only add a new admin path if the trailing slash version is
+      // different.
+      if ($new_path != $path) {
+        $new_paths[$new_path] = $enabled;
+      }
+    }
+  }
+  
+  $paths = array_merge($new_paths, $paths);
+}
+
+/**
+ * Implements hook_boot().
+ *
+ * Cleanup $_GET['q'] on bootstrap.
+ *
+ * Some modules might not cater for URLs that end in a trailing slash and might
+ * accidentally concatenate two or more slashes together in a URL path. This
+ * replaces any occurences of multiple slashes in $_GET['q'] with only one so
+ * that such URLs are still routed by Drupal properly.
+ */
+function trailing_slash_boot() {
+  $_GET['q'] = preg_replace('/\/{2,}/', '/', $_GET['q']);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function trailing_slash_form_system_clean_url_settings_alter(&$form, &$form_state, $form_id) {
+  // If Clean URLs can be enabled, add checkbox to enable/disable trailing
+  // slashes.
+  if (isset($form['clean_url'])) {
+    $form['trailing_slash'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable trailing slashes'),
+      '#default_value' => variable_get('trailing_slash', TRUE),
+      '#description' => t('Add a trailing slash to URLs eg. <code>example.com/user/</code>.'),
+      '#states' => array(
+        'invisible' => array(
+          'input[name="clean_url"]' => array('checked' => FALSE),
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Implements custom_url_rewrite_outbound().
+ *
+ * This is for Drupal 6.x support and any Drupal 7.x modules that may use it
+ * (eg. GlobalRedirect).
+ */
+function custom_url_rewrite_outbound(&$path, $options, $original_path) {
+  // If Clean URLs and Trailing Slashes are enabled and not external, front
+  // page, or empty path, add a trailing slash.
+  if (!empty($GLOBALS['conf']['clean_url']) && variable_get('trailing_slash', TRUE) && !$options['external'] && $path != '<front>' && !empty($path)) {
+    trailing_slash_add($path);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Change GlobalRedirect settings form to allow enforcement of trailing slashes.
+ */
+function trailing_slash_form_globalredirect_settings_alter(&$form, &$form_state, $form_id) {
+  if (variable_get('trailing_slash', TRUE)) {
+    $form['settings']['deslash'] = array_merge($form['settings']['deslash'], array(
+      '#title' => t('Enforce trailing slash'),
+      '#description' => t('If enabled, this option will enforce the trailing slash in requests. This stops requests such as example.com/node/1/ and example.com/node/1 causing duplicate content. On the other hand, if you require certain requests to not have a trailing slash, this feature can cause problems so may need to be disabled.'),
+    ));
+  }
+}

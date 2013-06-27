@@ -296,24 +296,6 @@ EOF;
         );
         user_save($account, $userData);
       }
-
-      if ($row->migration_url) {
-        // If there's a site to migrate, add the job to the queue.
-        require_once DRUPAL_ROOT . '/sites/all/modules/unl/unl_migration.php';
-        $migration = new Unl_Migration_Tool(
-          $row->migration_url,
-          $row->migration_path,
-          $frontier_config['unl_frontier_username'],
-          $frontier_config['unl_frontier_password'],
-          FALSE
-        );
-        DrupalQueue::get('unl_migration', TRUE)
-          ->createItem(Unl_Migration_Tool::save_to_disk($migration));
-      }
-      else {
-        // If there's no migration to be done, we can send the site created email now.
-        unl_send_site_created_email($row);
-      }
     }
   }
 
@@ -352,6 +334,9 @@ EOF;
  * Load the default site's config file and return the db_prefix value from it.
  */
 function unl_profile_get_default_site_db_settings() {
+  if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
+    require DRUPAL_ROOT . '/sites/all/settings.php';
+  }
   $default_site_settings_file = DRUPAL_ROOT . '/sites/default/settings.php';
   require $default_site_settings_file;
 

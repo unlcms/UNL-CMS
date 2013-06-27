@@ -1,0 +1,155 @@
+<?php
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * Modifies the system performance settings form to add a button to purge the varnish cache.
+ */
+function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state, $form_id) {
+  $form['clear_cache']['#weight'] = -3;
+
+  // Add purge varnish button for single site
+  $form['purge_varnish'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Purge varnish'),
+    '#access' => user_access('administer site configuration'),
+    '#weight' => -2,
+    'purge' => array(
+      '#type' => 'submit',
+      '#value' => t('Purge varnish cache'),
+      '#submit' => array('unl_varnish_purge_submit'),
+    ),
+  );
+
+  // Add system-wide varnish purge for the default site only
+  $form['purge_varnish_all_sites'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Purge varnish on all sites'),
+    '#access' => user_access('administer varnish') && conf_path() == 'sites/default',
+    '#weight' => -1,
+
+    'varnish_path' => array(
+      '#type' => 'radios',
+      '#required' => TRUE,
+      '#options' => array(
+        '^/wdn' => 'Only WDN template files (/wdn)',
+        '^/' => 'Everything',
+      ),
+      '#default_value' => '^/wdn',
+    ),
+
+    'purge' => array(
+      '#type' => 'submit',
+      '#value' => t('Purge varnish system-wide'),
+      '#submit' => array('unl_varnish_purge_all_sites_submit'),
+    ),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit callback: Uses the varnish module to purge varnish.
+ */
+function unl_varnish_purge_submit($form, &$form_state) {
+  unl_varnish_purge_all_pages();
+  drupal_set_message(t('Varnish purged.'));
+}
+
+/**
+ * Submit callback: Uses the varnish module to purge varnish at the requested path.
+ */
+function unl_varnish_purge_all_sites_submit($form, &$form_state) {
+  $path = $form_state['values']['varnish_path'];
+  varnish_purge('.*', $path);
+  drupal_set_message("Varnish purged paths matching $path.", 'status');
+}
+
+/**
+ * Implements hook_file_insert().
+ */
+function unl_varnish_file_insert($file) {
+  unl_varnish_purge_all_pages();
+}
+
+/**
+ * Implements hook_file_update().
+ */
+function unl_varnish_file_update($file) {
+  unl_varnish_purge_all_pages();
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function unl_varnish_node_update($node) {
+  unl_varnish_purge_all_pages();
+}
+
+/**
+ * Implements hook_webform_component_update().
+ */
+function unl_varnish_webform_component_update($component) {
+  // Only flush for the first component in the form.
+  static $unl_varnish_webform_component_update;
+  if (!isset($unl_varnish_webform_component_update)) {
+    unl_varnish_purge_all_pages();
+    $unl_varnish_webform_component_update = TRUE;
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function unl_varnish_form_alter(&$form, $form_state, $form_id) {
+  // Purges varnish when a Draggable Views form is saved.
+  if (array_key_exists('draggableviews', $form)) {
+    $form['#submit'][] = 'unl_varnish_purge_all_pages';
+  }
+}
+
+/**
+ * A drop-in replacement for varnish_purge_all_pages()
+ * that is aware of site aliases.
+ */
+function unl_varnish_purge_all_pages() {
+  require_once drupal_get_path('module', 'unl') . '/includes/common.php';
+
+  // First, determine the current database prefix
+  $sharedPrefix = unl_get_shared_db_prefix();
+
+  $currentPrefix = $GLOBALS['databases']['default']['default']['prefix'];
+  if (is_array($currentPrefix)) {
+    $currentPrefix = $currentPrefix['default'];
+  }
+
+  $currentPrefix = substr($currentPrefix, 0, -strlen($sharedPrefix));
+  $currentPrefix = trim($currentPrefix, '_');
+
+  // Next, use the database prefix to get a list of aliases
+  $query = unl_shared_db_select('unl_sites', 's');
+  $query->join('unl_sites_aliases', 'a', 's.site_id = a.site_id');
+  $query->fields('s', array('uri'));
+  $query->fields('a', array('base_uri', 'path'));
+  $query->condition('s.db_prefix', $currentPrefix);
+  $query->condition('s.installed', 2);
+  $query->condition('a.installed', 2);
+  $aliasData = $query->execute()->fetchAll();
+
+  // If the site has no aliases, just use the normal method.
+  if (!$aliasData) {
+    return varnish_purge_all_pages();
+  }
+
+  $aliases = array($aliasData[0]->uri);
+  foreach ($aliasData as $aliasRow) {
+    $aliases[] = $aliasRow->base_uri . $aliasRow->path;
+  }
+
+  // Otherwise do a purge for each alias.
+  foreach ($aliases as $alias) {
+    $host = parse_url($alias, PHP_URL_HOST);
+    $path = parse_url($alias, PHP_URL_PATH);
+
+    varnish_purge($host, $path);
+  }
+}

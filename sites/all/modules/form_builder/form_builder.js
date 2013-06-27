@@ -546,8 +546,11 @@ Drupal.formBuilder.addElement = function(response) {
   // Set the variable stating we're done updating.
   Drupal.formBuilder.updatingElement = false;
 
-  // Insert the new position form containing the new element.
+  // Insert the new position form containing the new element, but maintain
+  // the existing form action.
+  var positionAction = $('#form-builder-positions').attr('action');
   $('#form-builder-positions').replaceWith(response.positionForm);
+  $('#form-builder-positions').attr('action', positionAction);
 
   // Submit the new positions form to save the new element position.
   Drupal.formBuilder.updateElementPosition($new.get(0));

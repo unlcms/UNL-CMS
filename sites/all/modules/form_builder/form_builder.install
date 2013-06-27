@@ -21,6 +21,7 @@ function form_builder_requirements($phase) {
     if (empty($form_builder_types)) {
       $requirements['form_builder_types']['title'] = $t('Form builder');
       $requirements['form_builder_types']['severity'] = REQUIREMENT_ERROR;
+      $requirements['form_builder_types']['value'] = $t('No dependent modules found.');
       $requirements['form_builder_types']['description'] = t('Form builder module is installed but no modules implement support for it. You may want to disable Form builder module until it is needed.');
     }
   }

@@ -1,0 +1,10 @@
+name = UNL WYSIWYG
+description = Enhancments to text formats and wysiwyg editing.
+package = UNL
+dependencies[] = unl
+dependencies[] = wysiwyg
+core = 7.x
+version = "7.x-1.x"
+configure = admin/config/system/unl
+
+files[] = unl_wysiwyg.module

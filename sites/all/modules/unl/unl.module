@@ -1,21 +1,28 @@
 <?php
 
-require_once dirname(__FILE__) . '/includes/common.php';
+require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/common.php';
+require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/unl.token.inc';
 
 /**
- * Implementation of hook_help().
+ * Implements hook_help().
  */
 function unl_help($path, $arg) {
   switch ($path) {
+    case 'admin/modules/uninstall':
+      if ((module_exists('unl_multisite') && conf_path() == 'sites/default') || unl_table_is_shared('role_permission')) {
+        return '<h1>Be careful! Uninstalling a module clears its permissions which are shared globally between sites!</h1>';
+      }
     case 'admin/people/permissions':
-      return '<h1>Be careful! Permissions are shared globally between sites on UNLcms!</h1>';
+      if ((module_exists('unl_multisite') && conf_path() == 'sites/default') || unl_table_is_shared('role_permission')) {
+        return '<h1>Be careful! Permissions are shared globally between sites!</h1>';
+      }
     case 'user/unl/technical_feedback':
       return '<p>Consider visiting the Web Developer Network <a href="http://wdn.unl.edu/help/irc.shtml" target="_blank">chat room</a> as well.</p>';
   }
 }
 
 /**
- * Implementation of hook_entity_info_alter().
+ * Implements hook_entity_info_alter().
  */
 function unl_entity_info_alter(&$entity_info) {
   // Add additional view_mode to admin/structure/types/manage/CONTENTTYPE/display for an abbriviated teaser (for use in sidebars, etc)
@@ -26,39 +33,7 @@ function unl_entity_info_alter(&$entity_info) {
 }
 
 /**
- * Implementation of hook_html_head_alter().
- */
-function unl_html_head_alter(&$head_elements) {
-  // If <link rel="home"> has already been set elsewhere (in a Context for example) then return...
-  foreach ($head_elements as $key => $element) {
-    if ($element["#tag"] == 'link' && isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'home') {
-      return;
-    }
-  }
-
-  // If we are in a drilled down menu, change the home link to the drilled down item.
-  $current_menu_link = _unl_get_current_menu_link();
-  if ($current_menu_link && $current_menu_link->depth > 1) {
-    $home_path = drupal_get_path_alias($current_menu_link->link_path);
-  }
-  else {
-    $home_path = '<front>';
-  }
-
-  // ...otherwise add a <link rel="home"> tag with the front page as the href attribute
-  $element = array(
-    '#tag' => 'link',
-    '#attributes' => array(
-      'rel' => 'home',
-      'href' => url($home_path, array('absolute' => TRUE)),
-    ),
-    '#type' => 'html_tag'
-  );
-  $head_elements['drupal_add_html_head_link:home'] = $element;
-}
-
-/**
- * Implementation of hook_context_plugins(). (Context module)
+ * Implements hook_context_plugins(). (Context module)
  */
 function unl_context_plugins() {
   $plugins = array();
@@ -82,7 +57,7 @@ function unl_context_plugins() {
 }
 
 /**
- * Implementation of hook_context_registry(). (Context module)
+ * Implements hook_context_registry(). (Context module)
  */
 function unl_context_registry() {
   return array(
@@ -100,7 +75,7 @@ function unl_context_registry() {
 }
 
 /**
- * Implementation of hook_context_page_reaction(). (Context module)
+ * Implements hook_context_page_reaction(). (Context module)
  */
 function unl_context_page_reaction() {
   if ($plugin = context_get_plugin('reaction', 'linkrelhome')) {
@@ -109,13 +84,28 @@ function unl_context_page_reaction() {
 }
 
 /**
- * Implementation of hook_page_alter().
+ * Implements hook_page_alter().
  */
 function unl_page_alter(&$page) {
   // Add UNLcms technical feedback link to toolbar
   if (isset($page['page_top']['toolbar'])) {
-      $page['page_top']['toolbar']['#pre_render'][] = 'unl_toolbar_add_links';
+    $page['page_top']['toolbar']['#pre_render'][] = 'unl_toolbar_add_links';
+  }
+}
+
+/**
+ * Implements hook_block_list_alter().
+ */
+function unl_block_list_alter(&$blocks) {
+  // Hide all content area blocks on 404 page if using the 'unl-404' menu callback.
+  $status = drupal_get_http_header('status');
+  if ($status == '404 Not Found' && variable_get('site_404') == 'unl-404') {
+    foreach ($blocks as $key => $block) {
+      if (in_array($block->region, array('content', 'sidebar_first', 'sidebar_second'))) {
+        unset($blocks[$key]);
+      }
     }
+  }
 }
 
 /**
@@ -123,17 +113,17 @@ function unl_page_alter(&$page) {
  */
 function unl_toolbar_add_links($toolbar) {
   $link['html'] = TRUE;
-  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); background-repeat: no-repeat; width:17px; height:14px; text-indent:-9999px; display:block; margin: 3px 0;">Feedback</span>';
+  $icon = '<span style="background-image:url('. base_path() . 'sites/all/modules/unl/images/feedback_toolbar.png); background-repeat: no-repeat; width:17px; height:14px; text-indent:-9999px; display:block; margin: 3px 0;">Support</span>';
   $link['title'] = t("!icon", array('!icon' => $icon));
-  $link['attributes']['title'] = t('Submit technical feedback/issues/problems about the UNLcms system');
-  $link['href'] = 'user/unl/technical_feedback';
+  $link['attributes']['title'] = t('Submit feedback/issues/problems concerning the UNLcms system');
+  $link['href'] = 'user/unl/support';
 
   $toolbar['toolbar_user']['#links'] = array_merge(array('unl' => $link), $toolbar['toolbar_user']['#links']);
   return $toolbar;
 }
 
 /**
- * Implementation of hook_page_build().
+ * Implements hook_page_build().
  */
 function unl_page_build(&$page) {
   if (module_exists('context')) {
@@ -147,7 +137,7 @@ function unl_page_build(&$page) {
 }
 
 /**
- * Implementation of hook_field_attach_view_alter().
+ * Implements hook_field_attach_view_alter().
  */
 function unl_field_attach_view_alter(&$output, $context) {
   // Replace the field named field_hrorgunit containing an org unit number with that unit's listing from the UNL directory
@@ -181,7 +171,7 @@ function unl_field_attach_view_alter(&$output, $context) {
 }
 
 /**
- * Implementation of hook_node_access().
+ * Implements hook_node_access().
  */
 function unl_node_access($node, $op, $account) {
   // When content types are created they have blank permissions so base access on the 'Basic page' type. This is done because with shared permissions subsites can't edit permissions.
@@ -209,7 +199,7 @@ function unl_node_prepare($node) {
 }
 
 /**
- * Implementation of hook_node_presave().
+ * Implements hook_node_presave().
  */
 function unl_node_presave($node) {
   // Tidy html in fields that are text areas
@@ -218,129 +208,20 @@ function unl_node_presave($node) {
       $field_name = $field['field_name'];
       $lang = $node->language;
       $node_field = $node->$field_name;
-      $tidied_value = unl_tidy($node_field[$lang][0]['value']);
-      $node_field[$lang][0]['value'] = $tidied_value;
-      $node->$field_name = $node_field;
+      if (isset($node_field[$lang][0]['value'])) {
+        $tidied_value = unl_tidy($node_field[$lang][0]['value']);
+        $node_field[$lang][0]['value'] = $tidied_value;
+        $node->$field_name = $node_field;
+      }
     }
   }
 }
 
 /**
- * Implementation of hook_wywiwyg_plugin() found in wysiwyg.api.php
- */
-function unl_wysiwyg_plugin($editor) {
-  switch ($editor) {
-    case 'tinymce':
-      return array(
-        'unl' => array(
-          'url' => 'http://github.unl.edu/iim/TinyMCE',
-          'path' => $editor['library path'] . '/plugins/unl',
-          'internal' => TRUE,
-          'load' => TRUE,
-          'buttons' => array(
-            'unlZenBox' => 'UNL Zenbox',
-            'unlGrid' => 'UNL Grid',
-            'unlTooltip' => 'UNL Tooltip',
-          ),
-        ),
-        'codeprotect' => array(
-          'title' => t('CodeProtect'),
-          'url' => 'http://sourceforge.net/tracker/?func=detail&aid=2859676&group_id=103281&atid=738747',
-          'path' => wysiwyg_get_path('tinymce_plugins') . '/codeprotect',
-          'filename' => 'editor_plugin.js',
-          'buttons' => array(
-            'codeprotect' => t('CodeProtect'),
-          ),
-          'load' => TRUE,
-          'internal' => FALSE,
-        ),
-      );
-      break;
-  }
-}
-
-/**
- * Implementation of hook_wysiwyg_editor_settings_alter().
- */
-function unl_wysiwyg_editor_settings_alter(&$settings, $context) {
-  switch($context['editor']['name']) {
-    case 'tinymce':
-      // Set custom settings
-      $settings['theme'] = 'advanced';
-      $settings['skin'] = 'unl';
-      $settings['forced_root_block'] = false;
-      $settings['plugins'] .= ',pdw,inlinepopups';
-
-      // Process a default order for the buttons
-      $enabled_buttons = preg_split('/,/', $settings['theme_advanced_buttons1']);
-      $default_buttons = array('formatselect', '|', 'bold', 'italic', 'strikethrough', '|', 'bullist', 'numlist', 'blockquote', '|', 'justifyleft', 'justifycenter','justifyright','|','link', 'unlink', 'image', '|', 'pastetext', 'pasteword', 'removeformat', '|', 'pdw_toggle',
-                               'PAGEBREAK', 'styleselect', 'forecolor', 'backcolor', '|', 'underline', '|', 'justifyfull', '|', 'sup', 'sub', 'charmap', '|', 'indent', 'outdent', '|', 'anchor', '|', 'unlGrid', 'unlZenBox', 'unlTooltip', '|', 'undo', 'redo', '|', 'search', 'replace', '|', 'fullscreen', );
-      foreach($default_buttons as $button) {
-        if (in_array($button, $enabled_buttons)) {
-          unset($enabled_buttons[array_search($button, $enabled_buttons)]);
-        }
-        elseif ($button != '|' && $button != 'PAGEBREAK' && $button != 'pdw_toggle') {
-          unset($default_buttons[array_search($button, $default_buttons)]);
-        }
-      }
-
-      // Don't show the button for the codeprotect plugin if the php filter module is disabled
-      if (!module_exists('php')) {
-        unset($enabled_buttons[array_search('codeprotect', $enabled_buttons)]);
-      }
-
-      // Define the final button settings
-      $default_buttons_list = preg_split('/,PAGEBREAK,/', implode(',', $default_buttons));
-      $settings['theme_advanced_buttons1'] = $default_buttons_list[0];
-      $settings['theme_advanced_buttons2'] = $default_buttons_list[1];
-      $settings['theme_advanced_buttons3'] = (count($enabled_buttons) > 0) ? implode(',', $enabled_buttons) : NULL;
-      $settings['pdw_toggle_on'] = '1';
-      $settings['pdw_toggle_toolbars'] = (count($enabled_buttons) > 0) ? '2,3' : '2';
-      break;
-  }
-}
-
-/**
- * Implements of hook_element_info_alter().
- */
-function unl_element_info_alter(&$type) {
-  // Change text format processing on elements to our version.
-  if (isset($type['text_format'])) {
-    $type['text_format']['#process'][] = 'unl_filter_process_format';
-  }
-}
-
-/**
- * Callback for processing the text_format element
- */
-function unl_filter_process_format($element) {
-  // Only remove the plain_text and filtered_html options on the node edit form. They need to be available on comment forms, etc.
-  if (isset($element['#entity_type']) && $element['#entity_type'] == 'node') {
-    unset($element['format']['format']['#options']['plain_text']);
-    unset($element['format']['format']['#options'][1]); // On production the machine names are integers
-    unset($element['format']['format']['#options']['filtered_html']);
-    unset($element['format']['format']['#options'][11]);
-    $element['format']['format']['#title'] = 'Editor: ';
-  }
-  return $element;
-}
-
-/**
- * Implementation of hook_permission().
+ * Implements hook_permission().
  */
 function unl_permission() {
   return array(
-    'unl migration' => array(
-      'title'       => t('Migration'),
-      'description' => t('Migrate UNL Template based sites to drupal'),
-    ),
-
-    'unl site creation' => array(
-      'title'       => t('Site Creation'),
-      'description' => t('Create new drupal sites using the UNL profile'),
-      'restrict access' => TRUE,
-    ),
-
     'unl grant all permissions' => array(
       'title'       => t('Grant All Permissions'),
       'description' => t('If this is not checked, a user can only grant permissions that they themselves have. Requires the "Administer permissions" permission.'),
@@ -362,6 +243,17 @@ function unl_permission() {
       'title'       => t('Upload Javascript Files Through IMCE'),
     ),
   );
+}
+
+/**
+ * Implements hook_preprocess_node().
+ */
+function unl_preprocess_node(&$vars) {
+  // Full page representation wanted for 404 page
+  $status = drupal_get_http_header('status');
+  if ($status == '404 Not Found') {
+    $vars['page'] = TRUE;
+  }
 }
 
 /**
@@ -387,10 +279,26 @@ function unl_preprocess_page(&$vars) {
 }
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function unl_menu() {
   $items = array();
+
+  // 404 page pulled from default site.
+  $items['unl-404'] = array(
+    'title' => 'Page not found',
+    'access callback' => TRUE,
+    'page callback' => 'unl_404_page',
+    'type' => MENU_CALLBACK,
+  );
+
+  // Output html snippets for regions.
+   $items['sharedcode/%'] = array(
+    'title' => 'sharedcode files',
+    'access arguments' => array('access content'),
+    'page callback' => 'unl_sharedcode',
+    'page arguments' => array(1),
+  );
 
   // Returns confirmation 'user_loggedin' if user is logged into the system
    $items['user/unl/whoami'] = array(
@@ -400,35 +308,23 @@ function unl_menu() {
     'file' => 'unl_whoami.php',
   );
 
-  // Returns UNLcms technical feedback form
-  $items['user/unl/technical_feedback'] = array(
-    'title' => 'UNLcms Technical Feeedback Form',
-    'description' => 'Submit technical feedback/issues/problems about the UNLcms system.',
+  // Returns UNLcms support form
+  $items['user/unl/support'] = array(
+    'title' => 'UNLcms Support Form',
+    'description' => 'Submit feedback/issues/problems concerning the UNLcms system.',
     'access callback' => 'user_is_logged_in',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('unl_technical_feedback'),
+    'page arguments' => array('unl_support'),
     'type' => MENU_NORMAL_ITEM,
-    'file' => 'technical_feedback.php',
-  );
-
-  // Adds UNL Migration Tool to the Content menu for admin
-  $items['admin/content/unl/migration'] = array(
-    'title' => 'UNL Migration Tool',
-    'description' => 'Migrate a static UNL template page into Drupal.',
-    'access arguments' => array('unl migration'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('unl_migration'),
-    'type' => MENU_LOCAL_TASK,
-    'file' => 'unl_migration.php',
+    'file' => 'unl_support.php',
   );
 
   $items['admin/content/unl/reset'] = array(
     'title' => 'Reset Site',
     'description' => 'Remove all nodes, menu items, etc from this site.',
-    'access callback' => 'unl_user_is_administrator',
+    'access arguments' => array('administer nodes'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('unl_reset_site'),
-    'type' => MENU_LOCAL_TASK,
     'file' => 'includes/reset_site.php',
   );
 
@@ -486,91 +382,11 @@ function unl_menu() {
     );
   }
 
-  // UNL Site Management section
-  if (conf_path() == 'sites/default') {
-    $items['admin/sites/unl'] = array(
-      'title'            => 'UNL Site Management',
-      'description'      => 'Create and manage sites and aliases.',
-      'access arguments' => array('unl site creation'),
-      'page callback'    => 'unl_sites_page',
-      'weight'           => -20,
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/sites'] = array(
-      'title'       => 'Sites',
-      'description' => 'Create and manage UNL Drupal sites.',
-      'type'        => MENU_DEFAULT_LOCAL_TASK,
-      'weight'      => -8,
-    );
-    $items['admin/sites/unl/sites/add'] = array(
-      'title'            => 'Create site',
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_site_create', 'add'),
-      'access arguments' => array('unl site creation'),
-      'type'             => MENU_LOCAL_ACTION,
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/%/edit'] = array(
-      'title'            => 'Edit site',
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_site_edit', 3),
-      'access arguments' => array('unl site creation'),
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/%/delete'] = array(
-      'title'            => 'Delete site',
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_site_delete_confirm', 3),
-      'access arguments' => array('unl site creation'),
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/aliases'] = array(
-      'title'            => 'Aliases',
-      'description'      => 'Manage aliases of UNL Drupal sites.',
-      'access arguments' => array('unl site creation'),
-      'page callback'    => 'unl_aliases_page',
-      'type'             => MENU_LOCAL_TASK,
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/%/aliases'] = array(
-      'title'            => 'Aliases',
-      'description'      => 'Manage aliases of specified site.',
-      'access arguments' => array('unl site creation'),
-      'page callback'    => 'unl_aliases_page',
-      'page arguments'   => array(3),
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/user-audit'] = array(
-      'title'            => 'User Audit',
-      'description'      => 'Find out which sites users have access to.',
-      'access arguments' => array('unl site creation'),
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_user_audit'),
-      'type'             => MENU_LOCAL_TASK,
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/wdn_registry'] = array(
-      'title'            => 'WDN Registry',
-      'description'      => 'Settings for the connection to the WDN Registry.',
-      'access arguments' => array('unl site creation'),
-      'page callback'    => 'drupal_get_form',
-      'page arguments'   => array('unl_wdn_registry'),
-      'type'             => MENU_LOCAL_TASK,
-      'file'             => 'unl_site_creation.php',
-    );
-    $items['admin/sites/unl/feed'] = array(
-      'title'           => 'Site Feed',
-      'description'     => 'JSON output of all UNL sites.',
-      'page callback'   => 'unl_sites_feed',
-      'access callback' => TRUE,
-      'file'            => 'unl_site_creation.php',
-    );
-  }
   return $items;
 }
 
 /**
- * Implementation of hook_menu_alter().
+ * Implements hook_menu_alter().
  */
 function unl_menu_alter(&$items) {
   // This duplicates the form at admin/appearance/settings/unl_wdn for roles that can't 'administer themes' but have 'unl theme settings' permission.
@@ -599,12 +415,82 @@ function unl_menu_alter(&$items) {
 }
 
 /**
- * Implementation of hook_file_validate().
+ * Custom page callback.
+ */
+function unl_404_page() {
+  $database = $GLOBALS['databases']['default']['default'];
+  $database['prefix'] = unl_get_shared_db_prefix();
+  Database::addConnectionInfo('default_site', 'default', $database);
+  // Switch database connection to default site.
+  db_set_active('default_site');
+
+  $default_404 = unl_shared_variable_get('site_404');
+  // @TODO: $default_404 should look like "node/182" but is there a safer way to retrieve nid?
+  $node = node_load(substr($default_404, 5));
+  if ($node) {
+    drupal_set_title($node->title);
+    $build = node_view($node, 'full');
+    $build['links']['#access'] = FALSE;
+    $build['#contextual_links'] = NULL;
+  }
+  else {
+    $build = array();
+  }
+
+  // Restore database connection.
+  db_set_active();
+  return drupal_render($build);
+}
+
+/**
+ * Custom function that creates html snippet output at sharedcode/% paths to
+ *   mimic files that once existed on static UNL templated sites.
+ */
+function unl_sharedcode($file = null) {
+  foreach (system_region_list($GLOBALS['theme']) as $region_key => $region_name) {
+    if ($blocks = block_get_blocks_by_region($region_key)) {
+      $regions[$region_key] = $blocks;
+    }
+    else {
+      $regions[$region_key] = array();
+    }
+  }
+
+  switch ($file) {
+    case 'footer.html':
+    case 'footer_content':
+      $region = 'footercontent';
+      break;
+    case 'footerContactInfo.html':
+    case 'contact_us':
+      $region = 'contactinfo';
+      break;
+    case 'navigation.html':
+    case 'navigation_links':
+      $region = 'navlinks';
+      break;
+    case 'relatedLinks.html':
+    case 'related_links':
+      $region = 'leftcollinks';
+      break;
+    default:
+      drupal_not_found();
+      return;
+  }
+
+  drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
+  drupal_add_http_header('Content-Language', 'en');
+  print render($regions[$region]);
+  exit;
+}
+
+/**
+ * Implements hook_file_validate().
  * Fires when files are uploaded after Drupal Core sanitization but before saving to file system or db
  */
 function unl_file_validate($file) {
   // For IMCE uploads only, check if Drupal core just altered a *.js upload to *.js.txt and correct if permitted
-  if ($file->source == 'imce' && substr($file->filename, -7) == '.js.txt' && user_access('unl imce javascript upload')) {
+  if (isset($file->source) && $file->source == 'imce' && substr($file->filename, -7) == '.js.txt' && user_access('unl imce javascript upload')) {
     // Chop off the .txt extesnsion that's been added
     $file->destination = substr($file->destination, 0, -4);
     $file->filename = substr($file->filename, 0, -4);
@@ -613,7 +499,7 @@ function unl_file_validate($file) {
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for system_theme_settings.
+ * Implements hook_form_FORM_ID_alter() for system_theme_settings.
  * This is used in addition to unl_wdn_form_system_theme_settings_alter because that hook
  *   runs before color_form_system_theme_settings_alter which overwrites an attempt
  *   at setting $form['color']['#access'].
@@ -641,7 +527,7 @@ function unl_form_system_theme_settings_alter(&$form, &$form_state) {
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for field_ui_display_overview_form.
+ * Implements hook_form_FORM_ID_alter() for field_ui_display_overview_form.
  */
 function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $form_id) {
   // Add additional label display options in Manage Display section of content type editing (admin/structure/types/manage/content-type/display)
@@ -651,7 +537,7 @@ function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $fo
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for system_modules.
+ * Implements hook_form_FORM_ID_alter() for system_modules.
  */
 function unl_form_system_modules_alter(&$form, &$form_state, $form_id) {
   // Whitelist of modules that Site Admin are allowed to turn on and off on admin/modules
@@ -671,7 +557,17 @@ function unl_form_system_modules_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
- * Implementation of hook_form_alter().
+ * Implements hook_form_FORM_ID_alter() for system_logging_settings.
+ */
+function unl_form_system_logging_settings_alter(&$form, $form_state, $form_id) {
+  // Disable ability of non-admins to turn on error reporting on on admin/config/development/logging.
+  if (!unl_user_is_administrator()) {
+    $form['#disabled'] = true;
+  }
+}
+
+/**
+ * Implements hook_form_alter().
  */
 function unl_form_alter(&$form, $form_state, $form_id) {
   // Make new menu items expanded by default.
@@ -684,6 +580,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'checkbox',
       '#title' => 'SSL Enabled',
       '#default_value' => variable_get('https', FALSE),
+      '#disabled' => !unl_user_is_administrator(),
     );
 
     if (conf_path() != 'sites/default') {
@@ -697,6 +594,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
         '#type' => 'select',
         '#options' => $base_urls,
         '#default_value' => variable_get('unl_primary_base_url'),
+        '#disabled' => !unl_user_is_administrator(),
       );
       $form['#submit'][] = 'unl_system_settings_form_submit';
     }
@@ -838,7 +736,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
 }
 
 /**
- * Implementation of hook_node_form_submit().
+ * Implements hook_node_form_submit().
  */
 function unl_node_form_submit($form, &$form_state) {
   // When a node is modified, update its menu link to be hidden or not based on the user input.
@@ -866,7 +764,7 @@ function unl_node_form_submit($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_system_settings_form_submit().
+ * Implements hook_system_settings_form_submit().
  */
 function unl_system_settings_form_submit($form, &$form_state) {
   variable_set('https', (bool) $form_state['values']['https']);
@@ -879,23 +777,7 @@ function unl_system_settings_form_submit($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_theme().
- */
-function unl_theme() {
-  return array(
-    'unl_site_details' => array(
-      'variables' => array('site_path' => NULL, 'uri' => NULL, 'db_prefix' => NULL),
-      'file' => 'unl_site_creation.php',
-    ),
-    'unl_table' => array(
-      'render element' => 'form',
-      'file' => 'unl_site_creation.php',
-    ),
-  );
-}
-
-/**
- * Implementation of hook_url_outbound_alter().
+ * Implements hook_url_outbound_alter().
  */
 function unl_url_outbound_alter(&$path, &$options, $original_path) {
   $path_parts = parse_url($path);
@@ -956,146 +838,6 @@ function unl_user_admin_role_validate($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_cron().
- */
-function unl_cron() {
-  _unl_cron_migration_step();
-  _unl_cron_import_wdn_registry_sites();
-}
-
-/**
- * If a site is being migrated via cron jobs, do some work towards that migration.
- */
-function _unl_cron_migration_step() {
-  // We don't want this running as system user, only the web user.
-  if (PHP_SAPI == 'cli') {
-    return;
-  }
-
-  $queue = DrupalQueue::get('unl_migration');
-  if ($queue->numberOfItems() > 0) {
-    require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_migration.php';
-    $item = $queue->claimItem(120);
-    $queue->deleteItem($item);
-    if (unl_migration_queue_step($item->data)) {
-      unl_send_site_created_email();
-    }
-  }
-}
-
-/**
- * Checks the wdn registry for any sites that need to be imported and does so.
- */
-function _unl_cron_import_wdn_registry_sites() {
-  // We don't want this running as system user, only the web user.
-  if (PHP_SAPI == 'cli') {
-    return;
-  }
-
-  // We don't want this running on sub-sites.
-  if (conf_path() != 'sites/default') {
-    return;
-  }
-
-  $wdn_registry_info = array(
-    'database' => variable_get('unl_wdn_registry_database'),
-    'username' => variable_get('unl_wdn_registry_username'),
-    'password' => variable_get('unl_wdn_registry_password'),
-    'host'     => variable_get('unl_wdn_registry_host'),
-    'driver'   => 'mysql',
-  );
-
-  if (!$wdn_registry_info['database']) {
-    return;
-  }
-
-  Database::addConnectionInfo('wdn_registry', 'default', $wdn_registry_info);
-
-  try {
-    db_set_active('wdn_registry');
-    $data = db_select('site_request', 'r')
-      ->fields('r')
-      ->where('`url` IS NULL')
-      ->execute()
-      ->fetchAll();
-    db_set_active();
-  }
-  catch (Exception $e) {
-    db_set_active();
-    return;
-  }
-
-  $sites_to_create = array();
-  foreach ($data as $site) {
-    $path = unl_sanitize_url_part($site->department) . '/' . unl_sanitize_url_part($site->site_name);
-    $db_prefix = unl_create_db_prefix($site->department . '/' . $site->site_name);
-
-    $sites_to_create[$site->id] = array(
-      'site_path'      => $path,
-      'uri'            => url($path),
-      'clean_url'      => TRUE,
-      'db_prefix'      => $db_prefix,
-      'site_admin'     => $site->site_admin ? $site->site_admin : '',
-      'migration_url'  => $site->migration_url ? $site->migration_url : '',
-      'migration_path' => $site->migration_path ? $site->migration_path : '',
-      'department'     => $site->department,
-    );
-  }
-
-  foreach ($sites_to_create as $wdn_site_id => $site_to_create) {
-    try {
-      db_insert('unl_sites')->fields($site_to_create)->execute();
-    }
-    catch (PDOException $e) {
-      // Ignore duplicate records.
-      if ($e->getCode() != 23000) {
-        throw $e;
-      }
-      continue;
-    }
-
-    db_set_active('wdn_registry');
-    if (variable_get('unl_wdn_registry_production')) {
-      db_update('site_request')
-        ->fields(array('url' => $site_to_create['uri']))
-        ->condition('id', $wdn_site_id)
-        ->execute();
-    }
-    db_set_active();
-  }
-}
-
-/**
- * Custom function that creates a db_prefix short enough to not go over MySQL's max table name length.
- */
-function unl_create_db_prefix($site_name) {
-  $parent_prefix = '_' . $GLOBALS['databases']['default']['default']['prefix'];
-
-  $site_name = strtolower($site_name);
-  $site_name = preg_replace('/[^[a-z0-9]/', '_', $site_name);
-  $site_name = explode('_', $site_name);
-  foreach ($site_name as $site_word) {
-    $site_words[$site_word] = strlen($site_word);
-  }
-  do {
-    $db_prefix = array();
-    $found = FALSE;
-    foreach ($site_words as $site_word => $length) {
-      $db_prefix[] = substr($site_word, 0, $length);
-      if (max($site_words) == $length && !$found) {
-        $found = TRUE;
-        $site_words[$site_word] = $length-1;
-      }
-    }
-    $db_prefix = implode('_', $db_prefix);
-    $db_prefix = preg_replace('/_+/', '_', $db_prefix);
-    $db_prefix = preg_replace('/(^_)|(_$)/', '', $db_prefix);
-  } while (strlen($db_prefix . '_' . $parent_prefix) > 32);
-
-  return $db_prefix;
-}
-
-/**
  * Custom function to sanitize user created URLs
  */
 function unl_sanitize_url_part($url_part) {
@@ -1143,7 +885,7 @@ function unl_get_alternate_base_uris() {
 }
 
 /**
- * Implementation of hook_init().
+ * Implements hook_init().
  */
 function unl_init() {
   // Redirect to desired URL if needed
@@ -1158,7 +900,12 @@ function unl_init() {
     $primary_base_url = $current_url_schema . substr($primary_base_url, strlen($primary_base_url_schema));
 
     if (conf_path() != 'sites/default' && $primary_base_url != url() && PHP_SAPI != 'cli') {
-      drupal_goto(url($primary_base_url . request_path(), array('query' => drupal_get_query_parameters())));
+      // Ripped off from request_path(), but without removing things like cron.php
+      $request_path = strtok($_SERVER['REQUEST_URI'], '?');
+      $base_path_len = strlen(rtrim(dirname($_SERVER['SCRIPT_NAME']), '\/'));
+      $path = substr(urldecode($request_path), $base_path_len + 1);
+
+      drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())), array(), 301);
     }
   }
 
@@ -1183,7 +930,7 @@ function unl_init() {
   drupal_add_js(array('unl' => array('use_base_tag' => variable_get('unl_use_base_tag', TRUE))), 'setting');
 
   // Add JS
-  drupal_add_js('sites/all/modules/unl/unl.js');
+  drupal_add_js(drupal_get_path('module', 'unl') . '/unl.js', array('weight' => 50));
 
   // Handle unneeded index.html references
   _unl_handle_directory_index();
@@ -1216,97 +963,6 @@ function _unl_handle_directory_index() {
 }
 
 /**
- * Implementation of hook_mail().
- */
-function unl_mail($key, &$message, $params) {
-  if ($key == 'site_created') {
-    $site = $params['site'];
-    $uri = $site->uri;
-    $site_admin = $site->site_admin;
-    $department = $site->department;
-
-    $message['subject'] = 'New UNLcms site for ' . $department;
-    $message['body'][] = <<<EOF
-To $site_admin,
-
-Thank you for registering your site at UNLcms. You may now log in using your myUNL information by clicking the link below or copying and pasting it to your browser:
-
-$uri
-You must log in in order manage your web site and edit the content. The "Login" link is at the top of the page and you log in using your myUNL information.
-
-For information on how to manage your site & content, please view the online how-to videos found in the menu at the top of the following page, within the category of "Get Help":
-
-http://unlcms.unl.edu
-
-When this new site was created, an attempt was made to copy the content from your current site to this new site. You will want to review all of the content to verify that it is complete and that it is presented correctly.  This import process is dependent on the current's site using and adherence to UNL Templates.
-
-Once your content has been finalized and your are ready to go public with your new site, please contact us to activate the proper public URL (cleaner and shorter). This current URL you've been given will not be indexed or found in search engines until the proper public URL has been established.
-
-Please let us know if you have suggestions or questions.
-
-Thank you,
-EOF;
-
-  }
-}
-
-/**
- * Custom function.
- */
-function unl_send_site_created_email($site = NULL) {
-  $shared_prefix = unl_get_shared_db_prefix();
-
-  // If no site was specified, get the current site.
-  if (!$site) {
-    if (!is_array($GLOBALS['databases']['default']['default']['prefix'])) {
-      return;
-    }
-
-    $db_prefix = $GLOBALS['databases']['default']['default']['prefix']['default'];
-    $db_prefix = substr($db_prefix, 0, 0 - strlen($shared_prefix) - 1);
-    $data = db_query(
-      "SELECT * "
-      . "FROM {$shared_prefix}unl_sites "
-      . "WHERE db_prefix = :prefix ",
-      array(':prefix' => $db_prefix)
-    )->fetchAll();
-    if (count($data) == 0) {
-      return;
-    }
-    $site = $data[0];
-  }
-
-  $unl_site_created_email_address = unl_shared_variable_get('unl_site_created_email_address');
-  $unl_site_created_alert_admins = unl_shared_variable_get('unl_site_created_alert_admins');
-
-  $recipients = array();
-
-  if ($unl_site_created_email_address) {
-    $recipients[] = $unl_site_created_email_address;
-  }
-
-  if ($unl_site_created_alert_admins) {
-    $role = user_role_load_by_name('Site Admin');
-    $select = db_select('users_roles', 'r');
-    $select->fields('r', array('uid'));
-    $select->condition('r.rid', $role->rid);
-    $uids = $select->execute()->fetchCol();
-
-    $users = user_load_multiple($uids);
-    foreach ($users as $user) {
-      if (!$user->mail) {
-        continue;
-      }
-      $recipients[] = $user->mail;
-    }
-  }
-
-  foreach ($recipients as $recipient) {
-    drupal_mail('unl', 'site_created', $recipient, language_default(), array('site' => $site), unl_shared_variable_get('site_mail'));
-  }
-}
-
-/**
  * Custom function that outputs a simple "I'm still alive" page to check to see that drupal is working.
  */
 function unl_still_alive() {
@@ -1329,144 +985,6 @@ function _unl_imce_file_browser_access() {
   global $user;
   $profile = imce_user_profile($user);
   return $profile['usertab'];
-}
-
-/**
- * Implements hook_block_view_alter()
- * @param array $data
- * @param stdClass $block
- */
-function unl_block_view_alter(&$data, $block) {
-  if ($block->module == 'system' && $block->delta == 'main-menu') {
-    return unl_block_view_system_main_menu_alter($data, $block);
-  }
-}
-
-/**
- * Tries to implement hook_block_view_MODULE_DELTA_alter, but since the delta contains a -,
- * this is actually called from unl_block_view_alter() for now.
- * Used to determine if a "sub-menu" should be used instead of the normal menu.
- * @param array $data
- * @param stdClass $block
- */
-function unl_block_view_system_main_menu_alter(&$data, $block) {
-  $current_menu_link = _unl_get_current_menu_link();
-  if (!$current_menu_link) {
-    return;
-  }
-  $submenu = _unl_get_current_submenu($data['content'], $current_menu_link->mlid);
-  if ($submenu && $submenu['#original_link']['depth'] > 1) {
-    $data['content'] = $submenu['#below'];
-  }
-  $data['content'] = _unl_limit_menu_depth($data['content'], 2);
-}
-
-/**
- * Return the mlid of the currently selected menu item.
- * If the current page has no menu item, use return the mlid of its parent instead.
- */
-function _unl_get_current_menu_link() {
-  $result = db_select('menu_links')
-    ->fields('menu_links')
-    ->condition('menu_name', 'main-menu')
-    ->condition('link_path', current_path())
-    ->execute()
-    ->fetch();
-
-  if (!$result) {
-    return FALSE;
-  }
-
-  while (($result->hidden || $result->depth % 2 !== 0 || !$result->has_children) && $result->depth > 1) {
-    $result = db_select('menu_links')
-      ->fields('menu_links')
-      ->condition('menu_name', 'main-menu')
-      ->condition('mlid', $result->plid)
-      ->execute()
-      ->fetch();
-  }
-
-  return $result;
-}
-
-/**
- * Find the the submenu we are currently "drilled-down" to.
- * @param array $menu_links
- * @param int $current_mlid
- */
-function _unl_get_current_submenu($menu_links, $current_mlid) {
-  foreach (element_children($menu_links) as $index) {
-    $menu_item = $menu_links[$index];
-    if ($menu_item['#original_link']['mlid'] == $current_mlid) {
-      return $menu_item;
-    }
-    $sub_menu = _unl_get_current_submenu($menu_item['#below'], $current_mlid);
-    if ($sub_menu) {
-      return $sub_menu;
-    }
-  }
-  return FALSE;
-}
-
-/**
- * Remove any menu items that are more than $depth levels below the current root.
- * @param array $menu_links
- * @param int $depth
- */
-function _unl_limit_menu_depth($menu_links, $depth) {
-  if ($depth == 0) {
-    return array();
-  }
-
-  foreach (element_children($menu_links) as $index) {
-    $menu_links[$index]['#below'] = _unl_limit_menu_depth($menu_links[$index]['#below'], $depth - 1);
-  }
-
-  return $menu_links;
-}
-
-/**
- * Implements hook_block_info()
- */
-function unl_block_info() {
-  $blocks = array();
-
-  $blocks['my_sites'] = array(
-    'info' => 'My Sites',
-    'cache' => DRUPAL_CACHE_PER_USER,
-  );
-
-  return $blocks;
-}
-
-/**
- * Implements hook_block_view()
- */
-function unl_block_view($delta = '') {
-  switch ($delta) {
-    case 'my_sites':
-      return unl_block_view_my_sites();
-      break;
-    default:
-      return array();
-  }
-}
-
-/**
- * Implements hook_block_view('my_sites').
- * Displays the list of sites/roles for the current user.
- */
-function unl_block_view_my_sites() {
-  if (user_is_anonymous()) {
-    return array();
-  }
-
-  require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'unl_site_creation.php';
-
-  $block = array();
-  $block['content'] = _unl_get_user_audit_content($GLOBALS['user']->name);
-
-  return $block;
 }
 
 /**
@@ -1508,17 +1026,27 @@ function unl_query_alter(QueryAlterableInterface $query) {
     }
     // If we actually find a users table
     if ($usersTableAlias) {
+      // Get rid of pagination.
+      // @TODO: Even though users w/o role are not returned, pagination for them does. Fix this rather than using limit.
+      if ($query->hasTag('pager')) {
+        $query->limit(10000);
+      }
       // Join it with the users_roles tables so that only users with roles are seleceted.
       $query->join('users_roles', 'unl_distinct_prefix_r', $usersTableAlias . '.uid = unl_distinct_prefix_r.uid');
+      if (!unl_user_is_administrator()) {
+        // Hide users that are only in the administrator role
+        $query->where('unl_distinct_prefix_r.rid != ' . unl_shared_variable_get('user_admin_role', -1));
+        // Hide the default admin user.
+        $query->where($usersTableAlias . '.uid != 1');
+      }
     }
   }
 }
 
 /**
- * Implementation of hook_filter_info()
+ * Implements hook_filter_info()
  */
-function unl_filter_info()
-{
+function unl_filter_info() {
   return array(
     'unl_embed' => array(
       'title' => 'UNL Node Embed',
@@ -1536,12 +1064,11 @@ function unl_filter_info()
 }
 
 /**
- * Implementation of hook_filter_FILTER_process pseudo-hook
+ * Implements hook_filter_FILTER_process pseudo-hook
  *
  * Replace any instances of [[node:X]] in the $text with the content of node X's body.
  */
-function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $cache_id)
-{
+function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $cache_id) {
   static $processed_hashes = array();
 
   $text_hash = hash('sha256', $text);
@@ -1571,7 +1098,7 @@ function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $c
 }
 
 /**
- * Implementation of hook_filter_FILTER_process pseudo-hook
+ * Implements hook_filter_FILTER_process pseudo-hook
  *
  * Replace any instances of <!--#include virtual="url"--> with the content
  * found at that URL.  If the url is in the unl.edu domain, format=partial
@@ -1588,13 +1115,19 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
 
     // Break down the URL target then rebuild it as absolute.
     $url = substr($match, 1, -1);
+    $url = html_entity_decode($url);
     $parts = parse_url($url);
     if (!isset($parts['scheme'])) {
-      $parts['scheme'] = $_SERVER['HTTPS'] ? 'https' : 'http';
+      $parts['scheme'] = isset($_SERVER['HTTPS']) ? 'https' : 'http';
     }
     if (!isset($parts['host'])) {
-      $parts['host'] = $_SERVER['HTTP_HOST'];
+      $parts['host'] = $_SERVER['SERVER_NAME'];
     }
+    /* We can't do this on production because we're running on port 8080.
+    if (!isset($parts['port']) && !in_array($_SERVER['SERVER_PORT'], array(80, 443))) {
+      $parts['port'] = $_SERVER['SERVER_PORT'];
+    }
+    */
     if (isset($parts['path']) && substr($parts['path'], 0, 1) != '/') {
       if (variable_get('unl_use_base_tag')) {
         $parts['path'] = $GLOBALS['base_path'] . $parts['path'];
@@ -1605,8 +1138,10 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
     if (!isset($parts['path'])) {
       $parts['path'] = '/';
     }
-    $url = $parts['scheme'] . '://' . $parts['host'] . $parts['path'];
-
+    $url = $parts['scheme']
+         . '://' . $parts['host']
+         . (isset($parts['port']) ? ':' . $parts['port'] : '')
+         . $parts['path'];
 
     // If this is a request to another UNL site, add format=partial to the query.
     if (substr($parts['host'], -7) == 'unl.edu') {
@@ -1626,7 +1161,19 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $url .= '#' . $parts['fragment'];
     }
 
-    $content = unl_url_get_contents($url);
+    // If the varnish module is enabled, and the SSI is for a URL on our server, do an ESI.
+    if (module_exists('varnish') &&
+        isset($_SERVER['HTTP_X_VARNISH']) &&
+        gethostbyname($parts['host']) == gethostbyname($_SERVER['SERVER_NAME']) &&
+        $parts['scheme'] == 'http'
+    ) {
+      $content = _unl_ssi_to_esi($url);
+    }
+    // Otherwise, emulate the SSI in drupal.
+    else {
+      $content = _unl_ssi_emulate($url);
+    }
+
     $replacements[$full_match] = PHP_EOL
                                . '<!-- Begin content from ' . $url . ' -->' . PHP_EOL
                                . $content . PHP_EOL
@@ -1640,3 +1187,48 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
   return $text;
 }
 
+/**
+ * Used by unl_filter_ssi_process() to emulate the SSI process inside drupal.
+ * @param $url
+ * @return string
+ */
+function _unl_ssi_emulate($url) {
+  $ssiDepth = 0;
+  if (array_key_exists('HTTP_X_UNL_SSI_DEPTH', $_SERVER)) {
+    $ssiDepth = $_SERVER['HTTP_X_UNL_SSI_DEPTH'];
+  }
+  $ssiDepth++;
+
+  $context = stream_context_create(array(
+    'http' => array(
+      'header' => "x-unl-ssi-depth: $ssiDepth\r\n",
+    ),
+  ));
+
+  if ($ssiDepth > 3) {
+    watchdog('unl', 'Server Side Include: Recursion depth limit reached.', array(), WATCHDOG_ERROR);
+    drupal_add_http_header('x-unl-ssi-error', 'Too deep!');
+    $content = '<!-- Error: Too many recursive includes! Content from ' . $url . ' was not included! -->';
+  }
+  else {
+    $headers = array();
+    $content = unl_url_get_contents($url, $context, $headers);
+    if (array_key_exists('x-unl-ssi-error', $headers)) {
+      watchdog('unl', 'Server Side Include: An included URL reached the depth limit.', array(), WATCHDOG_WARNING);
+      drupal_add_http_header('x-unl-ssi-error', 'The included URL caused recursion that was too deep!');
+    }
+  }
+
+  return $content;
+}
+
+/**
+ * Used by unl_filter_ssi_process() to change the SSI into an ESI
+ * @param $url
+ * @return string
+ */
+function _unl_ssi_to_esi($url) {
+  // Set a header so that Varnish knows to do ESI processing on this response.
+  drupal_add_http_header('X-ESI', 'yes');
+  return '<esi:include src="' . check_plain($url) . '"/>';
+}

@@ -1,3 +1,9 @@
+## Requirements:
+
+  * [Core drupal requirements](http://drupal.org/requirements)
+  * PHP LDAP Extension
+  * PHP Tidy Extension (for migration tool)
+
 ## Get Started:
 
 In this example the web root is /Library/WebServer/Documents and Apache runs as _www - modify the instructions below according to your setup
@@ -34,8 +40,11 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
         echo 'Resetting .htaccess'
         cd /Library/WebServer/Documents/workspace/UNL-CMS
         sudo rm .htaccess
+        sudo rm .htaccess-subsite-map.txt
         cp .htaccess.sample .htaccess
+        cp .htaccess-subsite-map.txt.sample .htaccess-subsite-map.txt
         sudo chown YOURUSER .htaccess
+        sudo chown YOURUSER .htaccess-subsite-map.txt
         sed -i "" 's/# RewriteBase \/drupal\//RewriteBase \/workspace\/UNL-CMS\//' ".htaccess"
 
         echo 'Done.'
@@ -84,10 +93,9 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      Added an example of the $default_domains array. Added the stub record needed for creating site aliases.
 
-  *  modules/image/image.field.inc
+  *  modules/field/modules/text/text.module
 
-     - theme_image_formatter ignores attributes so classes can't be added to an image in a theme (needed for photo frame). See http://drupal.org/node/1025796#comment-4298698 and http://drupal.org/files/issues/1025796.patch
-
+     - Add nl2br() on Plain Text processor. See http://drupal.org/node/1152216#comment-7174876
 
 ## Hacks of Contrib modules:
 
@@ -103,6 +111,30 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
+  *  entity/entity.module, entity/modules/callbacks.inc
+
+     - Add 'uri callback' for file entities. See http://drupal.org/node/1481372#comment-6529650
+
+  *  media/includes/media.variables.inc
+
+     - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
+
+  *  og_menu
+	
+     - Applied og_menu-jquery_selector.patch. See:http://drupal.org/node/1051542
+
+  *  redirect
+
+     - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
+
+  *  upload_replace.module
+
+     - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558
+
+  *  webform.module
+
+     - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
+
   *  workbench_moderation.module
 
      - Fix broken books in workbench_moderation_node_presave(). See http://drupal.org/node/1505060
@@ -111,93 +143,21 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Comment out the part that switches wrappers from table-based to div. We need the original TinyMCE code for the PDW toggle plugin to work
 
+## How to Contribute
 
-#DRUPAL 7 README
+Development is handled through GitHub
 
-CONTENTS OF THIS FILE
----------------------
+All code changes must be committed via git to a local fork and contributed back to the project via a pull request.
 
- * About Drupal
- * Configuration and features
- * Appearance
- * Developing for Drupal
+Ideally each developer should have a fork of the project on GitHub where they can push changes.
 
-ABOUT DRUPAL
-------------
+In your local clone:
 
-Drupal is an open source content management platform supporting a variety of
-websites ranging from personal weblogs to large community-driven websites. For
-more information, see the Drupal website at http://drupal.org/, and join the
-Drupal community at http://drupal.org/community.
+ * git pull origin develop
+ * git checkout -b topics/whatever-you-work-on (or bugfix/NUM — for bugs)
+ * write code and commit
+ * git push origin topics/whatever-you-work-on
+ * on github open a pull request from your branch to develop
+ * have someone else review
 
-Legal information about Drupal:
- * Know your rights when using Drupal:
-   See LICENSE.txt in the same directory as this document.
- * Learn about the Drupal trademark and logo policy:
-   http://drupal.com/trademark
-
-CONFIGURATION AND FEATURES
---------------------------
-
-Drupal core (what you get when you download and extract a drupal-x.y.tar.gz or
-drupal-x.y.zip file from http://drupal.org/project/drupal) has what you need to
-get started with your website. It includes several modules (extensions that add
-functionality) for common website features, such as managing content, user
-accounts, image uploading, and search. Core comes with many options that allow
-site-specific configuration. In addition to the core modules, there are
-thousands of contributed modules (for functionality not included with Drupal
-core) available for download.
-
-More about configuration:
- * Install, upgrade, and maintain Drupal:
-   See INSTALL.txt and UPGRADE.txt in the same directory as this document.
- * Learn about how to use Drupal to create your site:
-   http://drupal.org/documentation
- * Download contributed modules to sites/all/modules to extend Drupal's
-   functionality:
-   http://drupal.org/project/modules
- * See also: "Developing for Drupal" for writing your own modules, below.
-
-APPEARANCE
-----------
-
-In Drupal, the appearance of your site is set by the theme (themes are
-extensions that set fonts, colors, and layout). Drupal core comes with several
-themes. More themes are available for download, and you can also create your own
-custom theme.
-
-More about themes:
- * Download contributed themes to sites/all/themes to modify Drupal's
-   appearance:
-   http://drupal.org/project/themes
- * Develop your own theme:
-   http://drupal.org/documentation/theme
-
-DEVELOPING FOR DRUPAL
----------------------
-
-Drupal contains an extensive API that allows you to add to and modify the
-functionality of your site. The API consists of "hooks", which allow modules to
-react to system events and customize Drupal's behavior, and functions that
-standardize common operations such as database queries and form generation. The
-flexible hook architecture means that you should never need to directly modify
-the files that come with Drupal core to achieve the functionality you want;
-instead, functionality modifications take the form of modules.
-
-When you need new functionality for your Drupal site, search for existing
-contributed modules. If you find a module that matches except for a bug or an
-additional needed feature, change the module and contribute your improvements
-back to the project in the form of a "patch". Create new custom modules only
-when nothing existing comes close to what you need.
-
-More about developing:
- * Search for existing contributed modules:
-   http://drupal.org/project/modules
- * Contribute a patch:
-   http://drupal.org/patch/submit
- * Develop your own module:
-   http://drupal.org/developing/modules
- * Follow best practices:
-   http://drupal.org/best-practices
- * Refer to the API documentation:
-   http://api.drupal.org/api/drupal/7
+Another developer will review your changes and merge in to the develop branch.

@@ -79,13 +79,22 @@ if (isset($breadcrumb)) {
 $t->navlinks = PHP_EOL . render($page['navlinks']);
 
 // Site Title and Page Title
-if (isset($site_name) && $site_name) {
-  $t->titlegraphic = $site_name;
+$t->titlegraphic = '';
+if (isset($site_name) && !empty($site_name)) {
+  if (theme_get_setting('site_name_abbreviation')) {
+    $t->titlegraphic = '<abbr title="' . $site_name . '">'
+                     . theme_get_setting('site_name_abbreviation')
+                     . '</abbr>';
+  }
+  else {
+    $t->titlegraphic = $site_name;
+  }
   if (!empty($site_slogan)) {
     $t->titlegraphic .= '<span>' . $site_slogan . '</span>';
   }
 }
-if (isset($title) && $title) {
+$t->pagetitle = '';
+if (isset($title) && !empty($title)) {
   $t->pagetitle = '<h1>' . render($title_prefix) . $title . render($title_suffix) . '</h1>';
 }
 
@@ -100,31 +109,31 @@ else {
                       . render($action_links) . PHP_EOL;
 }
 
-if ($page['sidebar_first']) {
+if (isset($page['sidebar_first'])) {
   $t->maincontentarea .= render($page['sidebar_first']) . PHP_EOL;
 }
 $t->maincontentarea .= render($page['content']) . PHP_EOL;
-if ($page['sidebar_second']) {
+if (isset($page['sidebar_second'])) {
   $t->maincontentarea .= render($page['sidebar_second']) . PHP_EOL;
 }
 
 // Related Links
-if ($page['leftcollinks']) {
+if (isset($page['leftcollinks'])) {
   $t->leftcollinks = render($page['leftcollinks']);
 }
 
 // Contact Us
-if ($page['contactinfo']) {
+if (isset($page['contactinfo'])) {
   $t->contactinfo = render($page['contactinfo']);
 }
 
 // Optional Footer
-if ($page['optionalfooter']) {
+if (isset($page['optionalfooter'])) {
   $t->optionalfooter = render($page['optionalfooter']);
 }
 
 // Copyright Area
-if ($page['footercontent']) {
+if (isset($page['footercontent'])) {
   $t->footercontent = PHP_EOL.render($page['footercontent']);
 }
 $t->footercontent = preg_replace(array('/©\s*[0-9]{4}/', '/&copy;\s*[0-9]{4}/'), '&copy; ' . date('Y'), $t->footercontent);

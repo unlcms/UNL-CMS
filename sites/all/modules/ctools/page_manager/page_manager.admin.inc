@@ -27,7 +27,11 @@ function page_manager_list_page($js = NULL) {
   }
 
   if (module_exists('advanced_help') && !$js) {
-    drupal_set_message(theme('advanced_help_topic', 'page_manager', 'getting-started', t('See the getting started guide for more information.')));
+    drupal_set_message(theme('advanced_help_topic', array(
+      'module' => 'page_manager',
+      'topic' => 'getting-started',
+      'type' => t('See the getting started guide for more information.'),
+    )));
   }
 
   $tasks = page_manager_get_tasks_by_type('page');
@@ -154,7 +158,7 @@ function page_manager_get_pages($tasks, &$pages, $task_id = NULL) {
     $visible_path = '';
     if (!empty($task['admin path'])) {
       foreach (explode('/', $task['admin path']) as $bit) {
-        if ($bit[0] != '!') {
+        if (isset($bit[0]) && $bit[0] != '!') {
           $path[] = $bit;
         }
       }
@@ -1122,9 +1126,11 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
     // We only render an li for things in the same nav tree.
     if (empty($operation['location']) || $operation['location'] == $location) {
       if (!is_array($attributes['class'])) {
-        dsm($attributes['class']);
+        $attributes['class'] = array($attributes['class']);
       }
+
       $class = empty($attributes['class']) || !is_array($attributes['class']) ? array() : $attributes['class'];
+
       if ($id == $first) {
         $class[] = 'operation-first';
       }
@@ -1208,7 +1214,10 @@ function page_manager_render_operations(&$page, $operations, $active_trail, $att
   }
 
   if ($output[$location]) {
-    $output[$location] = '<ul class="page-manager-operations ' . $attributes['class'] . '">' . $output[$location] . '</ul>';
+    $classes = isset($attributes['class']) && is_array($attributes['class']) ? $attributes['class'] : array();
+    $classes[] = 'page-manager-operations';
+
+    $output[$location] = '<ul class="' . implode(' ', $classes) . '">' . $output[$location] . '</ul>';
 
     if (!empty($attributes['title'])) {
       $class = '';

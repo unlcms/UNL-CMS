@@ -1,0 +1,171 @@
+<?php
+
+require_once  drupal_get_path('module', 'unl') . '/includes/common.php';
+
+/**
+ * Implements hook_block_info()
+ */
+function unl_multisite_block_info() {
+  $blocks = array();
+
+  $blocks['my_sites'] = array(
+    'info' => 'My Sites',
+    'cache' => DRUPAL_CACHE_PER_USER,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view()
+ */
+function unl_multisite_block_view($delta = '') {
+  switch ($delta) {
+    case 'my_sites':
+      return unl_multisite_block_view_my_sites();
+      break;
+    default:
+      return array();
+  }
+}
+
+/**
+ * Implements hook_block_view('my_sites').
+ * Displays the list of sites/roles for the current user.
+ */
+function unl_multisite_block_view_my_sites() {
+  if (user_is_anonymous()) {
+    return array();
+  }
+
+  require_once 'unl_site_creation.php';
+
+  $block = array();
+  $block['content'] = _unl_get_user_audit_content($GLOBALS['user']->name);
+
+  return $block;
+}
+
+/**
+ * Implements hook_help().
+ */
+function unl_multisite_help($path, $arg) {
+  switch ($path) {
+    case 'admin/sites/unl/aliases':
+    case 'admin/sites/unl/%/aliases':
+      return '<p>Be careful when deleting aliases. While long, ugly paths may not appear to be needed they may still be in use -  for instance in a ProxyPass setup on another server.</p>';
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function unl_multisite_menu() {
+  $items = array();
+
+  $items['mysites'] = array(
+    'title' => 'My Sites',
+    'description' => 'Your sites.',
+    'access callback' => 'user_is_logged_in',
+    'page callback' => 'unl_multisite_block_view_my_sites',
+  );
+  $items['admin/sites/unl'] = array(
+    'title' => 'Site Management',
+    'description' => 'Create and manage sites and aliases.',
+    'access arguments' => array('unl site creation'),
+    'page callback' => 'unl_sites_page',
+    'weight' => -20,
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/sites'] = array(
+    'title' => 'Sites',
+    'description' => 'Create and manage UNL Drupal sites.',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -8,
+  );
+  $items['admin/sites/unl/sites/add'] = array(
+    'title' => 'Create site',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_site_create', 'add'),
+    'access arguments' => array('unl site creation'),
+    'type' => MENU_LOCAL_ACTION,
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/%/edit'] = array(
+    'title' => 'Edit site',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_site_edit', 3),
+    'access arguments' => array('unl site creation'),
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/%/delete'] = array(
+    'title' => 'Delete site',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_site_delete_confirm', 3),
+    'access arguments' => array('unl site creation'),
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/aliases'] = array(
+    'title' => 'Aliases',
+    'description' => 'Manage aliases of UNL Drupal sites.',
+    'access arguments' => array('unl site creation'),
+    'page callback' => 'unl_aliases_page',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/%/aliases'] = array(
+    'title' => 'Aliases',
+    'description' => 'Manage aliases of specified site.',
+    'access arguments' => array('unl site creation'),
+    'page callback' => 'unl_aliases_page',
+    'page arguments' => array(3),
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/user-audit'] = array(
+    'title' => 'User Audit',
+    'description' => 'Find out which sites users have access to.',
+    'access arguments' => array('unl site creation'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('unl_user_audit'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'unl_site_creation.php',
+  );
+  $items['admin/sites/unl/feed'] = array(
+    'title' => 'Site Feed',
+    'description' => 'JSON output of all UNL sites.',
+    'page callback' => 'unl_sites_feed',
+    'access callback' => TRUE,
+    'file' => 'unl_site_creation.php',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_permission().
+ */
+function unl_multisite_permission() {
+  return array(
+    'unl site creation' => array(
+      'title' => t('Site Creation'),
+      'description' => t('Create new Drupal sites using the UNL profile.'),
+      'restrict access' => TRUE,
+     ),
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function unl_multisite_theme() {
+  return array(
+    'unl_site_details' => array(
+      'variables' => array('site_path' => NULL, 'uri' => NULL, 'db_prefix' => NULL),
+      'file' => 'unl_site_creation.php',
+    ),
+    'unl_table' => array(
+      'render element' => 'form',
+      'file' => 'unl_site_creation.php',
+    ),
+  );
+}

@@ -92,8 +92,6 @@ function form_builder_cache_purge($expire_threshold = NULL) {
 
   return db_delete('form_builder_cache')
     ->condition('updated', REQUEST_TIME - $expire_threshold, '<')
-    ->condition('type', $form_type)
-    ->condition('form_id', $form_id)
     ->execute();
 }
 
