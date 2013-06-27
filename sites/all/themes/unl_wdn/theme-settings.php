@@ -11,31 +11,31 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
   $form['theme_settings'] += array(
     'toggle_unl_banner' => array(
       '#type' => 'checkbox',
-      '#title' => t('UNL Affiliate Banner'),
+      '#title' => t('UNL affiliate banner'),
       '#default_value' => theme_get_setting('toggle_unl_banner'),
       '#access' => theme_get_setting('unl_affiliate'),
     ),
     'toggle_unl_branding' => array(
       '#type' => 'checkbox',
-      '#title' => t('UNL Branding Elements'),
+      '#title' => t('UNL branding elements'),
       '#default_value' => theme_get_setting('toggle_unl_branding'),
       '#access' => theme_get_setting('unl_affiliate'),
     ),
     'toggle_unl_breadcrumb' => array(
       '#type' => 'checkbox',
-      '#title' => t('UNL Breadcrumb'),
+      '#title' => t('UNL breadcrumb'),
       '#default_value' => theme_get_setting('toggle_unl_breadcrumb'),
       '#access' => theme_get_setting('unl_affiliate'),
     ),
     'toggle_unl_search' => array(
       '#type' => 'checkbox',
-      '#title' => t('UNL Search box'),
+      '#title' => t('UNL search box'),
       '#default_value' => theme_get_setting('toggle_unl_search'),
       '#access' => theme_get_setting('unl_affiliate'),
     ),
     'toggle_unl_tools' => array(
       '#type' => 'checkbox',
-      '#title' => t('UNL Tools'),
+      '#title' => t('UNL tools'),
       '#default_value' => theme_get_setting('toggle_unl_tools'),
       '#access' => theme_get_setting('unl_affiliate'),
     ),
@@ -43,11 +43,11 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
 
   $form['intermediate_breadcrumbs'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Intermediate Breadcrumbs'),
+    '#title' => t('Intermediate breadcrumbs'),
     '#description' => t('Breadcrumbs that are displayed between the UNL breadcrumb and this site\'s breadcrumb'),
     'site_name_abbreviation' => array(
       '#type' => 'textfield',
-      '#title' => t('Site Name Abbreviation'),
+      '#title' => t('Site name abbreviation'),
       '#default_value' => theme_get_setting('site_name_abbreviation'),
       '#description' => t('An abbreviated version of your site\'s name to use in breadcrumbs when not on the front page.'),
       '#weight' => 10,
@@ -73,7 +73,7 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
 
   $form['unl_head'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Site Specific CSS and JavaScript'),
+    '#title' => t('Site specific CSS and JavaScript'),
     '#weight' => -45,
     'unl_css' => array(
       '#title' => t('CSS'),
@@ -100,35 +100,35 @@ function unl_wdn_form_system_theme_settings_alter(&$form, &$form_state) {
 
   $form['advanced_settings'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Advanced Settings'),
+    '#title' => t('Advanced settings'),
     'sidebar_first_width' => array(
       '#type' => 'textfield',
-      '#title' => t('Sidebar first Grid Size'),
+      '#title' => t('Sidebar first grid size'),
       '#default_value' => theme_get_setting('sidebar_first_width'),
       '#description' => t('Enter only the numeral, for grid4 just enter 4.'),
     ),
     'sidebar_second_width' => array(
       '#type' => 'textfield',
-      '#title' => t('Sidebar second Grid Size'),
+      '#title' => t('Sidebar second grid size'),
       '#default_value' => theme_get_setting('sidebar_second_width'),
       '#description' => t('Enter only the numeral, for grid4 just enter 4.'),
     ),
     'zen_forms' => array(
       '#type' => 'checkbox',
-      '#title' => t('Use Zen Forms'),
+      '#title' => t('Use zen forms'),
       '#default_value' => theme_get_setting('zen_forms'),
       '#description' => t('Transforms all forms into the list-based zen forms.'),
     ),
     'wdn_beta' => array(
       '#type' => 'checkbox',
-      '#title' => t('Use WDN Beta/Development CSS and JavaScript'),
+      '#title' => t('Use WDN beta/development CSS and JavaScript'),
       '#default_value' => theme_get_setting('wdn_beta'),
       '#description' => t('Replaces the links in &lt;head&gt; to the stable /wdn directory with the latest development versions.'),
       '#access' => _unl_wdn_use_wdn_beta(),
     ),
     'unl_affiliate' => array(
       '#type' => 'checkbox',
-      '#title' => t('Affiliate Site'),
+      '#title' => t('Affiliate site'),
       '#default_value' => theme_get_setting('unl_affiliate'),
       '#description' => t('Grants access to the Color scheme picker, Logo image settings, Shortcut icon settings on this page for customizing the UNL template.'),
     ),
@@ -144,17 +144,18 @@ function unl_wdn_form_system_theme_settings_submit($form, &$form_state) {
   // Delete existing files, then save them.
   foreach (array('css', 'js') as $type) {
     _unl_wdn_delete_file('custom.' . $type);
-    _unl_wdn_save_file($form_state['values']['unl_' . $type], 'custom.' . $type);
+    if (drupal_strlen(trim($form_state['values']['unl_' . $type])) !== 0) {
+      _unl_wdn_save_file($form_state['values']['unl_' . $type], 'custom.' . $type);
+      drupal_set_message('File saved to custom/custom.' . $type . ' and will be automatically included on all pages.');
+    }
   }
+  drupal_flush_all_caches();
 }
 
 /**
  * Saves CSS & Javascript in the file system (but only if not empty).
  */
 function _unl_wdn_save_file($data, $filename) {
-  if (!drupal_strlen(trim($data))) {
-    return FALSE;
-  }
   $path = variable_get('unl_custom_code_path', 'public://custom');
   file_prepare_directory($path, FILE_CREATE_DIRECTORY);
   return file_unmanaged_save_data($data, $path . '/' . $filename, FILE_EXISTS_REPLACE);

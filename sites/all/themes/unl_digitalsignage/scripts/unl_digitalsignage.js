@@ -3,38 +3,39 @@ UNL.digitalSignage = (function() {
 	var height = 1080;
 	var maxItems = {
 		'news' : 5,
-		'videos' : 10
+		'videos' : 100
 	};
-	
+
 	return {
 		// Populated by template.php
 		feeds : {},
-		
+
 		init : function() {
 			console.log('UNL.digitalSignage.init called');
-			
+
 			if ('1360' < window.innerWidth && window.innerWidth < '1372') {
 				width = 1366;
 				height = 768;
 			}
-			
+
 			for (feed in UNL.digitalSignage.feeds) {
 				if (UNL.digitalSignage.feeds.hasOwnProperty(feed)) {
 					UNL.digitalSignage.setupFeed(feed);
 				}
 			}
-			
+
 			UNL.digitalSignage.rotateBeautyShots();
+			UNL.digitalSignage.startScroll();
 		},
-		
+
 		setupFeed : function(field) {
 			console.log('UNL.digitalSignage.setupFeed called for: '+field);
-			
+
 			// How often to grab a new set of results from the feed
 			var time;
 			// Call it once to start us off, later we'll setInterval on this
 			UNL.digitalSignage.updateFeed(field);
-			
+
 			switch(field) {
 				case 'field_newssources':
 					time = 600000;
@@ -42,21 +43,17 @@ UNL.digitalSignage = (function() {
 				default:
 					time = 500000;
 			}
-			
-			// Video feed will be updated by calling updateFeed with an ended event on the last video
-			if (field != 'field_videosources') {
-				//setInterval(function(){UNL.digitalSignage.updateFeed(field);}, time);
-			}
+
 			return false;
 		},
-		
+
 		updateFeed : function(field) {
 			// Switch out the - with  _ if this is a recursive call
 			field = field.replace('-', '_');
-			
+
 			console.log('UNL.digitalSignage.updateFeed feed called for: '+field);
 			console.log('Getting data from: '+UNL.digitalSignage.feeds[field]);
-			
+
 			jQuery.getJSON(UNL.digitalSignage.feeds[field], function(data) {
 				console.log('Success! Got the '+field+' data: '+data);
 				// Switch out the _ with the - that is used by css identifiers
@@ -65,7 +62,7 @@ UNL.digitalSignage = (function() {
 				if (field !== 'field-twitter') {
 					jQuery('.field-name-'+field).html('');
 				}
-				
+
 				switch(field) {
 					case 'field-newssources':
 						var news = [];
@@ -73,14 +70,14 @@ UNL.digitalSignage = (function() {
 							if (news.length >= maxItems['news']) {
 								return false;
 							}
-							
+
 							news.push('<li class="field-item '+(key%2 ? 'odd' : 'even')+'">'+
 										'<h3><span>'+val.title+'</span></h3>'+
 										'<div class="'+field+'-desc">'+val.description+'</div>'+
 										'<div class="'+field+'-link">'+val.link+'</div>'+
 										'<div class="'+field+'-qrcode"></div>'+
 										'</li>');
-							
+
 							var sizeSmall = 42, sizeBig = 120;
 							if (width < '1920') {
 								var sizeSmall = 32;
@@ -91,19 +88,19 @@ UNL.digitalSignage = (function() {
 							// Big QR Code
 							UNL.digitalSignage.addQrCode('.field-name-'+field+' .field-items .field-item:nth-child('+news.length+') .'+field+'-qrcode', 'img', sizeBig, val.link);
 						});
-						
+
 						// Add the list of news stories
 						jQuery('<ul />', {
 							'class' : 'field-items',
 							'html' : news.join('')
 						}).appendTo('.field-name-'+field);
-						
+
 						// Add the div that will display the story that is showing
 						jQuery('<div />', {
 							'class' : 'field-display',
 							'html' : '<div class="qrcode"></div><div class="link"></div><div class="desc"></div>'
 						}).appendTo('.field-name-'+field);
-						
+
 						UNL.digitalSignage.rotateNews();
 						break;
 					case 'field-videosources':
@@ -112,7 +109,7 @@ UNL.digitalSignage = (function() {
 						jQuery.each(data.query.results.item, function(key, val) {
 							videos.push({link:val.link, title:val.title, description:val.description});
 						});
-						
+
 						jQuery('<div/>', {
 							'class': 'field-items',
 							'html': '<div class="field-item even">'+
@@ -122,28 +119,32 @@ UNL.digitalSignage = (function() {
 										'<div class="'+field+'-desc"></div>'+
 									'</div>'
 						}).appendTo('.field-name-'+field);
-						
+
 						var video = document.getElementById('unl-digitalsignage-video');
-						
+
 						// "Helper" function due to trouble removing a listener that calls a function with parameters i.e. video.addEventListener('ended', callVideoUpdate(i+1), false);
 						var callVideoUpdate = function() {
 							videoUpdate(videoCounter+1);
 						};
-						
+
+						// Initialize the ThreeDots variable
+						var threedots_object = jQuery('.field-videosources-desc').ThreeDots();
+
 						var videoUpdate = function() {
 							video.removeEventListener('ended', callVideoUpdate, false);
-							
+
 							video.src = videos[videoCounter].link;
 							console.log('src for video #'+videoCounter+' loaded');
-							
+
 							// Add the description
 							jQuery('.'+field+'-desc').html(videos[videoCounter].description);
 							// Truncate with ellipsis plugin if too long
+							jQuery('.field-videosources-desc').removeAttr('threedots');
 							jQuery('.field-videosources-desc').wrapInner('<span class="ellipsis_text" />');
-							jQuery('.field-videosources-desc').ThreeDots({ max_rows:14 });
-							// Add title of video, must be done after ellipsis call to avoid stripping h3 tag
+							threedots_object.ThreeDots.update({ max_rows:12 });
+							// Add title of video, must be done after ThreeDots ellipsis call to avoid stripping h3 tag
 							jQuery('.'+field+'-desc').prepend('<h3>'+videos[videoCounter].title+'</h3>');
-							
+
 							// Set up recursion
 							if (videos[videoCounter+1] !== undefined && videoCounter < maxItems['videos']) {
 								console.log('Added "ended" listener that will call callVideoUpdate() i.e. videoUpdate('+videoCounter+'+1)');
@@ -156,7 +157,7 @@ UNL.digitalSignage = (function() {
 							}
 							videoCounter++;
 						};
-						
+
 						// Attach the first video to the dom to get the ball rolling
 						videoUpdate();
 						break;
@@ -184,35 +185,35 @@ UNL.digitalSignage = (function() {
 						break;
 					default:
 				}
-			
+
 			});
 			return false;
 		},
-		
+
 		rotateBeautyShots : function() {
 			// Store the initial css values of the page title
 			var pageTitle = [];
 			pageTitle['padding-left'] = jQuery('#page-title').css('padding-left');
 			pageTitle['color'] = jQuery('#page-title').css('color');
 			pageTitle['text-shadow'] = jQuery('#page-title').css('text-shadow');
-			
+
 			// Things to give opacity to when beauty shot is full screen
 			var opacityElements = '.field-name-field-videosources .field-videosources-desc, .field-name-field-newssources .field-items, .field-name-field-newssources .field-display, .field-name-field-twitter';
-			
+
 			// Populate this var to make code below easier to read
 			var fi = '.field-name-field-beautyshots .field-items .field-item';
-			
+
 			var rotate = function() {
 				// Get the first image
 				var current = (jQuery(fi+'.show') ? jQuery(fi+'.show') : jQuery(fi+':first'));
 				// Get next image, when it reaches the end, rotate it back to the first image
 				var next = ((current.next().length) ? ((current.next().hasClass('show')) ? jQuery(fi+':first') : current.next()) : jQuery(fi+':first'));
-				
+
 				// Hide the current image
 				current.removeClass('show').animate({opacity: 0.0}, 3000);
 				// Show the next image
 				next.css({opacity: 0.0}).addClass('show');
-				
+
 				// Decide how to animate fading in the new image and whether to move the background (the +/- 2 is just for a little fudging)
 				if (current.width() < width+2 && next.width() >= width-2) {
 					next.animate({opacity: 1.0}, 3000, function() {
@@ -224,6 +225,7 @@ UNL.digitalSignage = (function() {
 							}, 2000);
 						jQuery('#unl_digitalsignage_background').animate({'left' : '-'+width+'px'}, 2000, function() {
 							jQuery(opacityElements).css('background-image','none');
+							jQuery('.field-videosources-desc, .field-name-field-twitter').fadeOut();
 						});
 					});
 				} else if (current.width() >= width-2 && next.width() < width+2) {
@@ -236,45 +238,54 @@ UNL.digitalSignage = (function() {
 					jQuery('#unl_digitalsignage_background').animate({'left' : '0px'}, 2000, function() {
 						next.animate({opacity : 1.0}, 3000);
 						jQuery(opacityElements).css('background-image','inherit');
+						jQuery('.field-videosources-desc, .field-name-field-twitter').fadeIn();
 					});
 				} else {
 					next.animate({opacity : 1.0}, 3000);
 				}
 			};
-			
+
 			// Set the opacity of all images to 0
 			jQuery(fi).css({opacity: 0.0});
-			
+
 			// Get the first image and display it (gets set to full opacity)
 			jQuery(fi+':first').css({opacity: 1.0});
-			
+
 			// Call the rotator function to run the slideshow, (2000 = change to next image after 2 seconds)
 			rotate();
 			setInterval(function(){rotate()}, 20000);
 		},
-		
+
 		rotateNews : function() {
 			var fi = '.field-name-field-newssources .field-items .field-item';
+			var counter = 0;
 			var rotate = function() {
+				if (counter > maxItems.news-1) {
+					clearInterval(newsInterval);
+					UNL.digitalSignage.updateFeed('field_newssources');
+					return false;
+				}
 				// Get the first story
 				var current = (jQuery(fi+'.show') ? jQuery(fi+'.show') : jQuery(fi+':first'));
 				// Get next story, when it reaches the end, rotate it back to the first story
 				var next = ((current.next().length) ? ((current.next().hasClass('show')) ? jQuery(fi+':first') : current.next()) : jQuery(fi+':first'));
-				
+
 				// Populate the display area with the content from the current (.show) li
 				jQuery('.field-name-field-newssources .field-display .desc').html(next.find('.field-newssources-desc').html());
 				jQuery('.field-name-field-newssources .field-display .link').html(next.find('.field-newssources-link').html());
 				jQuery('.field-name-field-newssources .field-display .qrcode').html(next.find('.field-newssources-qrcode').html());
-				
+
 				next.addClass('show');
 				current.removeClass('show');
+
+				counter++;
 			};
-			
+
 			// Call the rotator function to run the slideshow, (2000 = change to next story after 2 seconds)
 			rotate();
-			setInterval(function(){rotate()}, 10000);
+			var newsInterval = setInterval(function(){rotate()}, 10000);
 		},
-		
+
 		rotateTweets : function(tweets) {
 			var fi = '.field-name-field-twitter .field-items .field-item';
 			var counter = 0;
@@ -285,8 +296,8 @@ UNL.digitalSignage = (function() {
 					UNL.digitalSignage.updateFeed('field_twitter');
 					return false;
 				}
-				
-				if (tweets[counter].retweeted_status && tweets[counter].retweeted_status.user 
+
+				if (tweets[counter].retweeted_status && tweets[counter].retweeted_status.user
 					&& tweets[counter].retweeted_status.user.screen_name && tweets[counter].retweeted_status.user.profile_image_url && tweets[counter].retweeted_status.text) {
 					// Retweet
 					tweet['screen_name'] = tweets[counter].retweeted_status.user.screen_name;
@@ -302,28 +313,28 @@ UNL.digitalSignage = (function() {
 					tweet['text'] = tweets[counter].text;
 					tweet['retweeted_by'] = undefined;
 				}
-				
+
 				jQuery(fi).fadeOut('slow', function() {
 					jQuery(fi).html('<div class="tweet">'+
 									'<img src="'+tweet['profile_image_url']+'" alt="Twitter Profile Icon" />'+
 									'<div class="tweet-user"><span class="tweet-user-name">@'+tweet['screen_name']+'</span><span class="tweet-full-name">'+tweet['name']+'</span></div>'+
 									'<div class="tweet-text">'+tweet['text']+'</div>'+
 									'</div>');
-					
+
 					if (tweet['retweeted_by']) {
 						jQuery(fi).append('<div class="retweet"><span>retweeted by</span> @'+tweet['retweeted_by']+'</div>');
 					}
 					jQuery(fi).fadeIn();
 					counter++;
 				});
-				
+
 			};
-			
+
 			// Call the rotator function (2000 = change to next tweet after 2 seconds)
 			rotate();
 			var tweetInterval = setInterval(function(){rotate()}, 15000);
 		},
-		
+
 		addQrCode : function(element, type, size, url) {
 			jQuery.post('http://go.unl.edu/api_create.php', { 'theURL' : url }, function(data) {
 				console.log("GoURL generated URL is: "+data);
@@ -332,15 +343,45 @@ UNL.digitalSignage = (function() {
 					jQuery(element+' h3').css('background-image','url("'+qrlink+'")');
 					// Change the long story url to the newly created GoURL
 					jQuery(element+' .field-newssources-link').html(data);
+					// Update the displayed URL in case the full URL was added before this returned (happens with first story when feed is updated)
+					if (jQuery(element).hasClass('show')) {
+						jQuery('.field-name-field-newssources .field-display .link').html(data);
+					}
 				} else {
 					jQuery(element).html('<img src="'+qrlink+'" alt="QR Code" />');
+					// Update the displayed QR code in case the story displayed before this returned (happens with first story when feed is updated)
+					if (jQuery(element).parent().hasClass('show')) {
+						jQuery('.field-name-field-newssources .field-display .qrcode').html('<img src="'+qrlink+'" alt="QR Code" />');
+					}
 				}
 			});
 		},
-		
+
+		startScroll : function() {
+			var speed = 2;
+			var items, scroller = jQuery('.field-name-field-scroll .field-items');
+			var width = 0;
+
+			scroller.html('<ul><li>'+scroller.html().split("\n").join("</li><li>")+'</li></ul>');
+			scroller.find('li').each(function(){
+				width += jQuery(this).outerWidth(true);console.log(width);
+			});
+			scroller.css('width', width);
+			scroll();
+			function scroll() {
+				items = scroller.children();
+				var scrollWidth = items.eq(0).outerWidth();
+				scroller.animate({'left' : 0 - scrollWidth}, scrollWidth * 100 / speed, 'linear', changeFirst);
+			}
+			function changeFirst() {
+				scroller.append(items.eq(0).remove()).css('left', '1920px');
+				scroll();
+			}
+		},
+
 		clock : function() {
-			
-		
+
+
 		}
 	};
 })();
