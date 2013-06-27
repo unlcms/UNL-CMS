@@ -836,7 +836,6 @@ class Unl_Migration_Tool
       }
 
       $href = $this->_makeLinkAbsolute($originalHref, $page_base);
-      $href = $this->_translateLiferayWeb($href);
 
       if (substr($href, 0, strlen($this->_baseUrl)) == $this->_baseUrl) {
         $newPath = substr($href, strlen($this->_baseUrl));
@@ -887,12 +886,25 @@ class Unl_Migration_Tool
         'water.unl.edu'         => array('crops', 'cropswater', 'drinkingwater', 'drought', 'wildlife', 'hydrology', 'lakes', 'landscapes', 'landscapewater', 'laweconomics', 'manure', 'propertydesign', 'research', 'sewage', 'students', 'watershed', 'wells', 'wetlands'),
         'westcentral.unl.edu'   => array('wcentomology', 'wcacreage'),
       );
+      
+      $siteNameMap = array(
+        'extension' => 'www.extension.unl.edu',
+        'webster'   => 'www.webster.unl.edu',
+      );
+      
       if (
            count($pathParts) >= 2 && $pathParts[0] == 'web'
         && !(in_array($urlParts['host'], array_keys($exceptions)) && in_array($pathParts[1], $exceptions[$urlParts['host']]))
       ) {
 
-        $urlParts['host'] = strtolower($pathParts[1]) . '.unl.edu';
+        // If the site name is "special" look it up in the map. Otherwise, just add .unl.edu
+        if (array_key_exists($pathParts[1], $siteNameMap)) {
+          $urlParts['host'] = $siteNameMap[$pathParts[1]];
+        }
+        else {
+          $urlParts['host'] = strtolower($pathParts[1]) . '.unl.edu';
+        }
+        
         $pathParts = array_splice($pathParts, 2);
         $urlParts['path'] = '/' . implode('/', $pathParts);
 
@@ -930,7 +942,7 @@ class Unl_Migration_Tool
 
         $parts = parse_url($href);
         if (isset($parts['scheme']) && !in_array($parts['scheme'], array('http', 'https'))) {
-            return $href;
+            return $this->_translateLiferayWeb($href);
         }
         if (isset($parts['scheme'])) {
             $absoluteUrl = $href;
@@ -994,7 +1006,7 @@ class Unl_Migration_Tool
             $absoluteUrl .= isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
         }
 
-        return $absoluteUrl;
+        return $this->_translateLiferayWeb($absoluteUrl);
     }
 
     /**
