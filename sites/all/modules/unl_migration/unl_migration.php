@@ -214,96 +214,106 @@ class Unl_Migration_Tool
 
     public function migrate($time_limit = 5)
     {
-        if (!$this->_sanity_check()) {
-            return TRUE;
-        }
-
-        $this->_start_time = time();
-        ini_set('memory_limit', -1);
-
-        if ($this->_state == self::STATE_NONE) {
-            if (!$this->_frontierScan('', $time_limit)) {
-                return FALSE;
-            }
-
-            $this->_state = self::STATE_PROCESSING_BLOCKS;
-            if (time() - $this->_start_time > $time_limit) {
-                return FALSE;
-            }
-        }
-
-        if ($this->_state == self::STATE_PROCESSING_BLOCKS) {
-            // Parse the menu
-            $this->_processMenu();
-            $this->_process_blocks();
-            $this->_process_breadcrumbs();
-            $this->_process_liferay_sitemap();
-            $this->_state = self::STATE_PROCESSING_PAGES;
-        }
-
-        if ($this->_state == self::STATE_PROCESSING_PAGES) {
-            // Process all of the pages on the site (Takes a while)
-            do {
-                set_time_limit(max(30, $time_limit * 1.5));
-
-                $pagesToProcess = $this->_getPagesToProcess();
-                foreach ($pagesToProcess as $pageToProcess) {
-                    if (time() - $this->_start_time > $time_limit) {
-                        return FALSE;
-                    }
-                    $this->_processPage($pageToProcess);
-                }
-            } while (count($pagesToProcess) > 0);
-
-
-            // Fix any links to files that got moved to sites/<site>/files
-            foreach ($this->_hrefTransform as $path => &$transforms) {
-                if (array_key_exists('', $transforms)) {
-                    unset($transforms['']);
-                }
-                foreach ($transforms as $oldPath => &$newPath) {
-                    if (array_key_exists($newPath, $this->_redirects)) {
-                        $newPath = $this->_redirects[$newPath];
-                    }
-                    if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
-                        $newPath = $this->_hrefTransformFiles[$newPath];
-                    }
-                }
-            }
-
-            $this->_state = self::STATE_CREATING_NODES;
-        }
-
-
-        if ($this->_state == self::STATE_CREATING_NODES) {
-            // Update links and then create new page nodes. (Takes a while)
-            foreach ($this->_content as $path => $content) {
-                if (in_array($path, $this->_createdContent, TRUE)) {
-                    continue;
-                }
-                if (time() - $this->_start_time > $time_limit) {
-                    return FALSE;
-                }
-                set_time_limit(max(30, $time_limit * 1.5));
-
-                $hrefTransforms = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
-                foreach ($hrefTransforms as $hrefTransformFrom => $hrefTransformTo) {
-                  $content = str_replace(htmlspecialchars($hrefTransformFrom), htmlspecialchars($hrefTransformTo), $content);
-                }
-
-                $pageTitle = $this->_pageTitles[$path];
-                $this->_createPage($pageTitle, $content, $path, '' == $path);
-                $this->_createdContent[] = $path;
-            }
-
-            $this->_createMenu();
-            $this->_create_blocks();
-            $this->_create_breadcrumbs();
-
-            $this->_state = self::STATE_DONE;
-        }
-
+      if (!$this->_sanity_check()) {
         return TRUE;
+      }
+
+      $this->_start_time = time();
+      ini_set('memory_limit', -1);
+
+      if ($this->_state == self::STATE_NONE) {
+        if (!$this->_frontierScan('', $time_limit)) {
+          return FALSE;
+        }
+
+        $this->_state = self::STATE_PROCESSING_BLOCKS;
+        if (time() - $this->_start_time > $time_limit) {
+          return FALSE;
+        }
+      }
+
+      if ($this->_state == self::STATE_PROCESSING_BLOCKS) {
+        // Parse the menu
+        $this->_processMenu();
+        $this->_process_blocks();
+        $this->_process_breadcrumbs();
+        $this->_process_liferay_sitemap();
+        $this->_state = self::STATE_PROCESSING_PAGES;
+      }
+
+      if ($this->_state == self::STATE_PROCESSING_PAGES) {
+        // Process all of the pages on the site (Takes a while)
+        do {
+          set_time_limit(max(30, $time_limit * 1.5));
+
+          $pagesToProcess = $this->_getPagesToProcess();
+          foreach ($pagesToProcess as $pageToProcess) {
+            if (time() - $this->_start_time > $time_limit) {
+              return FALSE;
+            }
+            try {
+              $this->_processPage($pageToProcess);
+            }
+            catch (Exception $e) {
+              $this->_log('An exception occured while processing "' . $pageToProcess . '": "' . $e->getMessage() . '".', WATCHDOG_ERROR);
+            }
+          }
+        } while (count($pagesToProcess) > 0);
+
+
+        // Fix any links to files that got moved to sites/<site>/files
+        foreach ($this->_hrefTransform as $path => &$transforms) {
+          if (array_key_exists('', $transforms)) {
+            unset($transforms['']);
+          }
+          foreach ($transforms as $oldPath => &$newPath) {
+            if (array_key_exists($newPath, $this->_redirects)) {
+              $newPath = $this->_redirects[$newPath];
+            }
+            if (array_key_exists($newPath, $this->_hrefTransformFiles)) {
+              $newPath = $this->_hrefTransformFiles[$newPath];
+            }
+          }
+        }
+
+        $this->_state = self::STATE_CREATING_NODES;
+      }
+
+
+      if ($this->_state == self::STATE_CREATING_NODES) {
+        // Update links and then create new page nodes. (Takes a while)
+        foreach ($this->_content as $path => $content) {
+          if (in_array($path, $this->_createdContent, TRUE)) {
+            continue;
+          }
+          if (time() - $this->_start_time > $time_limit) {
+            return FALSE;
+          }
+          set_time_limit(max(30, $time_limit * 1.5));
+
+          $hrefTransforms = isset($this->_hrefTransform[$path]) ? $this->_hrefTransform[$path] : array();
+          foreach ($hrefTransforms as $hrefTransformFrom => $hrefTransformTo) {
+            $content = str_replace(htmlspecialchars($hrefTransformFrom), htmlspecialchars($hrefTransformTo), $content);
+          }
+
+          $pageTitle = $this->_pageTitles[$path];
+          try {
+            $this->_createPage($pageTitle, $content, $path, '' == $path);
+          }
+          catch (Exception $e) {
+            $this->_log('An exception occured while creating "' . $path . '": "' . $e->getMessage() . '".', WATCHDOG_ERROR);
+          }
+          $this->_createdContent[] = $path;
+        }
+
+        $this->_createMenu();
+        $this->_create_blocks();
+        $this->_create_breadcrumbs();
+
+        $this->_state = self::STATE_DONE;
+      }
+
+      return TRUE;
     }
 
     private function _sanity_check() {
@@ -454,11 +464,17 @@ class Unl_Migration_Tool
             }
 
             if ($item['link_path']) {
+              try {
                 menu_link_save($item);
                 $this->_log('Created menu item "' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
-            } else {
-                $this->_log('Could not find a node to link to the ' . $item['link_title'] . ' menu item.', WATCHDOG_ERROR);
+              }
+              catch (Exception $e) {
+                $this->_log('An exception occured creating the menu link for "' . $item['link_title'] . '".', WATCHDOG_ERROR);
                 continue;
+              }
+            } else {
+              $this->_log('Could not find a node to link to the ' . $item['link_title'] . ' menu item.', WATCHDOG_ERROR);
+              continue;
             }
 
             if (!array_key_exists('children', $primaryMenu)) {
@@ -500,8 +516,13 @@ class Unl_Migration_Tool
                 }
 
                 if ($item['link_path']) {
+                  try {
                     menu_link_save($item);
                     $this->_log('Created menu item "' . $parentTitle . ' / ' . $item['link_title'] . '" linked to ' . $item['link_path'] . '.');
+                  }
+                  catch (Exception $e) {
+                    $this->_log('An exception occured creating the menu link for ' . $parentTitle . ' / ' . $item['link_title'] . '.', WATCHDOG_ERROR);
+                  }
                 } else {
                     $this->_log('Could not find a node to link to the "' . $parentTitle . ' / ' . $item['link_title'] . '" menu.', WATCHDOG_ERROR);
                 }
@@ -1090,7 +1111,6 @@ class Unl_Migration_Tool
 
     private function _createPage($title, $content, $alias = '', $makeFrontPage = FALSE)
     {
-
         if (substr($alias, -1) == '/') {
             $alias = substr($alias, 0, -1);
         }
