@@ -1375,6 +1375,9 @@ class Unl_Migration_Tool
       else if ($severity == WATCHDOG_WARNING) {
         $type = 'warning';
       }
+      else if ($severity == WATCHDOG_DEBUG) {
+        return;
+      }
       else {
         $type = 'error';
       }
