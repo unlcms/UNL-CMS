@@ -72,10 +72,10 @@ body.node-type-digital-sign .field-name-field-beautyshots .field-item img {
 body.node-type-digital-sign .field-name-field-twitter {
   display: inline-block;
   float: right;
-  width: 350px;
+  width: 370px;
   min-height: 175px;
   padding: 20px 0 20px 20px;
-  margin: 20px 0 0 50px;
+  margin: 0 0 0 50px;
   border-radius: 10px 0 0 90px / 10px 0 0 163px;
   font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
   background-color: rgba(255, 255, 255, 0.86);
@@ -235,7 +235,7 @@ body.node-type-digital-sign .field-name-field-newssources .field-newssources-qrc
   border-radius: 0 10px 10px 0;
 }
 .field-name-field-newssources .field-display .desc {
-  line-height: 1.2em;
+  line-height: 1.3em;
   overflow: hidden;
   max-height: 221px;
 }
@@ -347,4 +347,40 @@ body.node-type-digital-sign .field-name-field-videosources .field-videosources-d
   width: 100%;
   height: 100%;
   background-color: #fff;
+}
+
+/* Scroller
+***************/
+.field-name-field-scroll {
+  position: absolute !important;
+  bottom: 0;
+  left: 0;
+  font-size: 36px;
+  font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+  background: -webkit-gradient(linear,left top,left bottom,color-stop(0%,#B70302),color-stop(100%,#9D0201));
+  color: white;
+  padding: 10px 0;
+  opacity: .9;
+  box-shadow: 0 0px 6px #555;
+  width: 1920px;
+  overflow: hidden;
+
+}
+.field-name-field-scroll .field-items {
+  position: relative;
+  overflow: hidden;
+}
+.field-name-field-scroll li {
+  float: left;
+  list-style-type: disc;
+  margin: 0 60px;
+  padding: 5px 0;
+}
+
+/* Bottom Right Graphic
+****************/
+.field-name-field-btm-img {
+    position: absolute !important;
+    bottom: 0;
+    left: 1700px;
 }
