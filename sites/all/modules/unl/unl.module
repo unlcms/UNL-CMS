@@ -394,6 +394,14 @@ function unl_preprocess_page(&$vars) {
 function unl_menu() {
   $items = array();
 
+  // Output html snippets for regions.
+   $items['sharedcode/%'] = array(
+    'title' => 'sharedcode files',
+    'access arguments' => array('access content'),
+    'page callback' => 'unl_sharedcode',
+    'page arguments' => array(1),
+  );
+
   // Returns confirmation 'user_loggedin' if user is logged into the system
    $items['user/unl/whoami'] = array(
     'title' => 'UNL Whoami Tool',
@@ -598,6 +606,48 @@ function unl_menu_alter(&$items) {
   }
 
   $items['admin/modules/uninstall']['access callback'] = 'unl_user_is_administrator';
+}
+
+/**
+ * Custom function that creates html snippet output at sharedcode/% paths to
+ *   mimic files that once existed on static UNL templated sites.
+ */
+function unl_sharedcode($file = null) {
+  foreach (system_region_list($GLOBALS['theme']) as $region_key => $region_name) {
+    if ($blocks = block_get_blocks_by_region($region_key)) {
+      $regions[$region_key] = $blocks;
+    }
+    else {
+      $regions[$region_key] = array();
+    }
+  }
+
+  switch ($file) {
+    case 'footer.html':
+    case 'footer_content':
+      $region = 'footercontent';
+      break;
+    case 'footerContactInfo.html':
+    case 'contact_us':
+      $region = 'contactinfo';
+      break;
+    case 'navigation.html':
+    case 'navigation_links':
+      $region = 'navlinks';
+      break;
+    case 'relatedLinks.html':
+    case 'related_links':
+      $region = 'leftcollinks';
+      break;
+    default:
+      drupal_not_found();
+      return;
+  }
+
+  drupal_add_http_header('Content-Type', 'text/html; charset=utf-8');
+  drupal_add_http_header('Content-Language', 'en');
+  print render($regions[$region]);
+  exit;
 }
 
 /**
@@ -1649,7 +1699,7 @@ function unl_filter_ssi_process($text, $filter, $format, $langcode, $cache, $cac
       $ssiDepth = $_SERVER['HTTP_X_UNL_SSI_DEPTH'];
     }
     $ssiDepth++;
-    
+
     $context = stream_context_create(array(
       'http' => array(
         'header' => "x-unl-ssi-depth: $ssiDepth\r\n",
