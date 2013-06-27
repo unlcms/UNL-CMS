@@ -92,106 +92,98 @@ function unl_site_create_submit($form, &$form_state) {
 }
 
 /**
- * Site List appears on admin/sites/unl, admin/sites/unl/sites
+ * Adds virtual name and access fields to a result set from the unl_sites table.
+ * @param $sites The result of db_select()->fetchAll() on the unl_sites table.
  */
-function unl_site_list($form, &$form_state) {
-  // Get all the custom made roles
+function unl_add_extra_site_info($sites) {
+  // Get all custom made roles (roles other than authenticated, anonymous, administrator)
   $roles = user_roles(TRUE);
   unset($roles[DRUPAL_AUTHENTICATED_RID]);
   unset($roles[variable_get('user_admin_role')]);
-  $roles_in = implode(',', array_keys($roles)); //For use in the DB query
 
   // Setup alternate db connection so we can query other sites' tables without a prefix being attached
-  global $databases;
   $database_noprefix = array(
-    'database' => $databases['default']['default']['database'],
-    'username' => $databases['default']['default']['username'],
-    'password' => $databases['default']['default']['password'],
-    'host' => $databases['default']['default']['host'],
-    'port' => $databases['default']['default']['port'],
-    'driver' => $databases['default']['default']['driver'],
+    'database' => $GLOBALS['databases']['default']['default']['database'],
+    'username' => $GLOBALS['databases']['default']['default']['username'],
+    'password' => $GLOBALS['databases']['default']['default']['password'],
+    'host' => $GLOBALS['databases']['default']['default']['host'],
+    'port' => $GLOBALS['databases']['default']['default']['port'],
+    'driver' => $GLOBALS['databases']['default']['default']['driver'],
   );
   Database::addConnectionInfo('UNLNoPrefix', 'default', $database_noprefix);
-  db_set_active('UNLNoPrefix');
 
+  // The master prefix that was specified during initial drupal install
+  $master_prefix = $GLOBALS['databases']['default']['default']['prefix'];
+
+  foreach ($sites as $row) {
+    // Skip over any sites that aren't properly installed.
+    if ($row->installed != 2) {
+      continue;
+    }
+
+    // Switch to alt db connection
+    db_set_active('UNLNoPrefix');
+
+    // Get site name
+    $table = $row->db_prefix.'_'.$master_prefix.'variable';
+    $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
+
+    // Get last access timestamp (by a non-administrator)
+    $table_users = $row->db_prefix.'_'.$master_prefix.'users u';
+    $table_users_roles = $row->db_prefix.'_'.$master_prefix.'users_roles r';
+    if (!empty($roles)) {
+      $access = db_query('SELECT u.access FROM '.$table_users.', '.$table_users_roles.' WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN (' . implode(',', array_keys($roles)) . ') ORDER BY u.access DESC')->fetchColumn();
+    } else {
+      $access = 0;
+    }
+
+    // Restore default db connection
+    db_set_active();
+
+    // Update unl_sites table of the default site
+    $row->name = @unserialize($name);
+    $row->access = (int)$access;
+  }
+}
+
+/**
+ *  Existing sites list table appears on admin/sites/unl, admin/sites/unl/sites
+ */
+function unl_site_list($form, &$form_state) {
   $header = array(
     'uri' => array(
       'data' => t('Default Path'),
-      'field' => 's.uri',
+      'field' => 'uri',
     ),
-    'site_name' => t('Site Name'),
-    'last_access' => t('Last Access'),
+    'name' => array(
+      'data' => t('Site Name'),
+      'field' => 'name',
+    ),
+    'access' =>  array(
+      'data' => t('Last Access'),
+      'field' => 'access',
+    ),
     'installed' => array(
       'data' => t('Status'),
-      'field' => 's.installed',
+      'field' => 'installed',
     ),
     'operations' => t('Operations'),
   );
 
-  // The master prefix that was specified during initial drupal install
-  $master_prefix = $databases['default']['default']['prefix'];
-
-  // Get all the db prefixes for every UNL site sorted by uri
-  $prefixes = db_query('SELECT db_prefix FROM ' . $master_prefix . 'unl_sites ORDER BY uri')->fetchCol();
-  if (isset($_GET['sort']) && $_GET['sort'] == 'desc' && (!isset($_GET['order']) || (isset($_GET['order']) && $_GET['order'] !== 'Status'))) {
-    $prefixes = array_reverse($prefixes);
-  }
-
-  // Get a portion of the prefixes based on the page
-  $prefixes = new ArrayIterator($prefixes);
-  $count = 50;
-  $offset = (isset($_GET['page']) ? (int)$_GET['page'] : 0) * $count;
-  $prefixIterator = new LimitIterator($prefixes, $offset, $count);
-
-  // Prepare the CASE expression for the following query
-  $case_expression = "CASE";
-  foreach ($prefixIterator as $key => $prefix) {
-    if (db_table_exists($prefix.'_'.$master_prefix.'variable')) {
-      $case_expression .= " WHEN {u}.db_prefix = '".$prefix."' THEN p".$key.".value";
-    }
-  }
-  $case_expression .= " ELSE '* Scheduled for creation (or Error)' END";
-
-  // Combines the site_id from the unl_sites table with the corresponding site_name from [unl_sites.db_prefix]_variable table
-  $subquery = db_select($master_prefix.'unl_sites', 'u');
-  $subquery->addField('u', 'site_id', 'site_id');
-  $subquery->addExpression($case_expression, 'site_name');
-  foreach ($prefixIterator as $key => $prefix) {
-    if (db_table_exists($prefix.'_'.$master_prefix.'variable')) {
-      $subquery->leftJoin($prefix.'_'.$master_prefix.'variable', 'p'.$key, 'p'.$key.'.name = :site_name', array('site_name'=>'site_name'));
-    }
-  }
-
-  // The query that will be displayed - uses the subquery above in a JOIN
-  $sites = db_select($master_prefix.'unl_sites', 's');
-  $sites->join($subquery, 'i', 'i.site_id=s.site_id');
-  $sites = $sites
+  $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
-    ->fields('i', array('site_name'))
-    ->extend('TableSort')->extend('PagerDefault')->limit($count)
-    ->orderByHeader($header)
     ->execute()
     ->fetchAll();
 
-  // Generate an array of Last Access timestamps for each site based on time last accessed by someone in a non-admin role
-  foreach ($sites as $site) {
-    if (db_table_exists($site->db_prefix.'_'.$master_prefix.'users') &&
-        db_table_exists($site->db_prefix.'_'.$master_prefix.'users_roles') &&
-        !empty($roles_in)) {
-      $query = 'SELECT u.access FROM '.$site->db_prefix.'_'.$master_prefix.'users u, '.$site->db_prefix.'_'.$master_prefix.'users_roles r WHERE u.uid = r.uid AND u.access > 0 AND r.rid IN ('.$roles_in.') ORDER BY u.access DESC';
-      $last_access[$site->site_id] = db_query($query)->fetchColumn();
-    }
-  }
+  // In addition to the above db query, add site name and last access timestamp
+  unl_add_extra_site_info($sites);
 
-  // Restore default db connection
-  db_set_active();
-
-  // Setup the form
+  $rows = array();
   foreach ($sites as $site) {
-    $options[$site->site_id] = array(
+    $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
-      'site_name' => @unserialize($site->site_name),
-      'last_access' => (isset($last_access[$site->site_id]) && $last_access[$site->site_id]) ? t('@time ago', array('@time' => format_interval(REQUEST_TIME - $last_access[$site->site_id]))) : t('never'),
+      'name' => (isset($site->name) ? $site->name : ''),
+      'access' => (isset($site->access) ? $site->access : 0),
       'installed' => _unl_get_install_status_text($site->installed),
       'operations' => array(
         'data' => array(
@@ -209,26 +201,107 @@ function unl_site_list($form, &$form_state) {
     );
   }
 
+  // Sort the table data accordingly with a custom sort function
+  $order = tablesort_get_order($header);
+  $sort = tablesort_get_sort($header);
+  $rows = unl_sites_sort($rows, $order, $sort);
+
+  // Now that the access timestamp has been used to sort, convert it to something readable
+  foreach ($rows as $key=>$row) {
+    $rows[$key]['access'] = (isset($row['access']) && $row['access'] > 0) ? t('@time ago', array('@time' => format_interval(REQUEST_TIME - $row['access']))) : t('never');
+  }
+
   $form['unl_sites'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Existing Sites: ') . count($prefixes),
+    '#title' => t('Existing Sites: ') . count($sites),
   );
   $form['unl_sites']['site_list'] = array(
     '#theme' => 'table',
     '#header' => $header,
-    '#rows' => $options,
-    '#empty' => t('No sites available.'),
+    '#rows' => $rows,
+    '#empty' => t('No sites have been created.'),
   );
-  $form['unl_sites']['pager'] = array('#markup' => theme('pager', array('tags' => NULL)));
+
   return $form;
 }
 
 /**
- * Implements theme_CUSTOM() which works with unl_theme()
+ * Custom sort the Existing Sites table.
+ */
+function unl_sites_sort($rows, $order, $sort) {
+  switch ($order['sql']) {
+    case 'uri':
+      if ($sort == 'asc') {
+        usort($rows, "unl_uri_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_uri_cmp_desc");
+      }
+      break;
+    case 'name':
+      if ($sort == 'asc') {
+        usort($rows, "unl_name_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_name_cmp_desc");
+      }
+      break;
+    case 'access':
+      if ($sort == 'asc') {
+        usort($rows, "unl_access_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_access_cmp_desc");
+      }
+      break;
+    case 'installed':
+      if ($sort == 'asc') {
+        usort($rows, "unl_installed_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_installed_cmp_desc");
+      }
+      break;
+  }
+
+  return $rows;
+}
+
+/**
+ * Comparison functions used in unl_sites_sort().
+ */
+function unl_uri_cmp_asc($a, $b) {
+  return strcasecmp($a['uri'], $b['uri']);
+}
+function unl_uri_cmp_desc($a, $b) {
+  return strcasecmp($b['uri'], $a['uri']);
+}
+function unl_name_cmp_asc($a, $b) {
+  return strcasecmp($a['name'], $b['name']);
+}
+function unl_name_cmp_desc($a, $b) {
+  return strcasecmp($b['name'], $a['name']);
+}
+function unl_access_cmp_asc($a, $b) {
+  return strcmp($b['access'], $a['access']);
+}
+function unl_access_cmp_desc($a, $b) {
+  return strcmp($a['access'], $b['access']);
+}
+function unl_installed_cmp_asc($a, $b) {
+  return strcmp($a['installed'], $b['installed']);
+}
+function unl_installed_cmp_desc($a, $b) {
+  return strcmp($b['installed'], $a['installed']);
+}
+
+/**
+ * Implements theme_CUSTOM() which works with unl_theme().
+ * This themes the Default Path column on the UNL Sites tables at admin/sites/unl
  */
 function theme_unl_site_details($variables) {
   $output = '<div><a href="' . $variables['uri'] . '">' . $variables['site_path'] . '</a></div>';
-  $output .= '<div style="display:none;">Database Prefix: ' . $variables['db_prefix'] . '_' . $GLOBALS['databases']['default']['default']['prefix'] . '</div>';
+  $output .= '<div class="db_prefix" style="display:none;">Database Prefix: ' . $variables['db_prefix'] . '_' . $GLOBALS['databases']['default']['default']['prefix'] . '</div>';
   return $output;
 }
 
@@ -884,7 +957,7 @@ function theme_unl_table($variables) {
       $form['#rows'][$row_index][$column_index] = drupal_render($form['rows'][$row_index][$column_index]);
     }
   }
-   
+
   return theme('table', $form);
 }
 

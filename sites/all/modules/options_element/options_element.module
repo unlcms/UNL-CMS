@@ -1,5 +1,4 @@
 <?php
-// $Id: options_element.module,v 1.7 2010/09/05 02:17:22 quicksketch Exp $
 
 /**
  * @file
@@ -65,6 +64,12 @@
  *   the "none" key type.
  * - key_type_toggled: Determine if the toggle checkbox is set or not by
  *   default.
+ * - default_value_allowed: Indicates whether the end user should be able to
+ *   modify the default value when editing the options list. Defaults to TRUE.
+ * - default_value_pattern: If allowing dynamic default value keys, such as a
+ *   token, specify a regular expression pattern that will also be allowed as
+ *   a default value. Include pattern delimiters. Defaults to an empty string.
+ *
  *   @code
  *   $element['options'] = array(
  *     '#type' => 'options',
@@ -87,6 +92,8 @@ function options_element_element_info() {
     '#key_type' => 'mixed',
     '#key_type_toggle' => NULL,
     '#key_type_toggled' => FALSE,
+    '#default_value_allowed' => TRUE,
+    '#default_value_pattern' => '',
     '#element_validate' => array('form_options_validate'),
     '#disabled' => FALSE,
   );

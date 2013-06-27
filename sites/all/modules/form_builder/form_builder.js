@@ -1,3 +1,4 @@
+
 (function($) {
 
 /**
@@ -7,13 +8,21 @@
 
 Drupal.behaviors.formBuilderElement = {};
 Drupal.behaviors.formBuilderElement.attach = function(context) {
-  var $wrappers = $('div.form-builder-wrapper', context);
-  var $elements = $('div.form-builder-element', context);
+  var $wrappers = $('div.form-builder-wrapper:not(.form-builder-processed)', context);
+  var $elements = $('div.form-builder-element:not(.form-builder-processed)', context);
 
   // If the context itself is a wrapper, add it to the list.
-  if ($(context).is('div.form-builder-wrapper')) {
+  if ($(context).is('div.form-builder-wrapper:not(.form-builder-processed)')) {
     $wrappers = $wrappers.add(context);
   }
+  // If the context itself is an element, add to the list.
+  else if ($(context).is('div.form-builder-element:not(.form-builder-processed)')) {
+    $elements = $elements.add(context);
+  }
+
+  // Add a guard class.
+  $wrappers.addClass('form-builder-processed');
+  $elements.addClass('form-builder-processed');
 
   // Add over effect on rollover.
   // The .hover() method is not used to avoid issues with nested hovers.
@@ -51,7 +60,7 @@ Drupal.behaviors.formBuilderElement.attach = function(context) {
 Drupal.behaviors.formBuilderFields = {};
 Drupal.behaviors.formBuilderFields.attach = function(context) {
   // Bind a function to all elements to update the preview on change.
-  var $configureForm = $('#form-builder-field-configure', context);
+  var $configureForm = $('#form-builder-field-configure');
 
   $configureForm.find('input, textarea, select')
     .not('.form-builder-field-change')
@@ -69,30 +78,32 @@ Drupal.behaviors.formBuilderFields.attach = function(context) {
  */
 Drupal.behaviors.formBuilder = {};
 Drupal.behaviors.formBuilder.attach = function(context) {
-  var formbuilder = $('#form-builder', context);
-
-  $('.form-builder-wrapper:not(.ui-draggable)', formbuilder).draggable({
-    opacity: 0.8,
+  var $formbuilder = $('#form-builder');
+  var $elements = $('.form-builder-wrapper').not('.form-builder-empty-placeholder').not('.ui-draggable');
+  $elements.draggable({
+    distance: 4, // Pixels before dragging starts.
+    handle: 'div.form-builder-title-bar, div.form-builder-element',
     helper: 'clone',
+    appendTo: $formbuilder,
+    opacity: 0.8,
+    scope: 'form-builder',
     scroll: true,
     scrollSensitivity: 50,
-    containment: 'body',
+    zIndex: 100,
     start: Drupal.formBuilder.startDrag,
-    stop: Drupal.formBuilder.stopDrag,
-    change: Drupal.formBuilder.checkFieldsets,
-    distance: 4,
-    scope: 'fields',
-    addClasses: false,
-    appendTo: '#form-builder-wrapper'
+    stop: Drupal.formBuilder.stopDrag
   });
 
-  // This sets the height of the drag target to be at least as hight as the field
+  // This sets the height of the drag target to be at least as high as the field
   // palette so that field can be more easily dropped into an empty form.  IE6
   // does not respect min-height but does treat height in the same manner that
   // min-height would be expected.  So a check for browser and version is needed
   // here.
   var property = $.browser.msie && $.browser.version < 7 ? 'height' : 'min-height';
-  formbuilder.css(property, $('#form-builder-fields').height());
+  $formbuilder.css(property, $('#form-builder-fields').height());
+
+  // Add the placeholder for an empty form.
+  Drupal.formBuilder.checkForm();
 };
 
 /**
@@ -116,6 +127,12 @@ Drupal.behaviors.formBuilderTabs.attach = function(context) {
   // Add the new tabs to the page.
   $tabs = $(tabs);
   $fieldsets.filter(':first').before($close).before($tabs);
+
+  // Remove 'fieldset-legend' class from tabs.
+  $tabs.find('.fieldset-legend').removeClass('fieldset-legend');
+
+  // Set clearfix on the parent div.
+  $tabs.parent().addClass('clearfix');
 
   // Hide all the fieldsets except the first.
   $fieldsets.not(':first').css('display', 'none');
@@ -144,28 +161,14 @@ Drupal.behaviors.formBuilderTabs.attach = function(context) {
 Drupal.behaviors.formBuilderDeleteConfirmation = {};
 Drupal.behaviors.formBuilderDeleteConfirmation.attach = function(context) {
   var $confirmForm = $('form.confirmation', context);
+
+  // If the confirmation form is the context.
+  if ($(context).is('form.confirmation')) {
+    $confirmForm = $(context);
+  }
+
   if ($confirmForm.length) {
-    $confirmForm.find('input[type=submit]').bind('click', function(event) {
-      event.preventDefault();
-      // Store the form and the options
-      var form = $confirmForm;
-      Drupal.formBuilder.ajaxOptions = {
-        url: form.attr('action'),
-        success: Drupal.formBuilder.deleteField,
-        error: Drupal.formBuilder.ajaxError,
-        type: 'post',
-        dataType: 'json',
-        action: 'deleteConfirmation',
-        data: form.serialize(),
-        tryCount: 0,
-        maxTry: 3
-      };
-      // Submit the form via ajax
-      $.ajax(Drupal.formBuilder.ajaxOptions);
-      // Bind this action to disable any submit buttons on the page.  It will be
-      // removed on success or after the retries have been exhausted.
-      $('form').submit(Drupal.formBuilder.preventSubmit);
-    });
+    $confirmForm.submit(Drupal.formBuilder.deleteField);
     $confirmForm.find('a').click(Drupal.formBuilder.clickCancel);
   }
 };
@@ -188,7 +191,7 @@ Drupal.behaviors.formBuilderBlockScroll = {};
 Drupal.behaviors.formBuilderBlockScroll.attach = function(context) {
   var $list = $('ul.form-builder-fields', context);
 
-  if ($list.length && $list.hasClass('block-scroll')) {
+  if ($list.length) {
     var $block = $list.parents('div.block:first').css('position', 'relative');
     var blockScrollStart = $block.offset().top;
 
@@ -198,7 +201,8 @@ Drupal.behaviors.formBuilderBlockScroll.attach = function(context) {
         return;
       }
 
-      var windowOffset = $(window).scrollTop();
+      var toolbarHeight = parseInt($('body.toolbar').css('padding-top'));
+      var windowOffset = $(window).scrollTop() + (toolbarHeight ? toolbarHeight : 0);
       var blockHeight = $block.height();
       var formBuilderHeight = $('#form-builder').height();
       if (windowOffset - blockScrollStart > 0) {
@@ -236,32 +240,13 @@ Drupal.behaviors.formBuilderNewField.attach = function(context) {
     $list.children('li:not(.ui-draggable)').draggable({
       opacity: 0.8,
       helper: 'clone',
+      scope: 'form-builder',
       scroll: true,
       scrollSensitivity: 50,
-      containment: 'body',
+      tolerance: 'pointer',
+      zIndex: 100,
       start: Drupal.formBuilder.startDrag,
-      stop: Drupal.formBuilder.stopDrag,
-      distance: 4,
-      scope: 'fields',
-      appendTo: '#form-builder-wrapper'
-    })
-    .bind('click', function(event) {
-      event.preventDefault();
-      event.stopPropagation();
-      var item = $(this).clone();
-      // Add a drop target at the bottom of the form to automatically drop the
-      // element onto.
-      var placeholder = $('<div class="form-builder-placeholder"></div>');
-      placeholder
-        .appendTo('#form-builder')
-        .droppable({
-          scope: 'fields',
-          drop: Drupal.formBuilder.drop
-        });
-      Drupal.formBuilder.drop({data: placeholder}, {draggable: item});
-      // Pass the element to the stopDrag method so that unique elements are
-      // properly hidden in the palette.
-      Drupal.formBuilder.stopDrag.apply(this);
+      stop: Drupal.formBuilder.stopDrag
     });
   }
 };
@@ -276,13 +261,17 @@ Drupal.formBuilder = {
   activeElement: false,
   // Variable holding the active drag object (if any).
   activeDragUi: false,
+  // Variables to keep trak of the current and previous drop target. Used to
+  // prevent overlapping targets from being shown as active at the same time.
+  activeDropzone: false,
+  previousDropzones: [],
   // Variable of the time of the last update, used to prevent old data from
   // replacing newer updates.
   lastUpdateTime: 0,
   // Status of mouse click.
   mousePressed: 0,
-  // Field configure form target
-  fieldConfigureHolder: false
+  // Selector for a custom field configuration form.
+  fieldConfigureForm: false
 };
 
 /**
@@ -319,11 +308,10 @@ Drupal.formBuilder.clickField = function(e) {
     return;
   }
 
-  var wrapper = $(this).parents('.form-builder-wrapper:first');
-  // This will get the first configure link that does not belong to a nested form element
-  // inside this form element.
-  var link = wrapper.find('a.configure').not(wrapper.find('.form-builder-element .form-builder-element a')).get(0);
-  
+  // Find the first configure link for this field, ensuring we don't get a link
+  // belonging to a nested form element within this element.
+  var $wrapper = $(this).parents('.form-builder-wrapper:first');
+  var link = $wrapper.find('a.configure').not($wrapper.find('.form-builder-element .form-builder-element a')).get(0);
   Drupal.formBuilder.editField.apply(link);
 
   return false;
@@ -339,59 +327,44 @@ Drupal.formBuilder.disableField = function(e) {
 /**
  * Load the edit form from the server.
  */
-Drupal.formBuilder.editField = function(event) {
-  if (event && $(event.target).is('a')) {
-    event.stopPropagation();
-  }
-  var element = $(this).parents('div.form-builder-wrapper').get(0);
-  var link = $(this);
+Drupal.formBuilder.editField = function() {
+  var $element = $(this).parents('div.form-builder-wrapper');
+  var $link = $(this);
 
   // Prevent duplicate clicks from taking effect if already handling a click.
   if (Drupal.formBuilder.updatingElement) {
     return false;
   }
 
-  link.addClass('progress');
+  // Show loading indicators.
+  $link.addClass('progress');
 
   // If clicking on the link a second time, close the form instead of open.
-  if (element == Drupal.formBuilder.activeElement && link.get(0) == Drupal.formBuilder.activeLink) {
+  if ($element.get(0) == Drupal.formBuilder.activeElement && $link.get(0) == Drupal.formBuilder.activeLink) {
     Drupal.formBuilder.closeActive(function() {
-      link.removeClass('progress');
-      if (Drupal.formBuilder.fieldConfigureForm) {
-        Drupal.formBuilder.fieldConfigureForm.html($('<div class="field-settings-message">' + Drupal.t('No field selected') + '</div>'));
-      }
+      $link.removeClass('progress');
     });
     Drupal.formBuilder.unsetActive();
     return false;
   }
 
-  if (!Drupal.formBuilder.fieldConfigureForm) {
-    $('<div id="#form-builder-field-configure" class="form-builder-field-configure"><div class="field-settings-message">' + Drupal.t('Loading...') + '</div></div>').appendTo(element);
-  } else {
-    $('.field-settings-message').remove();
-    Drupal.formBuilder.fieldConfigureForm.append($('<div class="field-settings-message">' + Drupal.t('Loading...') + '</div>'));
-  }
-  
-
   var getForm = function() {
-    Drupal.formBuilder.ajaxOptions = {
-      url: link.attr('href'),
+    if (Drupal.formBuilder.fieldConfigureForm) {
+      $(Drupal.formBuilder.fieldConfigureForm).html(Drupal.settings.formBuilder.fieldLoading);
+    }
+
+    $.ajax({
+      url: $link.attr('href'),
       type: 'GET',
       dataType: 'json',
       data: 'js=1',
-      success: Drupal.formBuilder.displayForm,
-      error: Drupal.formBuilder.ajaxError,
-      errorMessage: Drupal.t('Form could not be loaded at this time. Please try again later.'),
-      tryCount: 0,
-      maxTry: 3
-    }
-    
-    $.ajax(Drupal.formBuilder.ajaxOptions);
+      success: Drupal.formBuilder.displayForm
+    });
   };
 
   Drupal.formBuilder.updatingElement = true;
   Drupal.formBuilder.closeActive(getForm);
-  Drupal.formBuilder.setActive(element, link.get(0));
+  Drupal.formBuilder.setActive($element.get(0), $link.get(0));
 
   return false;
 };
@@ -399,24 +372,17 @@ Drupal.formBuilder.editField = function(event) {
 /**
  * Click handler for deleting a field.
  */
-Drupal.formBuilder.deleteField = function(callback) {
-  var active = $(Drupal.formBuilder.activeElement);
-  // Renable form submission.
-  $('form').unbind('submit', Drupal.formBuilder.preventSubmit);
-  active.fadeOut(function() {
+Drupal.formBuilder.deleteField = function() {
+  $(this).parents('div.form-builder-wrapper:first').animate({ height: 'hide', opacity: 'hide' }, 'normal', function() {
     // If this is a unique field, show the field in the palette again.
-    var elementId = active.find('.form-builder-element').attr('id');
+    var elementId = $(this).find('div.form-builder-element').attr('id');
     $('ul.form-builder-fields').find('li.' + elementId).show('slow');
     // Remove the field from the form.
-    active.remove();
-    // Close the form and unset the active element
-    Drupal.formBuilder.clickCancel();
-    // Check for empty fieldsets.
-    Drupal.formBuilder.checkFieldsets(null, null, true);
+    $(this).remove();
 
-    if (callback && $.isFunction(callback)) {
-      callback();
-    }
+    // Check for an entirely empty form and for empty fieldsets.
+    Drupal.formBuilder.checkForm();
+    Drupal.formBuilder.checkFieldsets([], true);
   });
 };
 
@@ -430,20 +396,23 @@ Drupal.formBuilder.clickCancel = function() {
  * Display the edit form from the server.
  */
 Drupal.formBuilder.displayForm = function(response) {
+  // Update Drupal settings.
   if (response.settings) {
     $.extend(true, Drupal.settings, response.settings);
   }
+
   var $preview = $('#form-builder-element-' + response.elementId);
-  var $form = $(response.html)
-  if (!Drupal.formBuilder.fieldConfigureForm) {
-    $('.form-builder-field-configure').html($form);
+  var $form = $(response.html);
+
+  if (Drupal.formBuilder.fieldConfigureForm) {
+    $(Drupal.formBuilder.fieldConfigureForm).html($form);
     $form.css('display', 'none');
-  } else {
-    Drupal.formBuilder.fieldConfigureForm.html($form);
-    $form.css('visibility: hidden');
   }
-  $('.field-settings-message').remove();
-  Drupal.attachBehaviors($form.parent().get(0));
+  else {
+    $form.insertAfter($preview).css('display', 'none');
+  }
+
+  Drupal.attachBehaviors($form.get(0));
 
   $form
     // Add the ajaxForm behavior to the new form.
@@ -452,15 +421,12 @@ Drupal.formBuilder.displayForm = function(response) {
     // Manually add a hidden element to pass additional data on submit.
     .prepend('<input type="hidden" name="return" value="field" />')
     // Add in any messages from the server.
-    .find('fieldset:visible:first').prepend(response.messages);
+    .find('fieldset:first').find('.fieldset-wrapper:first').prepend(response.messages);
 
-  $form.css({visibility: 'visible', display: 'none'});
   $form.slideDown(function() {
-    $preview.parents('.form-builder-wrapper:first').find('a.progress').removeClass('progress');
+    $preview.parents('div.form-builder-wrapper:first').find('a.progress').removeClass('progress');
+    $form.find('input:visible:first').focus();
   });
-
-  // Give focus to the form
-  $form.find('input:visible:first').focus();
 
   Drupal.formBuilder.updatingElement = false;
 };
@@ -470,25 +436,10 @@ Drupal.formBuilder.displayForm = function(response) {
  */
 Drupal.formBuilder.elementChange = function() {
   if (!Drupal.formBuilder.updatingElement) {
-    // Store the form and the options
-    var form = $(this).parents('form:first');
-    Drupal.formBuilder.ajaxOptions = {
-      url: form.attr('action'),
+    $(this).parents('form:first').ajaxSubmit({
       success: Drupal.formBuilder.updateElement,
-      error: Drupal.formBuilder.ajaxError,
-      type: 'post',
-      dataType: 'json',
-      errorMessage: Drupal.t('Field could not be updated at this time. Please try again later.'),
-      data: form.serialize(),
-      tryCount: 0,
-      maxTry: 3
-    };
-    // Submit the form via ajax
-    $.ajax(Drupal.formBuilder.ajaxOptions);
-
-    // Bind this action to disable any submit buttons on the page.  It will be
-    // removed on success or after the retries have been exhausted.
-    $('form').submit(Drupal.formBuilder.preventSubmit);
+      dataType: 'json'
+    });
   }
 
   // Clear any pending updates until further changes are made.
@@ -498,23 +449,6 @@ Drupal.formBuilder.elementChange = function() {
 
   Drupal.formBuilder.updatingElement = true;
 };
-
-Drupal.formBuilder.ajaxError = function (XMLHttpRequest, textStatus, errorThrown) {
-  var options = Drupal.formBuilder.ajaxOptions;
-  var message = this.errorMessage ? this.errorMessage : 'Unable to reach server.  Please try again later.';
-
-  options.tryCount++;
-  if (options.tryCount <= options.maxTry) {
-    $.ajax(options);
-  } else {
-    $('form').unbind('submit', Drupal.formBuilder.preventSubmit);
-    alert(message);
-  }
-};
-
-Drupal.formBuilder.preventSubmit = function (event) {
-  event.preventDefault();
-}
 
 /**
  * Update a field after a delay.
@@ -547,7 +481,7 @@ Drupal.formBuilder.elementPendingChange = function(e) {
  * After submitting the change to the server, display the updated element.
  */
 Drupal.formBuilder.updateElement = function(response) {
-  var $configureForm = $('.form-builder-field-configure');
+  var $configureForm = $('#form-builder-field-configure');
 
   // Do not let older requests replace newer updates.
   if (response.time < Drupal.formBuilder.lastUpdateTime) {
@@ -574,55 +508,40 @@ Drupal.formBuilder.updateElement = function(response) {
   // Display messages, if any.
   $configureForm.find('.messages').remove();
   if (response.messages) {
-    $configureForm.find('fieldset:visible:first').prepend(response.messages);
+    $configureForm.find('fieldset:visible:first').find('.fieldset-wrapper:first').prepend(response.messages);
   }
 
   // Do not update the element if errors were received.
   if (!response.errors) {
     var $exisiting = $('#form-builder-element-' + response.elementId);
-    var $new = $(response.html).find('.form-builder-element:first');
+    var $new = $(response.html).find('div.form-builder-element:first');
     $exisiting.replaceWith($new);
 
     // Expand root level fieldsets after updating to prevent them from closing
     // after every update.
     $new.children('fieldset.collapsible').removeClass('collapsed');
-    Drupal.attachBehaviors($new.parent().get(0));
+    Drupal.attachBehaviors($new.get(0));
   }
 
   // Set the variable stating we're done updating.
   Drupal.formBuilder.updatingElement = false;
-  $('form').unbind('submit', Drupal.formBuilder.preventSubmit);
 };
 
 /**
  * When adding a new field, remove the placeholder and insert the new element.
  */
 Drupal.formBuilder.addElement = function(response) {
-  // This is very similar to the update element callback, only we replace the
-  // entire wrapper instead of just the element.
+  // Update Drupal settings.
   if (response.settings) {
     $.extend(true, Drupal.settings, response.settings);
   }
-  var $exisiting = $('.form-builder-new-field');
-  var $new = $(response.html);
+
+  // This is very similar to the update element callback, only we replace the
+  // entire wrapper instead of just the element.
+  var $exisiting = $('#form-builder-element-' + response.elementId).parent();
+  var $new = $(response.html).find('div.form-builder-element:first').parent();
   $exisiting.replaceWith($new);
   Drupal.attachBehaviors($new.get(0));
-
-  $new.draggable('destroy');
-  $new.draggable({
-    opacity: 0.8,
-    helper: 'clone',
-    scroll: true,
-    scrollSensitivity: 50,
-    containment: 'body',
-    start: Drupal.formBuilder.startDrag,
-    stop: Drupal.formBuilder.stopDrag,
-    change: Drupal.formBuilder.checkFieldsets,
-    distance: 4,
-    scope: 'fields',
-    addClasses: false,
-    appendTo: '#form-builder-wrapper'
-  });
 
   // Set the variable stating we're done updating.
   Drupal.formBuilder.updatingElement = false;
@@ -631,23 +550,25 @@ Drupal.formBuilder.addElement = function(response) {
   $('#form-builder-positions').replaceWith(response.positionForm);
 
   // Submit the new positions form to save the new element position.
-  Drupal.formBuilder.updateElementPosition($new);
+  Drupal.formBuilder.updateElementPosition($new.get(0));
 };
 
 /**
  * Given an element, update it's position (weight and parent) on the server.
  */
 Drupal.formBuilder.updateElementPosition = function(element) {
+  var $element = $(element);
+
   // Update weights of all children within this element's parent.
-  element.parent().children('.form-builder-wrapper').each(function(index) {
-    var child_id = $(this).children('.form-builder-element:first').attr('id');
+  $element.parent().children('div.form-builder-wrapper').each(function(index) {
+    var child_id = $(this).children('div.form-builder-element:first').attr('id');
     $('#form-builder-positions input.form-builder-weight').filter('.' + child_id).val(index);
   });
 
   // Update this element's parent.
-  var $parent = element.parents('.form-builder-element:first');
+  var $parent = $element.parents('div.form-builder-element:first');
   var parent_id = $parent.length ? $parent.attr('id').replace(/form-builder-element-(.*)/, '$1') : 0;
-  var child_id = element.children('.form-builder-element:first').attr('id');
+  var child_id = $element.children('div.form-builder-element:first').attr('id');
   $('#form-builder-positions input.form-builder-parent').filter('.' + child_id).val(parent_id);
 
   // Submit the position form via AJAX to save the new weights and parents.
@@ -655,73 +576,7 @@ Drupal.formBuilder.updateElementPosition = function(element) {
 };
 
 /**
- * Called when a field has been moved via Sortables.
- *
- * @param e
- *   The event object containing status information about the event.
- * @param ui
- *   The jQuery Sortables object containing information about the sortable.
- */
-Drupal.formBuilder.drop = function(e, ui) {
-  var element = ui.draggable;
-  var placeholder = e.data ? $(e.data) : $(this);
-  
-  // If no drop target is hit, add the component to the end of the form.
-  if (placeholder.is('#form-builder')) {
-    placeholder = placeholder.children(':last');
-  } else if (placeholder.is('.form-builder-wrapper:not(.form-builder-empty-placeholder)')) {
-    placeholder = placeholder.next('.form-builder-placeholder');
-  }
-
-  // If the element is a new field from the palette, update it with a real field.
-  if (element.is('.ui-draggable')) {
-    var name = 'new_' + new Date().getTime();
-    // If this is a "unique" element, its element ID is hard-coded.
-    if (element.is('.form-builder-unique')) {
-      name = element.className.replace(/^.*?form-builder-element-([a-z0-9_]+).*?$/, '$1');
-    }
-
-    var $ajaxPlaceholder = $('<div class="form-builder-wrapper form-builder-new-field"><div id="form-builder-element-' + name + '" class="form-builder-element"><span class="progress">' + Drupal.t('Please wait...') + '</span></div></div>');
-    placeholder.replaceWith($ajaxPlaceholder);
-
-    Drupal.formBuilder.ajaxOptions = {
-      url: element.find('a').attr('href'),
-      type: 'GET',
-      dataType: 'json',
-      data: 'js=1&element_id=' + name,
-      success: Drupal.formBuilder.addElement,
-      error: Drupal.formBuilder.ajaxError,
-      errorMessage: Drupal.t('Element could not be added at this time. Please try again later.'),
-      tryCount: 0,
-      maxTry: 3
-    };
-    $.ajax(Drupal.formBuilder.ajaxOptions);
-
-    Drupal.formBuilder.updatingElement = true;
-  }
-  // Update the positions (weights and parents) in the form cache.
-  else {
-    placeholder.replaceWith(element);
-    element.removeClass('original').show();
-    ui.helper.remove();
-    Drupal.formBuilder.updateElementPosition(element);
-
-    // Select the element
-    element.find('a.configure').click();
-  }
-
-  Drupal.formBuilder.activeDragUi = false;
-  $('#form-builder .form-builder-placeholder').remove();
-  
-  // Update empty fieldsets
-  Drupal.formBuilder.checkFieldsets();
-
-  // Scroll the palette into view.
-  $(window).scroll();
-};
-
-/**
- * Called when a field is about to be moved from the new field palette.
+ * Called when a field is about to be moved via Sortables.
  *
  * @param e
  *   The event object containing status information about the event.
@@ -729,89 +584,131 @@ Drupal.formBuilder.drop = function(e, ui) {
  *   The jQuery Sortables object containing information about the sortable.
  */
 Drupal.formBuilder.startDrag = function(e, ui) {
+  Drupal.formBuilder.activeDragUi = ui;
+
   var $this = $(this);
-  // Check to see if this has been pulled out of a fieldset.
-  Drupal.formBuilder.checkFieldsets();
-
-  ui.helper.width($(this).width());
-
-  if ($this.is('.form-builder-unique')) {
-    $this.css('visibility', 'hidden');
-  }
-  if ($this.is('.form-builder-wrapper')) {
+  if ($this.hasClass('form-builder-unique') || $this.hasClass('form-builder-wrapper')) {
     $this.hide();
   }
-  $this.addClass('original');
 
-  var isPagebreak = false;
-  if ($this.children('.form-builder-element-pagebreak').length > 0) {
-    isPagebreak = true;
-  }
-  if ($this.is('.field-pagebreak')) {
-    isPagebreak = true;
-  }
+  // Check fieldsets and add placeholder text if needed.
+  Drupal.formBuilder.checkFieldsets([this, ui.helper]);
 
-  // Grab the formbuilder and fields and store the placeholder markup.
-  var formbuilder = $('#form-builder');
-  var fields = $('#form-builder').find('.form-builder-wrapper')
-    .not(this)
-    .not('.form-builder-empty-placeholder')
-    .not($('.original *'));
-  var placeholder = '<div class="form-builder-placeholder"></div>';
-
-  // Add a drop target at the bottom of the form.
-  $(placeholder).appendTo(formbuilder);
-
-  if (fields.length) {
-    // Insert a drop target after each field.
-    $(placeholder).insertBefore(fields);
-    // If we're not dragging a page break, add a drop target at the bottom of each fieldset.
-    if (!isPagebreak) {
-      $(placeholder).appendTo('.fieldset-wrapper:not(:has(.form-builder-empty-placeholder))');
-    }
-  } else {
-    // The form is empty, so make the placeholder at least the size of the form.
-    formbuilder.find('.form-builder-placeholder').css('min-height', formbuilder.css('height'));
-  }
-
-  var height = formbuilder.height();
-  formbuilder.children(':visible:not(.form-builder-placeholder)').each(function() {
-    height = height - $(this).outerHeight(true);
-  });
-  if (height > 0) {
-    $('.form-builder-placeholder:last').css('min-height', height);
-  }
-
-  // Activate all the placeholders as drop targets.
-  var placeholders = $('.form-builder-placeholder, .form-builder-empty-placeholder');
-  if (isPagebreak) {
-    placeholders = placeholders.not('.fieldset-wrapper .form-builder-placeholder').not('.fieldset-wrapper .form-builder-empty-placeholder');
-  }
-  
-  placeholders.droppable({
-    scope: 'fields',
-    tolerance: 'touch',
-    over: Drupal.formBuilder.over,
-    out: Drupal.formBuilder.out,
-    drop: Drupal.formBuilder.drop
-  });
-
-  // Add droppable to form elements without the over / out methods
-  $('.form-builder-wrapper').droppable({
-    scope: 'fields',
-    tolerance: 'touch',
-    drop: Drupal.formBuilder.drop
-  });
-
-  // Retain the dimensions of the draggable
-  ui.helper.width($this.width());
-  ui.helper.height($this.height());
-
-  Drupal.formBuilder.activeDragUi = ui;
+  // Create the drop targets in between the form elements.
+  Drupal.formBuilder.createDropTargets(this, ui.helper);
 };
 
 /**
- * Called after a field has been moved from the new field palette.
+ * Creates drop targets for the dragged element to be dropped into.
+ */
+Drupal.formBuilder.createDropTargets = function(draggable, helper) {
+  var $placeholder = $('<div class="form-builder-placeholder"></div>');
+  var $elements = $('#form-builder .form-builder-wrapper:not(.form-builder-empty-placeholder)').not(draggable).not(helper);
+
+  if ($elements.length == 0) {
+    // There are no form elements, insert a placeholder
+    var $formBuilder = $('#form-builder');
+    $placeholder.height($formBuilder.height());
+    $placeholder.appendTo($formBuilder);
+  }
+  else {
+    $elements.each(function(i) {
+      $placeholder.clone().insertAfter(this);
+      // If the element is the first in its container, add a drop target above it.
+      if (this == $(this).parent().children('.form-builder-wrapper:not(.ui-draggable-dragging)').not(draggable)[0]) {
+        $placeholder.clone().insertBefore(this);
+      }
+    });
+  }
+
+  // Enable the drop targets
+  $('#form-builder').find('.form-builder-placeholder, .form-builder-empty-placeholder').droppable({
+    greedy: true,
+    scope: 'form-builder',
+    tolerance: 'pointer',
+    drop: Drupal.formBuilder.dropElement,
+    over: Drupal.formBuilder.dropHover,
+    out: Drupal.formBuilder.dropHover
+  });
+};
+
+/**
+ * Handles form elements being dropped onto the form.
+ *
+ * Existing elements will trigger a reorder, while new elements will be added in
+ * place to the form.
+ */
+Drupal.formBuilder.dropElement = function (event, ui) {
+  var $element = ui.draggable;
+  var $placeholder = $(this);
+  
+  // If the element is a new field from the palette, update it with a real field.
+  if ($element.is('.form-builder-palette-element')) {
+    var name = 'new_' + new Date().getTime();
+    // If this is a "unique" element, its element ID is hard-coded.
+    if ($element.is('.form-builder-unique')) {
+      name = $element.get(0).className.replace(/^.*?form-builder-element-([a-z0-9_]+).*?$/, '$1');
+    }
+
+    var $ajaxPlaceholder = $('<div class="form-builder-wrapper form-builder-new-field"><div id="form-builder-element-' + name + '" class="form-builder-element"><span class="progress">' + Drupal.t('Please wait...') + '</span></div></div>');
+
+    $.ajax({
+      url: $element.find('a').attr('href'),
+      type: 'GET',
+      dataType: 'json',
+      data: 'js=1&element_id=' + name,
+      success: Drupal.formBuilder.addElement
+    });
+
+    $placeholder.replaceWith($ajaxPlaceholder);
+
+    Drupal.formBuilder.updatingElement = true;
+  }
+  // Update the positions (weights and parents) in the form cache.
+  else {
+    $element.removeAttr('style');
+    $placeholder.replaceWith($element);
+    ui.helper.remove();
+    Drupal.formBuilder.updateElementPosition($element.get(0));
+  }
+
+  Drupal.formBuilder.activeDragUi = false;
+
+  // Scroll the palette into view.
+  $(window).triggerHandler('scroll');
+};
+
+/**
+ * Adjusts the placeholder height for drop targets as they are hovered-over.
+ */
+Drupal.formBuilder.dropHover = function (event, ui) {
+  if (event.type == 'dropover') {
+    // In the event that two droppables overlap, the latest one acts as the drop
+    // target. If there is previous active droppable hide it temporarily.
+    if (Drupal.formBuilder.activeDropzone) {
+      $(Drupal.formBuilder.activeDropzone).css('display', 'none');
+      Drupal.formBuilder.previousDropzones.push(Drupal.formBuilder.activeDropzone);
+    }
+    $(this).css({ height: ui.helper.height() + 'px', display: ''}).addClass('form-builder-placeholder-hover');
+    Drupal.formBuilder.activeDropzone = this;
+  }
+  else {
+    $(this).css({ height: '', display: '' }).removeClass('form-builder-placeholder-hover');
+
+    // If this was active drop target, we remove the active state.
+    if (Drupal.formBuilder.activeDropzone && Drupal.formBuilder.activeDropzone == this) {
+      Drupal.formBuilder.activeDropzone = false;
+    }
+    // If there is a previous drop target that was hidden, restore it.
+    if (Drupal.formBuilder.previousDropzones.length) {
+      $(Drupal.formBuilder.previousDropzones).css('display', '');
+      Drupal.formBuilder.activeDropzone = Drupal.formBuilder.previousDropzones.pop;
+    }
+  }
+};
+
+/**
+ * Called when a field has stopped moving via draggable.
  *
  * @param e
  *   The event object containing status information about the event.
@@ -820,73 +717,73 @@ Drupal.formBuilder.startDrag = function(e, ui) {
  */
 Drupal.formBuilder.stopDrag = function(e, ui) {
   var $this = $(this);
-  // Remove the droppable from all elements within the form
-  $('#form-builder .ui-droppable').droppable('destroy');
-
   // If the activeDragUi is still set, we did not drop onto the form.
   if (Drupal.formBuilder.activeDragUi) {
-    ui.helper.remove();
-    Drupal.formBuilder.activeDragUi = false;
-    $this.css('visibility', '').show().removeClass('original');
-    $(window).scroll();
-    // Remove the placeholders
-    $('#form-builder .form-builder-placeholder').remove();
-    
-    Drupal.formBuilder.checkFieldsets();
+    if ($this.hasClass('form-builder-unique') || $this.hasClass('form-builder-wrapper')) {
+      $this.show();
+    }
   }
-  // If dropped onto the form and a unique field, remove it from the palette.
-  else if ($this.is('.form-builder-unique')) {
-    $this.animate({height: '0', width: '0'}, function() {
-      $this.css({visibility: '', height: '', width: '', display: 'none'});
-    });
-  }
-};
 
-/**
- * These functions add and remove a class to a drop target and adjust its height
- * to the height of the item being dragged.
- */
-Drupal.formBuilder.over = function(e, ui) {
-  var $this = $(this);
-  if (!$this.is('.form-builder-empty-placeholder')) {
-    $this.height(ui.draggable.height());
-  }
-  $this.parent().find('.over').height(0);
-  $this.addClass('over');
-}
+  // Remove the placeholders and reset the hover state for all for elements
+  $('#form-builder .form-builder-placeholder').remove();
+  $('#form-builder .form-builder-hover').removeClass('form-builder-hover');
 
-Drupal.formBuilder.out = function(e, ui) {
-  var $this = $(this);
-  if (!$this.is('.form-builder-empty-placeholder')) {
-    $this.height(0);
-  }
-  $this.removeClass('over');
+  Drupal.formBuilder.checkFieldsets();
+
+  // Scroll the palette into view.
+  $(window).triggerHandler('scroll');
 };
 
 /**
  * Insert DIVs into empty fieldsets so that items can be dropped within them.
  *
  * This function is called every time an element changes positions during
- * a Sortables drag and drop operation.
+ * a drag and drop operation. Fieldsets are considered empty if they have no
+ * immediate children or they only contain exclusions.
  *
- * @param e
- *   The event object containing status information about the event.
- * @param ui
- *   The jQuery Sortables object containing information about the sortable.
- * @param
+ * @param exclusions
+ *   An array of DOM objects within a fieldset that should not be included when
+ *   checking if the fieldset is empty.
  */
-Drupal.formBuilder.checkFieldsets = function(e, ui, expand) {
-  var $fieldsets = $('#form-builder div.form-builder-element fieldset.form-builder-fieldset div.fieldset-wrapper');
+Drupal.formBuilder.checkFieldsets = function(exclusions, animate) {
+  var $wrappers = $('#form-builder div.form-builder-element > fieldset.form-builder-fieldset > div.fieldset-wrapper');
 
-  // Find all empty fieldsets.
-  $fieldsets.each(function() {
-    // Remove placeholders.
-    $(this).children('.form-builder-empty-placeholder').remove();
-    // If there are no visible children after placeholders are removed, add a placeholder.
-    if ($(this).children(':not(.description):visible').length == 0) {
-      $(Drupal.settings.formBuilder.emptyFieldset).appendTo(this);
+  // Make sure exclusions is an array and always skip any description.
+  exclusions = exclusions ? exclusions : [];
+  exclusions.push('.fieldset-description');
+
+  // Insert a placeholder into all empty fieldset wrappers.
+  $wrappers.each(function() {
+    var children = $(this).children(':visible, :not(.ui-draggable-dragging)');
+    for (var i in exclusions) {
+      children = children.not(exclusions[i]);
+    }
+
+    if (children.length == 0) {
+      // No children, add a placeholder.
+      if (animate) {
+        $(Drupal.settings.formBuilder.emptyFieldset).css('display', 'none').appendTo(this).slideDown();
       }
+      else {
+        $(Drupal.settings.formBuilder.emptyFieldset).appendTo(this);
+      }
+    }
+    else if (children.length > 1 && children.hasClass('form-builder-empty-placeholder')) {
+      // The fieldset has at least one element besides the placeholder, remove
+      // the placeholder.
+      $(this).find('.form-builder-empty-placeholder').remove();
+    }
   });
+};
+
+/**
+ * Check the root form tag and place explanatory text if the form is empty.
+ */
+Drupal.formBuilder.checkForm = function() {
+  var $formBuilder = $('#form-builder');
+  if ($formBuilder.children('div.form-builder-wrapper').length == 0) {
+    $formBuilder.append(Drupal.settings.formBuilder.emptyForm);
+  }
 };
 
 Drupal.formBuilder.setActive = function(element, link) {
@@ -906,19 +803,23 @@ Drupal.formBuilder.unsetActive = function() {
 
 Drupal.formBuilder.closeActive = function(callback) {
   if (Drupal.formBuilder.activeElement) {
-    var $activeForm = Drupal.formBuilder.fieldConfigureForm ? Drupal.formBuilder.fieldConfigureForm.find('form') : $(Drupal.formBuilder.activeElement).find('form');
+    var $activeForm = Drupal.formBuilder.fieldConfigureForm ? $(Drupal.formBuilder.fieldConfigureForm).find('form') : $(Drupal.formBuilder.activeElement).find('form');
 
     if ($activeForm.length) {
       Drupal.freezeHeight();
       $activeForm.slideUp(function(){
         $(this).remove();
-        if (callback && $.isFunction(callback)) {
+        // Set a message in the custom configure form location if it exists.
+        if (Drupal.formBuilder.fieldConfigureForm) {
+          $(Drupal.formBuilder.fieldConfigureForm).html(Drupal.settings.formBuilder.noFieldSelected);
+        }
+        if (callback) {
           callback.call();
         }
       });
     }
   }
-  else if (callback) {
+  else if (callback && $.isFunction(callback)) {
     callback.call();
   }
 
