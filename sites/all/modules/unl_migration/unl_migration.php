@@ -49,10 +49,16 @@ function unl_migration($form, &$form_state)
         '#description' => t("This may be needed if your site has an unlimited number of dynamicly generated paths."),
     );
     $form['root']['use_liferay_code'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Use Liferay Detection'),
-        '#description' => t("Normally, this won't interfere with non-liferay sites. If you have a /web directory, you should turn this off."),
-        '#default_value' => 1,
+      '#type' => 'checkbox',
+      '#title' => t('Use Liferay Detection'),
+      '#description' => t("Normally, this won't interfere with non-liferay sites. If you have a /web directory, you should turn this off."),
+      '#default_value' => 1,
+    );
+    $form['root']['use_liferay_titles'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Use Liferay Titles'),
+      '#description' => t("Liferay doesn't use WDN compliant page titles. This enables their alternate method of finding the page title."),
+      '#default_value' => 0,
     );
 
     $form['submit'] = array(
@@ -71,7 +77,8 @@ function unl_migration_submit($form, &$form_state) {
     $form_state['values']['frontier_user'],
     $form_state['values']['frontier_pass'],
     $form_state['values']['ignore_duplicates'],
-    $form_state['values']['use_liferay_code']
+    $form_state['values']['use_liferay_code'],
+    $form_state['values']['use_liferay_titles']
   );
 
   $operations = array(
@@ -155,6 +162,8 @@ class Unl_Migration_Tool
     private $_frontierFilesScanned = array();
     private $_ignoreDuplicates    = FALSE;
     private $_useLiferayCode      = TRUE;
+    private $_useLiferayTitles    = FALSE;
+    private $_liferayPageTitles   = array();
     private $_logger;
 
     private $_liferaySubsites     = array(
@@ -184,7 +193,7 @@ class Unl_Migration_Tool
 
     private $_start_time;
 
-    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates, $useLiferayCode = FALSE)
+    public function __construct($baseUrl, $frontierPath, $frontierUser, $frontierPass, $ignoreDuplicates, $useLiferayCode = FALSE, $useLiferayTitles = FALSE)
     {
         // Check to see if we're migrating from frontier so we can make some extra assumptions.
         $baseUrlParts = parse_url($baseUrl);
@@ -210,6 +219,7 @@ class Unl_Migration_Tool
 
         $this->_ignoreDuplicates = (bool) $ignoreDuplicates;
         $this->_useLiferayCode = (bool) $useLiferayCode;
+        $this->_useLiferayTitles = (bool) $useLiferayTitles;
 
         $this->_baseUrl = $baseUrl;
         $this->_addSitePath('');
@@ -620,7 +630,7 @@ class Unl_Migration_Tool
           $this->_blocks[$blockName] = str_replace(htmlspecialchars($hrefTransformFrom), htmlspecialchars($hrefTransformTo), $block);
         }
       }
-      
+
       db_update('block_custom')
         ->fields(array(
           'body'   => $this->_blocks['contact_info'],
@@ -680,7 +690,7 @@ class Unl_Migration_Tool
       $current_settings['intermediate_breadcrumbs'] = $this->_breadcrumbs;
       variable_set('theme_unl_wdn_settings', $current_settings);
     }
-    
+
     private function _process_liferay_sitemap() {
       if (!$this->_useLiferayCode) {
         return;
@@ -708,7 +718,10 @@ class Unl_Migration_Tool
         
         $linkNodes = $dom->getElementsByTagName('a');
         foreach ($linkNodes as $linkNode) {
-          $this->_processLinks($linkNode->getAttribute('href'), '');
+          $path = $this->_processLinks($linkNode->getAttribute('href'), '');
+          if ($this->_useLiferayTitles) {
+            $this->_liferayPageTitles[$path] = trim($linkNode->textContent);
+          }
         }
       }
     }
@@ -804,7 +817,7 @@ class Unl_Migration_Tool
         $html = $data['content'];
 
         $maincontentarea = '';
-        
+
         if ($path != '') {
           $maincontentarea = $this->_get_liferay_content_area($html);
         }
@@ -852,8 +865,12 @@ class Unl_Migration_Tool
         }
 
         $pageTitle = '';
+        if ($this->_liferayPageTitles[$path]) {
+          $pageTitle = $this->_liferayPageTitles[$path];
+        }
+
         $pageTitleNode = $dom->getElementById('pagetitle');
-        if ($pageTitleNode) {
+        if (!$pageTitle && $pageTitleNode) {
           // Search for the WDN 3.1 page title
           $pageTitleH1Nodes = $pageTitleNode->getElementsByTagName('h1');
           if ($pageTitleH1Nodes->length > 0) {
@@ -865,6 +882,10 @@ class Unl_Migration_Tool
             if ($pageTitleH2Nodes->length > 0) {
               $pageTitle = $pageTitleH2Nodes->item(0)->textContent;
             }
+          }
+
+          if ($pageTitle && $this->_useLiferayTitles) {
+            $pageTitle .= rtrim(' ' . basename($path));
           }
         }
 
@@ -950,7 +971,7 @@ class Unl_Migration_Tool
       if (substr($originalHref, 0, 1) == '#') {
         return;
       }
-      
+
       // Tidy will remove any spaces later, so we need to remove them here too.
       $originalHref = trim($originalHref);
 
@@ -975,6 +996,8 @@ class Unl_Migration_Tool
       } else {
         $this->_hrefTransform[$path][$originalHref] = $newPath;
       }
+
+      return $newPath;
     }
 
     /**
@@ -995,12 +1018,12 @@ class Unl_Migration_Tool
 
       $urlParts = parse_url($url);
       $pathParts = explode('/', ltrim($urlParts['path'], '/'));
-      
+
       $siteNameMap = array(
         'extension' => 'www.extension.unl.edu',
         'webster'   => 'www.webster.unl.edu',
       );
-      
+
       if (
            count($pathParts) >= 2 && $pathParts[0] == 'web'
         && !(in_array($urlParts['host'], array_keys($this->_liferaySubsites)) && in_array($pathParts[1], $this->_liferaySubsites[$urlParts['host']]))
@@ -1013,7 +1036,7 @@ class Unl_Migration_Tool
         else {
           $urlParts['host'] = strtolower($pathParts[1]) . '.unl.edu';
         }
-        
+
         $pathParts = array_splice($pathParts, 2);
         $urlParts['path'] = '/' . implode('/', $pathParts);
 
@@ -1490,11 +1513,11 @@ class Unl_Migration_Tool
 
     return (string) $tidy;
   }
-  
+
   public function getMessage() {
     return 'Crawled ' . count($this->_processedPages) . ' of ' . count($this->_siteMap) . ' discovered links.';
   }
-  
+
   public function getFinished() {
     return min(0.99, count($this->_processedPages) / count($this->_siteMap));
   }
