@@ -1,6 +1,7 @@
 <?php
 
-require_once dirname(__FILE__) . '/includes/common.php';
+require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/common.php';
+require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/unl.token.inc';
 
 /**
  * Implements hook_help().
