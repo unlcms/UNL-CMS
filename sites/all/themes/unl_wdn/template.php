@@ -18,6 +18,16 @@ function unl_wdn_css_alter(&$css) {
 }
 
 /**
+ * Implements template_preprocess_block().
+ */
+function unl_wdn_preprocess_block(&$vars) {
+  // Add Menu Block class to book navigation block so that they can share CSS.
+  if ($vars['block_html_id'] == 'block-book-navigation') {
+    $vars['classes_array'][] = 'block-menu-block';
+  }
+}
+
+/**
  * Implements template_preprocess_field().
  */
 function unl_wdn_preprocess_field(&$vars, $hook) {
