@@ -1,4 +1,3 @@
-// $Id: options_element.js,v 1.13 2011/01/12 07:22:01 quicksketch Exp $
 
 /**
  * @file
@@ -39,6 +38,11 @@ Drupal.optionsElement = function(element) {
   this.customKeys = Boolean(element.className.match(/options-key-custom/));
   this.identifier = this.manualOptionsElement.id + '-widget';
   this.enabled = $(this.manualOptionsElement).attr('readonly') == '';
+  this.defaultValuePattern = $(element).find('input.default-value-pattern').val();
+
+  if (this.defaultValuePattern) {
+    this.defaultValuePattern = new RegExp(this.defaultValuePattern);
+  }
 
   // Warning messages.
   this.keyChangeWarning = Drupal.t('Custom keys have been specified in this list. Removing these custom keys may change way data is stored. Are you sure you wish to remove these custom keys?');
@@ -53,7 +57,8 @@ Drupal.optionsElement = function(element) {
 
   // Enable add item link.
   $(this.optionAddElement).find('a').click(function() {
-    self.addOption($('table tr:last', self.optionsElement).get(0));
+    var newOption = self.addOption($('table tr:last', self.optionsElement).get(0));
+    $(newOption).find('input[type=text]:visible:first').focus();
     return false;
   });
 
@@ -161,7 +166,7 @@ Drupal.optionsElement.prototype.updateWidgetElements = function() {
   // Enable button for adding options.
   $('a.add', this.optionsElement).click(function() {
     var newOption = self.addOption($(this).parents('tr:first').get(0));
-    $(newOption).find('a.add').focus();
+    $(newOption).find('input[type=text]:visible:first').focus();
     return false;
   });
 
@@ -253,8 +258,14 @@ Drupal.optionsElement.prototype.updateManualElements = function() {
 
   // Update with the new text and trigger the change action on the field.
   this.optionsToText();
+
   if (this.manualDefaultValueElement) {
-    this.manualDefaultValueElement.value = multiple ? defaultValue.join(', ') : defaultValue;
+    // Don't wipe out custom pattern-matched default values.
+    defaultValue = multiple ? defaultValue.join(', ') : defaultValue;
+    if (defaultValue || !(this.defaultValuePattern && this.defaultValuePattern.test(this.manualDefaultValueElement.value))) {
+      this.manualDefaultValueElement.value = defaultValue;
+      $('.default-value-pattern-match', this.element).remove();
+    }
   }
 
   $(this.manualOptionsElement).change();
@@ -354,7 +365,7 @@ Drupal.optionsElement.prototype.addOption = function(currentOption) {
   // Enable button for adding options.
   $('a.add', newOption).click(function() {
     var newOption = self.addOption($(this).parents('tr:first').get(0));
-    $(newOption).find('a.add').focus();
+    $(newOption).find('input[type=text]:visible:first').focus();
     return false;
   });
 
@@ -702,15 +713,15 @@ Drupal.theme.prototype.optionsElement = function(optionsElement) {
     for (var n = 0; n < indent; n++) {
       output += Drupal.theme('tableDragIndentation');
     }
-    output += '<input type="hidden" class="option-parent" value="' + parent + '" />';
+    output += '<input type="hidden" class="option-parent" value="' + parent.replace(/"/g, '&quot;') + '" />';
     output += '<input type="hidden" class="option-depth" value="' + indent + '" />';
     if (hasDefault) {
-      output += '<input type="' + defaultType + '" name="' + optionsElement.identifier + '-default" class="form-radio option-default" value="' + key + '"' + (status == 'checked' ? ' checked="checked"' : '') + (status == 'disabled' ? ' disabled="disabled"' : '') + ' />';
+      output += '<input type="' + defaultType + '" name="' + optionsElement.identifier + '-default" class="form-radio option-default" value="' + key.replace(/"/g, '&quot;') + '"' + (status == 'checked' ? ' checked="checked"' : '') + (status == 'disabled' ? ' disabled="disabled"' : '') + ' />';
     }
     output += '</td><td class="' + (keyType == 'textfield' ? 'option-key-cell' : 'option-value-cell') +'">';
-    output += '<input type="' + keyType + '" class="' + (keyType == 'textfield' ? 'form-text ' : '') + 'option-key" value="' + key + '" />';
+    output += '<input type="' + keyType + '" class="' + (keyType == 'textfield' ? 'form-text ' : '') + 'option-key" value="' + key.replace(/"/g, '&quot;') + '" />';
     output += keyType == 'textfield' ? '</td><td class="option-value-cell">' : '';
-    output += '<input class="form-text option-value" type="text" value="' + value + '" />';
+    output += '<input class="form-text option-value" type="text" value="' + value.replace(/"/g, '&quot;') + '" />';
     output += '</td><td class="option-actions-cell">'
     output += '<a class="add" title="' + Drupal.t('Add new option') + '" href="#"' + (status == 'disabled' ? ' style="display: none"' : '') + '><span class="add">' + Drupal.t('Add') + '</span></a>';
     output += '<a class="remove" title="' + Drupal.t('Remove option') + '" href="#"' + (status == 'disabled' ? ' style="display: none"' : '') + '><span class="remove">' + Drupal.t('Remove') + '</span></a>';
@@ -754,9 +765,18 @@ Drupal.theme.prototype.optionsElement = function(optionsElement) {
 
   output += '</tbody>';
   output += '</table>';
-  output += '<div>';
+
+  if (optionsElement.defaultValuePattern && optionsElement.manualDefaultValueElement && optionsElement.defaultValuePattern.test(optionsElement.manualDefaultValueElement.value)) {
+    output += Drupal.theme('optionsElementPatternMatch', optionsElement.manualDefaultValueElement.value);
+  }
+
+  output += '</div>';
 
   return output;
+};
+
+Drupal.theme.prototype.optionsElementPatternMatch = function(matchedValue) {
+  return '<div class="default-value-pattern-match"><span>' + Drupal.t('Manual default value') + '</span>: ' + matchedValue + '</div>';
 };
 
 Drupal.theme.prototype.optionsElementAdd = function() {

@@ -73,7 +73,19 @@ function form_builder_theme() {
       'render element' => 'element',
       'file' => 'includes/form_builder.admin.inc',
     ),
+    'form_builder_empty_form' => array(
+      'variables' => array(),
+      'file' => 'includes/form_builder.admin.inc',
+    ),
     'form_builder_empty_fieldset' => array(
+      'variables' => array(),
+      'file' => 'includes/form_builder.admin.inc',
+    ),
+    'form_builder_no_field_selected' => array(
+      'variables' => array(),
+      'file' => 'includes/form_builder.admin.inc',
+    ),
+    'form_builder_field_loading' => array(
       'variables' => array(),
       'file' => 'includes/form_builder.admin.inc',
     ),
@@ -101,7 +113,7 @@ function form_builder_block_info() {
  */
 function form_builder_block_view($delta = '') {
   $block = array();
-  if ($delta == 'fields') {
+  if ($delta == 'fields' && form_builder_active_form()) {
     module_load_include('inc', 'form_builder', 'includes/form_builder.admin');
     $block['content'] = form_builder_field_palette();
   }
@@ -160,6 +172,9 @@ function form_builder_form_builder_properties($form_type) {
     ),
     'description' => array(
       'form' => 'form_builder_property_description_form',
+    ),
+    'disabled' => array(
+      'form' => 'form_builder_property_disabled_form',
     ),
     'weight' => array(
       'form' => 'form_builder_property_weight_form',
