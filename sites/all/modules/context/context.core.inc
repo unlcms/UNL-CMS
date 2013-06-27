@@ -6,8 +6,8 @@
 function context_help($path, $arg) {
   switch ($path) {
     case 'admin/help#context':
-      $output = file_get_contents(drupal_get_path('module', 'context') .'/README.txt');
-      return module_exists('markdown') ? filter_xss_admin(module_invoke('markdown', 'filter', 'process', 0, -1, $output)) : '<pre>'. check_plain($output) .'</pre>';
+      $output = file_get_contents(drupal_get_path('module', 'context') . '/README.txt');
+      return module_exists('markdown') ? filter_xss_admin(module_invoke('markdown', 'filter', 'process', 0, -1, $output)) : '<pre>' . check_plain($output) . '</pre>';
   }
 }
 
@@ -72,7 +72,13 @@ function context_theme_registry_alter(&$theme_registry) {
   if ($position !== FALSE) {
     unset($theme_registry['page']['preprocess functions'][$position]);
   }
-  $position = array_search('template_preprocess_page', $theme_registry['page']['preprocess functions']);
+  // Prevent conflict with i18n_menu.
+  if (module_exists('i18n_menu')) {
+    $position = array_search('i18n_menu_preprocess_page', $theme_registry['page']['preprocess functions']);
+  }
+  else {
+    $position = array_search('template_preprocess_page', $theme_registry['page']['preprocess functions']);
+  }
   $position = $position ? $position + 1 : 2;
   array_splice($theme_registry['page']['preprocess functions'], $position, 0, 'context_preprocess_page');
 }
@@ -85,7 +91,7 @@ function context_ctools_render_alter($info, $page, $data) {
   extract($data);
   if ($page && in_array($task['name'], array('node_view', 'node_edit'), TRUE)) {
     foreach ($contexts as $ctools_context) {
-      if ($ctools_context->type === 'node' && !empty($ctools_context->data)) {
+      if (in_array('node', $ctools_context->type) && !empty($ctools_context->data)) {
         context_node_condition($ctools_context->data, $task['name'] === 'node_view' ? 'view' : 'form');
         break;
       }
@@ -121,15 +127,32 @@ function context_node_view($node, $view_mode) {
  * Implementation of hook_form_alter().
  */
 function context_form_alter(&$form, $form_state, $form_id) {
+  // If the form is an admin for, flag it so that we can force a rebuild if needed.
+  if (path_is_admin($_GET['q'])) {
+    $form['#submit'][] = 'context_admin_form_submit';
+  }
+  // Trigger the condition in an after_build function to avoid being skipped
+  // when there are validation errors.
+  $form['#after_build'][] = 'context_form_alter_node_after_build';
+}
+
+/**
+ * Form #after_build callback for context_form_alter().
+ */
+function context_form_alter_node_after_build($form, &$form_state) {
   // Prevent this from firing on admin pages... damn form driven apis...
   if (!empty($form['#node_edit_form']) && arg(0) != 'admin') {
     context_node_condition($form['#node'], 'form');
   }
-  // Clear out block info cache when an admin area form is submitted.
-  if (arg(0) === 'admin' && !empty($form_state['input']) && isset($form_state['method']) && $form_state['method'] === 'post') {
-    if ($plugin = context_get_plugin('reaction', 'block')) {
-      $plugin->rebuild_needed(TRUE);
-    }
+  return $form;
+}
+
+/**
+ * Clear out block info cache when an admin area form is submitted.
+ */
+function context_admin_form_submit(&$form, $form_state) {
+  if ($plugin = context_get_plugin('reaction', 'block')) {
+    $plugin->rebuild_needed(TRUE);
   }
 }
 
@@ -177,7 +200,7 @@ function context_form_user_profile_form_alter(&$form, $form_state) {
 /**
  * Implementation of hook_form_alter() for user_register_form.
  */
-function context_form_user_register_form(&$form, $form_state) {
+function context_form_user_register_form_alter(&$form, $form_state) {
   if ($plugin = context_get_plugin('condition', 'user_page')) {
     $plugin->execute($form['#user'], 'register');
   }
@@ -272,7 +295,7 @@ function context_links($reset = FALSE) {
     if (!empty($active_types)) {
       // Iterate over active contexts
       foreach ($active_types as $type) {
-        $add_url = 'node/add/'. str_replace('_', '-', $type);
+        $add_url = 'node/add/' . str_replace('_', '-', $type);
         $item = menu_get_item($add_url);
         if ($item && $item['access'] && strpos($_GET['q'], $add_url) !== 0) {
           $links[$type] = array('title' => t('Add @type', array('@type' => node_type_get_name($type))), 'href' => $add_url);
