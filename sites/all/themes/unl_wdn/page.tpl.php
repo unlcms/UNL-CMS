@@ -79,6 +79,7 @@ if (isset($breadcrumb)) {
 $t->navlinks = PHP_EOL . render($page['navlinks']);
 
 // Site Title and Page Title
+$t->titlegraphic = '';
 if (isset($site_name) && !empty($site_name)) {
   if (theme_get_setting('site_name_abbreviation')) {
     $t->titlegraphic = '<abbr title="' . $site_name . '">'
@@ -92,6 +93,7 @@ if (isset($site_name) && !empty($site_name)) {
     $t->titlegraphic .= '<span>' . $site_slogan . '</span>';
   }
 }
+$t->pagetitle = '';
 if (isset($title) && !empty($title)) {
   $t->pagetitle = '<h1>' . render($title_prefix) . $title . render($title_suffix) . '</h1>';
 }
