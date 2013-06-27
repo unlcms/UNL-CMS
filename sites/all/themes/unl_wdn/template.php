@@ -9,6 +9,124 @@ if (theme_get_setting('zen_forms')) {
 }
 
 /**
+ * Implements hook_block_view_alter().
+ */
+function unl_wdn_block_view_alter(&$data, $block) {
+  if ($block->module == 'system' && $block->delta == 'main-menu') {
+    return _unl_wdn_block_view_system_main_menu_alter($data, $block);
+  }
+}
+
+/**
+ * Tries to implement hook_block_view_MODULE_DELTA_alter, but since the delta contains a -,
+ * this is actually called from unl_block_view_alter() for now. See http://drupal.org/node/1076132
+ * Used to determine if a "sub-menu" should be used instead of the normal menu.
+ */
+function _unl_wdn_block_view_system_main_menu_alter(&$data, $block) {
+  $current_menu_link = _unl_wdn_get_current_menu_link();
+  if ($current_menu_link) {
+    $submenu = _unl_wdn_get_current_submenu($data['content'], $current_menu_link->mlid);
+    if (!theme_get_setting('disable_drill_down') && $submenu && $submenu['#original_link']['depth'] > 1) {
+      $data['content'] = $submenu['#below'];
+    }
+  }
+  $data['content'] = _unl_wdn_limit_menu_depth($data['content'], 2);
+}
+
+/**
+ * Return the mlid of the currently selected menu item.
+ * If the current page has no menu item, use return the mlid of its parent instead.
+ */
+function _unl_wdn_get_current_menu_link() {
+  $result = db_select('menu_links')
+    ->fields('menu_links')
+    ->condition('menu_name', 'main-menu')
+    ->condition('link_path', current_path())
+    ->execute()
+    ->fetch();
+
+  if (!$result) {
+    return FALSE;
+  }
+
+  while (($result->hidden || $result->depth % 2 !== 0 || !$result->has_children) && $result->depth > 1) {
+    $result = db_select('menu_links')
+      ->fields('menu_links')
+      ->condition('menu_name', 'main-menu')
+      ->condition('mlid', $result->plid)
+      ->execute()
+      ->fetch();
+  }
+
+  return $result;
+}
+
+/**
+ * Find the the submenu we are currently "drilled-down" to.
+ */
+function _unl_wdn_get_current_submenu($menu_links, $current_mlid) {
+  foreach (element_children($menu_links) as $index) {
+    $menu_item = $menu_links[$index];
+    if ($menu_item['#original_link']['mlid'] == $current_mlid) {
+      return $menu_item;
+    }
+    $sub_menu = _unl_wdn_get_current_submenu($menu_item['#below'], $current_mlid);
+    if ($sub_menu) {
+      return $sub_menu;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Remove any menu items that are more than $depth levels below the current root.
+ */
+function _unl_wdn_limit_menu_depth($menu_links, $depth) {
+  if ($depth == 0) {
+    return array();
+  }
+
+  foreach (element_children($menu_links) as $index) {
+    $menu_links[$index]['#below'] = _unl_wdn_limit_menu_depth($menu_links[$index]['#below'], $depth - 1);
+  }
+
+  return $menu_links;
+}
+
+/**
+ * Implementation of hook_html_head_alter().
+ */
+function unl_wdn_html_head_alter(&$head_elements) {
+  $home_path = '<front>';
+
+  // If <link rel="home"> has already been set elsewhere (in a Context for example) then return...
+  foreach ($head_elements as $key => $element) {
+    if ($element["#tag"] == 'link' && isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'home') {
+      return;
+    }
+  }
+
+  // If we are in a drilled down menu, change the home link to the drilled down item.
+  if (!theme_get_setting('disable_drill_down')) {
+    $current_menu_link = _unl_wdn_get_current_menu_link();
+    if ($current_menu_link && $current_menu_link->depth > 1) {
+      $home_path = drupal_get_path_alias($current_menu_link->link_path);
+    }
+  }
+
+  // ...otherwise add a <link rel="home"> tag with the front page as the href attribute
+  $element = array(
+    '#tag' => 'link',
+    '#attributes' => array(
+      'rel' => 'home',
+      'href' => url($home_path, array('absolute' => TRUE)),
+    ),
+    '#type' => 'html_tag'
+  );
+  $head_elements['drupal_add_html_head_link:home'] = $element;
+}
+
+/**
  * Implements hook_css_alter().
  */
 function unl_wdn_css_alter(&$css) {
@@ -197,7 +315,7 @@ function unl_wdn_preprocess_page(&$vars, $hook) {
           . '});'
           ;
   drupal_add_js($script, 'inline');
-  
+
   // Unset the sidebars if on a user page (i.e. user profile or imce file browser)
   if (arg(0) == 'user') {
     $vars['page']['sidebar_first'] = array();

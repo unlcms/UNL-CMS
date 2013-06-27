@@ -3,7 +3,7 @@
 require_once dirname(__FILE__) . '/includes/common.php';
 
 /**
- * Implementation of hook_help().
+ * Implements hook_help().
  */
 function unl_help($path, $arg) {
   switch ($path) {
@@ -15,7 +15,7 @@ function unl_help($path, $arg) {
 }
 
 /**
- * Implementation of hook_entity_info_alter().
+ * Implements hook_entity_info_alter().
  */
 function unl_entity_info_alter(&$entity_info) {
   // Add additional view_mode to admin/structure/types/manage/CONTENTTYPE/display for an abbriviated teaser (for use in sidebars, etc)
@@ -26,39 +26,7 @@ function unl_entity_info_alter(&$entity_info) {
 }
 
 /**
- * Implementation of hook_html_head_alter().
- */
-function unl_html_head_alter(&$head_elements) {
-  // If <link rel="home"> has already been set elsewhere (in a Context for example) then return...
-  foreach ($head_elements as $key => $element) {
-    if ($element["#tag"] == 'link' && isset($element['#attributes']['rel']) && $element['#attributes']['rel'] == 'home') {
-      return;
-    }
-  }
-
-  // If we are in a drilled down menu, change the home link to the drilled down item.
-  $current_menu_link = _unl_get_current_menu_link();
-  if ($current_menu_link && $current_menu_link->depth > 1) {
-    $home_path = drupal_get_path_alias($current_menu_link->link_path);
-  }
-  else {
-    $home_path = '<front>';
-  }
-
-  // ...otherwise add a <link rel="home"> tag with the front page as the href attribute
-  $element = array(
-    '#tag' => 'link',
-    '#attributes' => array(
-      'rel' => 'home',
-      'href' => url($home_path, array('absolute' => TRUE)),
-    ),
-    '#type' => 'html_tag'
-  );
-  $head_elements['drupal_add_html_head_link:home'] = $element;
-}
-
-/**
- * Implementation of hook_context_plugins(). (Context module)
+ * Implements hook_context_plugins(). (Context module)
  */
 function unl_context_plugins() {
   $plugins = array();
@@ -82,7 +50,7 @@ function unl_context_plugins() {
 }
 
 /**
- * Implementation of hook_context_registry(). (Context module)
+ * Implements hook_context_registry(). (Context module)
  */
 function unl_context_registry() {
   return array(
@@ -100,7 +68,7 @@ function unl_context_registry() {
 }
 
 /**
- * Implementation of hook_context_page_reaction(). (Context module)
+ * Implements hook_context_page_reaction(). (Context module)
  */
 function unl_context_page_reaction() {
   if ($plugin = context_get_plugin('reaction', 'linkrelhome')) {
@@ -109,7 +77,7 @@ function unl_context_page_reaction() {
 }
 
 /**
- * Implementation of hook_page_alter().
+ * Implements hook_page_alter().
  */
 function unl_page_alter(&$page) {
   // Add UNLcms technical feedback link to toolbar
@@ -148,7 +116,7 @@ function unl_toolbar_add_links($toolbar) {
 }
 
 /**
- * Implementation of hook_page_build().
+ * Implements hook_page_build().
  */
 function unl_page_build(&$page) {
   if (module_exists('context')) {
@@ -162,7 +130,7 @@ function unl_page_build(&$page) {
 }
 
 /**
- * Implementation of hook_field_attach_view_alter().
+ * Implements hook_field_attach_view_alter().
  */
 function unl_field_attach_view_alter(&$output, $context) {
   // Replace the field named field_hrorgunit containing an org unit number with that unit's listing from the UNL directory
@@ -196,7 +164,7 @@ function unl_field_attach_view_alter(&$output, $context) {
 }
 
 /**
- * Implementation of hook_node_access().
+ * Implements hook_node_access().
  */
 function unl_node_access($node, $op, $account) {
   // When content types are created they have blank permissions so base access on the 'Basic page' type. This is done because with shared permissions subsites can't edit permissions.
@@ -224,7 +192,7 @@ function unl_node_prepare($node) {
 }
 
 /**
- * Implementation of hook_node_presave().
+ * Implements hook_node_presave().
  */
 function unl_node_presave($node) {
   // Tidy html in fields that are text areas
@@ -243,7 +211,7 @@ function unl_node_presave($node) {
 }
 
 /**
- * Implementation of hook_permission().
+ * Implements hook_permission().
  */
 function unl_permission() {
   return array(
@@ -510,7 +478,7 @@ function unl_sharedcode($file = null) {
 }
 
 /**
- * Implementation of hook_file_validate().
+ * Implements hook_file_validate().
  * Fires when files are uploaded after Drupal Core sanitization but before saving to file system or db
  */
 function unl_file_validate($file) {
@@ -524,7 +492,7 @@ function unl_file_validate($file) {
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for system_theme_settings.
+ * Implements hook_form_FORM_ID_alter() for system_theme_settings.
  * This is used in addition to unl_wdn_form_system_theme_settings_alter because that hook
  *   runs before color_form_system_theme_settings_alter which overwrites an attempt
  *   at setting $form['color']['#access'].
@@ -552,7 +520,7 @@ function unl_form_system_theme_settings_alter(&$form, &$form_state) {
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for field_ui_display_overview_form.
+ * Implements hook_form_FORM_ID_alter() for field_ui_display_overview_form.
  */
 function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $form_id) {
   // Add additional label display options in Manage Display section of content type editing (admin/structure/types/manage/content-type/display)
@@ -562,7 +530,7 @@ function unl_form_field_ui_display_overview_form_alter(&$form, &$form_state, $fo
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for system_modules.
+ * Implements hook_form_FORM_ID_alter() for system_modules.
  */
 function unl_form_system_modules_alter(&$form, &$form_state, $form_id) {
   // Whitelist of modules that Site Admin are allowed to turn on and off on admin/modules
@@ -582,7 +550,7 @@ function unl_form_system_modules_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter() for system_logging_settings.
+ * Implements hook_form_FORM_ID_alter() for system_logging_settings.
  */
 function unl_form_system_logging_settings_alter(&$form, $form_state, $form_id) {
   // Disable ability of non-admins to turn on error reporting on on admin/config/development/logging.
@@ -592,7 +560,7 @@ function unl_form_system_logging_settings_alter(&$form, $form_state, $form_id) {
 }
 
 /**
- * Implementation of hook_form_alter().
+ * Implements hook_form_alter().
  */
 function unl_form_alter(&$form, $form_state, $form_id) {
   // Make new menu items expanded by default.
@@ -759,7 +727,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
 }
 
 /**
- * Implementation of hook_node_form_submit().
+ * Implements hook_node_form_submit().
  */
 function unl_node_form_submit($form, &$form_state) {
   // When a node is modified, update its menu link to be hidden or not based on the user input.
@@ -787,7 +755,7 @@ function unl_node_form_submit($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_system_settings_form_submit().
+ * Implements hook_system_settings_form_submit().
  */
 function unl_system_settings_form_submit($form, &$form_state) {
   variable_set('https', (bool) $form_state['values']['https']);
@@ -800,7 +768,7 @@ function unl_system_settings_form_submit($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_url_outbound_alter().
+ * Implements hook_url_outbound_alter().
  */
 function unl_url_outbound_alter(&$path, &$options, $original_path) {
   $path_parts = parse_url($path);
@@ -908,7 +876,7 @@ function unl_get_alternate_base_uris() {
 }
 
 /**
- * Implementation of hook_init().
+ * Implements hook_init().
  */
 function unl_init() {
   // Redirect to desired URL if needed
@@ -927,7 +895,7 @@ function unl_init() {
       $request_path = strtok($_SERVER['REQUEST_URI'], '?');
       $base_path_len = strlen(rtrim(dirname($_SERVER['SCRIPT_NAME']), '\/'));
       $path = substr(urldecode($request_path), $base_path_len + 1);
-      
+
       drupal_goto(url($primary_base_url . $path, array('query' => drupal_get_query_parameters())));
     }
   }
@@ -1011,100 +979,6 @@ function _unl_imce_file_browser_access() {
 }
 
 /**
- * Implements hook_block_view_alter()
- * @param array $data
- * @param stdClass $block
- */
-function unl_block_view_alter(&$data, $block) {
-  if ($block->module == 'system' && $block->delta == 'main-menu') {
-    return unl_block_view_system_main_menu_alter($data, $block);
-  }
-}
-
-/**
- * Tries to implement hook_block_view_MODULE_DELTA_alter, but since the delta contains a -,
- * this is actually called from unl_block_view_alter() for now.
- * Used to determine if a "sub-menu" should be used instead of the normal menu.
- * @param array $data
- * @param stdClass $block
- */
-function unl_block_view_system_main_menu_alter(&$data, $block) {
-  $current_menu_link = _unl_get_current_menu_link();
-  if (!$current_menu_link) {
-    return;
-  }
-  $submenu = _unl_get_current_submenu($data['content'], $current_menu_link->mlid);
-  if ($submenu && $submenu['#original_link']['depth'] > 1) {
-    $data['content'] = $submenu['#below'];
-  }
-  $data['content'] = _unl_limit_menu_depth($data['content'], 2);
-}
-
-/**
- * Return the mlid of the currently selected menu item.
- * If the current page has no menu item, use return the mlid of its parent instead.
- */
-function _unl_get_current_menu_link() {
-  $result = db_select('menu_links')
-    ->fields('menu_links')
-    ->condition('menu_name', 'main-menu')
-    ->condition('link_path', current_path())
-    ->execute()
-    ->fetch();
-
-  if (!$result) {
-    return FALSE;
-  }
-
-  while (($result->hidden || $result->depth % 2 !== 0 || !$result->has_children) && $result->depth > 1) {
-    $result = db_select('menu_links')
-      ->fields('menu_links')
-      ->condition('menu_name', 'main-menu')
-      ->condition('mlid', $result->plid)
-      ->execute()
-      ->fetch();
-  }
-
-  return $result;
-}
-
-/**
- * Find the the submenu we are currently "drilled-down" to.
- * @param array $menu_links
- * @param int $current_mlid
- */
-function _unl_get_current_submenu($menu_links, $current_mlid) {
-  foreach (element_children($menu_links) as $index) {
-    $menu_item = $menu_links[$index];
-    if ($menu_item['#original_link']['mlid'] == $current_mlid) {
-      return $menu_item;
-    }
-    $sub_menu = _unl_get_current_submenu($menu_item['#below'], $current_mlid);
-    if ($sub_menu) {
-      return $sub_menu;
-    }
-  }
-  return FALSE;
-}
-
-/**
- * Remove any menu items that are more than $depth levels below the current root.
- * @param array $menu_links
- * @param int $depth
- */
-function _unl_limit_menu_depth($menu_links, $depth) {
-  if ($depth == 0) {
-    return array();
-  }
-
-  foreach (element_children($menu_links) as $index) {
-    $menu_links[$index]['#below'] = _unl_limit_menu_depth($menu_links[$index]['#below'], $depth - 1);
-  }
-
-  return $menu_links;
-}
-
-/**
  * Implements hook_stream_wrappers_alter().
  */
 function unl_stream_wrappers_alter(&$wrappers) {
@@ -1158,10 +1032,9 @@ function unl_query_alter(QueryAlterableInterface $query) {
 }
 
 /**
- * Implementation of hook_filter_info()
+ * Implements hook_filter_info()
  */
-function unl_filter_info()
-{
+function unl_filter_info() {
   return array(
     'unl_embed' => array(
       'title' => 'UNL Node Embed',
@@ -1179,12 +1052,11 @@ function unl_filter_info()
 }
 
 /**
- * Implementation of hook_filter_FILTER_process pseudo-hook
+ * Implements hook_filter_FILTER_process pseudo-hook
  *
  * Replace any instances of [[node:X]] in the $text with the content of node X's body.
  */
-function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $cache_id)
-{
+function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $cache_id) {
   static $processed_hashes = array();
 
   $text_hash = hash('sha256', $text);
@@ -1214,7 +1086,7 @@ function unl_filter_embed_process($text, $filter, $format, $langcode, $cache, $c
 }
 
 /**
- * Implementation of hook_filter_FILTER_process pseudo-hook
+ * Implements hook_filter_FILTER_process pseudo-hook
  *
  * Replace any instances of <!--#include virtual="url"--> with the content
  * found at that URL.  If the url is in the unl.edu domain, format=partial
