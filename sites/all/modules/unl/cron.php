@@ -115,6 +115,19 @@ function unl_edit_sites() {
       $command = 'mv ' . escapeshellarg($sites_subdir) . ' ' . escapeshellarg($new_sites_subdir);
       shell_exec($command);
 
+      // Recreate all existing aliases so that they point to the new URI.
+      $existingAliases = db_select('unl_sites_aliases', 'a')
+        ->condition('site_id', $row['site_id'])
+        ->condition('installed', 2)
+        ->fields('a', array('site_alias_id', 'base_uri', 'path'))
+        ->execute()
+        ->fetchAll();
+      foreach ($existingAliases as $existingAlias) {
+          unl_remove_alias($existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
+          unl_add_alias($new_uri, $existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
+      }
+      
+      // Add the old location as a new alias.
       unl_add_alias($new_uri, $alias['base_uri'], $row['site_path'], $alias['site_alias_id']);
 
       db_update('unl_sites')
@@ -397,7 +410,7 @@ function unl_add_site_to_htaccess($site_id, $site_path, $is_alias) {
                  . $stub_token
                  . substr($htaccess, $stub_pos + strlen($stub_token));
 
-  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
 function unl_remove_site_from_htaccess($site_id, $is_alias) {
@@ -424,7 +437,7 @@ function unl_remove_site_from_htaccess($site_id, $is_alias) {
   $new_htaccess = substr($htaccess, 0, $start_pos)
                 . substr($htaccess, $end_pos + strlen($site_end_token))
                 ;
-  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
 function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
@@ -445,7 +458,7 @@ function unl_add_page_alias_to_htaccess($site_id, $host, $path, $to_uri) {
                 . $stub_token
                 . substr($htaccess, $stub_pos + strlen($stub_token));
 
-  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
 function unl_remove_page_alias_from_htaccess($site_id) {
@@ -465,7 +478,7 @@ function unl_remove_page_alias_from_htaccess($site_id) {
   $new_htaccess = substr($htaccess, 0, $start_pos)
                 . substr($htaccess, $end_pos + strlen($site_end_token))
                 ;
-  file_put_contents(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/.htaccess', $new_htaccess);
 }
 
 function unl_add_alias_to_sites_php($alias_site_dir, $real_site_dir, $alias_id) {
@@ -484,7 +497,7 @@ function unl_add_alias_to_sites_php($alias_site_dir, $real_site_dir, $alias_id) 
                  . $stub_token
                  . substr($sites_php, $stub_pos + strlen($stub_token))
                  ;
-  file_put_contents(DRUPAL_ROOT . '/sites/sites.php', $new_sites_php);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/sites/sites.php', $new_sites_php);
 }
 
 function unl_remove_alias_from_sites_php($alias_id) {
@@ -504,7 +517,7 @@ function unl_remove_alias_from_sites_php($alias_id) {
   $new_sites_php = substr($sites_php, 0, $start_pos)
                  . substr($sites_php, $end_pos + strlen($site_end_token))
                  ;
-  file_put_contents(DRUPAL_ROOT . '/sites/sites.php', $new_sites_php);
+  _unl_file_put_contents_atomic(DRUPAL_ROOT . '/sites/sites.php', $new_sites_php);
 }
 
 function unl_require_writable($path) {
@@ -513,3 +526,37 @@ function unl_require_writable($path) {
   }
 }
 
+/**
+ * A drop-in replacement for file_put_contents that will atomically put the new file into place.
+ * This additionally requires you to have write access to the directory that will contain the file.
+ * @see file_put_contents
+ */
+function _unl_file_put_contents_atomic($filename, $data, $flags = 0, $context = NULL) {
+  // Create a temporary file with a simalar name in the destination directory.
+  $tempfile = tempnam(dirname($filename), basename($filename) . '_');
+  if ($tempfile === FALSE) {
+    return FALSE;
+  }
+  // Fix the permissions on the file since they will be 0600.
+  if (file_exists($filename)) {
+    $stat = stat($filename);
+    chmod($tempfile, $stat['mode']);
+  } else {
+    chmod($tempfile, 0666 & ~umask());
+  }
+  
+  // Do the actual file_put contents
+  $bytes = file_put_contents($tempfile, $data, $flags, $context);
+  if ($bytes === FALSE) {
+    unlink($tempfile);
+    return FALSE;
+  }
+  
+  // Move the new file into place atomically.
+  if (!rename($tempfile, $filename)) {
+    unlink($tempfile);
+    return FALSE;
+  }
+  
+  return $bytes;
+}
