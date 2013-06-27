@@ -285,20 +285,11 @@ function unl_wdn_preprocess_username(&$vars) {
  */
 function unl_wdn_username_alter(&$name, $account) {
   if ($account->uid) {
-    // Drupal does not support "display names" so convert the user name (jdoe2 to Jane Doe) using UNL Directory service.
-    $context = stream_context_create(array(
-      'http' => array('timeout' => 1)
-    ));
-    if (function_exists('unl_url_get_contents')) {
-      $result = json_decode(unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, $context));
-    }
-    else {
-      $result = json_decode(file_get_contents('http://directory.unl.edu/service.php?format=json&uid='.$name, 0, $context));
-    }
-    if (!empty($result) && $result->sn) {
-      $zero = '0';
-      $firstname = ($result->eduPersonNickname ? $result->eduPersonNickname->$zero : $result->givenName->$zero);
-      $name = $firstname . ' ' . $result->sn->$zero;
+    // If the CAS module is enabled, we should have their full name.
+    $user = user_load_by_name($name);
+    if ($user && isset($user->data['unl']['fullName'])) {
+      $name = $user->data['unl']['fullName'];
+      return;
     }
   }
 }
