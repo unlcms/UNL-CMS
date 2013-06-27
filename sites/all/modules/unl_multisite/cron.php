@@ -1,6 +1,6 @@
 <?php
 /**
- * 'installed' database number codes (also seen in modules/unl/unl_site_creation.php)
+ * 'installed' database number codes (also seen in unl_multisite/unl_site_creation.php)
  *  0: 'Scheduled for creation.'
  *  1: 'Curently being created.'
  *  2: 'In production.'
@@ -19,9 +19,9 @@ chdir(dirname(__FILE__) . '/../../../..');
 define('DRUPAL_ROOT', getcwd());
 
 require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
-require_once dirname(__FILE__) . '/includes/common.php';
 drupal_override_server_variables();
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+require_once drupal_get_path('module', 'unl') . '/includes/common.php';
 
 unl_edit_sites();
 unl_remove_aliases();
@@ -126,7 +126,7 @@ function unl_edit_sites() {
           unl_remove_alias($existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
           unl_add_alias($new_uri, $existingAlias->base_uri, $existingAlias->path, $existingAlias->site_alias_id);
       }
-      
+
       // Add the old location as a new alias.
       unl_add_alias($new_uri, $alias['base_uri'], $row['site_path'], $alias['site_alias_id']);
 
@@ -544,19 +544,19 @@ function _unl_file_put_contents_atomic($filename, $data, $flags = 0, $context = 
   } else {
     chmod($tempfile, 0666 & ~umask());
   }
-  
+
   // Do the actual file_put contents
   $bytes = file_put_contents($tempfile, $data, $flags, $context);
   if ($bytes === FALSE) {
     unlink($tempfile);
     return FALSE;
   }
-  
+
   // Move the new file into place atomically.
   if (!rename($tempfile, $filename)) {
     unlink($tempfile);
     return FALSE;
   }
-  
+
   return $bytes;
 }
