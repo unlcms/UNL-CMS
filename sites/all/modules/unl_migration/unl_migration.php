@@ -1175,6 +1175,7 @@ class Unl_Migration_Tool
         curl_setopt($this->_curl, CURLOPT_RETURNTRANSFER, TRUE);
         curl_setopt($this->_curl, CURLOPT_HEADER, TRUE);
         curl_setopt($this->_curl, CURLOPT_NOBODY, TRUE);
+        curl_setopt($this->_curl, CURLOPT_USERAGENT, 'UNL-CMS Migration Tool');
 
         $data = curl_exec($this->_curl);
         $meta = curl_getinfo($this->_curl);
@@ -1365,7 +1366,7 @@ class Unl_Migration_Tool
       else {
         $type = 'error';
       }
-      drupal_set_message($message, $type, FALSE);
+      drupal_set_message(check_plain($message), $type, FALSE);
 
       watchdog('unl migration', $message, NULL, $severity);
     }
