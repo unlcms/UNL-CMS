@@ -26,6 +26,7 @@ function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state
     '#title' => t('Purge varnish on all sites'),
     '#access' => user_access('administer varnish') && conf_path() == 'sites/default',
     '#weight' => -1,
+
     'varnish_path' => array(
       '#type' => 'radios',
       '#required' => TRUE,
@@ -35,6 +36,7 @@ function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state
       ),
       '#default_value' => '^/wdn',
     ),
+
     'purge' => array(
       '#type' => 'submit',
       '#value' => t('Purge varnish system-wide'),
@@ -81,4 +83,14 @@ function unl_varnish_file_update($file) {
  */
 function unl_varnish_node_update($node) {
   varnish_purge_all_pages();
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function unl_varnish_form_alter(&$form, $form_state, $form_id) {
+  // Purges varnish when a Draggable Views form is saved.
+  if (array_key_exists('draggableviews', $form)) {
+    $form['#submit'][] = 'varnish_purge_all_pages';
+  }
 }
