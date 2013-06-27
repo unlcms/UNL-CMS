@@ -202,7 +202,7 @@ function unl_wdn_preprocess_html(&$vars, $hook) {
       unset($vars['head_title_array']['title']);
     }
     if (variable_get('site_name') != 'University of Nebraska–Lincoln') {
-      $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska–Lincoln'));
+      $vars['head_title_array'] = array_merge($vars['head_title_array'], array('UNL' => 'University of Nebraska&ndash;Lincoln'));
     }
     $vars['head_title'] = implode(' | ', $vars['head_title_array']);
   }
