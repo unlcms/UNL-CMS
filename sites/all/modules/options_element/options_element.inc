@@ -133,13 +133,13 @@ function _form_options_expand($element) {
       '#rows' => 5,
       '#required' => isset($element['#required']) ? $element['#required'] : FALSE,
       '#description' => t('List options one option per line.'),
-      '#attributes' => $element['#disabled'] ? array('readonly' => 'readonly') : array(),
+      '#attributes' => $element['#options_readonly'] ? array('readonly' => 'readonly') : array(),
       '#wysiwyg' => FALSE, // Prevent CKeditor from trying to hijack.
     );
 
     // If validation fails, reload the user's text even if it's not valid.
-    if (isset($element['#value']['text'])) {
-      $element['options_field']['#value'] = $element['#value']['text'];
+    if (isset($element['#value']['options_text'])) {
+      $element['options_field']['#value'] = $element['#value']['options_text'];
     }
     // Most of the time, we'll be converting the options array into the text.
     else {
@@ -195,7 +195,8 @@ function _form_options_expand($element) {
  * @see form_options_validate()
  */
 function _form_options_validate($element, &$form_state) {
-  // Convert text to an array of options.
+  // Even though we already have the converted options in #value['options'], run
+  // the conversion again to check for duplicates in the user-defined list.
   $duplicates = array();
   $options = form_options_from_text($element['#value']['options_text'], $element['#key_type'], empty($element['#optgroups']), $duplicates);
 

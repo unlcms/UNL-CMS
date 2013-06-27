@@ -37,7 +37,8 @@ Drupal.optionsElement = function(element) {
   this.keyType = element.className.replace(/^.*?options-key-type-([a-z]+).*?$/, '$1');
   this.customKeys = Boolean(element.className.match(/options-key-custom/));
   this.identifier = this.manualOptionsElement.id + '-widget';
-  this.enabled = $(this.manualOptionsElement).attr('readonly') == '';
+  // jQuery 1.6 API change: http://api.jquery.com/prop/
+  this.enabled = $.fn.prop ? !$(this.manualOptionsElement).prop('readonly') : !$(this.manualOptionsElement).attr('readonly');
   this.defaultValuePattern = $(element).find('input.default-value-pattern').val();
 
   if (this.defaultValuePattern) {

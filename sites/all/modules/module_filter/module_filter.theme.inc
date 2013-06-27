@@ -76,11 +76,22 @@ function theme_module_filter_system_modules_tabs($variables) {
     t('Version'),
     t('Description')
   );
-  $package_ids = array('all', 'new');
-  $enabled['all'] = $enabled['new'] = array();
+  $package_ids = array('all');
+  $enabled['all'] = array();
+
+  if (variable_get('module_filter_track_recent_modules', 1)) {
+    $recent_modules = array_filter(variable_get('module_filter_recent_modules', array()), 'module_filter_recent_filter');
+    // Save the filtered results.
+    variable_get('module_filter_recent_modules', $recent_modules);
+
+    $package_ids[] = 'recent';
+    $enabled['recent'] = array();
+  }
 
   // Determine what modules are new (within a week).
   $new_modules = module_filter_new_modules();
+  $package_ids[] = 'new';
+  $enabled['new'] = array();
 
   $rows = array();
   $flip = array('even' => 'odd', 'odd' => 'even');
@@ -99,6 +110,9 @@ function theme_module_filter_system_modules_tabs($variables) {
 
       $is_enabled = isset($module['enable']['#default_value']) ? $module['enable']['#default_value'] : '';
       $enabled['all'][] = $enabled[$package_id][] = $is_enabled;
+      if (isset($recent_modules[$key])) {
+        $enabled['recent'][] = $is_enabled;
+      }
       if (isset($new_modules[$key])) {
         $enabled['new'][] = $is_enabled;
       }
@@ -136,6 +150,9 @@ function theme_module_filter_system_modules_tabs($variables) {
       $row[] = array('data' => $description, 'class' => array('description'));
 
       $class = array(module_filter_get_id($package) . '-tab', 'module', $stripe);
+      if (isset($recent_modules[$key])) {
+        $class[] = 'recent-module';
+      }
       if (isset($new_modules[$key])) {
         $class[] = 'new-module';
       }
