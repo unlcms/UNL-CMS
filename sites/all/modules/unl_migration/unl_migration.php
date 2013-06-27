@@ -731,14 +731,38 @@ class Unl_Migration_Tool
         $pathParts = parse_url($path);
         // If the path contains a query, we'll have to change it.
         if (array_key_exists('query', $pathParts)) {
-            $matches = array();
-            if (array_key_exists('Content-Disposition', $data['headers']) &&
-                    preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
-                $cleanPath = $pathParts['path'] . '/' . $matches[1];
-            } else {
-                $cleanPath = $pathParts['path'] . '/' . $pathParts['query'];
+          // If a Content-Disposition header exists with a filename, grab it.
+          $altFileName = '';
+          $matches = array();
+          if (array_key_exists('Content-Disposition', $data['headers']) &&
+              preg_match('/filename="(.*)"/', $data['headers']['Content-Disposition'], $matches)) {
+            $altFileName = $matches[1];
+          }
+
+          // Parse the query string
+          $query = array();
+          parse_str($pathParts['query'], $query);
+          
+          // If this is a liferay file, just save it as <uuid>.<ext> in the root files directory.
+          if ($pathParts['path'] == 'c/document_library/get_file' && $query['uuid']) {
+            if (strrpos($pathParts['query'], '.') > strrpos($pathParts['query'], '&') && strrpos($pathParts['query'], '.') !== FALSE) {
+              $cleanPath = $query['uuid'] . substr($pathParts['query'], strrpos($pathParts['query'], '.'));
             }
-            $cleanPath = strtr($cleanPath, array('%2f' => '/', '%2F' => '/'));
+            else if ($altFileName && strpos($altFileName, '.') !== FALSE) {
+              $cleanPath = $query['uuid'] . substr($altFileName, strrpos($altFileName, '.'));
+            } else {
+              $cleanPath = $query['uuid'];
+            }
+          }
+          // Or, if it exists, save it as the content-disposition name.
+          else if ($altFileName) {
+            $cleanPath = $pathParts['path'] . '/' . $altFileName;
+          }
+          // Otherwise, just save it with a / instead of a ?.
+          else {
+            $cleanPath = $pathParts['path'] . '/' . $pathParts['query'];
+          }
+          $cleanPath = strtr($cleanPath, array('%2f' => '/', '%2F' => '/'));
         }
 
         if (strpos($data['contentType'], 'html') === FALSE) {
