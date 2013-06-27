@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Media: MediaHub module.
+ */
+
+/**
+ * Implement hook_install().
+ */
+function media_mediahub_install() {
+  // Turn on only the View Library and Web WYSIWYG plugins
+  variable_set('media__wysiwyg_browser_plugins', array('media_default--media_browser_1', 'media_internet'));
+}
+
+/**
+ * Implement hook_uninstall().
+ */
+function media_mediahub_uninstall() {
+  drupal_load('module', 'media_mediahub');
+
+  foreach (media_mediahub_variable_default() as $variable => $value) {
+    media_mediahub_variable_del($variable);
+  }
+  return array(array('success' => TRUE, 'query' => "Deleted all variables in the Media: MediaHub namespace."));
+}
