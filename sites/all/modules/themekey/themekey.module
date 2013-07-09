@@ -10,13 +10,16 @@
  * It can also be easily extended to support additional properties as exposed by
  * other modules.
  *
- * @author Markus Kalkbrenner | Cocomore AG
+ * @author Markus Kalkbrenner | bio.logis GmbH
  *   @see http://drupal.org/user/124705
  *
  * @author profix898
  *   @see http://drupal.org/user/35192
  */
 
+define('THEMEKEY_PAGECACHE_UNSUPPORTED', 0);
+define('THEMEKEY_PAGECACHE_SUPPORTED', 1);
+define('THEMEKEY_PAGECACHE_TIMEBASED', 2);
 
 /**
  * Implements hook_theme().
@@ -109,8 +112,6 @@ function themekey_menu() {
  * the current request and returns a custom theme.
  */
 function themekey_custom_theme() {
-  themekey_define_constants();
-
   $custom_theme = &drupal_static('themekey_custom_theme', '');
 
   // don't change theme when ...
@@ -313,10 +314,6 @@ function themekey_modules_enabled($modules) {
 function themekey_flush_caches() {
   require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'themekey') . '/themekey_build.inc';
 
-  // update.php doesn't call hook_boot(), hook_init(), hook_custom_theme() before hook_flush_caches()
-  // => avoid usage of undefined constants
-  themekey_define_constants();
-
   // Search for new properties provided by a new module
   themekey_rebuild();
 
@@ -324,16 +321,3 @@ function themekey_flush_caches() {
   return array();
 }
 
-
-/**
- * Helper function that defines constants needed by themekey and
- * add-ons.
- * Could be called safely multiple times.
- */
-function themekey_define_constants() {
-  if (!defined('THEMEKEY_PAGECACHE_UNSUPPORTED')) {
-    define('THEMEKEY_PAGECACHE_UNSUPPORTED', 0);
-    define('THEMEKEY_PAGECACHE_SUPPORTED', 1);
-    define('THEMEKEY_PAGECACHE_TIMEBASED', 2);
-  }
-}
