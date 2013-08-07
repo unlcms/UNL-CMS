@@ -663,6 +663,30 @@ abstract class DatabaseConnection extends PDO {
    */
   public function query($query, array $args = array(), $options = array()) {
 
+    // UNL Change
+    // When requested, stop processing everything except for plain SELECT statements
+    // This allows for drupal to function during a FLUSH TABLES WITH READ LOCK;
+    if (isset($GLOBALS['conf']['db_select_only']) && $GLOBALS['conf']['db_select_only']) {
+      if ($query instanceof DatabaseStatementInterface) {
+        if (strtoupper(substr(trim($query->getQueryString()), 0, 7)) !== 'SELECT ') {
+          return;
+        }
+        if (strtoupper(substr(trim($query->getQueryString()), -11)) == ' FOR UPDATE') {
+          return;
+        }
+      }
+      else {
+        $query = trim($query);
+        if (strtoupper(substr($query, 0, 7)) !== 'SELECT ') {
+          return;
+        }
+        if (strtoupper(substr($query, -11)) == ' FOR UPDATE') {
+          $query = substr($query, 0, -11);
+        }
+      }
+    }
+    // End UNL Change
+
     // Use default values if not already set.
     $options += $this->defaultOptions();
 
