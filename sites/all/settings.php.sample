@@ -50,5 +50,8 @@ $databases = array (
   ),
 );
 
+// Uncomment the following line to only allow SELECT statements to reach the database.
+#$conf['db_select_only'] = TRUE;
+
 $conf['reverse_proxy'] = TRUE;
 $conf['reverse_proxy_addresses'] = array('127.0.0.1');

@@ -81,6 +81,11 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Fix so that drupal_serve_page_from_cache() won't override a cached Vary header. http://drupal.org/node/1321086
 
+  *  includes/database/database.inc
+
+     Add support for a "db_select_only" config option that prevents drupal from issuing non-select queries to that database.
+     This can be used to allow Drupal to function during a FLUSH TABLES WITH READ LOCK;
+
   *  rewrite.php
 
      This custom file is used to allow public files to be accessed without the sites/<site_dir>/files prefix.
