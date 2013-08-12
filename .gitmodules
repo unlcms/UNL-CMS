@@ -23,3 +23,6 @@
 	path = sites/all/themes/unl_four
 	url = git@github.com:unlcms/unl_four.git
 
+[submodule "sites/all/libraries/codemirror"]
+	path = sites/all/libraries/codemirror
+	url = https://github.com/marijnh/CodeMirror.git
