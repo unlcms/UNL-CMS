@@ -1,9 +1,9 @@
 [submodule "vendor/WDN-TinyMCE"]
   path = vendor/WDN-TinyMCE
-  url = git@github.unl.edu:iim/TinyMCE.git
+  url = git@git.unl.edu:iim/TinyMCE.git
 [submodule "vendor/NmcFramework"]
   path = vendor/NmcFramework
-  url = git@github.unl.edu:UNL-Information-Services/NMC-PHP-Framework.git
+  url = git@git.unl.edu:UNL-Information-Services/NMC-PHP-Framework.git
 [submodule "sites/all/modules/diff"]
   path = sites/all/modules/diff
   url = http://git.drupal.org/project/diff.git
