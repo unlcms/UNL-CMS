@@ -1232,3 +1232,23 @@ function _unl_ssi_to_esi($url) {
   drupal_add_http_header('X-ESI', 'yes');
   return '<esi:include src="' . check_plain($url) . '"/>';
 }
+
+
+/**
+ * Implements hook_mail()
+ *
+ * Checks the "From" address of all outgoing messages against a blacklist.
+ * If a match is found, the email will not be sent.
+ */
+function unl_mail_alter(&$message) {
+  $address = trim($message['from']);
+  foreach (unl_shared_variable_get('unl_mail_from_blacklist', array()) as $blacklistedAddress) {
+    $blacklistedAddress = trim($blacklistedAddress);
+    if (strtolower($address) == strtolower($blacklistedAddress) ||
+        stripos($address, '<' . $blacklistedAddress . '>') !== FALSE) {
+      $message['send'] = FALSE;
+      watchdog('mail', 'An attempt as made to send an email with a blacklisted "From" address.', array(), WATCHDOG_ERROR);
+      drupal_set_message(t('You may not send email using that "From" address.'), 'error', FALSE);
+    }
+  }
+}

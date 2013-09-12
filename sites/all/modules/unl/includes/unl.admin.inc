@@ -62,6 +62,15 @@ function unl_config($form, &$form_state) {
     '#access' => unl_user_is_administrator(),
   );
 
+  $form['root']['mail_from_blacklist'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Email From Blacklist (Global)',
+    '#description' => 'A comma separated list of email addresses that cannot be used as a "From" address.',
+    '#size' => 100,
+    '#default_value' => implode(',', unl_shared_variable_get('unl_mail_from_blacklist', array())),
+    '#access' => unl_user_is_administrator(),
+  );
+
   return $form;
 }
 
@@ -72,4 +81,5 @@ function unl_config_submit($form, &$form_state) {
     variable_set('unl_tidy', $form_state['values']['root']['unl_tidy']);
   }
   variable_set('unl_module_whitelist', $form_state['values']['root']['module_whitelist']);
+  variable_set('unl_mail_from_blacklist', explode(',', $form_state['values']['root']['mail_from_blacklist']));
 }
