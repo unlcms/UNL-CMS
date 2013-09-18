@@ -28,7 +28,6 @@ function unl_entity_info_alter(&$entity_info) {
   // Add additional view_mode to admin/structure/types/manage/CONTENTTYPE/display for an abbreviated teaser (for use in sidebars, etc)
   $entity_info['node']['view modes']['abbr_teaser'] = array(
     'label' => t('Abbreviated teaser'),
-    'custom settings' => TRUE,
   );
 }
 
