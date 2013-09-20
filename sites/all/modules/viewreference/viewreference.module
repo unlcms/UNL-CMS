@@ -811,13 +811,13 @@ function viewreference_field_widget_info() {
 function viewreference_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
   switch ($instance['widget']['type']) {
     case 'viewreference_select':
-      $element = array(
+      $element += array(
         '#type' => 'viewreference_select',
         '#default_value' => isset($items[$delta]) ? $items[$delta] : NULL,
       );
       break;
     case 'viewreference_autocomplete':
-      $element = array(
+      $element += array(
         '#type' => 'viewreference_autocomplete',
         '#default_value' => isset($items[$delta]) ? $items[$delta] : NULL,
         '#value_callback' => 'viewreference_autocomplete_value',
@@ -854,12 +854,15 @@ function viewreference_element_info() {
  * @see viewreference_element_info().
  */
 function viewreference_select_process($element, $form_state, $form) {
-  $field_name = $element['#parents'][0];
-  $language = $element['#parents'][1];
-  $field = $form_state['field'][$field_name];
-  $instance = $field[$language]['instance'];
+  $field_parents = $element['#field_parents'];
+  $field_name = $element['#field_name'];
+  $language = $element['#language'];
+  $field_state = field_form_get_state($field_parents, $field_name, $language, $form_state);
+
+  $field = $field_state['field'];
+  $instance = $field_state['instance'];
   $bundle = $instance['bundle'];
-  $settings = $field[$language]['field']['settings'];
+  $settings = $field['settings'];
 
   $options = viewreference_get_views($settings['append_id'], $settings['skip_default'], $settings);
   if (!$instance['required']) {
@@ -874,7 +877,7 @@ function viewreference_select_process($element, $form_state, $form) {
     '#field_name' => $field_name,
     '#delta' => $element['#delta'],
     '#columns' => $element['#columns'],
-    '#title' => $instance['label'],
+    '#title' => $element['#title'],
     '#required' => $instance['required'],
     '#description' => isset($instance['description']) ? $instance['description'] : NULL,
   );
@@ -904,12 +907,15 @@ function viewreference_select_process($element, $form_state, $form) {
  * @see viewreference_element_info().
  */
 function viewreference_autocomplete_process($element, $form_state, $form) {
-  $field_name = $element['#parents'][0];
-  $language = $element['#parents'][1];
-  $field = $form_state['field'][$field_name];
-  $instance = $field[$language]['instance'];
+  $field_parents = $element['#field_parents'];
+  $field_name = $element['#field_name'];
+  $language = $element['#language'];
+  $field_state = field_form_get_state($field_parents, $field_name, $language, $form_state);
+
+  $field = $field_state['field'];
+  $instance = $field_state['instance'];
   $bundle = $instance['bundle'];
-  $settings = $field[$language]['field']['settings'];
+  $settings = $field['settings'];
 
   $element[$element['#columns'][0]] = array(
     '#type' => 'textfield',
@@ -920,7 +926,7 @@ function viewreference_autocomplete_process($element, $form_state, $form) {
     '#language' => $language,
     '#delta' => $element['#delta'],
     '#columns' => $element['#columns'],
-    '#title' => $instance['label'],
+    '#title' => $element['#title'],
     '#required' => $element['#required'],
     '#description' => isset($element['#description']) ? $element['#description'] : '',
   );

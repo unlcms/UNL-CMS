@@ -140,6 +140,8 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
      - Lock down access to "Allow PHP code." under "Contextual filter arguments". See https://drupal.org/node/2014723#comment-7878825 Patch applied: https://drupal.org/files/viewreference-php_perm-2014723-1.patch
 
+     - Fix label and settings var notices. See https://drupal.org/node/1790304#comment-7395496 Patch applied: https://drupal.org/files/viewreference-1790304-03-complex-entity-form.patch
+
   *  webform.module
 
      - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
