@@ -1,0 +1,19 @@
+diff --git a/sites/all/modules/viewreference/viewreference.module b/sites/all/modules/viewreference/viewreference.module
+index d9a8a69..7357fce 100644
+--- a/sites/all/modules/viewreference/viewreference.module
++++ b/sites/all/modules/viewreference/viewreference.module
+@@ -161,6 +161,7 @@ function viewreference_field_settings_form($field, $instance, $has_data) {
+   $form['arguments']['php_arguments'] = array(
+     '#type' => 'checkbox',
+     '#title' => t('Allow PHP code.'),
++    '#access' => user_access('use PHP for settings'),
+     '#default_value' => isset($settings['arguments']['php_arguments']) ? $settings['arguments']['php_arguments'] : 0,
+     '#description' => t('Users can insert PHP code to generate the list of arguments. e.g: <em>term_1/&lt;?php print "term_x/term_y"; ?&gt;/term_2</em>'),
+   );
+@@ -952,4 +953,4 @@ function viewreference_autocomplete_process($element, $form_state, $form) {
+       $data[$table_alias][$field['field_name'] . '_view_id']['filter']['handler'] = 'views_handler_filter_many_to_one_content';
+       return $data;
+ 
+-*/
+\ No newline at end of file
++*/
