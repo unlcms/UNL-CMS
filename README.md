@@ -125,7 +125,7 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
 
   *  og_menu
-	
+
      - Applied og_menu-jquery_selector.patch. See:http://drupal.org/node/1051542
 
   *  redirect
@@ -135,6 +135,12 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
   *  upload_replace.module
 
      - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558
+
+  *  viewreference.module
+
+     - Lock down access to "Allow PHP code." under "Contextual filter arguments". See https://drupal.org/node/2014723#comment-7878825 Patch applied: https://drupal.org/files/viewreference-php_perm-2014723-1.patch
+
+     - Fix label and settings var notices. See https://drupal.org/node/1790304#comment-7395496 Patch applied: https://drupal.org/files/viewreference-1790304-03-complex-entity-form.patch
 
   *  webform.module
 
