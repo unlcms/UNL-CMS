@@ -25,10 +25,23 @@ function unl_help($path, $arg) {
  * Implements hook_entity_info_alter().
  */
 function unl_entity_info_alter(&$entity_info) {
-  // Add additional view_mode to admin/structure/types/manage/CONTENTTYPE/display for an abbriviated teaser (for use in sidebars, etc)
+  // Define additional custom view modes for entities.
   $entity_info['node']['view modes']['abbr_teaser'] = array(
-    'label' => t('Abbriviated teaser'),
-    'custom settings' => TRUE,
+    'label' => t('Abbreviated teaser'),
+    'custom settings' => false,
+  );
+  $entity_info['node']['view modes']['wdn_band'] = array(
+    'label' => t('Band'),
+    'custom settings' => false,
+  );
+  // General purpose for any use.
+  $entity_info['node']['view modes']['custom_one'] = array(
+    'label' => t('Custom One'),
+    'custom settings' => false,
+  );
+  $entity_info['node']['view modes']['custom_two'] = array(
+    'label' => t('Custom Two'),
+    'custom settings' => false,
   );
 }
 
