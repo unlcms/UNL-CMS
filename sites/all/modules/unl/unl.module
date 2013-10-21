@@ -1301,3 +1301,76 @@ function unl_mail_alter(&$message) {
     }
   }
 }
+
+/**
+ * Implements hook_system_info_alter()
+ */
+function unl_system_info_alter(&$info, $file, $type) {
+  unl_system_info_git_submodule_version($info, $file, $type);
+}
+
+/**
+ * Called from our implementation of hook_system_info_alter()
+ *
+ * Given a module with no version defined in its info file,
+ * attempt to find a git repository for the module and fill in the
+ * checked out ref as the version name.
+ */
+function unl_system_info_git_submodule_version(&$info, $file, $type) {
+  // If a version is defined, leave it alone.
+  if (isset($info['version']) && $info['version']) {
+    return;
+  }
+
+  // Scan the module's parent directories for a .git directory.
+  for ($submodulePath = $file->uri;; $submodulePath = dirname($submodulePath)) {
+    // Stop if we hit the root directory.
+    if ($submodulePath == '.' || !$submodulePath) {
+      return;
+    }
+    $gitPath = DRUPAL_ROOT . '/' . $submodulePath . '/.git';
+    if (file_exists($gitPath)) {
+      break;
+    }
+  }
+
+  // Get the checked out HEAD revision hash.
+  $head = trim(file_get_contents($gitPath . '/HEAD'));
+  if (substr($head, 0, 5) == 'ref: ') {
+    $refPath = $gitPath . '/' . substr($head, 5);
+    $head = trim(file_get_contents($refPath));
+  }
+
+  // Check for the version in the cache
+  $versionCacheKey = __FUNCTION__ . '-' . $head . '-version';
+  if ($cache = cache_get($versionCacheKey)) {
+    $info['version'] = $cache->data;
+    return;
+  }
+
+  // If nothing else, set the module's version to the revision hash.
+  $info['version'] = $head;
+
+  // Scan packed refs for a name for this revision.
+  if (file_exists($gitPath . '/packed-refs')) {
+    $packedRefs = trim(file_get_contents($gitPath . '/packed-refs'));
+    foreach (explode("\n", $packedRefs) as $packedRef) {
+      if (substr($packedRef, 0, 40) != $head) {
+        continue;
+      }
+      $info['version'] = basename(substr($packedRef, 41));
+    }
+  }
+
+  // Scan normal refs for a name for this revision.
+  foreach (file_scan_directory($gitPath . '/refs', '/.*/') as $refPath) {
+    $ref = trim(file_get_contents($refPath->uri));
+    if ($ref != $head) {
+      continue;
+    }
+    $info['version'] = $refPath->filename;
+  };
+
+  // Update the cache.
+  cache_set($versionCacheKey, $info['version']);
+}
