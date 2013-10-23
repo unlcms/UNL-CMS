@@ -261,6 +261,12 @@ function unl_cas_import_user($username) {
 
   $account = user_load_by_name($username);
 
+  // If an account already exists, don't reset blocked status or timezone preference.
+  if ($account) {
+    $userData['timezone'] = $account->timezone;
+    $userData['status'] = $account->status;
+  }
+
   return user_save($account, $userData);
 }
 
