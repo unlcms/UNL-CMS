@@ -135,13 +135,59 @@ function unl_cas_validate_ticket() {
 }
 
 /**
+ * Form pre-render handler used to redirect to a different page instead of rending the form.
+ * @param $element
+ */
+function unl_cas_redirect($element)
+{
+  drupal_goto($element['#unl_cas_destination']);
+  return $element;
+}
+
+/**
+ * Implements form validation for the user_login form and attempts a UNL LDAP login.
+ * @param $form
+ * @param $form_state
+ */
+function unl_cas_login_authenticate($form, &$form_state) {
+  $username = trim($form_state['values']['name']);
+  $password = trim($form_state['values']['pass']);
+
+  try {
+    $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
+    try {
+      $ldap->bind('uid=' . $username . ',ou=people,dc=unl,dc=edu', $password);
+    } catch (Exception $e) {
+      // Could be a guest account, try ou=guests if ou=people fails.
+      $ldap->bind('uid=' . $username . ',ou=guests,dc=unl,dc=edu', $password);
+    }
+    $account = unl_cas_import_user($username);
+    $form_state['uid'] = $account->uid;
+  } catch (Exception $e) {
+    // Do nothing.  This is just a good faith effort.
+  }
+}
+
+/**
  * Implements hook_form_alter().
  */
 function unl_cas_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'user_login') {
+    $defaultValidatorIndex = array_search('user_login_final_validate', $form['#validate']);
+    if ($defaultValidatorIndex !== FALSE) {
+      // Insert the LDAP validator just before the "user_login_final_validate" validator
+      $form['#validate'] = array_merge(
+        array_slice($form['#validate'], 0, $defaultValidatorIndex),
+        array('unl_cas_login_authenticate'),
+        array_slice($form['#validate'], $defaultValidatorIndex)
+      );
+    } else {
+      $form['#validate'][] = 'unl_cas_login_authenticate';
+    }
     $cas = unl_cas_get_adapter();
     unset($_GET['destination']);
-    drupal_goto($cas->getLoginUrl());
+    $form['#unl_cas_destination'] = $cas->getLoginUrl();
+    $form['#pre_render'][] = 'unl_cas_redirect';
   }
 
   if ($form_id == 'user_profile_form') {
@@ -178,7 +224,8 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     $form['#validate'] = array();
     $form['#submit'] = array();
 
-    drupal_goto('https://id.unl.edu/user/userForgotPassword.jsp');
+    $form['#unl_cas_destination'] = 'https://id.unl.edu/user/userForgotPassword.jsp';
+    $form['#pre_render'][] = 'unl_cas_redirect';
   }
 }
 
