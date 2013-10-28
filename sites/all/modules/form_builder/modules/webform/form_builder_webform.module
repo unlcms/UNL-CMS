@@ -160,7 +160,8 @@ function form_builder_webform_get_component($node, $element_id, $form) {
   $component['name'] = $element['#title'];
   $component['weight'] = $element['#weight'];
   $component['form_key'] = $element['#key'];
-  $component['mandatory'] = isset($element['#required']) ? $element['#required'] : 0;
+  // Mandatory/required backwards compatibility. http://drupal.org/node/2020723
+  $component['required'] = $component['mandatory'] = isset($element['#required']) ? $element['#required'] : 0;
   $component['email'] = 0;
   $component['nid'] = $node->nid;
 
