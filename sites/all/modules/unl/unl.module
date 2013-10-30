@@ -4,6 +4,41 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/c
 require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/unl.token.inc';
 
 /**
+ * Implementation of hook_action_info().
+ */
+function unl_action_info() {
+  if (module_exists('og')) {
+    return array(
+      'og_membership_delete_contributor_action' => array(
+        'label' => t('Remove from group and Contributor role'),
+        'type' => 'og_membership',
+        'configurable' => FALSE,
+      ),
+    );
+  }
+}
+
+/**
+ * Action: Remove user from group and remove Contributor role if they are no longer a member of any other group.
+ */
+function og_membership_delete_contributor_action($og_membership, $context) {
+  // Copied from og_membership_delete_action().
+  $group_type = $og_membership->group_type;
+  $gid = $og_membership->gid;
+  $group = entity_load_single($group_type, $gid);
+  if (!empty($group->uid) && $group->uid == $og_membership->etid && $og_membership->entity_type == 'user') {
+    return;
+  }
+  $og_membership->delete();
+
+  // Removes Contributor role from user if they are no longer a member of any groups.
+  $user = user_load($og_membership->etid);
+  if (og_get_groups_by_user($user) == NULL && $role = user_role_load_by_name('Contributor')) {
+    user_multiple_role_edit(array($user->uid), 'remove_role', $role->rid);
+  }
+}
+
+/**
  * Implements hook_help().
  */
 function unl_help($path, $arg) {
