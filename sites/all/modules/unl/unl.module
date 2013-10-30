@@ -4,7 +4,17 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/c
 require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/unl.token.inc';
 
 /**
- * Implementation of hook_action_info().
+ * Implements hook_og_membership_insert().
+ */
+function unl_og_membership_insert($membership) {
+  $user = user_load($membership->etid);
+  if ($role = user_role_load_by_name('Contributor')) {
+    user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
+  }
+}
+
+/**
+ * Implements hook_action_info().
  */
 function unl_action_info() {
   if (module_exists('og')) {
@@ -564,24 +574,6 @@ function unl_file_validate($file) {
     $file->filename = substr($file->filename, 0, -4);
   }
   return;
-}
-
-/**
- * Implements hook_form_FORM_ID_alter() for og_ui_add_users.
- * Give a user the Contributor role when they are added to a group.
- */
-function unl_form_og_ui_add_users_alter(&$form, &$form_state, $form_id) {
-  $form['#submit'][] = 'unl_form_og_ui_add_users_submit';
-}
-
-/**
- * Additional form submit handler for og_ui_add_users.
- */
-function unl_form_og_ui_add_users_submit($form, &$form_state) {
-  $user = user_load_by_name($form_state['values']['name']);
-  if ($role = user_role_load_by_name('Contributor')) {
-    user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
-  }
 }
 
 /**
