@@ -5,46 +5,38 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/u
 
 /**
  * Implements hook_og_membership_insert().
+ * Give a user the Contributor role when they are added to a group.
  */
-function unl_og_membership_insert($membership) {
-  $user = user_load($membership->etid);
+function unl_og_membership_insert($og_membership) {
+  $user = user_load($og_membership->etid);
   if ($role = user_role_load_by_name('Contributor')) {
-    user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
+    // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
+    // user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
+    // Do the database insert manually instead since it is fairly trivial:
+    $result = db_query('SELECT u.uid, u.rid FROM {users_roles} u
+      WHERE u.uid = :uid AND u.rid = :rid', array(':uid' => $user->uid, ':rid' => $role->rid));
+    if (!$result->rowCount()) {
+      db_insert('users_roles')
+        ->fields(array('uid' => $user->uid, 'rid' => $role->rid))
+        ->execute();
+    }
   }
 }
 
 /**
- * Implements hook_action_info().
+ * Implements hook_og_membership_delete().
+ * Removes Contributor role from user if they are no longer a member of any groups.
  */
-function unl_action_info() {
-  if (module_exists('og')) {
-    return array(
-      'og_membership_delete_contributor_action' => array(
-        'label' => t('Remove from group and Contributor role'),
-        'type' => 'og_membership',
-        'configurable' => FALSE,
-      ),
-    );
-  }
-}
-
-/**
- * Action: Remove user from group and remove Contributor role if they are no longer a member of any other group.
- */
-function og_membership_delete_contributor_action($og_membership, $context) {
-  // Copied from og_membership_delete_action().
-  $group_type = $og_membership->group_type;
-  $gid = $og_membership->gid;
-  $group = entity_load_single($group_type, $gid);
-  if (!empty($group->uid) && $group->uid == $og_membership->etid && $og_membership->entity_type == 'user') {
-    return;
-  }
-  $og_membership->delete();
-
-  // Removes Contributor role from user if they are no longer a member of any groups.
+function unl_og_membership_delete($og_membership) {
   $user = user_load($og_membership->etid);
   if (og_get_groups_by_user($user) == NULL && $role = user_role_load_by_name('Contributor')) {
-    user_multiple_role_edit(array($user->uid), 'remove_role', $role->rid);
+    // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
+    // user_multiple_role_edit(array($user->uid), 'remove_role', $role->rid);
+    // Do the database delete manually instead since it is fairly trivial:
+    db_delete('users_roles')
+      ->condition('uid', $user->uid)
+      ->condition('rid', $role->rid)
+      ->execute();
   }
 }
 
