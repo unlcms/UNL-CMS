@@ -4,6 +4,43 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/c
 require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/unl.token.inc';
 
 /**
+ * Implements hook_og_membership_insert().
+ * Give a user the Contributor role when they are added to a group.
+ */
+function unl_og_membership_insert($og_membership) {
+  $user = user_load($og_membership->etid);
+  if ($role = user_role_load_by_name('Contributor')) {
+    // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
+    // user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
+    // Do the database insert manually instead since it is fairly trivial:
+    $result = db_query('SELECT u.uid, u.rid FROM {users_roles} u
+      WHERE u.uid = :uid AND u.rid = :rid', array(':uid' => $user->uid, ':rid' => $role->rid));
+    if (!$result->rowCount()) {
+      db_insert('users_roles')
+        ->fields(array('uid' => $user->uid, 'rid' => $role->rid))
+        ->execute();
+    }
+  }
+}
+
+/**
+ * Implements hook_og_membership_delete().
+ * Removes Contributor role from user if they are no longer a member of any groups.
+ */
+function unl_og_membership_delete($og_membership) {
+  $user = user_load($og_membership->etid);
+  if (og_get_groups_by_user($user) == NULL && $role = user_role_load_by_name('Contributor')) {
+    // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
+    // user_multiple_role_edit(array($user->uid), 'remove_role', $role->rid);
+    // Do the database delete manually instead since it is fairly trivial:
+    db_delete('users_roles')
+      ->condition('uid', $user->uid)
+      ->condition('rid', $role->rid)
+      ->execute();
+  }
+}
+
+/**
  * Implements hook_help().
  */
 function unl_help($path, $arg) {

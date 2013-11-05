@@ -23,7 +23,7 @@ function unl_get_shared_db_settings() {
     require DRUPAL_ROOT . '/sites/all/settings.php';
   }
   require DRUPAL_ROOT . '/sites/default/settings.php';
-  
+
   return $databases;
 }
 
@@ -184,6 +184,7 @@ function unl_user_is_administrator() {
     $admin_role_id = unl_shared_variable_get('user_admin_role');
   }
   else {
+    // If a site previously shared the role table, admin/config/people/accounts may need to be saved to set this variable.
     $admin_role_id = variable_get('user_admin_role');
   }
 
@@ -207,13 +208,13 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     watchdog('unl', 'A non-url was passed to %func().', array('%func' => __FUNCTION__), WATCHDOG_WARNING);
     return FALSE;
   }
-  
+
   // get some per-request static storage
   $static = &drupal_static(__FUNCTION__);
   if (!isset($static)) {
     $static = array();
   }
-  
+
   // If cached in the static array, return it.
   if (array_key_exists($url, $static)) {
     $headers = $static[$url]['headers'];
@@ -223,7 +224,7 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
 
     return $static[$url]['body'];
   }
-  
+
   // If cached in the drupal cache, return it.
   $data = cache_get(__FUNCTION__ . $url);
   if ($data && time() < $data->data['expires']) {
@@ -243,13 +244,13 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
   // Make the request
   $http_response_header = array();
   $body = file_get_contents($url, NULL, $context);
-  
+
   // If an error occured, just return it now.
   if ($body === FALSE) {
     $static[$url] = $body;
     return $body;
   }
-  
+
   $headers = array();
   foreach ($http_response_header as $rawHeader) {
     $headerName = trim(substr($rawHeader, 0, strpos($rawHeader, ':')));
@@ -259,10 +260,10 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     }
   }
   $lowercaseHeaders = array_change_key_case($headers);
-  
+
   $cacheable = NULL;
   $expires = 0;
-  
+
   // Check for a Cache-Control header and the max-age and/or private headers.
   if (array_key_exists('cache-control', $lowercaseHeaders)) {
     $cacheControl = strtolower($lowercaseHeaders['cache-control']);
@@ -289,7 +290,7 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     $cacheable = TRUE;
     $expires = DateTime::createFromFormat(DateTime::RFC1123, $lowercaseHeaders['expires'])->getTimestamp();
   }
-  
+
   // Save to the drupal cache if caching is ok
   if ($cacheable && time() < $expires) {
     $data = array(
@@ -312,7 +313,7 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     // Don't let this page be cached since it contains uncacheable content.
     $GLOBALS['conf']['cache'] = FALSE;
   }
-  
+
   return $body;
 }
 
@@ -325,6 +326,6 @@ function unl_shared_db_select($table, $alias = NULL, array $options = array()) {
   $databases = unl_get_shared_db_settings();
   Database::addConnectionInfo('default', 'unl_parent_site', $databases['default']['default']);
   $options['target'] = 'unl_parent_site';
-  
+
   return db_select($table, $alias, $options);
 }
