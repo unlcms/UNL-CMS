@@ -1346,22 +1346,27 @@ function unl_system_info_git_submodule_version(&$info, $file, $type) {
   for ($submodulePath = $file->uri;; $submodulePath = dirname($submodulePath)) {
     // Stop if we hit the root directory.
     if ($submodulePath == '.' || !$submodulePath) {
-      // Alternatively, look in the .git/modules directory at the root of the site.
-      $gitPath = DRUPAL_ROOT . '/.git/modules/' . dirname($file->uri);
-      if (is_dir($gitPath)) {
-        $success = TRUE;
-      }
       break;
     }
     $gitPath = DRUPAL_ROOT . '/' . $submodulePath . '/.git';
-    if (is_dir($gitPath)) {
+    if (is_dir($gitPath) && file_get_contents($gitPath . '/HEAD')) {
       $success = TRUE;
       break;
+    }
+    // Alternatively, .git is a file containing a gitdir path.
+    elseif (is_file($gitPath)) {
+      $gitFile = file_get_contents($gitPath);
+      $pieces = explode('gitdir: ', trim($gitFile));
+      $gitPath = dirname(__FILE__) . '/' . $pieces[1];
+      if (is_dir($gitPath) && file_get_contents($gitPath . '/HEAD')) {
+        $success = TRUE;
+        break;
+      }
     }
   }
 
   if (!isset($success)) {
-    watchdog('unl', 'Could not find version number for module %name', array('%name' => $info['name']), WATCHDOG_WARNING);
+    watchdog('unl', 'Could not find version number for %name: %description', array('%name' => $info['name'], '%description' => $info['description']), WATCHDOG_WARNING);
     return;
   }
 
