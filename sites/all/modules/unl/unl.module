@@ -1357,7 +1357,7 @@ function unl_system_info_git_submodule_version(&$info, $file, $type) {
     elseif (is_file($gitPath)) {
       $gitFile = file_get_contents($gitPath);
       $pieces = explode('gitdir: ', trim($gitFile));
-      $gitPath = dirname(__FILE__) . '/' . $pieces[1];
+      $gitPath = dirname($gitPath) . '/' . $pieces[1];
       if (is_dir($gitPath) && file_get_contents($gitPath . '/HEAD')) {
         break;
       }
