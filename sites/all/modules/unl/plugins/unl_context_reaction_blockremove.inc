@@ -29,9 +29,11 @@ class unl_context_reaction_blockremove extends context_reaction {
     foreach ($this->get_contexts() as $k => $v) {
       if (!empty($v->reactions[$this->plugin]['block'])) {
         foreach (array_keys($all_regions) as $region) {
-          foreach ($page[$region] as $key => $item) {
-            if (isset($item['#block']->delta) && !empty($item['#block']->delta) && $item['#block']->delta == $v->reactions[$this->plugin]['block']) {
-              unset($page[$region][$key]);
+          if (array_key_exists($region, $page)) {
+            foreach ($page[$region] as $key => $item) {
+              if (isset($item['#block']->delta) && !empty($item['#block']->delta) && $item['#block']->delta == $v->reactions[$this->plugin]['block']) {
+                unset($page[$region][$key]);
+              }
             }
           }
         }
