@@ -252,9 +252,11 @@ function unl_cas_user_logout($account) {
  * Generates and saves a user using info from LDAP or Directory
  */
 function unl_cas_import_user($username) {
+  $username = trim($username);
   unl_load_zend_framework();
   $user = array();
   $result = array();
+
   // First, try getting the info from LDAP.
   try {
     $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
