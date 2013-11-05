@@ -1346,11 +1346,11 @@ function unl_system_info_git_submodule_version(&$info, $file, $type) {
   for ($submodulePath = $file->uri;; $submodulePath = dirname($submodulePath)) {
     // Stop if we hit the root directory.
     if ($submodulePath == '.' || !$submodulePath) {
-      break;
+      watchdog('unl', 'Could not find version number for %name: %description', array('%name' => $info['name'], '%description' => $info['description']), WATCHDOG_WARNING);
+      return;
     }
     $gitPath = DRUPAL_ROOT . '/' . $submodulePath . '/.git';
     if (is_dir($gitPath) && file_get_contents($gitPath . '/HEAD')) {
-      $success = TRUE;
       break;
     }
     // Alternatively, .git is a file containing a gitdir path.
@@ -1359,15 +1359,9 @@ function unl_system_info_git_submodule_version(&$info, $file, $type) {
       $pieces = explode('gitdir: ', trim($gitFile));
       $gitPath = dirname(__FILE__) . '/' . $pieces[1];
       if (is_dir($gitPath) && file_get_contents($gitPath . '/HEAD')) {
-        $success = TRUE;
         break;
       }
     }
-  }
-
-  if (!isset($success)) {
-    watchdog('unl', 'Could not find version number for %name: %description', array('%name' => $info['name'], '%description' => $info['description']), WATCHDOG_WARNING);
-    return;
   }
 
   // Get the checked out HEAD revision hash.
