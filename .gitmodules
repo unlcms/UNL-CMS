@@ -32,3 +32,6 @@
 [submodule "sites/all/themes/unl_four_og"]
 	path = sites/all/themes/unl_four_og
 	url = git@github.com:unlcms/unl_four_og.git
+[submodule "sites/all/modules/override_node_options"]
+	path = sites/all/modules/override_node_options
+	url = http://git.drupal.org/project/override_node_options.git
