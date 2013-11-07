@@ -261,11 +261,15 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
   // because drupal_path_initialize() has not executed yet.
   $is_front_page = ($path == variable_get('site_frontpage', 'node') ? TRUE : FALSE);
 
+  // Remove query string from request uri.
+  $request_uri_parts = explode('?', request_uri());
+  $request_path = $request_uri_parts[0];
+
   // Redirect the front page to the root level.
   if ($is_front_page
       && variable_get('redirect_global_home', 0)
       && !variable_get('redirect_global_canonical_front', 0)
-      && base_path() != request_uri()) {
+      && base_path() != $request_path) {
     return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
   }
 
@@ -342,6 +346,8 @@ function redirect_entity_type_supports_redirects($entity_type) {
  * Implements hook_init().
  */
 function redirect_init() {
+    $y = 2;
+    $x = 1;
   if (!redirect_can_redirect()) {
     return;
   }
