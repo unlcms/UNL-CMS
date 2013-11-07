@@ -346,8 +346,6 @@ function redirect_entity_type_supports_redirects($entity_type) {
  * Implements hook_init().
  */
 function redirect_init() {
-    $y = 2;
-    $x = 1;
   if (!redirect_can_redirect()) {
     return;
   }
