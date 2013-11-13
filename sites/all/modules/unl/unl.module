@@ -31,9 +31,6 @@ function unl_og_membership_insert($og_membership) {
  * Removes Contributor role from user if they are no longer a member of any groups.
  */
 function unl_og_membership_delete($og_membership) {
-  if ($og_membership->group_type != 'user') {
-    return;
-  }
   $user = user_load($og_membership->etid);
   if (og_get_groups_by_user($user) == NULL && $role = user_role_load_by_name('Contributor')) {
     // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
