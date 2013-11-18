@@ -261,11 +261,15 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
   // because drupal_path_initialize() has not executed yet.
   $is_front_page = ($path == variable_get('site_frontpage', 'node') ? TRUE : FALSE);
 
+  // Remove query string from request uri.
+  $request_uri_parts = explode('?', request_uri());
+  $request_path = $request_uri_parts[0];
+
   // Redirect the front page to the root level.
   if ($is_front_page
       && variable_get('redirect_global_home', 0)
       && !variable_get('redirect_global_canonical_front', 0)
-      && base_path() != request_uri()) {
+      && base_path() != $request_path) {
     return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
   }
 
@@ -1037,7 +1041,10 @@ function redirect_redirect(stdClass $redirect = NULL) {
     flood_register_event('redirection', 60, $session_id ? $session_id : NULL);
   }
   else {
-    trigger_error(t('Infinite redirect loop prevented.'), E_USER_WARNING);
+    // For now don't trigger an error if being run inside SimpleTest.
+    if (empty($GLOBALS['drupal_test_info']['test_run_id'])) {
+      trigger_error(t('Infinite redirect loop prevented.'), E_USER_WARNING);
+    }
     return FALSE;
   }
 

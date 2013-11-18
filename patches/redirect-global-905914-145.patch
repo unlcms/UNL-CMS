@@ -96,10 +96,10 @@ index 176f105..a6610d5 100644
    $destination = drupal_get_destination();
  
 diff --git a/redirect.module b/redirect.module
-index 8c47b75..65d5599 100644
+index c3c6329..18841a3 100644
 --- a/redirect.module
 +++ b/redirect.module
-@@ -244,21 +244,46 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
+@@ -244,21 +244,50 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
      }
    }
  
@@ -125,6 +125,18 @@ index 8c47b75..65d5599 100644
 +  // Determine if front page. drupal_is_front_page() is not accurate here
 +  // because drupal_path_initialize() has not executed yet.
 +  $is_front_page = ($path == variable_get('site_frontpage', 'node') ? TRUE : FALSE);
++
++  // Remove query string from request uri.
++  $request_uri_parts = explode('?', request_uri());
++  $request_path = $request_uri_parts[0];
++
++  // Redirect the front page to the root level.
++  if ($is_front_page
++      && variable_get('redirect_global_home', 0)
++      && !variable_get('redirect_global_canonical_front', 0)
++      && base_path() != $request_path) {
++    return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
++  }
  
 -    // Redirect from default entity paths to the proper entity path.
 -    //if ($path_entity = redirect_load_entity_from_path($path)) {
@@ -134,14 +146,6 @@ index 8c47b75..65d5599 100644
 -    //    }
 -    //  }
 -    //}
-+  // Redirect the front page to the root level.
-+  if ($is_front_page
-+      && variable_get('redirect_global_home', 0)
-+      && !variable_get('redirect_global_canonical_front', 0)
-+      && base_path() != request_uri()) {
-+    return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
-+  }
-+
 +  // Redirect to the canonical URL.
 +  $alias = drupal_get_path_alias($path, $path_language);
 +  if ((!$is_front_page && variable_get('redirect_global_canonical', 1)
@@ -160,7 +164,7 @@ index 8c47b75..65d5599 100644
    }
  }
  
-@@ -323,29 +348,55 @@ function redirect_init() {
+@@ -323,29 +352,55 @@ function redirect_init() {
  
    // Fetch the current redirect.
    if ($redirect = redirect_get_current_redirect()) {
@@ -219,18 +223,18 @@ index 8c47b75..65d5599 100644
 +      && substr($request_uri, -1) == '/'
 +      && $request_uri !== $alias) {
 +    redirect_redirect((object)array('redirect' => rtrim($request_uri, '/'), 'type' => 'global'));
-+  }
+   }
 +  // Add slash (Add trailing slashes to paths).
 +  elseif (variable_get('redirect_global_add_slash', 0)
 +          && substr($request_uri, -1) !== '/'
 +          && !drupal_is_front_page()) {
 +    redirect_redirect((object)array('redirect' => $request_uri . '/', 'type' => 'global'));
-   }
++  }
 +
  }
  
  /**
-@@ -596,7 +647,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
+@@ -596,7 +651,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
        $context = array('language' => $language, 'query' => $query);
        drupal_alter('redirect_load_by_source', $redirects, $source, $context);
  
@@ -239,7 +243,7 @@ index 8c47b75..65d5599 100644
      }
    }
  
-@@ -711,7 +762,7 @@ function redirect_validate($redirect, $form, &$form_state) {
+@@ -711,7 +766,7 @@ function redirect_validate($redirect, $form, &$form_state) {
    }
  }
  
@@ -248,7 +252,7 @@ index 8c47b75..65d5599 100644
    $defaults += array(
      'rid' => NULL,
      'type' => 'redirect',
-@@ -979,7 +1030,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
+@@ -979,7 +1034,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
   *
   * @ingroup redirect_api
   */
@@ -257,7 +261,7 @@ index 8c47b75..65d5599 100644
    // First check if we're in an infinite loop.
    $session_id = session_id();
    if (flood_is_allowed('redirection', 5, 15, $session_id ? $session_id : NULL)) {
-@@ -1028,6 +1079,12 @@ function redirect_redirect($redirect = NULL) {
+@@ -1031,6 +1086,12 @@ function redirect_redirect($redirect = NULL) {
   */
  function redirect_goto($redirect) {
    $redirect->redirect_options['absolute'] = TRUE;
@@ -270,7 +274,7 @@ index 8c47b75..65d5599 100644
    $url = url($redirect->redirect, $redirect->redirect_options);
    drupal_add_http_header('Location', $url);
    drupal_add_http_header('Status', redirect_status_code_options($redirect->status_code));
-@@ -1310,8 +1367,12 @@ function redirect_variables() {
+@@ -1313,8 +1374,12 @@ function redirect_variables() {
      'redirect_page_cache' => 0,
      'redirect_purge_inactive' => 0,
      'redirect_global_home' => 1,
