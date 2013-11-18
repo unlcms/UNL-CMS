@@ -8,6 +8,9 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/u
  * Give a user the Contributor role when they are added to a group.
  */
 function unl_og_membership_insert($og_membership) {
+  if ($og_membership->group_type != 'user') {
+    return;
+  }
   $user = user_load($og_membership->etid);
   if ($role = user_role_load_by_name('Contributor')) {
     // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
