@@ -35,3 +35,6 @@
 [submodule "sites/all/modules/override_node_options"]
 	path = sites/all/modules/override_node_options
 	url = http://git.drupal.org/project/override_node_options.git
+[submodule "sites/all/modules/entityreference"]
+	path = sites/all/modules/entityreference
+	url = http://git.drupal.org/project/entityreference.git
