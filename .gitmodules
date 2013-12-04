@@ -38,3 +38,6 @@
 [submodule "sites/all/modules/entityreference"]
 	path = sites/all/modules/entityreference
 	url = http://git.drupal.org/project/entityreference.git
+[submodule "sites/all/modules/unl_access"]
+	path = sites/all/modules/unl_access
+	url = https://github.com/unlcms/unl_access.git
