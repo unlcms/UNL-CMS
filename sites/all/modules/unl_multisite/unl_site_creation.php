@@ -1019,21 +1019,34 @@ function _unl_get_user_audit_content($username) {
 
   foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
     $audit_map[$site_id] = array(
-       l($site['uri'], $site['uri']),
-       '',
+      'uri' => l($site['uri'], $site['uri']),
+      'roles' => '',
+      'last_updated' => $site['last_updated'],
     );
     foreach ($site['roles'] as $role => $user) {
-      $audit_map[$site_id][1] .= "$role ";
-      $audit_map[$site_id][1] .= ($GLOBALS['user']->name != $username ? "($user)" : '');
-      $audit_map[$site_id][1] .= "<br />";
+      $audit_map[$site_id]['roles'] .= "$role ";
+      $audit_map[$site_id]['roles'] .= ($GLOBALS['user']->name != $username ? "($user)" : '');
+      $audit_map[$site_id]['roles'] .= "<br />";
     }
+  }
+
+  // Sort the $audit_map buy 'last_updated' timestamp.
+  usort($audit_map, function($a, $b) {
+    return $b['last_updated'] - $a['last_updated'];
+  });
+
+  // Now that the access timestamp has been used to sort, convert it to something readable.
+  foreach ($audit_map as $key => $row) {
+    $audit_map[$key]['last_updated'] = isset($audit_map[$key]['last_updated']) ? format_date($audit_map[$key]['last_updated'], 'short') : t('never');
   }
 
   if (count($audit_map) > 0) {
     $header = array(
       t('Site'),
       t('Role') . ($GLOBALS['user']->name != $username ? ' (' . t('User') . ')' : ''),
+      t('Last Updated'),
     );
+
     $content = array(
       '#theme' => 'table',
       '#header' => $header,
@@ -1169,15 +1182,26 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       else {
         $uri = $site->uri;
       }
+
+      // Get timestamp of last node edit to signify last time the site was updated.
+      $query = "SELECT n.changed "
+             . "FROM {$prefix}_{$shared_prefix}node AS n "
+             . "ORDER BY n.changed DESC "
+             . "LIMIT 1";
+      $last_updated = db_query($query)->fetchCol();
+
       $audit_map[$site->site_id] = array(
         'uri' => $uri,
         $return_label => $role_user,
+        'last_updated' => (isset($last_updated[0]) ? $last_updated[0] : null),
       );
     } catch (Exception $e) {
       // Either the site has no settings.php or the db_prefix is wrong.
       watchdog('unl_multisite', 'Error querying database for site %uri', array('%uri' => $site->uri), WATCHDOG_WARNING);
     }
   }
+
+  //echo '<pre>'; var_dump($audit_map);echo '</pre>';
 
   return $audit_map;
 }
