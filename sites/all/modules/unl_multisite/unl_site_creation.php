@@ -1021,7 +1021,7 @@ function _unl_get_user_audit_content($username) {
     $audit_map[$site_id] = array(
       'uri' => l($site['uri'], $site['uri']),
       'roles' => '',
-      'last_updated' => $site['last_updated'],
+      'access' => $site['access'],
     );
     foreach ($site['roles'] as $role => $user) {
       $audit_map[$site_id]['roles'] .= "$role ";
@@ -1030,27 +1030,35 @@ function _unl_get_user_audit_content($username) {
     }
   }
 
-  // Sort the $audit_map buy 'last_updated' timestamp.
-  usort($audit_map, function($a, $b) {
-    return $b['last_updated'] - $a['last_updated'];
-  });
-
-  // Now that the access timestamp has been used to sort, convert it to something readable.
-  foreach ($audit_map as $key => $row) {
-    $audit_map[$key]['last_updated'] = isset($audit_map[$key]['last_updated']) ? format_date($audit_map[$key]['last_updated'], 'short') : t('never');
-  }
-
   if (count($audit_map) > 0) {
     $header = array(
-      t('Site'),
-      t('Role') . ($GLOBALS['user']->name != $username ? ' (' . t('User') . ')' : ''),
-      t('Last Updated'),
+      'uri' => array(
+        'data' => t('Site'),
+        'field' => 'uri',
+      ),
+      'role' => array(
+        'data' => t('Role') . ($GLOBALS['user']->name != $username ? ' (' . t('User') . ')' : ''),
+      ),
+      'access' => array(
+        'data' => t('Last Updated'),
+        'field' => 'access',
+      ),
     );
+
+    // Sort the table data accordingly with a custom sort function.
+    $order = tablesort_get_order($header);
+    $sort = tablesort_get_sort($header);
+    $rows = unl_sites_sort($audit_map, $order, $sort);
+
+    // Now that the access timestamp has been used to sort, convert it to something readable.
+    foreach ($rows as $key => $row) {
+      $rows[$key]['access'] = isset($rows[$key]['access']) ? format_date($rows[$key]['access'], 'short') : t('never');
+    }
 
     $content = array(
       '#theme' => 'table',
       '#header' => $header,
-      '#rows' => $audit_map,
+      '#rows' => $rows,
     );
     if ($username == $GLOBALS['user']->name) {
       $content['#caption'] = t('You belong to the following sites as a member of the listed roles.');
@@ -1193,7 +1201,7 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       $audit_map[$site->site_id] = array(
         'uri' => $uri,
         $return_label => $role_user,
-        'last_updated' => (isset($last_updated[0]) ? $last_updated[0] : null),
+        'access' => (isset($last_updated[0]) ? $last_updated[0] : null),
       );
     } catch (Exception $e) {
       // Either the site has no settings.php or the db_prefix is wrong.
