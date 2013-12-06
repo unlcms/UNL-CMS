@@ -1201,7 +1201,5 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
     }
   }
 
-  //echo '<pre>'; var_dump($audit_map);echo '</pre>';
-
   return $audit_map;
 }
