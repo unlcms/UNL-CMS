@@ -301,6 +301,14 @@ function unl_sites_sort($rows, $order, $sort) {
         usort($rows, "unl_access_cmp_desc");
       }
       break;
+    case 'last_update':
+      if ($sort == 'asc') {
+        usort($rows, "unl_last_update_cmp_asc");
+      }
+      else {
+        usort($rows, "unl_last_update_cmp_desc");
+      }
+      break;
     case 'installed':
       if ($sort == 'asc') {
         usort($rows, "unl_installed_cmp_asc");
@@ -334,6 +342,12 @@ function unl_access_cmp_asc($a, $b) {
 }
 function unl_access_cmp_desc($a, $b) {
   return strcmp($a['access'], $b['access']);
+}
+function unl_last_update_cmp_asc($a, $b) {
+  return strcmp($b['last_update'], $a['last_update']);
+}
+function unl_last_update_cmp_desc($a, $b) {
+  return strcmp($a['last_update'], $b['last_update']);
 }
 function unl_installed_cmp_asc($a, $b) {
   return strcmp($a['installed'], $b['installed']);
@@ -1019,25 +1033,46 @@ function _unl_get_user_audit_content($username) {
 
   foreach (unl_get_site_user_map('username', $username) as $site_id => $site) {
     $audit_map[$site_id] = array(
-       l($site['uri'], $site['uri']),
-       '',
+      'uri' => l($site['uri'], $site['uri']),
+      'roles' => '',
+      'last_update' => $site['last_update'],
     );
     foreach ($site['roles'] as $role => $user) {
-      $audit_map[$site_id][1] .= "$role ";
-      $audit_map[$site_id][1] .= ($GLOBALS['user']->name != $username ? "($user)" : '');
-      $audit_map[$site_id][1] .= "<br />";
+      $audit_map[$site_id]['roles'] .= "$role ";
+      $audit_map[$site_id]['roles'] .= ($GLOBALS['user']->name != $username ? "($user)" : '');
+      $audit_map[$site_id]['roles'] .= "<br />";
     }
   }
 
   if (count($audit_map) > 0) {
     $header = array(
-      t('Site'),
-      t('Role') . ($GLOBALS['user']->name != $username ? ' (' . t('User') . ')' : ''),
+      'uri' => array(
+        'data' => t('Site'),
+        'field' => 'uri',
+      ),
+      'role' => array(
+        'data' => t('Role') . ($GLOBALS['user']->name != $username ? ' (' . t('User') . ')' : ''),
+      ),
+      'last_update' => array(
+        'data' => t('Last Updated'),
+        'field' => 'last_update',
+      ),
     );
+
+    // Sort the table data accordingly with a custom sort function.
+    $order = tablesort_get_order($header);
+    $sort = tablesort_get_sort($header);
+    $rows = unl_sites_sort($audit_map, $order, $sort);
+
+    // Now that the access timestamp has been used to sort, convert it to something readable.
+    foreach ($rows as $key => $row) {
+      $rows[$key]['last_update'] = isset($rows[$key]['last_update']) ? format_date($rows[$key]['last_update'], 'short') : t('never');
+    }
+
     $content = array(
       '#theme' => 'table',
       '#header' => $header,
-      '#rows' => $audit_map,
+      '#rows' => $rows,
     );
     if ($username == $GLOBALS['user']->name) {
       $content['#caption'] = t('You belong to the following sites as a member of the listed roles.');
@@ -1169,9 +1204,18 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       else {
         $uri = $site->uri;
       }
+
+      // Get timestamp of last node edit to signify last time the site was updated.
+      $query = "SELECT n.changed "
+             . "FROM {$prefix}_{$shared_prefix}node AS n "
+             . "ORDER BY n.changed DESC "
+             . "LIMIT 1";
+      $last_update = db_query($query)->fetchCol();
+
       $audit_map[$site->site_id] = array(
         'uri' => $uri,
         $return_label => $role_user,
+        'last_update' => (isset($last_update[0]) ? $last_update[0] : null),
       );
     } catch (Exception $e) {
       // Either the site has no settings.php or the db_prefix is wrong.
