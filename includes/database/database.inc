@@ -179,7 +179,7 @@
  * concrete implementation of it to support special handling required by that
  * database.
  *
- * @see http://php.net/manual/en/book.pdo.php
+ * @see http://php.net/manual/book.pdo.php
  */
 abstract class DatabaseConnection extends PDO {
 
@@ -2010,7 +2010,7 @@ interface DatabaseStatementInterface extends Traversable {
   /**
    * Sets the default fetch mode for this statement.
    *
-   * See http://php.net/manual/en/pdo.constants.php for the definition of the
+   * See http://php.net/manual/pdo.constants.php for the definition of the
    * constants used.
    *
    * @param $mode
@@ -2029,7 +2029,7 @@ interface DatabaseStatementInterface extends Traversable {
   /**
    * Fetches the next row from a result set.
    *
-   * See http://php.net/manual/en/pdo.constants.php for the definition of the
+   * See http://php.net/manual/pdo.constants.php for the definition of the
    * constants used.
    *
    * @param $mode
