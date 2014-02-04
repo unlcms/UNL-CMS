@@ -56,6 +56,20 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
   *  Go to http://localhost/workspace/UNL-CMS and go through the install process
 
+## Upgrading Drupal Core
+
+Instructions for upgrading the UNLcms Drupal Core require downloading the latest version of Drupal, comparing it against our local version to create a patch file then creating a pull request to merge the changes in.
+
+```
+diff -ruNa drupal-latest wdn_thm_drupal > drupal_patch.diff
+git checkout -b drupal-whateverversion-update master
+git apply —check drupal_patch.diff
+git apply drupal_patch.diff
+git commit -m "Upgrade Drupal Core to 7.XX"
+git push origin drupal-whateverversion-update
+```
+
+Once that is complete, open a Pull Request against devel.
 
 ## Install Issues:
 
