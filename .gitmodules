@@ -44,3 +44,6 @@
 [submodule "sites/all/modules/sabredav"]
 	path = sites/all/modules/sabredav
 	url = https://github.com/unlcms/drupal-sabredav.git
+[submodule "sites/all/modules/unl_person"]
+	path = sites/all/modules/unl_person
+	url = https://github.com/unlcms/unl_person.git
