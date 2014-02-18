@@ -43,4 +43,18 @@ Drupal.behaviors.unl = {
   }
 };
 
+Drupal.behaviors.unlFieldsetSummaries = {
+  attach: function (context) {
+    $('fieldset.node-form-unl', context).drupalSetSummary(function (context) {
+      var vals = [];
+
+      $('input:checked', context).parent().each(function () {
+        vals.push(Drupal.checkPlain($.trim($(this).text())));
+      });
+
+      return vals.join(', ');
+    });
+  }
+};
+
 })(jQuery);

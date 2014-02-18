@@ -827,6 +827,35 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#weight' => 0,
     );
 
+    // Tab
+    $form['unl'] = array(
+      '#type' => 'fieldset',
+      '#access' => user_access('administer nodes'),
+      '#title' => t('UNL style options'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#group' => 'additional_settings',
+      '#attributes' => array(
+        'class' => array('node-form-unl'),
+      ),
+      '#attached' => array(
+        'js' => array(drupal_get_path('module', 'unl') . '/unl.js'),
+      ),
+      '#weight' => 94,
+    );
+    $form['unl']['page_title'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show Page Title'),
+      '#default_value' => isset($form_state['node']->page_title) ? $form_state['node']->page_title : TRUE,
+    );
+    $form['unl']['inner_wrapper'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Add WDN inner wrapper'),
+      '#default_value' => isset($form_state['node']->inner_wrapper) ? $form_state['node']->inner_wrapper : TRUE,
+    );
+   // echo '<pre>';var_dump($form);exit;
+ // echo '<pre>';var_dump($form_state['node']);exit;
+    // Custom form submit action
     $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
 
     // Also turn on revisioning
