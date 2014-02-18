@@ -41,3 +41,6 @@
 [submodule "sites/all/modules/unl_access"]
 	path = sites/all/modules/unl_access
 	url = https://github.com/unlcms/unl_access.git
+[submodule "sites/all/modules/unl_person"]
+	path = sites/all/modules/unl_person
+	url = https://github.com/unlcms/unl_person.git
