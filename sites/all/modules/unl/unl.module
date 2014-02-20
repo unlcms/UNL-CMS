@@ -373,7 +373,8 @@ function unl_preprocess_node(&$vars) {
     $vars['page'] = TRUE;
   }
 
-  // Add the wdn-inner-wrapper Publishing Option flag.
+  // Add the wdn-inner-wrapper Publishing Option flag. Implementation of adding/removing
+  // the class is left to the theme layer in template_preprocess_node().
   $vars['unl_remove_inner_wrapper'] = FALSE;
   $nid_exclude_list = variable_get('unl_remove_inner_wrapper', array());
   if (in_array($vars['nid'], $nid_exclude_list)) {
@@ -884,7 +885,7 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'checkbox',
       '#title' => t('Remove wdn-inner-wrapper class'),
       '#description' => t('Removes a class on the Full Content view mode of the node that limits the width to 960px.'),
-      '#default_value' => isset($form_state['node']->unl_remove_inner_wrapper) ? $form_state['node']->unl_remove_inner_wrapper : FALSE,
+      '#default_value' => (!empty($form['nid']['#value']) ? in_array($form['nid']['#value'], variable_get('unl_remove_inner_wrapper', array())) : FALSE ),
     );
 
     // Custom form submit action
