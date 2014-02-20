@@ -291,6 +291,51 @@ function unl_node_presave($node) {
 }
 
 /**
+ * Implements hook_node_update().
+ */
+function unl_node_update($node) {
+  if (isset($node->unl_remove_inner_wrapper)) {
+    _unl_remove_inner_wrapper_flag($node, $node->unl_remove_inner_wrapper);
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function unl_node_insert($node) {
+  if (isset($node->unl_wdn_inner_wrapper)) {
+    _unl_remove_inner_wrapper_flag($node, $node->unl_remove_inner_wrapper);
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function unl_node_delete($node) {
+  if (isset($node->unl_remove_inner_wrapper) && $node->unl_remove_inner_wrapper == 1 ) {
+    _unl_remove_inner_wrapper_flag($node, 0);
+  }
+}
+
+/**
+ * Set unl_wdn_inner_wrapper flag for the given node.
+ */
+function _unl_remove_inner_wrapper_flag($node, $value = 1) {
+  $exclude_list = variable_get('unl_remove_inner_wrapper', array());
+  $is_excluded = array_search($node->nid, $exclude_list);
+  if ($value == 1 && $is_excluded === FALSE) {
+    $exclude_list[] = $node->nid;
+    variable_set('unl_remove_inner_wrapper', $exclude_list);
+    return;
+  }
+  if ($value == 0 && $is_excluded !== FALSE) {
+    unset($exclude_list[$is_excluded]);
+    variable_set('unl_remove_inner_wrapper', $exclude_list);
+    return;
+  }
+}
+
+/**
  * Implements hook_permission().
  */
 function unl_permission() {
@@ -326,6 +371,13 @@ function unl_preprocess_node(&$vars) {
   $status = drupal_get_http_header('status');
   if ($status == '404 Not Found') {
     $vars['page'] = TRUE;
+  }
+
+  // Add the wdn-inner-wrapper Publishing Option flag.
+  $vars['unl_remove_inner_wrapper'] = FALSE;
+  $nid_exclude_list = variable_get('unl_remove_inner_wrapper', array());
+  if (in_array($vars['nid'], $nid_exclude_list)) {
+    $vars['unl_remove_inner_wrapper'] = TRUE;
   }
 }
 
@@ -827,34 +879,14 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#weight' => 0,
     );
 
-    // Tab
-    $form['unl'] = array(
-      '#type' => 'fieldset',
-      '#access' => user_access('administer nodes'),
-      '#title' => t('UNL style options'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#group' => 'additional_settings',
-      '#attributes' => array(
-        'class' => array('node-form-unl'),
-      ),
-      '#attached' => array(
-        'js' => array(drupal_get_path('module', 'unl') . '/unl.js'),
-      ),
-      '#weight' => 94,
-    );
-    $form['unl']['page_title'] = array(
+    // Add Publishing Option for exclusion of .wdn-inner-wrapper
+    $form['options']['unl_remove_inner_wrapper'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Show Page Title'),
-      '#default_value' => isset($form_state['node']->page_title) ? $form_state['node']->page_title : TRUE,
+      '#title' => t('Remove wdn-inner-wrapper class'),
+      '#description' => t('Removes a class on the Full Content view mode of the node that limits the width to 960px.'),
+      '#default_value' => isset($form_state['node']->unl_remove_inner_wrapper) ? $form_state['node']->unl_remove_inner_wrapper : FALSE,
     );
-    $form['unl']['inner_wrapper'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Add WDN inner wrapper'),
-      '#default_value' => isset($form_state['node']->inner_wrapper) ? $form_state['node']->inner_wrapper : TRUE,
-    );
-   // echo '<pre>';var_dump($form);exit;
- // echo '<pre>';var_dump($form_state['node']);exit;
+
     // Custom form submit action
     $form['actions']['submit']['#submit'][] = 'unl_node_form_submit';
 
