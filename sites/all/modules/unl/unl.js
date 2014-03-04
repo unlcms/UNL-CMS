@@ -43,4 +43,23 @@ Drupal.behaviors.unl = {
   }
 };
 
+// Duplicates behavior of modules/node/node.js but with the addition of .children('label')
+// so that the description is not shown in the vertical tab.
+Drupal.behaviors.unlFieldsetSummaries = {
+  attach: function (context) {
+    $('fieldset.node-form-options', context).drupalSetSummary(function (context) {
+      var vals = [];
+
+      $('input:checked', context).parent().each(function () {
+        vals.push(Drupal.checkPlain($.trim($(this).children('label').text())));
+      });
+
+      if (!$('.form-item-status input', context).is(':checked')) {
+        vals.unshift(Drupal.t('Not published'));
+      }
+      return vals.join(', ');
+    });
+  }
+};
+
 })(jQuery);
