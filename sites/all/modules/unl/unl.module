@@ -520,6 +520,9 @@ function unl_menu_alter(&$items) {
   foreach (array('module', 'file', 'page arguments') as $key) {
     $items['admin/themes'][$key] = $items['admin/appearance/settings/' . variable_get('theme_default')][$key];
   }
+
+  // Put all Feeds import pages in the admin theme
+  $items['import']['theme callback'] = '_unl_get_admin_theme';
   // Put all user pages in the admin theme
   $items['user']['theme callback'] = '_unl_get_admin_theme';
   // Make sure all Workbench Moderation admin pages are in the admin theme
