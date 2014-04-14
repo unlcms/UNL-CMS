@@ -8,17 +8,19 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/u
  * Give a user the Contributor role when they are added to a group.
  */
 function unl_og_membership_insert($og_membership) {
-  $user = user_load($og_membership->etid);
-  if ($role = user_role_load_by_name('Contributor')) {
-    // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
-    // user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
-    // Do the database insert manually instead since it is fairly trivial:
-    $result = db_query('SELECT u.uid, u.rid FROM {users_roles} u
-      WHERE u.uid = :uid AND u.rid = :rid', array(':uid' => $user->uid, ':rid' => $role->rid));
-    if (!$result->rowCount()) {
-      db_insert('users_roles')
-        ->fields(array('uid' => $user->uid, 'rid' => $role->rid))
-        ->execute();
+  if ($og_membership->entity_type == 'user') {
+    $user = user_load($og_membership->etid);
+    if ($role = user_role_load_by_name('Contributor')) {
+      // Can't use user_multiple_role_edit because it calls user_save: https://drupal.org/node/1391474
+      // user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
+      // Do the database insert manually instead since it is fairly trivial:
+      $result = db_query('SELECT u.uid, u.rid FROM {users_roles} u
+        WHERE u.uid = :uid AND u.rid = :rid', array(':uid' => $user->uid, ':rid' => $role->rid));
+      if (!$result->rowCount()) {
+        db_insert('users_roles')
+          ->fields(array('uid' => $user->uid, 'rid' => $role->rid))
+          ->execute();
+      }
     }
   }
 }
