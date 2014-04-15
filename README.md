@@ -130,10 +130,6 @@ Once that is complete, open a Pull Request against devel.
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
-  *  entity/entity.module, entity/modules/callbacks.inc
-
-     - Add 'uri callback' for file entities. See http://drupal.org/node/1481372#comment-6529650
-
   *  media/includes/media.variables.inc
 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
