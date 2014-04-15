@@ -47,18 +47,20 @@ Drupal.behaviors.unl = {
 // so that the description is not shown in the vertical tab.
 Drupal.behaviors.unlFieldsetSummaries = {
   attach: function (context) {
-    $('fieldset.node-form-options', context).drupalSetSummary(function (context) {
-      var vals = [];
+    if (typeof jQuery.fn.drupalSetSummary != 'undefined') {
+      $('fieldset.node-form-options', context).drupalSetSummary(function (context) {
+        var vals = [];
 
-      $('input:checked', context).parent().each(function () {
-        vals.push(Drupal.checkPlain($.trim($(this).children('label').text())));
+        $('input:checked', context).parent().each(function () {
+          vals.push(Drupal.checkPlain($.trim($(this).children('label').text())));
+        });
+
+        if (!$('.form-item-status input', context).is(':checked')) {
+          vals.unshift(Drupal.t('Not published'));
+        }
+        return vals.join(', ');
       });
-
-      if (!$('.form-item-status input', context).is(':checked')) {
-        vals.unshift(Drupal.t('Not published'));
-      }
-      return vals.join(', ');
-    });
+    }
   }
 };
 
