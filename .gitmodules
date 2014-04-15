@@ -47,3 +47,12 @@
 [submodule "sites/all/modules/unl_person"]
 	path = sites/all/modules/unl_person
 	url = https://github.com/unlcms/unl_person.git
+[submodule "sites/all/libraries/filemaker"]
+	path = sites/all/libraries/filemaker
+	url = https://bitbucket.org/clscmdnrepo/filemaker-api.git
+[submodule "sites/all/modules/feeds_filemaker"]
+	path = sites/all/modules/feeds_filemaker
+	url = http://git.drupal.org/project/feeds_filemaker.git
+[submodule "sites/all/modules/libraries"]
+	path = sites/all/modules/libraries
+	url = http://git.drupal.org/project/libraries.git
