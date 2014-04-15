@@ -47,6 +47,9 @@
 [submodule "sites/all/modules/unl_person"]
 	path = sites/all/modules/unl_person
 	url = https://github.com/unlcms/unl_person.git
+[submodule "sites/all/modules/feeds_xpathparser"]
+	path = sites/all/modules/feeds_xpathparser
+	url = http://git.drupal.org/project/feeds_xpathparser.git
 [submodule "sites/all/libraries/filemaker"]
 	path = sites/all/libraries/filemaker
 	url = https://bitbucket.org/clscmdnrepo/filemaker-api.git
