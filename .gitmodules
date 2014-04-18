@@ -62,3 +62,6 @@
 [submodule "sites/all/modules/honeypot"]
 	path = sites/all/modules/honeypot
 	url = http://git.drupal.org/project/honeypot.git
+[submodule "sites/all/modules/rules"]
+	path = sites/all/modules/rules
+	url = http://git.drupal.org/project/rules.git
