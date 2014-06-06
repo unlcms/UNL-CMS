@@ -57,6 +57,16 @@ function unl_cas_get_adapter() {
 }
 
 /**
+ * Implements hook_menu_site_status_alter().
+ */
+function unl_cas_menu_site_status_alter(&$menu_site_status, $path) {
+    // Allow access to user/cas even if site is in offline mode.
+    if ($menu_site_status == MENU_SITE_OFFLINE && user_is_anonymous() && $path == 'user/cas') {
+        $menu_site_status = MENU_SITE_ONLINE;
+    }
+}
+
+/**
  * Implements hook_menu().
  */
 function unl_cas_menu() {
