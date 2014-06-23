@@ -58,18 +58,19 @@ In this example the web root is /Library/WebServer/Documents and Apache runs as 
 
 ## Upgrading Drupal Core
 
-Instructions for upgrading the UNLcms Drupal Core require downloading the latest version of Drupal, comparing it against our local version to create a patch file then creating a pull request to merge the changes in.
+Download the current version (drupal-7.a) being used in this repo and the latest version (drupal-7.b) from https://drupal.org/project/drupal
 
 ```
-diff -ruNa drupal-latest wdn_thm_drupal > drupal_patch.diff
-git checkout -b drupal-whateverversion-update master
-git apply —check drupal_patch.diff
+diff -ruNa drupal-7.a drupal-7.b > drupal_patch.diff
+git checkout -b drupal-7.b-update master
+git apply —-check drupal_patch.diff
 git apply drupal_patch.diff
-git commit -m "Upgrade Drupal Core to 7.XX"
-git push origin drupal-whateverversion-update
+git add .
+git commit -m "Upgrade Drupal Core to 7.b"
+git push yourfork drupal-7.b-update
 ```
 
-Once that is complete, open a Pull Request against devel.
+Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
 ## Install Issues:
 
