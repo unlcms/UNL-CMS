@@ -20,7 +20,8 @@ function draggableviews_form_alter(&$form, &$form_state, $form_id) {
     $view = $form_state['build_info']['args'][0];
     // Check permissions and number of results.
     if (!user_access('access draggableviews') || count($view->result) < 2) {
-      $form['actions']['submit']['#access'] = FALSE;
+      $form['actions']['submit']['#disabled'] = TRUE;
+      $form['actions']['submit']['#attributes'] = array('style' => array('display: none !important;'));
       return;
     }
     $options = $view->field['draggableviews']->options['draggableviews'];

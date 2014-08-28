@@ -119,6 +119,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
 ## Hacks of Contrib modules:
 
+  *  draggableviews
+
+     - Anonymous view displays an empty form with no submit button which fails webaudit.unl.edu testing. Applied draggableviews-add_hidden_submit_button_to_form-867.patch
+
   *  drush/commands/core/drupal/site_install.inc
 
      - function drush_core_site_install_version(). UNL change: Setting this to FALSE because we don't want them and they're hard coded.
