@@ -12,6 +12,8 @@ sites/default/settings.php
 .project
 .settings
 .settings/*
+.idea
+.idea/*
 
 /sites/all/themes/explore_center
 /resetunlcms.sh
