@@ -551,10 +551,10 @@ function picture_get_multiplier_media_query($multiplier, $breakpoint) {
 function theme_picture_source($variables) {
   $output = array();
   if (isset($variables['media']) && !empty($variables['media'])) {
-    $output[] = '<span data-media="' . $variables['media'] . '" data-src="' . $variables['src'] . '" ' . drupal_attributes($variables['dimensions']) . '></span>';
+    $output[] = '<span data-media="' . $variables['media'] . '" data-src="' . $variables['src'] . '"></span>';
   }
   else {
-    $output[] = '<span data-src="' . $variables['src'] . '" ' . drupal_attributes($variables['dimensions']) . '></span>';
+    $output[] = '<span data-src="' . $variables['src'] . '"></span>';
   }
   return implode("\n", $output);
 }

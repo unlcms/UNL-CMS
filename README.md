@@ -141,7 +141,11 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
   *  og_menu
 
-     - Applied og_menu-jquery_selector.patch. See:http://drupal.org/node/1051542
+     - Applied og_menu-jquery_selector.patch. See http://drupal.org/node/1051542
+
+  *  picture
+
+     - Remove height/width attributes for validity. See https://drupal.org/node/2115513
 
   *  redirect
 
