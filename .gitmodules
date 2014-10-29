@@ -65,3 +65,6 @@
 [submodule "sites/all/modules/rules"]
 	path = sites/all/modules/rules
 	url = http://git.drupal.org/project/rules.git
+[submodule "sites/all/modules/unl_migration"]
+	path = sites/all/modules/unl_migration
+	url = https://github.com/unlcms/unl_migration.git

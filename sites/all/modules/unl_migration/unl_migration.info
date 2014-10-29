@@ -1,9 +1,0 @@
-name = UNL Migration
-description = Migrate websites into UNLcms.
-package = UNL
-dependencies[] = unl
-core = 7.x
-version = "7.x-1.x"
-
-files[] = unl_migration.module
-files[] = unl_migration.php
