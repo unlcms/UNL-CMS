@@ -55,3 +55,7 @@ $databases = array (
 
 $conf['reverse_proxy'] = TRUE;
 $conf['reverse_proxy_addresses'] = array('127.0.0.1');
+
+// Honeypot settings to force on all sites.
+$conf['honeypot_form_webforms']	= TRUE;
+$conf['honeypot_log'] = TRUE;
