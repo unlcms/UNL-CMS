@@ -38,14 +38,58 @@ function form_builder_interface($form_type, $form_id) {
  * Menu callback for adding a field.
  */
 function form_builder_add_page($form_type, $form_id, $element_type) {
+  _form_builder_add_element($form_type, $form_id, $element_type);
+}
+
+/**
+ * Menu callback for cloning a field.
+ */
+function form_builder_clone_page($form_type, $form_id, $element_id) {
+  _form_builder_add_element($form_type, $form_id, NULL, $element_id);
+}
+
+/**
+ * Menu callback helper for adding or cloning a field.
+ *
+ * If the $element_id parameter is provided, the new field will be cloned from
+ * the corresponding field (and the $element_type parameter will be ignored).
+ * Otherwise, a new field of type $element_type will be added from scratch.
+ */
+function _form_builder_add_element($form_type, $form_id, $element_type, $element_id = NULL) {
   module_load_include('inc', 'form_builder', 'includes/form_builder.api');
   module_load_include('inc', 'form_builder', 'includes/form_builder.cache');
 
   $fields = form_builder_get_form_type($form_type);
-  if (isset($fields[$element_type])) {
-    $cache = form_builder_cache_load($form_type, $form_id);
-    $element_id = isset($_REQUEST['element_id']) ? $_REQUEST['element_id'] : 'new_' . time();
+  $cache = form_builder_cache_load($form_type, $form_id);
+  $element = NULL;
+
+  // If the field is being cloned, copy the original from the current form
+  // structure.
+  if (isset($element_id)) {
+    $element = form_builder_get_elements($cache, array($element_id));
+    if ($element) {
+      // We expect a one-element array since we only passed one element ID to
+      // form_builder_get_elements().
+      $element = array_shift($element);
+      // Remove the key so that a new one will be generated.
+      unset($element['#key']);
+      // Change the title to avoid confusion, and to avoid duplicate
+      // auto-generated machine names.
+      if (isset($element['#title'])) {
+        $element['#title'] = t('Copy of !title', array('!title' => $element['#title']));
+      }
+      // Set the element type to the correct value so it will be used
+      // consistently throughout this function.
+      $element_type = $element['#type'];
+    }
+  }
+  // Otherwise, create a new default field.
+  elseif (isset($fields[$element_type]['default'])) {
     $element = $fields[$element_type]['default'];
+  }
+
+  if ($element) {
+    $element_id = isset($_REQUEST['element_id']) ? $_REQUEST['element_id'] : 'new_' . time();
 
     // Set the element ID to a hard-coded value if a unique field type.
     if (isset($fields[$element_type]['unique']) && $fields[$element_type]['unique']) {
@@ -68,13 +112,14 @@ function form_builder_add_page($form_type, $form_id, $element_type) {
     if (isset($_REQUEST['js'])) {
       $element = form_builder_cache_field_load($form_type, $form_id, $element_id);
       $form_cache = form_builder_cache_load($form_type, $form_id);
+      $form = drupal_get_form('form_builder_positions', $form_cache, $form_type, $form_id);
 
       $data = array(
         'formType' => $form_type,
         'formId' => $form_id,
         'elementId' => $element_id,
         'html' => form_builder_field_render($form_type, $form_id, $element_id),
-        'positionForm' => drupal_render(drupal_get_form('form_builder_positions', $form_cache, $form_type, $form_id)),
+        'positionForm' => drupal_render($form),
       );
 
       form_builder_json_output($data);
@@ -346,6 +391,7 @@ function theme_form_builder_element_wrapper($variables) {
 
   $removable = isset($element['#form_builder']['removable']) ? $element['#form_builder']['removable'] : TRUE;
   $configurable  = isset($element['#form_builder']['configurable']) ? $element['#form_builder']['configurable'] : TRUE;
+  $cloneable = form_builder_menu_field_access('clone', $element['#form_builder']['form_type'], $element['#form_builder']['form_id'], $element['#form_builder']['element_id']);
 
   $output = '';
   $output .= '<div class="form-builder-wrapper">';
@@ -361,6 +407,14 @@ function theme_form_builder_element_wrapper($variables) {
     if ($configurable) {
       $output .= l('<span class="configure">'. t('Configure') .'</span>', 'admin/build/form-builder/configure/' . $element['#form_builder']['form_type'] . '/' . $element['#form_builder']['form_id'] . '/' . $element['#form_builder']['element_id'], array('html' => TRUE, 'attributes' => array('class' => array('configure'), 'title' => t('Configure')), 'query' => drupal_get_destination()));
     }
+    $output .= '</span>';
+    $output .= '</div>';
+  }
+
+  if ($cloneable) {
+    $output .= '<div class="form-builder-bottom-title-bar">';
+    $output .= '<span class="form-builder-bottom-links">';
+    $output .= l('<span class="clone">'. t('Copy') .'</span>', 'admin/build/form-builder/clone/' . $element['#form_builder']['form_type'] . '/' . $element['#form_builder']['form_id'] . '/' . $element['#form_builder']['element_id'], array('html' => TRUE, 'attributes' => array('class' => array('clone'), 'title' => t('Copy')), 'query' => drupal_get_destination()));
     $output .= '</span>';
     $output .= '</div>';
   }
@@ -381,7 +435,7 @@ function theme_form_builder_element_wrapper($variables) {
  */
 function theme_form_builder_empty_form($variables) {
   $output = '';
-  $output .= '<div class="form-builder-empty-form form-builder-empty-placeholder">';
+  $output .= '<div class="form-builder-wrapper form-builder-empty-form form-builder-empty-placeholder">';
   $output .= '<span>' . t('Drag a field from the palette to add it to this form.') . '</span>';
   $output .= '</div>';
   return $output;

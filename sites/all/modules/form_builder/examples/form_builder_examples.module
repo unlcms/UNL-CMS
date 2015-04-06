@@ -175,7 +175,6 @@ function form_builder_examples_form_builder_types() {
       'number',
     ),
     'default' => array(
-      '#key' => 'number',
       '#title' => t('New number'),
       '#type' => 'textfield',
     ),

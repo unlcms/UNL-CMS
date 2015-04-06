@@ -44,26 +44,32 @@ function form_builder_property_key_form_validate($element, $form_state) {
   if ($element['#value'] != $element['#default_value']) {
     $active_form = form_builder_active_form();
     $form = form_builder_cache_load($active_form['form_type'], $active_form['form_id']);
-    $parents = $element['#parents'];
-    array_pop($parents);
-    $parents[] = $element['#value'];
-    $key_exists = FALSE;
-    foreach ($parents as $key) {
-      if (isset($form[$key])) {
-        $form = $form[$key];
-        $key_exists = TRUE;
-      }
-      else {
-        $key_exists = FALSE;
-        break;
-      }
-    }
-
-    if ($key_exists) {
-      form_error($element, t('The form key %key is already in use.', array('%key' => $element['#value'])));
+    $element_id = $form_state['complete form']['#_edit_element_id'];
+    $parent = _form_builder_get_element_parent($form, $element_id);
+    $new_key = $form_state['values']['key'];
+    if (isset($parent[$new_key])) {
+      form_set_error('key', t('The form key %key is already in use.', array('%key' => $new_key)));
     }
   }
+}
 
+/**
+ * Get the parent element of an element from the form.
+ */
+function _form_builder_get_element_parent(&$form, $element_id) {
+  $q = array(&$form);
+  // Do a depth-first search for the element.
+  while ($q) {
+    $parent = array_pop($q);
+    foreach (element_children($parent) as $k) {
+      if ($parent[$k]['#form_builder']['element_id'] == $element_id) {
+        return $parent;
+      }
+      else {
+        $q[] = &$parent[$k];
+      }
+    }
+  }
 }
 
 /**
@@ -76,6 +82,7 @@ function form_builder_property_title_form(&$form_state, $form_type, $element, $p
     '#title' => t('Title'),
     '#type' => 'textfield',
     '#default_value' => $element['#title'],
+    '#maxlength' => 255,
     '#required' => TRUE,
     '#weight' => -10,
   );
@@ -201,7 +208,7 @@ function form_builder_property_options_form(&$form_state, $form_type, $element, 
     '#multiple' => isset($element['#multiple']) ? $element['#multiple'] : FALSE,
     '#multiple_toggle' => isset($element['#multiple_toggle']) ? $element['#multiple_toggle'] : FALSE,
     '#optgroups' => $element['#type'] == 'select' ? TRUE : FALSE,
-    '#limit' => 100,
+    '#limit' => 500,
     '#key_type' => isset($element['#key_type']) ? $element['#key_type'] : 'mixed',
     '#key_type_toggle' => isset($element['#key_type_toggle']) ? $element['#key_type_toggle'] : TRUE,
     '#key_type_toggled' => isset($element['#key_type_toggled']) ? $element['#key_type_toggled'] : FALSE,
@@ -242,7 +249,7 @@ function form_builder_property_default_value_form(&$form_state, $form_type, $ele
     // exception, though.
     '#type' => $element['#type'] == 'textarea' ? 'textarea' : 'textfield',
     '#title' => t('Default value'),
-    '#default_value' => $element['#type'] == 'value' ? $element['#value'] : $element['#default_value'],
+    '#default_value' => $element['#default_value'],
     '#weight' => 1,
   );
 

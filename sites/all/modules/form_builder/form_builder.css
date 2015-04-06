@@ -39,6 +39,11 @@ div.form-builder-wrapper {
   padding: 1px;
   margin-top: 4px; /* Match this to the Sortable drag threshold option. */
   position: relative;
+  transition: background 1s;
+}
+
+div.form-builder-wrapper.highlighted {
+  background-color: #FEFC78;
 }
 
 div.form-builder-element {
@@ -107,6 +112,9 @@ div.form-builder-empty-placeholder span {
   display: block;
   margin: 40px;
 }
+div.form-builder-empty-form span {
+  margin: 120px 40px;
+}
 
 /* Placeholders for drop position */
 div.form-builder-placeholder {
@@ -114,6 +122,10 @@ div.form-builder-placeholder {
   margin-top: -30px;
   position: absolute;
   width: 100%;
+  border: 1px solid blue;
+}
+div.form-builder-placeholder-last {
+  height: 200px;
 }
 
 div.form-builder-placeholder-hover {
@@ -142,63 +154,83 @@ div.form-builder-title-bar {
   border-bottom: none;
 }
 
-div.ui-draggable div.form-builder-title-bar {
+div.ui-draggable div.form-builder-title-bar,
+div.ui-draggable div.form-builder-bottom-title-bar {
   display: none;
 }
 
-div.ui-draggable div.form-builder-title-bar {
+div.ui-draggable div.form-builder-title-bar,
+div.ui-draggable div.form-builder-bottom-title-bar {
   cursor: move;
 }
 
 span.form-builder-links {
   position: absolute;
-  right: 0;
+  right: -4px;
+  z-index: 40;
+}
+
+span.form-builder-bottom-links {
+  position: absolute;
+  right: -4px;
+  bottom: -10px;
   z-index: 40;
 }
 
 div.form-builder-hover div.form-builder-title-bar,
+div.form-builder-hover div.form-builder-bottom-title-bar,
 div.form-builder-active div.form-builder-title-bar {
   display: block;
 }
 
 div.form-builder-hover div.form-builder-wrapper div.form-builder-title-bar,
-div.form-builder-active div.form-builder-wrapper div.form-builder-title-bar {
+div.form-builder-hover div.form-builder-wrapper div.form-builder-bottom-title-bar,
+div.form-builder-active div.form-builder-wrapper div.form-builder-title-bar,
+div.form-builder-active div.form-builder-bottom-title-bar {
   display: none;
 }
 
 span.form-builder-links a.remove,
-span.form-builder-links a.configure {
+span.form-builder-links a.configure,
+span.form-builder-bottom-links a.clone {
   float: right;
   display: block;
-  height: 1.7em;
   text-decoration: none;
-  height: 13px;
-  width: 13px;
-  padding: 2px 3px;
+  height: 16px;
+  width: 16px;
+  padding: 2px 8px;
   cursor: pointer;
 }
 
 span.form-builder-links a.remove span,
-span.form-builder-links a.configure span {
+span.form-builder-links a.configure span,
+span.form-builder-bottom-links a.clone span {
   display: none;
 }
 
 span.form-builder-links a.remove {
-  background: url(images/delete.png) no-repeat 0 1px;
+  background: url(images/delete.png) no-repeat 0 0;
 }
 
 span.form-builder-links a.configure {
-  background: url(images/configure.png) no-repeat 0 1px;
+  background: url(images/configure.png) no-repeat 0 0;
+}
+
+span.form-builder-bottom-links a.clone {
+  background: url(images/clone.png) no-repeat 0 0;
 }
 
 span.form-builder-links a.remove:hover,
-span.form-builder-links a.configure:hover {
-  background-position: 0 -19px;
+span.form-builder-links a.configure:hover,
+span.form-builder-bottom-links a.clone:hover {
+  background-position: 0 -20px;
 }
 
 span.form-builder-links a.progress,
-span.form-builder-links a.progress:hover {
-  background: url(images/status-active.gif) no-repeat 0 1px;
+span.form-builder-links a.progress:hover,
+span.form-builder-bottom-links a.progress,
+span.form-builder-bottom-links a.progress:hover {
+  background: url(images/status-active.gif) no-repeat 2px 3px;
 }
 
 /* Field form tabs */
@@ -251,7 +283,11 @@ span.form-builder-links a.progress:hover {
   margin: 0 0 10px;
 }
 
-#form-builder-field-configure .form-submit {
+#form-builder-field-configure .form-item-title small {
+  display: block;
+}
+
+#form-builder-field-configure #edit-form-builder-submit {
   display: none;
 }
 
@@ -289,6 +325,7 @@ div.form-builder-new-field span.progress {
 #form-builder-field-palette ul.form-builder-fields {
   width: 260px;
   padding: 0;
+  margin: 0;
 }
 
 #form-builder-field-palette ul li {
@@ -302,6 +339,18 @@ div.form-builder-new-field span.progress {
   font-size: 11px;
   cursor: move;
   display: block;
+}
+
+/* Make inside links fill the entire LI element */
+#form-builder-field-palette ul li a {
+  padding: 4px 4px 4px 28px;
+  margin: -4px -4px -4px -28px;
+  width: 100%;
+  display: inline-block;
+}
+#form-builder-field-palette ul li a.progress {
+  background: url(images/status-active.gif) no-repeat 94% 7px;
+  font-weight: normal;
 }
 
 #form-builder-field-palette ul li a,
@@ -360,4 +409,8 @@ div.form-builder-new-field span.progress {
 }
 #form-builder-field-palette ul li.field-textfield {
   background-image: url(images/fields/textfield.png);
+}
+
+#form-builder-webform-save-form {
+  margin-bottom: 200px;
 }
