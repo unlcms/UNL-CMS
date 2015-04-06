@@ -25,7 +25,7 @@ function form_builder_cache_load($form_type, $form_id, $sid = NULL, $reset = FAL
     $data = NULL;
   }
 
-  if (!isset($data) && isset($form_type) && isset($form_id)) {
+  if (empty($data) && !empty($form_type) && !empty($form_id)) {
     $data = db_query("SELECT data FROM {form_builder_cache} WHERE type = :type AND form_id = :form_id AND sid = :sid", array(':type' => $form_type, ':form_id' => $form_id, ':sid' => $sid))->fetchField();
 
     if ($data) {
