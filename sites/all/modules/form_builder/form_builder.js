@@ -36,6 +36,9 @@ Drupal.behaviors.formBuilderElement.attach = function(context) {
   // Add AJAX to remove links.
   $wrappers.find('span.form-builder-links a.remove').click(Drupal.formBuilder.editField);
 
+  // Add AJAX to clone links.
+  $wrappers.find('span.form-builder-bottom-links a.clone').click(Drupal.formBuilder.cloneField);
+
   // Add AJAX to entire field for easy editing.
   $elements.each(function() {
     if ($(this).children('fieldset.form-builder-fieldset').length == 0) {
@@ -95,12 +98,8 @@ Drupal.behaviors.formBuilder.attach = function(context) {
   });
 
   // This sets the height of the drag target to be at least as high as the field
-  // palette so that field can be more easily dropped into an empty form.  IE6
-  // does not respect min-height but does treat height in the same manner that
-  // min-height would be expected.  So a check for browser and version is needed
-  // here.
-  var property = $.browser.msie && $.browser.version < 7 ? 'height' : 'min-height';
-  $formbuilder.css(property, $('#form-builder-fields').height());
+  // palette so that field can be more easily dropped into an empty form.
+  $formbuilder.css('min-height', $('#form-builder-fields').height());
 
   // Add the placeholder for an empty form.
   Drupal.formBuilder.checkForm();
@@ -248,6 +247,8 @@ Drupal.behaviors.formBuilderNewField.attach = function(context) {
       start: Drupal.formBuilder.startDrag,
       stop: Drupal.formBuilder.stopDrag
     });
+
+    $list.click(Drupal.formBuilder.addField);
   }
 };
 
@@ -336,6 +337,9 @@ Drupal.formBuilder.editField = function() {
     return false;
   }
 
+  // Remove any highlight on this wrapper.
+  $element.removeClass('highlighted');
+
   // Show loading indicators.
   $link.addClass('progress');
 
@@ -370,6 +374,91 @@ Drupal.formBuilder.editField = function() {
 };
 
 /**
+ * Clone a field and insert it in the form immediately after the current field.
+ */
+Drupal.formBuilder.cloneField = function() {
+  var $cloneLink = $(this);
+  var name = Drupal.formBuilder.newFieldName();
+  var $placeholder = Drupal.formBuilder.ajaxPlaceholder(name);
+
+  // Show loading indicators.
+  $cloneLink.addClass('progress');
+
+  $.ajax({
+    url: $cloneLink.attr('href'),
+    type: 'GET',
+    dataType: 'json',
+    data: 'js=1&element_id=' + name,
+    success: function(response) {
+      var $new = Drupal.formBuilder.addElement(response);
+      $cloneLink.removeClass('progress');
+      $new.hide().fadeIn();
+    }
+  });
+
+  $placeholder.insertAfter($cloneLink.closest('.form-builder-wrapper'));
+
+  Drupal.formBuilder.updatingElement = true;
+
+  // Scroll the palette into view.
+  $(window).triggerHandler('scroll');
+
+  return false;
+};
+
+/**
+ * Add a field and insert it at the end of the form.
+ */
+Drupal.formBuilder.addField = function(e) {
+  var $link = $(e.target);
+  if (!$link.parent().is('.form-builder-palette-element')) {
+    return;
+  }
+  var $palette = $link.parent();
+  if ($palette.hasClass('form-builder-unique') || $palette.hasClass('form-builder-wrapper')) {
+    $palette.hide();
+  }
+
+  var name = Drupal.formBuilder.newFieldName($link.parent());
+  var $placeholder = Drupal.formBuilder.ajaxPlaceholder(name);
+  var $lastWrapper = $('#form-builder').find('.form-builder-wrapper:last');
+
+  // Show loading indicators.
+  $link.addClass('progress');
+
+  $.ajax({
+    url: $link.attr('href'),
+    type: 'GET',
+    dataType: 'json',
+    data: 'js=1&element_id=' + name,
+    success: function(response) {
+      var $new = Drupal.formBuilder.addElement(response);
+      var scrollOffset = $new.offset().top;
+      $link.removeClass('progress');
+      $new.css('visible', 'hidden');
+      if ($.fn.scrollTo) {
+        $(window).scrollTo(scrollOffset);
+      }
+      else {
+        $(window).scrollTop(scrollOffset);
+      }
+      $new.fadeIn();
+    }
+  });
+
+  if ($lastWrapper.is('.form-builder-empty-placeholder')) {
+    $lastWrapper.replaceWith($placeholder);
+  }
+  else {
+    $placeholder.insertAfter($lastWrapper);
+  }
+
+  Drupal.formBuilder.updatingElement = true;
+
+  return false;
+};
+
+/**
  * Click handler for deleting a field.
  */
 Drupal.formBuilder.deleteField = function() {
@@ -391,6 +480,23 @@ Drupal.formBuilder.clickCancel = function() {
   Drupal.formBuilder.unsetActive();
   return false;
 };
+
+/**
+ * Highlight a particular field, i.e after cloning or adding a new field.
+ */
+Drupal.formBuilder.highlightField = function(timeout) {
+  if (Drupal.formBuilder.highlightedField) {
+    $(Drupal.formBuilder.highlightedField).removeClass('highlighted');
+  }
+  var $wrapper = $(this).closest('.form-builder-wrapper');
+  $wrapper.addClass('highlighted');
+  Drupal.formBuilder.highlightedField = $wrapper;
+  if (timeout) {
+    setTimeout(function() {
+      $wrapper.removeClass('highlighted');
+    }, timeout);
+  }
+}
 
 /**
  * Display the edit form from the server.
@@ -438,7 +544,10 @@ Drupal.formBuilder.elementChange = function() {
   if (!Drupal.formBuilder.updatingElement) {
     $(this).parents('form:first').ajaxSubmit({
       success: Drupal.formBuilder.updateElement,
-      dataType: 'json'
+      dataType: 'json',
+      data: {
+        '_triggering_element_name': 'op'
+      }
     });
   }
 
@@ -501,7 +610,7 @@ Drupal.formBuilder.updateElement = function(response) {
   if (response.errors) {
     for (var elementName in response.errors) {
       elementName = elementName.replace(/([a-z0-9_]+)\](.*)/, '$1$2]');
-      $configureForm.find('[name=' + elementName + ']').addClass('error');
+      $configureForm.find('[name="' + elementName + '"]').addClass('error');
     }
   }
 
@@ -543,6 +652,8 @@ Drupal.formBuilder.addElement = function(response) {
   $exisiting.replaceWith($new);
   Drupal.attachBehaviors($new.get(0));
 
+  Drupal.formBuilder.highlightField.apply($new.get(0));
+
   // Set the variable stating we're done updating.
   Drupal.formBuilder.updatingElement = false;
 
@@ -554,6 +665,8 @@ Drupal.formBuilder.addElement = function(response) {
 
   // Submit the new positions form to save the new element position.
   Drupal.formBuilder.updateElementPosition($new.get(0));
+
+  return $new;
 };
 
 /**
@@ -609,10 +722,8 @@ Drupal.formBuilder.createDropTargets = function(draggable, helper) {
   var $elements = $('#form-builder .form-builder-wrapper:not(.form-builder-empty-placeholder)').not(draggable).not(helper);
 
   if ($elements.length == 0) {
-    // There are no form elements, insert a placeholder
-    var $formBuilder = $('#form-builder');
-    $placeholder.height($formBuilder.height());
-    $placeholder.appendTo($formBuilder);
+    // There are no form elements, show the placeholder
+    $('#form-builder .form-builder-empty-form').show();
   }
   else {
     $elements.each(function(i) {
@@ -622,6 +733,8 @@ Drupal.formBuilder.createDropTargets = function(draggable, helper) {
         $placeholder.clone().insertBefore(this);
       }
     });
+    // Add a class to the last placeholder so it can be larger.
+    $('#form-builder .form-builder-placeholder:last').addClass('form-builder-placeholder-last');
   }
 
   // Enable the drop targets
@@ -629,7 +742,7 @@ Drupal.formBuilder.createDropTargets = function(draggable, helper) {
     greedy: true,
     scope: 'form-builder',
     tolerance: 'pointer',
-    drop: Drupal.formBuilder.dropElement,
+    deactivate: Drupal.formBuilder.dropElement,
     over: Drupal.formBuilder.dropHover,
     out: Drupal.formBuilder.dropHover
   });
@@ -644,16 +757,18 @@ Drupal.formBuilder.createDropTargets = function(draggable, helper) {
 Drupal.formBuilder.dropElement = function (event, ui) {
   var $element = ui.draggable;
   var $placeholder = $(this);
-  
+
+  // This callback is triggered for every placeholder, but only one should be
+  // active. For all other placeholders, we don't do any processing.
+  if (!$placeholder.is('.form-builder-placeholder-hover')) {
+    return;
+  }
+
   // If the element is a new field from the palette, update it with a real field.
   if ($element.is('.form-builder-palette-element')) {
-    var name = 'new_' + new Date().getTime();
-    // If this is a "unique" element, its element ID is hard-coded.
-    if ($element.is('.form-builder-unique')) {
-      name = $element.get(0).className.replace(/^.*?form-builder-element-([a-z0-9_]+).*?$/, '$1');
-    }
+    var name = Drupal.formBuilder.newFieldName($element);
 
-    var $ajaxPlaceholder = $('<div class="form-builder-wrapper form-builder-new-field"><div id="form-builder-element-' + name + '" class="form-builder-element"><span class="progress">' + Drupal.t('Please wait...') + '</span></div></div>');
+    var $ajaxPlaceholder = Drupal.formBuilder.ajaxPlaceholder(name);
 
     $.ajax({
       url: $element.find('a').attr('href'),
@@ -685,6 +800,8 @@ Drupal.formBuilder.dropElement = function (event, ui) {
  * Adjusts the placeholder height for drop targets as they are hovered-over.
  */
 Drupal.formBuilder.dropHover = function (event, ui) {
+  var $placeholder = $(this);
+
   if (event.type == 'dropover') {
     // In the event that two droppables overlap, the latest one acts as the drop
     // target. If there is previous active droppable hide it temporarily.
@@ -692,11 +809,14 @@ Drupal.formBuilder.dropHover = function (event, ui) {
       $(Drupal.formBuilder.activeDropzone).css('display', 'none');
       Drupal.formBuilder.previousDropzones.push(Drupal.formBuilder.activeDropzone);
     }
-    $(this).css({ height: ui.helper.height() + 'px', display: ''}).addClass('form-builder-placeholder-hover');
+    if (!$placeholder.hasClass('form-builder-empty-placeholder')) {
+      $placeholder.css({ height: ui.helper.height() + 'px', display: ''});
+    }
+    $placeholder.addClass('form-builder-placeholder-hover');
     Drupal.formBuilder.activeDropzone = this;
   }
   else {
-    $(this).css({ height: '', display: '' }).removeClass('form-builder-placeholder-hover');
+    $placeholder.css({ height: '', display: '' }).removeClass('form-builder-placeholder-hover');
 
     // If this was active drop target, we remove the active state.
     if (Drupal.formBuilder.activeDropzone && Drupal.formBuilder.activeDropzone == this) {
@@ -705,7 +825,7 @@ Drupal.formBuilder.dropHover = function (event, ui) {
     // If there is a previous drop target that was hidden, restore it.
     if (Drupal.formBuilder.previousDropzones.length) {
       $(Drupal.formBuilder.previousDropzones).css('display', '');
-      Drupal.formBuilder.activeDropzone = Drupal.formBuilder.previousDropzones.pop;
+      Drupal.formBuilder.activeDropzone = Drupal.formBuilder.previousDropzones.pop();
     }
   }
 };
@@ -725,6 +845,7 @@ Drupal.formBuilder.stopDrag = function(e, ui) {
     if ($this.hasClass('form-builder-unique') || $this.hasClass('form-builder-wrapper')) {
       $this.show();
     }
+    Drupal.formBuilder.activeDragUi = false;
   }
 
   // Remove the placeholders and reset the hover state for all for elements
@@ -827,6 +948,32 @@ Drupal.formBuilder.closeActive = function(callback) {
   }
 
   return false;
+};
+
+/**
+ * Returns a unique machine name that can be used for a new form field.
+ */
+Drupal.formBuilder.newFieldName = function($element) {
+  // If this is a "unique" element, its element ID is hard-coded.
+  if ($element && $element.is('.form-builder-unique')) {
+    return $element.get(0).className.replace(/^.*?form-builder-element-([a-z0-9_]+).*?$/, '$1');
+  }
+  else {
+    return 'new_' + new Date().getTime();
+  }
+};
+
+/**
+ * Returns HTML to use as an AJAX placeholder when a new field is being added.
+ *
+ * @param name
+ *   The machine name for the new field. See Drupal.formBuilder.newFieldName().
+ *
+ * @return
+ *   The placeholder HTML.
+ */
+Drupal.formBuilder.ajaxPlaceholder = function(name) {
+  return $('<div class="form-builder-wrapper form-builder-new-field"><div id="form-builder-element-' + name + '" class="form-builder-element"><span class="progress">' + Drupal.t('Please wait...') + '</span></div></div>');
 };
 
 /**

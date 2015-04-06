@@ -302,6 +302,8 @@ function form_builder_webform_form_builder_load($form_builder_type, $form_builde
 function form_builder_webform_load_process(&$form, $node, $pid = 0) {
   module_load_include('inc', 'form_builder_webform', 'form_builder_webform.components');
 
+  _form_builder_select_or_other_form_element_pre_render($form);
+
   foreach (element_children($form) as $key) {
     $cid = webform_get_cid($node, $key, $pid);
     $form[$key]['#form_builder'] = array(
@@ -325,6 +327,19 @@ function form_builder_webform_load_process(&$form, $node, $pid = 0) {
 }
 
 /**
+ * Tell form_builder that select_or_other fields are of type select.
+ *
+ * There is currently no other way to do this in because the mapping
+ * function is only called once per component type.
+ * @see  _form_builder_webform_form_builder_map_select().
+ */
+function _form_builder_select_or_other_form_element_pre_render(&$form) {
+  if (isset($form['#type']) && $form['#type'] == 'select_or_other') {
+    $form['#form_builder']['element_type'] = 'select';
+  }
+}
+
+/**
  * Implements hook_form_builder_add_element_alter().
  *
  * Modify a FAPI element before it is added to the form array.
@@ -333,6 +348,9 @@ function form_builder_webform_form_builder_add_element_alter(&$element, $form_ty
   if ($form_type == 'webform') {
     $element['#webform_component']['nid'] = is_numeric($form_id) ? $form_id : NULL;
     $element['#webform_component']['is_new'] = TRUE;
+    $element['#webform_component']['pid'] = 0;
+    $element['#webform_component']['form_key'] = NULL;
+    unset($element['#webform_component']['cid']);
   }
 }
 
@@ -484,7 +502,21 @@ function _form_builder_webform_property_map($component_type) {
         'storage_parents' => array('extra', 'private'),
       );
     }
-  
+
+    if (webform_component_feature($component_type, 'css_classes')) {
+      $map['properties']['css_classes'] = array(
+        'form_parents' => array('display', 'css_classes'),
+        'storage_parents' => array('extra', 'css_classes'),
+      );
+    }
+
+    if (webform_component_feature($component_type, 'wrapper_classes')) {
+      $map['properties']['wrapper_classes'] = array(
+        'form_parents' => array('display', 'wrapper_classes'),
+        'storage_parents' => array('extra', 'wrapper_classes'),
+      );
+    }
+
     if (webform_component_feature($component_type, 'required')) {
       $map['properties']['required'] = array();
     }
