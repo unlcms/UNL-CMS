@@ -411,7 +411,7 @@ function unl_menu() {
 
   // 404 page pulled from default site.
   $items['unl-404'] = array(
-    'title' => 'Page not found',
+    'title' => '404 - Page not found',
     'access callback' => TRUE,
     'page callback' => 'unl_404_page',
     'type' => MENU_CALLBACK,
@@ -546,24 +546,9 @@ function unl_menu_alter(&$items) {
  * Custom page callback.
  */
 function unl_404_page() {
-  $database = $GLOBALS['databases']['default']['default'];
-  $database['prefix'] = unl_get_shared_db_prefix();
-  Database::addConnectionInfo('default_site', 'default', $database);
-  // Switch database connection to default site.
-  db_set_active('default_site');
-
-  $default_404 = unl_shared_variable_get('site_404');
-  // @TODO: $default_404 should look like "node/182" but is there a safer way to retrieve nid?
-  $node = node_load(substr($default_404, 5));
-  if ($node) {
-    drupal_set_title($node->title);
-    $build = node_view($node, 'full');
-    $build['links']['#access'] = FALSE;
-    $build['#contextual_links'] = NULL;
-  }
-  else {
-    $build = array();
-  }
+  $build = array(
+    '#markup' => file_get_contents(__DIR__ . '/404.html')
+  );
 
   // Restore database connection.
   db_set_active();
