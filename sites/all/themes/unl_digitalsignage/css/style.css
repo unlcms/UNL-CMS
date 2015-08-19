@@ -1,4 +1,0 @@
-@import url(reset.css) screen;
-@import url(font.css) screen;
-@import url(1366.css) screen and (max-width: 1899px) and (min-width: 1360px);
-@import url(1920.css) screen and (min-width: 1900px);
