@@ -546,8 +546,10 @@ function unl_menu_alter(&$items) {
  * Custom page callback.
  */
 function unl_404_page() {
+  drupal_add_css('sites/all/modules/unl/404/unl-404.css');
+  
   $build = array(
-    '#markup' => file_get_contents(__DIR__ . '/404.html')
+    '#markup' => file_get_contents(__DIR__ . '/404/404.html')
   );
 
   // Restore database connection.
