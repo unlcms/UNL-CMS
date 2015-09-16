@@ -248,21 +248,23 @@ function unl_field_attach_view_alter(&$output, $context) {
 function unl_node_access($node, $op, $account) {
   // When content types are created they have blank permissions so base access on the 'Basic page' type. This is done because with shared permissions subsites can't edit permissions.
   //@TODO Make this configureable i.e. make it possible to opt-out certain types from this.
-  switch($op) {
-    case 'view':
-      break;
-    case 'create':
-      return user_access('create page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
-    case 'update':
-      if (isset($node->uid) && $node->uid == $account->uid) {
-        return user_access('edit own page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
-      }
-      return user_access('edit any page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
-    case 'delete':
-      if (isset($node->uid) && $node->uid == $account->uid) {
-        return user_access('delete own page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
-      }
-      return user_access('delete any page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+  if (!module_exists('unl_extension')) { // Exclude extension.unl.edu site
+    switch($op) {
+      case 'view':
+        break;
+      case 'create':
+        return user_access('create page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+      case 'update':
+        if (isset($node->uid) && $node->uid == $account->uid) {
+          return user_access('edit own page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+        }
+        return user_access('edit any page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+      case 'delete':
+        if (isset($node->uid) && $node->uid == $account->uid) {
+          return user_access('delete own page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+        }
+        return user_access('delete any page content', $account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_IGNORE;
+    }
   }
 }
 
