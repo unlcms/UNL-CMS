@@ -30,7 +30,10 @@ function unl_tokens($type, $tokens, array $data = array(), array $options = arra
           if (isset($data['node'])) {
             $group = field_get_items('node', $data['node'], 'og_group_ref');
             if ($group != null) {
-              $og_path = drupal_get_path_alias('node/' . $group[0]['target_id']);
+              $keys = array_keys($group);
+              foreach($keys as $key) {
+                $og_path = drupal_get_path_alias('node/' . $group[$key]['target_id']);
+              }
               $replacements[$original] = $og_path;
             }
           }
