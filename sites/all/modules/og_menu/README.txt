@@ -53,11 +53,12 @@ TODO/BUGS/FEATURE REQUESTS
 - Please test the D7 release and report any bugs or suggestions you might find.
 
 UPGRADING FROM 6.x TO 7.x
-&
+---------------------------
+- There currently is no upgrade path! If you need an upgrade path, please file
+  an issue
 UPGRADING FROM 7.x-2.x TO 7.x-3.x
 ---------------------------------
-- There currently is no upgrade path! If you need an upgrade path, please file
-  an issue.
+- Update OG first!
 
 CREDITS
 -------

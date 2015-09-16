@@ -9,9 +9,9 @@ configure = admin/config/group/og_menu
 package = "Organic groups"
 core = 7.x
 
-; Information added by drupal.org packaging script on 2013-01-19
-version = "7.x-3.x-dev"
+; Information added by Drupal.org packaging script on 2015-05-28
+version = "7.x-3.0+7-dev"
 core = "7.x"
 project = "og_menu"
-datestamp = "1358558224"
+datestamp = "1432800817"
 
