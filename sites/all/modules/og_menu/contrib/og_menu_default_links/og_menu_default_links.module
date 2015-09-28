@@ -29,12 +29,18 @@ function og_menu_default_links_menu() {
 function og_menu_default_links_help($path, $arg) {
   if ($path == 'admin/config/group/og_menu/default-links') {
     $bundles = og_get_all_group_bundle();
+    $help = t('There are no group type bundles yet.');
     if (!empty($bundles)) {
-      $help = t('Specify default links to be added to every new OG Menu. Enter the <strong>title</strong> followed by the <strong>path</strong> delimited by a pipe. Keep in mind these links will only be added to menus generated automaticly on group creation. Examples:<ul><li>Example Link|http://www.example.com</li><li>Link to the Group node|node/[node:nid]</li></li></ul>');
+      $help = t('Specify default links to be added to get each new OG Menu for
+        each node bundle.  Enter each <b>URL</b> followed by
+        a <strong>title</strong> delimited by a pipe. Examples:
+        <ul>
+          <li>www.example.com|Example Link</li>
+          <li>faculty/[node:nid]|Link to Faculty Page for Group <em>(If tokens are enabled)</em>
+          </li>
+        </ul>');
     }
-    else {
-      $help = t('There are no group type bundles yet.');
-    }
+
     return $help;
   }
 }
@@ -137,9 +143,7 @@ function _og_menu_default_links_set_default_links($menu, $action = 'new') {
 
       $link = array(
         'link_path' => $path,
-        // Using token_replace to allow tokens to be used in the menu titles and
-        // impose length restrictions on link title.
-        'link_title' => mb_substr(token_replace($default_link['label'], array('node' => $entity)), 0, 255),
+        'link_title' => $default_link['label'],
         'menu_name' => $menu_name,
         'module' => 'og_menu',
         'weight' => $default_link['weight'],

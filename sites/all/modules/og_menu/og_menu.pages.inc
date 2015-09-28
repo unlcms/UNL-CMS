@@ -5,13 +5,12 @@
  */
 
 /**
- * Form for displaying and re-ordering the og menus for a group.
+ * Menu callback.
  *
- * Shows for one menu the menu links accessible to the current user and
- * relevant operations.
+ * Shows an overview page of all the custom menus in a user's group and along
+ * with their description.
  */
-function og_menu_menu_overview_form($form, &$form_state, $group_type, $gid) {
-
+function og_menu_overview_page($group_type, $gid) {
   // Set the title of the page.
   $entity_wrapper = entity_metadata_wrapper($group_type, $gid);
   $entity_label = $entity_wrapper->label() ? $entity_wrapper->label() : $group_type . ' ' . $gid;
@@ -19,106 +18,34 @@ function og_menu_menu_overview_form($form, &$form_state, $group_type, $gid) {
   // Set the breadcrumb.
   og_set_breadcrumb($group_type, $gid, array(l(t('Group'), "$group_type/$gid/group")));
 
-  $form['og_menus']['#group_type'] = $group_type;
-  $form['og_menus']['#gid'] = $gid;
-
-  $form['og_menus']['#tree'] = TRUE;
-  foreach (og_menu_get_menus($group_type, $gid) as $menu) {
-    $form['og_menus']['og_menu:' . $menu->menu_name] = array(
-      'name' => array(
-        '#type' => 'textfield',
-        '#title' => $menu->menu_name,
-        '#title_display' => $menu->title,
-        '#default_value' => $menu->menu_name,
-      ),
-      'description' => array(
-        '#type' => 'textfield',
-        '#default_value' => check_plain($menu->description),
-        '#size' => 20,
-        '#maxlength' => 255,
-      ),
-      'weight' => array(
-        '#type' => 'weight',
-        '#title' => t('Weight'),
-        '#default_value' => $menu->weight,
-        '#delta' => 10,
-        '#title_display' => 'invisible',
-      ),
-    );
-  }
-
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions'] = array('#attributes' => array('class' => 'og-menu-overview'));
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Save configuration'),
-  );
-
-  return $form;
-}
-
-/**
- * Submit handler for og_menu_menu_overview_form().
- */
-function og_menu_menu_overview_form_submit($form, &$form_state) {
-  foreach ($form_state['values']['og_menus'] as $id => $item) {
-    db_query("UPDATE {og_menu} SET weight = :weight WHERE menu_name = :id", array(':weight' => $item['weight'], ':id' => $item['name']));
-  }
-}
-
-/**
- * Custom theme function declared in hook_theme().
- *
- * @param $variables
- * @return string
- * @throws Exception
- */
-function theme_og_menu_menu_overview_form($variables) {
-
-  $form = $variables['form'];
-
-  $group_type = $form['og_menus']['#group_type'];
-  $gid = $form['og_menus']['#gid'];
-
-  $header = array(t('Title'), array('data' => t('Weight')), array('data' => t('Operations'), 'colspan' => '3'));
-  $table_id = 'og-menu-menu-overview';
-  drupal_add_tabledrag($table_id, 'order', 'self', 'og-menu-item-weight');
+  // @todo Replace by D7 database independent functions.
+  $result = db_query("
+    SELECT om.gid, om.menu_name as name, m.title as title, m.description as description FROM {og_menu} om
+    LEFT JOIN {menu_custom} m
+    ON om.menu_name = m.menu_name
+    WHERE om.gid = :gid
+    ORDER BY title", array(':gid' => $gid));
+  $header = array(t('Title'), array('data' => t('Operations'), 'colspan' => '3'));
   $rows = array();
-
-  foreach ($form['og_menus'] as $key => $menu) {
-    if (strpos($key, 'og_menu:') !== FALSE) {
-      $row = array(
-        theme('menu_admin_overview', array(
-          'title' => $menu['name']['#title_display'],
-          'name' => $menu['name']['#title'],
-          'description' => htmlspecialchars_decode($menu['description']['#default_value']),
-        )),
-      );
-
-      $menu['weight']['#attributes']['class'] = array('og-menu-item-weight');
-
-      $row[] = drupal_render($menu['weight']);
-
-      $row[] = array('data' => l(t('list links'), 'group/' . $group_type . '/' . $gid . '/admin/menus/' . $menu['name']['#title']));
-      $row[] = array('data' => l(t('edit menu'), 'group/' . $group_type . '/' . $gid . '/admin/menus/' . $menu['name']['#title'] . '/edit'));
-      $row[] = array('data' => l(t('add link'), 'group/' . $group_type . '/' . $gid . '/admin/menus/' . $menu['name']['#title'] . '/add'));
-
-      $row = array('data' => $row, 'class' => array('draggable'));
-      $rows[] = $row;
-    }
+  foreach ($result as $menu) {
+    $row = array(
+      theme('menu_admin_overview', array(
+        'title' => $menu->title,
+        'name' => $menu->name,
+        'description' => $menu->description,
+      )),
+    );
+    $row[] = array('data' => l(t('list links'), 'group/' . $group_type . '/' . $gid . '/admin/menus/' . $menu->name));
+    $row[] = array('data' => l(t('edit menu'), 'group/' . $group_type . '/' . $gid . '/admin/menus/' . $menu->name . '/edit'));
+    $row[] = array('data' => l(t('add link'), 'group/' . $group_type . '/' . $gid . '/admin/menus/' . $menu->name . '/add'));
+    $rows[] = $row;
   }
 
-  unset($form['og_menus']);
-
-  $output = '';
-  if (empty($rows)) {
+  if ($result->rowCount() == 0) {
     return t('There are currently no menus.');
   }
   else {
-    $output .= theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => $table_id),));
-    $output .= drupal_render_children($form);
-
-    return $output;
+    return theme('table', array('header' => $header, 'rows' => $rows));
   }
 }
 
@@ -313,7 +240,7 @@ function og_menu_edit_item_form($form, &$form_state, $type, $group_type, $gid, $
   if (module_exists('mpac')) {
      mpac_form_menu_edit_item_alter($form, $form_state);
   }
-
+  
   return $form;
 }
 

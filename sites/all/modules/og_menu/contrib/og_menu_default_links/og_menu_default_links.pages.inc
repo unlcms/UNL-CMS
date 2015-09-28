@@ -8,9 +8,8 @@
  * Form callback for OG Menu configuration.
  */
 function og_menu_default_links_config_form($form, &$form_state) {
-  drupal_set_title('OG Menu Default Links');
-
   $bundles = og_get_all_group_bundle();
+
   // Add a field for each bundle.
   if ($bundles) {
     foreach ($bundles as $entity_type => $entity_bundles) {
@@ -20,7 +19,7 @@ function og_menu_default_links_config_form($form, &$form_state) {
           '#type' => 'textarea',
           '#title' => t("%bundle Bundle", array('%bundle' => $bundle_label)),
           '#default_value' => variable_get('og_menu_default_links_' . $entity_type . $group_type, FALSE),
-          '#description' => t("These links will be added to automatically created OG Menus from %bundle groups. Enter one value per line, in the format 'label|path/to/page'.", array('%bundle' => $bundle_label)),
+          '#description' => t("These links will be added to any new OG Menus added to <b>%bundle</b> groups. Enter one value per line, in the format 'label|path/to/page'.", array('%bundle' => $bundle_label)),
         );
       }
     }
