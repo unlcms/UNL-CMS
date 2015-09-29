@@ -44,7 +44,7 @@ if (is_file($file_path)) {
   $output = $file_path;
 }
 // else if on lancaster.unl.edu look for the file in a case-insensitive manner
-else if ($host === 'lancaster.unl.edu' && !empty($drupal_path) && $file_path = shell_exec('find '.$files_dir.' -type f -ipath "*'.$drupal_path.'"')) {
+else if ($host === 'lancaster.unl.edu' && !empty($drupal_path) && $file_path = shell_exec('find '.escapeshellarg($files_dir).' -type f -ipath '.escapeshellarg('*'.$drupal_path))) {
   $output = $file_path;
 }
 else {
