@@ -33,11 +33,18 @@ $base_path = substr($_SERVER['SCRIPT_NAME'], 0, -9);
 // Now we fix the drupal path.
 $drupal_path = substr($uri, strlen($base_path));
 
-// Finally, generate the path to the file we might be accessing
+// Generate the path to the file we might be accessing
 $file_path = $site_dir . '/files/' . $drupal_path;
 
-// If that file exists, return the correct path to it, otherwise, return what we were given. 
+// Generate path to files directory
+$files_dir = DRUPAL_ROOT . '/' . $site_dir . '/files/';
+
+// If that file exists, return the correct path to it
 if (is_file($file_path)) {
+  $output = $file_path;
+}
+// else if on lancaster.unl.edu look for the file in a case-insensitive manner
+else if ($host === 'lancaster.unl.edu' && !empty($drupal_path) && $file_path = shell_exec('find '.escapeshellarg($files_dir).' -type f -ipath '.escapeshellarg('*'.$drupal_path))) {
   $output = $file_path;
 }
 else {
@@ -45,4 +52,3 @@ else {
 }
 
 echo $output;
-
