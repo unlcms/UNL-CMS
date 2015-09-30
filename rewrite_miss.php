@@ -36,15 +36,12 @@ $drupal_path = substr($uri, strlen($base_path));
 // Generate the path to the file we might be accessing
 $file_path = $site_dir . '/files/' . $drupal_path;
 
-// Generate path to files directory
-$files_dir = DRUPAL_ROOT . '/' . $site_dir . '/files/';
-
 // If that file exists, return the correct path to it
 if (is_file($file_path)) {
   $output = $file_path;
 }
 // else if on lancaster.unl.edu look for the file in a case-insensitive manner
-else if ($host === 'lancaster.unl.edu' && !empty($drupal_path) && $file_path = shell_exec('find '.escapeshellarg($files_dir).' -type f -ipath '.escapeshellarg('*'.$drupal_path))) {
+else if ($host === 'lancaster.unl.edu' && !empty($drupal_path) && $file_path = _insensitive_is_file($file_path)) {
   $output = $file_path;
 }
 else {
@@ -52,3 +49,48 @@ else {
 }
 
 echo $output;
+
+
+/**
+ * @param $path
+ * @return bool|string
+ *
+ * Checks to see if the file exists with a case-insensitive search.
+ * $path is relative to the DRUPAL_ROOT.
+ * Returns the correctly capitalized path on success, FALSE on failure.
+ */
+function _insensitive_is_file($path) {
+  $subdirs = array();
+  $filename = basename($path);
+  for ($subdir = $path; ($subdir = dirname($subdir)) != '.';) {
+    $subdirs[] = basename($subdir);
+  }
+  $subdirs = array_reverse($subdirs);
+
+  $path = DRUPAL_ROOT;
+  foreach ($subdirs as $subdir) {
+    $cmd = 'find '
+         . escapeshellarg($path) . ' '
+         . '-maxdepth 1 '
+         . '-type d '
+         . '-iname ' . escapeshellarg($subdir) . ' '
+         ;
+    $path = trim(shell_exec($cmd));
+    if (!$path) {
+      return false;
+    }
+  }
+
+  $cmd = 'find '
+    . escapeshellarg($path) . ' '
+    . '-type f '
+    . '-maxdepth 1 '
+    . '-iname ' . escapeshellarg($filename) . ' '
+    ;
+  $path = trim(shell_exec($cmd));
+  if (!$path) {
+    return false;
+  }
+
+  return substr($path, strlen(DRUPAL_ROOT) + 1);
+}
