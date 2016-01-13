@@ -68,3 +68,9 @@
 [submodule "sites/all/modules/unl_migration"]
 	path = sites/all/modules/unl_migration
 	url = https://github.com/unlcms/unl_migration.git
+[submodule "sites/all/themes/unl_fourone_og"]
+	path = sites/all/themes/unl_fourone_og
+	url = https://github.com/unlcms/unl_fourone_og.git
+[submodule "sites/all/themes/unl_fourone"]
+	path = sites/all/themes/unl_fourone
+	url = https://github.com/unlcms/unl_fourone.git
