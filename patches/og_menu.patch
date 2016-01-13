@@ -1,0 +1,14 @@
+diff --git a/sites/all/modules/og_menu/og_menu.module b/sites/all/modules/og_menu/og_menu.module
+index 3c80cd5..285dcf5 100644
+--- a/sites/all/modules/og_menu/og_menu.module
++++ b/sites/all/modules/og_menu/og_menu.module
+@@ -350,6 +350,9 @@ function og_menu_form_node_form_alter(&$form, &$form_state) {
+     if ($context && !og_user_access($context['group_type'], $context['gid'], 'administer og menu') && !user_access('administer menu') && !user_access('administer og menu')) {
+       return;
+     }
++    if (!$context && !user_access('administer menu') && !user_access('administer og menu')) {
++     return;
++    }
+     // Available menus were discovered in og_menu_node_prepare().
+     $menus = $form['#node']->storage['og_menu'];
+ 

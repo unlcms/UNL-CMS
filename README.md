@@ -139,6 +139,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
 
+  * og_menu.module
+
+     - Fix permission problem for editor that is only the author of the page with no other permissions.
+
   *  picture
 
      - Remove height/width attributes for validity. See https://drupal.org/node/2115513
