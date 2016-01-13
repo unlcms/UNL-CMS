@@ -742,6 +742,8 @@ function unl_form_alter(&$form, $form_state, $form_id) {
   }
 
   if ($form_id == 'system_site_information_settings') {
+    $form['site_information']['site_slogan']['#maxlength'] = 256;
+
     $form['site_information']['https'] = array(
       '#type' => 'checkbox',
       '#title' => 'SSL Enabled',
