@@ -17,7 +17,7 @@ function module_filter_settings() {
   $form['module_filter_set_focus'] = array(
     '#type' => 'checkbox',
     '#title' => t('Set focus to filter field on page load'),
-    '#description' => t('Currently has no affect when using Overlay module.'),
+    '#description' => t('Currently has no effect when using Overlay module.'),
     '#default_value' => variable_get('module_filter_set_focus', 1),
   );
 
@@ -54,7 +54,7 @@ function module_filter_settings() {
   );
   $form['tabs']['module_filter_dynamic_save_position'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Dynamic Save position'),
+    '#title' => t('Dynamically position Save button'),
     '#description' => t("For sites with lots of tabs, enable to help keep the 'Save configuration' button more accessible."),
     '#default_value' => variable_get('module_filter_dynamic_save_position', 1)
   );
@@ -75,6 +75,12 @@ function module_filter_settings() {
     '#title' => t('Track recently enabled/disabled modules'),
     '#description' => t('Adds a "Recent" tab that displays modules that have been enabled or disabled with the last week.'),
     '#default_value' => variable_get('module_filter_track_recent_modules', 1),
+  );
+  $form['tabs']['module_filter_remember_active_tab'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Remember active tab.'),
+    '#description' => t('When enabled, the active tab will be remembered.'),
+    '#default_value' => variable_get('module_filter_remember_active_tab', 1),
   );
 
   $form['update'] = array(

@@ -81,7 +81,21 @@ function module_filter_form_system_modules_alter(&$form, &$form_state, $form_id)
     '#suffix' => '</div>'
   );
 
-  $form['#theme'] = 'module_filter_system_modules';
+  if (variable_get('module_filter_tabs', 1)) {
+    $form['module_filter']['#attached']['css'][] = drupal_get_path('module', 'module_filter') .'/css/module_filter_tab.css';
+    $form['module_filter']['#attached']['library'][] = array('system', 'jquery.bbq');
+    $form['module_filter']['#attached']['js'][] = drupal_get_path('module', 'module_filter') .'/js/module_filter_tab.js';
+
+    if (!module_exists('page_actions') && variable_get('module_filter_dynamic_save_position', 1)) {
+      $form['module_filter']['#attached']['css'][] = drupal_get_path('module', 'module_filter') .'/css/dynamic_position.css';
+      $form['module_filter']['#attached']['js'][] = drupal_get_path('module', 'module_filter') .'/js/dynamic_position.js';
+    }
+
+    $form['#attached']['css'][] = drupal_get_path('module', 'module_filter') . '/css/modules.css';
+
+    $form['#theme'] = 'module_filter_system_modules_tabs';
+  }
+
   $form['#submit'][] = 'module_filter_system_modules_submit_redirect';
 
   if (variable_get('module_filter_track_recent_modules', 1)) {
@@ -128,10 +142,6 @@ function module_filter_theme() {
       'render element' => 'element',
       'file' => 'module_filter.theme.inc',
     ),
-    'module_filter_system_modules' => array(
-      'render element' => 'form',
-      'file' => 'module_filter.theme.inc',
-    ),
     'module_filter_system_modules_tabs' => array(
       'render element' => 'form',
       'file' => 'module_filter.theme.inc',
@@ -156,6 +166,7 @@ function form_process_module_filter($element, &$form_state) {
         drupal_get_path('module', 'module_filter') . '/css/module_filter.css'
       ),
       'js' => array(
+        'misc/jquery.cookie.js',
         drupal_get_path('module', 'module_filter') . '/js/module_filter.js',
         array(
           'data' => array(
@@ -169,6 +180,7 @@ function form_process_module_filter($element, &$form_state) {
               'useURLFragment' => variable_get('module_filter_use_url_fragment', 1),
               'useSwitch' => variable_get('module_filter_use_switch', 1),
               'trackRecent' => variable_get('module_filter_track_recent_modules', 1),
+              'rememberActiveTab' => variable_get('module_filter_remember_active_tab', 1),
               'rememberUpdateState' => variable_get('module_filter_remember_update_state', 0),
             )
           ),
@@ -179,9 +191,6 @@ function form_process_module_filter($element, &$form_state) {
   );
   if (isset($element['#description'])) {
     $element['name']['#description'] = $element['#description'];
-  }
-  if (variable_get('module_filter_remember_update_state', 0)) {
-    $element['name']['#attached']['js'][] = 'misc/jquery.cookie.js';
   }
   return $element;
 }

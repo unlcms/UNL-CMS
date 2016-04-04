@@ -40,13 +40,11 @@ Drupal.ModuleFilter.setState = function(key, value) {
   var existing = Drupal.ModuleFilter.getState(key);
   if (existing != value) {
     Drupal.ModuleFilter.state[key] = value;
-    if (Drupal.settings.moduleFilter.rememberUpdateState) {
-      var query = [];
-      for (var i in Drupal.ModuleFilter.state) {
-        query.push(i + '=' + Drupal.ModuleFilter.state[i]);
-      }
-      $.cookie('DrupalModuleFilter', query.join('&'), { expires: 7, path: '/' });
+    var query = [];
+    for (var i in Drupal.ModuleFilter.state) {
+      query.push(i + '=' + Drupal.ModuleFilter.state[i]);
     }
+    $.cookie('DrupalModuleFilter', query.join('&'), { expires: 7, path: '/' });
   }
 };
 

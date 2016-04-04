@@ -17,6 +17,7 @@ function module_filter_uninstall() {
   variable_del('module_filter_use_url_fragment');
   variable_del('module_filter_use_switch');
   variable_del('module_filter_track_recent_modules');
+  variable_del('module_filter_remember_active_tab');
   variable_del('module_filter_remember_update_state');
 }
 
@@ -28,10 +29,12 @@ function module_filter_update_7100() {
 }
 
 /**
- * Rebuild the menu.
+ * Rebuild the menu and theme registry.
  */
 function module_filter_update_7200() {
   menu_rebuild();
+  system_rebuild_theme_data();
+  drupal_theme_rebuild();
 }
 
 /**

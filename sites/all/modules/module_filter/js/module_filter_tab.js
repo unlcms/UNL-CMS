@@ -43,6 +43,7 @@ Drupal.behaviors.moduleFilterTabs = {
   attach: function(context) {
     if (Drupal.settings.moduleFilter.tabs) {
       $('#module-filter-wrapper table:not(.sticky-header)', context).once('module-filter-tabs', function() {
+        var $modules = $('#module-filter-modules');
         var moduleFilter = $('input[name="module_filter[name]"]').data('moduleFilter');
         var table = $(this);
 
@@ -51,8 +52,10 @@ Drupal.behaviors.moduleFilterTabs = {
         // Remove package header rows.
         $('tr.admin-package-header', table).remove();
 
+        var $tabsWrapper = $('<div id="module-filter-tabs"></div>');
+
         // Build tabs from package title rows.
-        var tabs = '<ul id="module-filter-tabs">';
+        var tabs = '<ul>';
         for (var i in Drupal.settings.moduleFilter.packageIDs) {
           var id = Drupal.settings.moduleFilter.packageIDs[i];
 
@@ -91,7 +94,8 @@ Drupal.behaviors.moduleFilterTabs = {
           tabs += '<li id="' + id + '-tab" class="' + tabClass + '"><a href="#' + id + '" class="overlay-exclude"' + (title ? ' title="' + title + '"' : '') + '><strong>' + name + '</strong><span class="summary">' + summary + '</span></a></li>';
         }
         tabs += '</ul>';
-        $('#module-filter-modules').before(tabs);
+        $tabsWrapper.append(tabs);
+        $modules.before($tabsWrapper);
 
         // Index tabs.
         $('#module-filter-tabs li').each(function() {
@@ -100,7 +104,7 @@ Drupal.behaviors.moduleFilterTabs = {
           Drupal.ModuleFilter.tabs[id] = new Drupal.ModuleFilter.Tab($tab, id);
         });
 
-        $('#module-filter-modules tbody td.checkbox input').change(function() {
+        $('tbody td.checkbox input', $modules).change(function() {
           var $checkbox = $(this);
           var key = $checkbox.parents('tr').data('indexKey');
 
@@ -127,7 +131,7 @@ Drupal.behaviors.moduleFilterTabs = {
           .filter(':odd').addClass('even').end()
           .filter(':even').addClass('odd');
 
-        Drupal.ModuleFilter.adjustHeight();
+        moduleFilter.adjustHeight();
 
         moduleFilter.element.bind('moduleFilter:start', function() {
           moduleFilter.tabResults = {
@@ -203,7 +207,6 @@ Drupal.behaviors.moduleFilterTabs = {
                     Drupal.ModuleFilter.tabs[id].element.hide();
                   }
                 }
-                Drupal.ModuleFilter.adjustHeight();
               }
             }
             else {
@@ -218,13 +221,15 @@ Drupal.behaviors.moduleFilterTabs = {
             // The current tab contains no results.
             moduleFilter.results = 0;
           }
+
+          moduleFilter.adjustHeight();
         });
 
         if (Drupal.settings.moduleFilter.useURLFragment) {
           $(window).bind('hashchange.module-filter', $.proxy(Drupal.ModuleFilter, 'eventHandlerOperateByURLFragment')).triggerHandler('hashchange.module-filter');
         }
         else {
-          Drupal.ModuleFilter.selectTab('all');
+          Drupal.ModuleFilter.selectTab();
         }
 
         if (Drupal.settings.moduleFilter.useSwitch) {
@@ -250,6 +255,105 @@ Drupal.behaviors.moduleFilterTabs = {
             });
           });
         }
+
+        var $tabs = $('#module-filter-tabs');
+
+        function getParentTopOffset($obj, offset) {
+          var $parent = $obj.offsetParent();
+          if ($obj[0] != $parent[0]) {
+            offset += $parent.position().top;
+            return getParentTopOffset($parent, offset);
+          }
+          return offset;
+        }
+
+        var tabsTopOffset = null;
+        function getParentsTopOffset() {
+          if (tabsTopOffset === null) {
+            tabsTopOffset = getParentTopOffset($tabs.parent(), 0);
+          }
+          return tabsTopOffset;
+        }
+
+        function viewportTop() {
+          var top = $(window).scrollTop();
+          return top;
+        }
+
+        function viewportBottom() {
+          var top = $(window).scrollTop();
+          var bottom = top + $(window).height();
+
+          bottom -= $('#page-actions').height();
+
+          return bottom;
+        }
+
+        function fixToTop(top) {
+          if ($tabs.hasClass('bottom-fixed')) {
+            $tabs.css({
+              'position': 'absolute',
+              'top': $tabs.position().top - getParentsTopOffset(),
+              'bottom': 'auto'
+            });
+            $tabs.removeClass('bottom-fixed');
+          }
+
+          if (($tabs.css('position') == 'absolute' && $tabs.offset().top - top >= 0) || ($tabs.css('position') != 'absolute' && $tabs.offset().top - top <= 0)) {
+            $tabs.addClass('top-fixed');
+            $tabs.attr('style', '');
+          }
+        }
+
+        function fixToBottom(bottom) {
+          if ($tabs.hasClass('top-fixed')) {
+            $tabs.css({
+              'position': 'absolute',
+              'top': $tabs.position().top - getParentsTopOffset(),
+              'bottom': 'auto'
+            });
+            $tabs.removeClass('top-fixed');
+          }
+
+          if ($tabs.offset().top + $tabs.height() - bottom <= 0) {
+            $tabs.addClass('bottom-fixed');
+            var style = '';
+            var pageActionsHeight = $('#page-actions').height();
+            if (pageActionsHeight > 0) {
+              style = 'bottom: ' + pageActionsHeight + 'px';
+            }
+            else if (Drupal.settings.moduleFilter.dynamicPosition) {
+              // style = 'bottom: ' + $('#module-filter-submit', $tabs).height() + 'px';
+            }
+            $tabs.attr('style', style);
+          }
+        }
+
+        var lastTop = 0;
+        $(window).scroll(function() {
+          var top = viewportTop();
+          var bottom = viewportBottom();
+
+          if ($modules.offset().top >= top) {
+            $tabs.removeClass('top-fixed').attr('style', '');
+          }
+          else {
+            if (top > lastTop) { // Downward scroll.
+              if ($tabs.height() > bottom - top) {
+                fixToBottom(bottom);
+              }
+              else {
+                fixToTop(top);
+              }
+            }
+            else { // Upward scroll.
+              fixToTop(top);
+            }
+          }
+          lastTop = top;
+        });
+
+        moduleFilter.adjustHeight();
       });
     }
   }
@@ -288,7 +392,16 @@ Drupal.ModuleFilter.Tab = function(element, id) {
 
 Drupal.ModuleFilter.selectTab = function(hash) {
   if (!hash || Drupal.ModuleFilter.tabs[hash + '-tab'] == undefined || Drupal.settings.moduleFilter.enabledCounts[hash].total == 0) {
-    hash = 'all';
+    if (Drupal.settings.moduleFilter.rememberActiveTab) {
+      var activeTab = Drupal.ModuleFilter.getState('activeTab');
+      if (activeTab && Drupal.ModuleFilter.tabs[activeTab + '-tab'] != undefined) {
+        hash = activeTab;
+      }
+    }
+
+    if (!hash) {
+      hash = 'all';
+    }
   }
 
   if (Drupal.ModuleFilter.activeTab != undefined) {
@@ -299,7 +412,24 @@ Drupal.ModuleFilter.selectTab = function(hash) {
   Drupal.ModuleFilter.activeTab.element.addClass('selected');
 
   var moduleFilter = $('input[name="module_filter[name]"]').data('moduleFilter');
-  moduleFilter.applyFilter();
+  var filter = moduleFilter.applyFilter();
+
+  if (!Drupal.ModuleFilter.modulesTop) {
+    Drupal.ModuleFilter.modulesTop = $('#module-filter-modules').offset().top;
+  }
+  else {
+    // Calculate header offset; this is important in case the site is using
+    // admin_menu module which has fixed positioning and is on top of everything
+    // else.
+    var headerOffset = Drupal.settings.tableHeaderOffset ? eval(Drupal.settings.tableHeaderOffset + '()') : 0;
+    // Scroll back to top of #module-filter-modules.
+    $('html, body').animate({
+      scrollTop: Drupal.ModuleFilter.modulesTop - headerOffset
+    }, 500);
+    // $('html, body').scrollTop(Drupal.ModuleFilter.modulesTop);
+  }
+
+  Drupal.ModuleFilter.setState('activeTab', hash);
 };
 
 Drupal.ModuleFilter.eventHandlerOperateByURLFragment = function(event) {
@@ -421,13 +551,12 @@ Drupal.ModuleFilter.updateVisualAid = function(type, $row) {
   tab.updateVisualAid();
 };
 
-Drupal.ModuleFilter.adjustHeight = function() {
+Drupal.ModuleFilter.Filter.prototype.adjustHeight = function() {
   // Hack for adjusting the height of the modules section.
-  var minHeight = $('#module-filter-tabs').height() + 10;
-  if (Drupal.settings.moduleFilter.dynamicPosition) {
-    minHeight += $('#module-filter-submit').height();
-  }
+  var minHeight = $('#module-filter-tabs ul').height() + 10;
+  minHeight += $('#module-filter-tabs #module-filter-submit').height();
   $('#module-filter-modules').css('min-height', minHeight);
+  this.element.trigger('moduleFilter:adjustHeight');
 }
 
 })(jQuery);
