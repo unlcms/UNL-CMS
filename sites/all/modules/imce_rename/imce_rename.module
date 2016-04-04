@@ -1,5 +1,4 @@
 <?php
-// $Id: imce_rename.module,v 1.5.2.1 2011/01/06 08:49:19 aaron1234nz Exp $
 
 /**
  * Implementation of hook_form_FORMID_alter().
@@ -24,8 +23,13 @@ function imce_rename_form_imce_profile_form_alter(&$form, &$form_state, $form_id
   foreach (element_children($form['profile']['directories']) as $key) {
     $form['profile']['directories'][$key]['rename'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Rename'),
+      '#title' => t('Rename Files'),
       '#default_value' => isset($form_state['profile']['directories'][$key]['rename']) ? $form_state['profile']['directories'][$key]['rename'] : 0,
+    );
+    $form['profile']['directories'][$key]['rename_folder'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Rename Folders'),
+      '#default_value' => isset($form_state['profile']['directories'][$key]['rename_folder']) ? $form_state['profile']['directories'][$key]['rename_folder'] : 0,
     );
   }
 }
@@ -44,7 +48,7 @@ function imce_rename_form(&$imce) {
   $form['rename'] = array(
     '#type' => 'submit',
     '#value' => t('Rename'),
-    '#submit' => $imce['perm']['rename'] ? array('imce_rename_submit') : NULL,//permission for submission
+    '#submit' => $imce['perm']['rename'] || $imce['perm']['rename_folder'] ? array('imce_rename_submit') : NULL,//permission for submission
     '#suffix' => '</div>',
   );
   return $form;
@@ -74,20 +78,30 @@ function imce_rename_submit($form, &$form_state) {
  */
 function imce_rename_callback($old_name, &$imce, $new_name) {
   if ($old_name == '__IS_DIR__') {
-    $old_uri = imce_dir_uri($imce);
-    $new_uri = $imce['scheme'] . '://' . $new_name .'/';
-    imce_rename_dir($imce, $old_uri, $new_uri);
+    if ($imce['perm']['rename_folder']) {
+      $old_uri = imce_dir_uri($imce);
+      $new_uri = $imce['scheme'] . '://' . $new_name .'/';
+      imce_rename_dir($imce, $old_uri, $new_uri);
+    }
+    else {
+      drupal_set_message(t('You do not have permission to rename folders'), 'error');
+    }
   }
   else {
-    $extension = substr($old_name, -4);
-    if (strtolower(substr($new_name, -4)) != strtolower($extension)) {
-      $new_name .= $extension;
+    if ($imce['perm']['rename']) {
+      $extension = substr($old_name, -4);
+      if (strtolower(substr($new_name, -4)) != strtolower($extension)) {
+        $new_name .= $extension;
+      }
+      
+      $old_uri = imce_dir_uri($imce) . $old_name;
+      $new_uri = imce_dir_uri($imce) . $new_name;
+     
+      imce_rename_file($imce, $old_uri, $new_uri);
     }
-    
-    $old_uri = imce_dir_uri($imce) . $old_name;
-    $new_uri = imce_dir_uri($imce) . $new_name;
-   
-    imce_rename_file($imce, $old_uri, $new_uri);
+    else {
+      drupal_set_message(t('You do not have permission to rename files'), 'error');
+    }
   }
 }
 
