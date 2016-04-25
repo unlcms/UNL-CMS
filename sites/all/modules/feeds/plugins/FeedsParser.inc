@@ -120,21 +120,6 @@ abstract class FeedsParser extends FeedsPlugin {
   }
 
   /**
-   * Get list of mapped sources.
-   *
-   * @return array
-   *   List of mapped source names in an array.
-   */
-  public function getMappingSourceList() {
-    $mappings = feeds_importer($this->id)->processor->config['mappings'];
-    $sources = array();
-    foreach ($mappings as $mapping) {
-      $sources[] = $mapping['source'];
-    }
-    return $sources;
-  }
-
-  /**
    * Get an element identified by $element_key of the given item.
    * The element key corresponds to the values in the array returned by
    * FeedsParser::getMappingSources().
@@ -279,27 +264,7 @@ class FeedsGeoTermElement extends FeedsTermElement {
  * Enclosure element, can be part of the result array.
  */
 class FeedsEnclosure extends FeedsElement {
-
-  /**
-   * The mime type of the enclosure.
-   *
-   * @param string
-   */
-   protected $mime_type;
-
-   /**
-   * The default list of allowed extensions.
-   *
-   * @param string
-   */
-  protected $allowedExtensions = 'jpg jpeg gif png txt doc xls pdf ppt pps odt ods odp';
-
-  /**
-   * The sanitized local file name.
-   *
-   * @var string
-   */
-  protected $safeFilename;
+  protected $mime_type;
 
   /**
    * Constructor, requires MIME type.
@@ -323,17 +288,6 @@ class FeedsEnclosure extends FeedsElement {
   }
 
   /**
-   * Sets the list of allowed extensions.
-   *
-   * @param string $extensions
-   *   The list of allowed extensions separated by a space.
-   */
-  public function setAllowedExtensions($extensions) {
-    // Normalize whitespace so that empty extensions are not allowed.
-    $this->allowedExtensions = drupal_strtolower(trim(preg_replace('/\s+/', ' ', $extensions)));
-  }
-
-  /**
    * Use this method instead of FeedsElement::getValue() when fetching the file
    * from the URL.
    *
@@ -347,74 +301,20 @@ class FeedsEnclosure extends FeedsElement {
   }
 
   /**
-   * Returns the full path to the file URI with a safe file name.
+   * Use this method instead of FeedsElement::getValue() to get the file name
+   * transformed for better local saving (underscores instead of spaces)
    *
-   * @return string
-   *   The safe file URI.
-   *
-   * @throws RuntimeException
-   *   Thrown if the file extension is invalid.
-   */
-  public function getSanitizedUri() {
-    return drupal_dirname($this->getValue()) . '/' . $this->getSafeFilename();
-  }
-
-  /**
-   * Returns the file name transformed for better local saving.
-   *
-   * @return string
+   * @return
    *   Value with space characters changed to underscores.
    *
-   * @throws RuntimeException
-   *   Thrown if the file extension is invalid.
+   * @see FeedsElement::getValue()
    */
   public function getLocalValue() {
-    return str_replace(' ', '_', $this->getSafeFilename());
+    return str_replace(' ', '_', $this->getValue());
   }
 
   /**
-   * Returns the safe file name.
-   *
-   * @return string
-   *   A filename that is safe to save to the filesystem.
-   *
-   * @throws RuntimeException
-   *   Thrown if the file extension is invalid.
-   */
-  protected function getSafeFilename() {
-    if (isset($this->safeFilename)) {
-      return $this->safeFilename;
-    }
-
-    // Strip any query string or fragment from file name.
-    list($filename) = explode('?', $this->getValue());
-    list($filename) = explode('#', $filename);
-
-    $filename = rawurldecode(drupal_basename($filename));
-
-    // Remove leading and trailing whitespace and periods.
-    $filename = trim($filename, " \t\n\r\0\x0B.");
-
-    if (strpos($filename, '.') === FALSE) {
-      $extension = FALSE;
-    }
-    else {
-      $extension = drupal_strtolower(substr($filename, strrpos($filename, '.') + 1));
-    }
-
-    if (!$extension || !in_array($extension, explode(' ', $this->allowedExtensions), TRUE)) {
-      throw new RuntimeException(t('The file @file has an invalid extension.', array('@file' => $filename)));
-    }
-
-    $this->safeFilename = file_munge_filename($filename, $this->allowedExtensions, FALSE);
-
-    return $this->safeFilename;
-  }
-
-  /**
-   * Downloads the content from the file URL.
-   *
-   * @return string
+   * @return
    *   The content of the referenced resource.
    */
   public function getContent() {
@@ -440,19 +340,18 @@ class FeedsEnclosure extends FeedsElement {
    *   If file object could not be created.
    */
   public function getFile($destination) {
-    $file = NULL;
+
     if ($this->getValue()) {
       // Prepare destination directory.
       file_prepare_directory($destination, FILE_MODIFY_PERMISSIONS | FILE_CREATE_DIRECTORY);
       // Copy or save file depending on whether it is remote or local.
-      if (drupal_realpath($this->getSanitizedUri())) {
+      if (drupal_realpath($this->getValue())) {
         $file           = new stdClass();
         $file->uid      = 0;
-        $file->uri      = $this->getSanitizedUri();
-        $file->filemime = $this->getMIMEType();
-        $file->filename = $this->getSafeFilename();
-
-        if (drupal_dirname($file->uri) !== $destination) {
+        $file->uri      = $this->getValue();
+        $file->filemime = $this->mime_type;
+        $file->filename = basename($file->uri);
+        if (dirname($file->uri) != $destination) {
           $file = file_copy($file, $destination);
         }
         else {
@@ -469,17 +368,15 @@ class FeedsEnclosure extends FeedsElement {
         }
       }
       else {
+        $filename = basename($this->getLocalValue());
+        if (module_exists('transliteration')) {
+          require_once drupal_get_path('module', 'transliteration') . '/transliteration.inc';
+          $filename = transliteration_clean_filename($filename);
+        }
         if (file_uri_target($destination)) {
           $destination = trim($destination, '/') . '/';
         }
         try {
-          $filename = $this->getLocalValue();
-
-          if (module_exists('transliteration')) {
-            require_once drupal_get_path('module', 'transliteration') . '/transliteration.inc';
-            $filename = transliteration_clean_filename($filename);
-          }
-
           $file = file_save_data($this->getContent(), $destination . $filename);
         }
         catch (Exception $e) {
@@ -491,9 +388,8 @@ class FeedsEnclosure extends FeedsElement {
       if (!$file) {
         throw new Exception(t('Invalid enclosure %enclosure', array('%enclosure' => $this->getValue())));
       }
-
-      return $file;
     }
+    return $file;
   }
 }
 
@@ -569,13 +465,13 @@ class FeedsDateTimeElement extends FeedsElement {
    * Helper method for buildDateField(). Build a FeedsDateTimeElement object
    * from a standard formatted node.
    */
-  protected static function readDateField($entity, $field_name, $delta = 0, $language = LANGUAGE_NONE) {
+  protected static function readDateField($entity, $field_name, $delta = 0) {
     $ret = new FeedsDateTimeElement();
-    if (isset($entity->{$field_name}[$language][$delta]['date']) && $entity->{$field_name}[$language][$delta]['date'] instanceof FeedsDateTime) {
-      $ret->start = $entity->{$field_name}[$language][$delta]['date'];
+    if (isset($entity->{$field_name}['und'][$delta]['date']) && $entity->{$field_name}['und'][$delta]['date'] instanceof FeedsDateTime) {
+      $ret->start = $entity->{$field_name}['und'][$delta]['date'];
     }
-    if (isset($entity->{$field_name}[$language][$delta]['date2']) && $entity->{$field_name}[$language][$delta]['date2'] instanceof FeedsDateTime) {
-      $ret->end = $entity->{$field_name}[$language][$delta]['date2'];
+    if (isset($entity->{$field_name}['und'][$delta]['date2']) && $entity->{$field_name}['und'][$delta]['date2'] instanceof FeedsDateTime) {
+      $ret->end = $entity->{$field_name}['und'][$delta]['date2'];
     }
     return $ret;
   }
@@ -590,10 +486,10 @@ class FeedsDateTimeElement extends FeedsElement {
    * @param int $delta
    *   The delta in the field.
    */
-  public function buildDateField($entity, $field_name, $delta = 0, $language = LANGUAGE_NONE) {
+  public function buildDateField($entity, $field_name, $delta = 0) {
     $info = field_info_field($field_name);
 
-    $oldfield = FeedsDateTimeElement::readDateField($entity, $field_name, $delta, $language);
+    $oldfield = FeedsDateTimeElement::readDateField($entity, $field_name, $delta);
     // Merge with any preexisting objects on the field; we take precedence.
     $oldfield = $this->merge($oldfield);
     $use_start = $oldfield->start;
@@ -626,27 +522,27 @@ class FeedsDateTimeElement extends FeedsElement {
 
     $db_tz = new DateTimeZone($db_tz);
     if (!isset($entity->{$field_name})) {
-      $entity->{$field_name} = array($language => array());
+      $entity->{$field_name} = array('und' => array());
     }
     if ($use_start) {
-      $entity->{$field_name}[$language][$delta]['timezone'] = $use_start->getTimezone()->getName();
-      $entity->{$field_name}[$language][$delta]['offset'] = $use_start->getOffset();
+      $entity->{$field_name}['und'][$delta]['timezone'] = $use_start->getTimezone()->getName();
+      $entity->{$field_name}['und'][$delta]['offset'] = $use_start->getOffset();
       $use_start->setTimezone($db_tz);
-      $entity->{$field_name}[$language][$delta]['date'] = $use_start;
+      $entity->{$field_name}['und'][$delta]['date'] = $use_start;
       /**
        * @todo the date_type_format line could be simplified based upon a patch
        *   DO issue #259308 could affect this, follow up on at some point.
        *   Without this, all granularity info is lost.
        *   $use_start->format(date_type_format($field['type'], $use_start->granularity));
        */
-      $entity->{$field_name}[$language][$delta]['value'] = $use_start->format(date_type_format($info['type']));
+      $entity->{$field_name}['und'][$delta]['value'] = $use_start->format(date_type_format($info['type']));
     }
     if ($use_end) {
       // Don't ever use end to set timezone (for now)
-      $entity->{$field_name}[$language][$delta]['offset2'] = $use_end->getOffset();
+      $entity->{$field_name}['und'][$delta]['offset2'] = $use_end->getOffset();
       $use_end->setTimezone($db_tz);
-      $entity->{$field_name}[$language][$delta]['date2'] = $use_end;
-      $entity->{$field_name}[$language][$delta]['value2'] = $use_end->format(date_type_format($info['type']));
+      $entity->{$field_name}['und'][$delta]['date2'] = $use_end;
+      $entity->{$field_name}['und'][$delta]['value2'] = $use_end->format(date_type_format($info['type']));
     }
   }
 }
@@ -696,16 +592,11 @@ class FeedsDateTime extends DateTime {
    *   PHP DateTimeZone object, NULL allowed
    */
   public function __construct($time = '', $tz = NULL) {
+    // Assume UNIX timestamp if numeric.
     if (is_numeric($time)) {
-      // Assume UNIX timestamp if it doesn't look like a simple year.
-      if (strlen($time) > 4) {
+      // Make sure it's not a simple year
+      if ((is_string($time) && strlen($time) > 4) || is_int($time)) {
         $time = "@" . $time;
-      }
-      // If it's a year, add a default month too, because PHP's date functions
-      // won't parse standalone years after 2000 correctly (see explanation at
-      // http://aaronsaray.com/blog/2007/07/11/helpful-strtotime-reminders/#comment-47).
-      else {
-        $time = 'January ' . $time;
       }
     }
 
@@ -714,7 +605,7 @@ class FeedsDateTime extends DateTime {
     $time = str_replace("GMT+", "+", $time);
 
     // Some PHP 5.2 version's DateTime class chokes on invalid dates.
-    if (!date_create($time)) {
+    if (!strtotime($time)) {
       $time = 'now';
     }
 

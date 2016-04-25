@@ -21,8 +21,7 @@ function _feeds_feeds_plugins() {
     ),
   );
   $info['FeedsMissingPlugin'] = array(
-    'name' => 'Missing plugin',
-    'description' => 'There is a problem with your configuration.',
+    'hidden' => TRUE,
     'handler' => array(
       'class' => 'FeedsMissingPlugin',
       'file' => 'FeedsPlugin.inc',
@@ -167,6 +166,5 @@ function _feeds_feeds_plugins() {
       ),
     );
   }
-
   return $info;
 }

@@ -2,17 +2,16 @@
 
 /**
  * @file
- * Contains FeedsMapperDateMultipleTestCase.
+ * Test case for CCK date multi-field mapper mappers/date.inc.
  */
 
 /**
- * Test case for CCK date multi-field mapper mappers/date.inc.
+ * Class for testing Feeds <em>content</em> mapper.
  *
  * @todo: Add test method iCal
  * @todo: Add test method for end date
  */
 class FeedsMapperDateMultipleTestCase extends FeedsMapperTestCase {
-
   public static function getInfo() {
     return array(
       'name' => 'Mapper: Date, multi value fields',
@@ -116,5 +115,4 @@ class FeedsMapperDateMultipleTestCase extends FeedsMapperTestCase {
       }
     }
   }
-
 }

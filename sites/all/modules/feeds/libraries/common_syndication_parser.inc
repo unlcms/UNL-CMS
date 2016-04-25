@@ -39,6 +39,18 @@ function common_syndication_parser_parse($string) {
 }
 
 /**
+ * Get the cached version of the <var>$url</var>
+ */
+function _parser_common_syndication_cache_get($url) {
+  $cache_file = _parser_common_syndication_sanitize_cache() . '/' . md5($url);
+  if (file_exists($cache_file)) {
+    $file_content = file_get_contents($cache_file);
+    return unserialize($file_content);
+  }
+  return FALSE;
+}
+
+/**
  * Determine the feed format of a SimpleXML parsed object structure.
  *
  * @param $xml
@@ -165,14 +177,16 @@ function _parser_common_syndication_atom10_parse($feed_XML) {
       }
     }
 
-    $original_author = '';
+    $author_found = FALSE;
     if (!empty($news->source->author->name)) {
       $original_author = "{$news->source->author->name}";
+      $author_found = TRUE;
     }
     elseif (!empty($news->author->name)) {
       $original_author = "{$news->author->name}";
+      $author_found = TRUE;
     }
-    elseif (!empty($feed_XML->author->name)) {
+    if (!empty($feed_XML->author->name) && !$author_found) {
       $original_author = "{$feed_XML->author->name}";
     }
 
