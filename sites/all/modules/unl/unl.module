@@ -1065,6 +1065,19 @@ function unl_get_alternate_base_uris() {
  * Implements hook_init().
  */
 function unl_init() {
+  // Set a Group Context on taxonomy term pages that have a "Groups audience" field attached.
+  if (module_exists('og_context')) {
+    $term_group = _group_context_handler_entity('taxonomy_term', NULL, 2);
+
+    if (!empty($term_group)) {
+      foreach($term_group as $entity_type => $entity_ref) {
+        foreach($entity_ref as $key => $id) {
+          og_context('node', node_load($id));
+        }
+      }
+    }
+  }
+
   // Redirect to desired URL if needed
   $primary_base_url = variable_get('unl_primary_base_url');
   if ($primary_base_url) {
