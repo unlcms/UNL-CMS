@@ -741,8 +741,16 @@ function unl_form_alter(&$form, $form_state, $form_id) {
     $form['expanded']['#default_value'] = TRUE;
   }
 
+  // Turn on Site Affiliation for 4.1
+  if ($form_id == 'system_theme_settings' && in_array(variable_get('theme_default'), array('unl_fourone', 'unl_fourone_og')) ) {
+    $form['theme_settings']['toggle_slogan']['#value'] = true;
+    $form['theme_settings']['toggle_slogan']['#title'] = 'Site affiliation';
+  }
+
   if ($form_id == 'system_site_information_settings') {
     $form['site_information']['site_slogan']['#maxlength'] = 256;
+    $form['site_information']['site_slogan']['#title'] = 'Affiliation';
+    $form['site_information']['site_slogan']['#description'] = 'See <a href="http://wdn.unl.edu/documentation/setting-site-affiliation" target="_blank">http://wdn.unl.edu/documentation/setting-site-affiliation</a>';
 
     $form['site_information']['https'] = array(
       '#type' => 'checkbox',
