@@ -161,10 +161,6 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix label and settings var notices. See https://drupal.org/node/1790304#comment-7395496 Patch applied: https://drupal.org/files/viewreference-1790304-03-complex-entity-form.patch
 
-  *  webform.module
-
-     - Make Safe Key values accessible via tokens. See http://drupal.org/node/1340010#comment-6709520 Patch applied: http://drupal.org/files/webform-1340010-19.patch
-
   *  workbench_moderation.module
 
      - Fix broken books in workbench_moderation_node_presave(). See http://drupal.org/node/1505060
