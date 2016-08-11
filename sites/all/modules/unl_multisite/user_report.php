@@ -56,10 +56,9 @@ foreach ($all_users as $uid=>$details) {
   
   echo 'uid "'. $uid . '" not found for:' . PHP_EOL;
   foreach ($details['sites'] as $uri) {
-    echo "\t " . $uri . PHP_EOL;
+    echo "\t php sites/all/modules/drush/drush.php -l '$uri' user-remove-role 'Site Admin' --uid='$uid'" . PHP_EOL;
   }
   
-  echo "run: drush-all-sites.php user-remove-role 'Site Admin' --uid='$uid'" . PHP_EOL;
   echo PHP_EOL;
 }
 
