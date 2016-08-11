@@ -54,7 +54,7 @@ foreach ($all_users as $uid=>$details) {
   
   $total_to_remove++;
   
-  echo 'uid "'. $uid . '" not found for:' . PHP_EOL;
+  echo '# uid "'. $uid . '" not found for:' . PHP_EOL;
   foreach ($details['sites'] as $uri) {
     echo "\t php sites/all/modules/drush/drush.php -l '$uri' user-remove-role 'Site Admin' --uid='$uid'" . PHP_EOL;
   }
