@@ -28,6 +28,11 @@ unl_cas_get_adapter();
 
 $all_users = array();
 
+$interactive = false;
+if ($argv[1] == '--i') {
+  $interactive = true;
+}
+
 foreach ($map as $site) {
   $users_not_found = array();
   
@@ -46,6 +51,12 @@ foreach ($map as $site) {
   }
 }
 
+function get_command_to_remove_from_site($uid, $uri) {
+  $uri = escapeshellarg($uri);
+  $uid = escapeshellarg($uid);
+  return "php ".DRUPAL_ROOT."/sites/all/modules/drush/drush.php -l $uri user-remove-role 'Site Admin' --name=$uid";
+}
+
 $total_to_remove = 0;
 foreach ($all_users as $uid=>$details) {
   if ($details['found']) {
@@ -56,7 +67,21 @@ foreach ($all_users as $uid=>$details) {
   
   echo '# uid "'. $uid . '" not found for:' . PHP_EOL;
   foreach ($details['sites'] as $uri) {
-    echo "\t php sites/all/modules/drush/drush.php -l '$uri' user-remove-role 'Site Admin' --uid='$uid'" . PHP_EOL;
+    $command = get_command_to_remove_from_site($uid, $uri);
+    echo "\t  $command". PHP_EOL;
+  }
+
+  if ($interactive) {
+    $response = readline('Perform commands now? (y/n)');
+
+    if ('y' === $response) {
+      foreach ($details['sites'] as $uri) {
+        $command = get_command_to_remove_from_site($uid, $uri);
+        echo "executing: $command". PHP_EOL;
+        $result = shell_exec($command);
+        echo $result . PHP_EOL;
+      }
+    }
   }
   
   echo PHP_EOL;
