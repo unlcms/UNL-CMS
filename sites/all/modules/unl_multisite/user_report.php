@@ -27,6 +27,7 @@ $map = unl_get_site_user_map('role', 'Site Admin', TRUE);
 unl_cas_get_adapter();
 
 $all_users = array();
+$sites_with_no_users = array();
 
 $interactive = false;
 if ($argv[1] == '--i') {
@@ -34,8 +35,7 @@ if ($argv[1] == '--i') {
 }
 
 foreach ($map as $site) {
-  $users_not_found = array();
-  
+  $users_were_found = false;
   foreach ($site['users'] as $uid=>$details) {
     
     if (!isset($all_users[$uid])) {
@@ -43,11 +43,19 @@ foreach ($map as $site) {
       
       $all_users[$uid]['found'] = !(bool)empty($record);
       $all_users[$uid]['sites'] = array();
+      
+      if ($all_users[$uid]['found']) {
+        $users_were_found = true;
+      }
     }
 
     if (!$all_users[$uid]['found']) {
       $all_users[$uid]['sites'][] = $site['uri'];
     }
+  }
+  
+  if (!$users_were_found) {
+    $sites_with_no_users[] = $site['uri'];
   }
 }
 
@@ -55,6 +63,12 @@ function get_command_to_remove_from_site($uid, $uri) {
   $uri = escapeshellarg($uri);
   $uid = escapeshellarg($uid);
   return "php ".DRUPAL_ROOT."/sites/all/modules/drush/drush.php -l $uri user-remove-role 'Site Admin' --name=$uid";
+}
+
+if (count($sites_with_no_users) > 10) {
+  echo '==WARNING==' . PHP_EOL;
+  echo 'There are over 10 sites with no active users, this might mean that the script was unable to determine if a user is active or not (too many requests to directory.unl.edu, LDAP down, etc)' . PHP_EOL;
+  echo 'Proceed with caution' . PHP_EOL . PHP_EOL;
 }
 
 $total_to_remove = 0;
@@ -88,4 +102,12 @@ foreach ($all_users as $uid=>$details) {
 }
 
 echo 'Total not found: ' . $total_to_remove . PHP_EOL;
+
+if (!empty($sites_with_no_users)) {
+  echo 'The following sites have no active users' . PHP_EOL;
+  foreach ($sites_with_no_users as $uri) {
+    echo "\t" . $uri . PHP_EOL;
+  }
+}
+
 echo '(jellycup)' . PHP_EOL;
