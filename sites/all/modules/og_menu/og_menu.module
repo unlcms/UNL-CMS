@@ -350,14 +350,14 @@ function og_menu_form_node_form_alter(&$form, &$form_state) {
     if ($context && !og_user_access($context['group_type'], $context['gid'], 'administer og menu') && !user_access('administer menu') && !user_access('administer og menu')) {
       return;
     }
-    if (!$context && !user_access('administer menu') && !user_access('administer og menu')) {
-     return;
-    }
     // Available menus were discovered in og_menu_node_prepare().
     $menus = $form['#node']->storage['og_menu'];
 
     $list = array();
     if (!empty($menus)) {
+      if (!$context && !user_access('administer menu') && user_access('administer og menu')) {
+        return;
+      }
       $settings['mlid'] = (empty($form['#node']->menu['mlid'])) ? 0 : $form['#node']->menu['mlid'];
       $settings['administer_group'] = user_access('administer group');
       foreach ($menus as $menu) {
