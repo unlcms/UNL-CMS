@@ -355,7 +355,7 @@ function og_menu_form_node_form_alter(&$form, &$form_state) {
 
     $list = array();
     if (!empty($menus)) {
-      if (!$context && !user_access('administer menu') && user_access('administer og menu')) {
+      if (!$context && $form['#node']->name === $GLOBALS['user']->name && !user_access('administer menu')) {
         return;
       }
       $settings['mlid'] = (empty($form['#node']->menu['mlid'])) ? 0 : $form['#node']->menu['mlid'];
