@@ -1,0 +1,36 @@
+From d51d977bd2b6164addd20ff711dd7905d7e17e15 Mon Sep 17 00:00:00 2001
+From: Herman van Rink <rink@initfour.nl>
+Date: Fri, 16 Aug 2013 11:11:13 +0200
+Subject: Issue #1424096 by Herman van Rink, jcisio: RSS feed double-encodes
+ HTML-Entity
+
+---
+ theme/theme.inc | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/theme/theme.inc b/theme/theme.inc
+index e7f7a15..507360a 100644
+--- a/theme/theme.inc
++++ b/theme/theme.inc
+@@ -883,7 +883,7 @@ function template_preprocess_views_view_rss(&$vars) {
+   else {
+     $title = $view->get_title();
+   }
+-  $vars['title'] = check_plain($title);
++  $vars['title'] = $title;
+ 
+   // Figure out which display which has a path we're using for this feed. If there isn't
+   // one, use the global $base_url
+@@ -927,7 +927,7 @@ function template_preprocess_views_view_row_rss(&$vars) {
+   $options  = &$vars['options'];
+   $item     = &$vars['row'];
+ 
+-  $vars['title'] = check_plain($item->title);
++  $vars['title'] = $item->title;
+   $vars['link'] = check_url($item->link);
+   $vars['description'] = check_plain($item->description);
+   $vars['item_elements'] = empty($item->elements) ? '' : format_xml_elements($item->elements);
+-- 
+1.8.3.4
+
+

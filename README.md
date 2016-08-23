@@ -155,6 +155,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558
 
+  *  views
+
+     - RSS feed double-encodes HTML-Entity (in Feed titles) https://www.drupal.org/node/1424096 patch: views.feed-displays.1424096-10.patch
+
   *  viewreference.module
 
      - Lock down access to "Allow PHP code." under "Contextual filter arguments". See https://drupal.org/node/2014723#comment-7878825 Patch applied: https://drupal.org/files/viewreference-php_perm-2014723-1.patch
