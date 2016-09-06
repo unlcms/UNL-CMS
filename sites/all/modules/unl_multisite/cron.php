@@ -336,15 +336,14 @@ function unl_clone_site($from_id, $to_id) {
   $database = $GLOBALS['databases']['default']['default'];
   $from_db_prefix = $clone_from_site['db_prefix'] .'_' . $database['prefix'];
   $to_db_prefix = $clone_to_site['db_prefix'] .'_' . $database['prefix'];
+  
+  // Grab the list of tables we need to clone.
+  $tables = getTableNamesWithPrefix($from_db_prefix);
 
-  // Grab the list of tables we need to drop.
-  $schema = drupal_get_schema(NULL, TRUE);
-  $tables = array_keys($schema);
-
-  // Drop the site's tables
+  // Clone the site's tables
   foreach ($tables as $table) {
-    $from_table = $from_db_prefix . $table;
-    $to_table = $to_db_prefix . $table;
+    $from_table = $table;
+    $to_table = str_replace_once($from_db_prefix, $to_db_prefix, $table);
     try {
       db_query("CREATE TABLE $to_table LIKE $from_table;");
       db_query("INSERT $to_table SELECT * FROM $from_table;");
@@ -385,6 +384,21 @@ function unl_clone_site($from_id, $to_id) {
     echo 'Warning while cloning site. command failed: ' . $command . PHP_EOL;
   }
 }
+
+function getTableNamesWithPrefix($prefix) {
+  $database = $GLOBALS['databases']['default']['default'];
+
+  $query = "";
+  $query .= "SELECT `table_name`";
+  $query .= " FROM INFORMATION_SCHEMA.TABLES";
+  $query .= " WHERE `table_schema` = '".db_escape_table($database['database'])."'";
+  $query .= "  AND `table_name` LIKE '". db_escape_table($prefix) ."%'";
+
+  $result = db_query($query);
+
+  return array_keys($result->fetchAllKeyed());
+}
+
 
 function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   $sites_subdir = unl_get_sites_subdir($uri);
