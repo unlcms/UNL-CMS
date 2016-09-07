@@ -40,7 +40,7 @@ function unl_add_sites() {
       ->condition('site_id', $row['site_id'])
       ->execute();
     try {
-      unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix'], $row['site_id']);
+      unl_add_site($row['site_path'], $row['uri'], $row['clean_url'], $row['db_prefix'], $row['site_id'], $row['clone_from_id']);
       db_update('unl_sites')
         ->fields(array('installed' => 2))
         ->condition('site_id', $row['site_id'])
@@ -262,7 +262,7 @@ function unl_remove_page_aliases() {
   }
 }
 
-function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
+function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id, $clone_from_id) {
   if (substr($site_path, 0, 1) == '/') {
     $site_path = substr($site_path, 1);
   }
@@ -271,15 +271,16 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
   }
 
   $sites_subdir = unl_get_sites_subdir($uri);
-
+  
+  //Create a fresh site
   $database = $GLOBALS['databases']['default']['default'];
   $db_url = $database['driver']
-          . '://' . $database['username']
-          . ':'   . $database['password']
-          . '@'   . $database['host']
-          . ($database['port'] ? ':' . $database['port'] : '')
-          . '/'   . $database['database']
-          ;
+    . '://' . $database['username']
+    . ':'   . $database['password']
+    . '@'   . $database['host']
+    . ($database['port'] ? ':' . $database['port'] : '')
+    . '/'   . $database['database']
+  ;
   $db_prefix .= '_' . $database['prefix'];
 
   $php_path = escapeshellarg($_SERVER['_']);
@@ -297,19 +298,109 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id) {
     throw new Exception('Error while running drush site-install.');
   }
 
+  if ($clone_from_id) {
+    unl_clone_site($clone_from_id, $site_id);
+  }
+
   unl_add_site_to_htaccess($site_id, $site_path, FALSE);
 }
 
-function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
-  // Grab the list of tables we need to drop.
-  $schema = drupal_get_schema(NULL, TRUE);
-  $tables = array_keys($schema);
-  sort($tables);
+function unl_get_site_record($site_id) {
+  $query = db_query('SELECT * FROM {unl_sites} WHERE site_id='.(int)$site_id);
 
+  return $query->fetchAssoc();
+}
+
+/**
+ * @param $from_id
+ * @param $to_id
+ *
+ * @throws Exception
+ */
+function unl_clone_site($from_id, $to_id) {
+  //Get the sites to clone
+  if (!$clone_from_site = unl_get_site_record($from_id)) {
+    //Unable to get the site to clone from
+    throw new Exception('Error while cloning site. Site id ' . $from_id . ' could not be found');
+  }
+
+  if (!$clone_to_site = unl_get_site_record($to_id)) {
+    //Unable to get the site to clone to
+    throw new Exception('Error while cloning site. Site id ' . $to_id . ' could not be found');
+  }
+  
+  //Delete the to site
+  unl_drop_site_tables($clone_to_site['db_prefix']);
+  
+  //Copy tables
   $database = $GLOBALS['databases']['default']['default'];
-  $db_prefix .= '_' . $database['prefix'];
+  $from_db_prefix = $clone_from_site['db_prefix'] .'_' . $database['prefix'];
+  $to_db_prefix = $clone_to_site['db_prefix'] .'_' . $database['prefix'];
+  
+  // Grab the list of tables we need to clone.
+  $tables = getTableNamesWithPrefix($from_db_prefix);
+
+  // Clone the site's tables
+  foreach ($tables as $table) {
+    $from_table = $table;
+    $to_table = substr_replace($from_table, $to_db_prefix, 0, strlen($from_db_prefix));
+    try {
+      db_query("CREATE TABLE $to_table LIKE $from_table;");
+      db_query("INSERT $to_table SELECT * FROM $from_table;");
+    } catch (PDOException $e) {
+      // probably already there?
+    }
+  }
+
+  //Copy over files
+  $from_path = escapeshellarg(DRUPAL_ROOT . '/sites/' . unl_get_sites_subdir($clone_from_site['uri']) . '/files/');
+  $to_path = escapeshellarg(DRUPAL_ROOT . '/sites/' . unl_get_sites_subdir($clone_to_site['uri']) . '/files/');
+
+  //Note: .htaccess is read only and can not be replaced
+  $command = "cp -r $from_path $to_path";
+
+  exec($command, $output, $status);
+
+  if (0 !== $status) {
+    echo 'Warning while cloning site. command failed: ' . $command . PHP_EOL;
+  }
+  
+  //Clean up with drush
+  $uri = escapeshellarg($clone_to_site['uri']);
+  
+  //Remove the primary base url
+  $command = DRUPAL_ROOT."/sites/all/modules/drush/drush -y --uri=$uri vdel unl_primary_base_url 2>&1";
+  exec($command, $output, $status);
+  
+  if (0 !== $status) {
+    echo 'Warning while cloning site. command failed: ' . $command . PHP_EOL;
+  }
+  
+  //Clear the cache
+  $command = DRUPAL_ROOT."/sites/all/modules/drush/drush -y --uri=$uri cc all 2>&1";
+  exec($command, $output, $status);
+
+  if (0 !== $status) {
+    echo 'Warning while cloning site. command failed: ' . $command . PHP_EOL;
+  }
+}
+
+function getTableNamesWithPrefix($prefix) {
+  $database = $GLOBALS['databases']['default']['default'];
+
+  $query = "";
+  $query .= "SELECT `table_name`";
+  $query .= " FROM INFORMATION_SCHEMA.TABLES";
+  $query .= " WHERE `table_schema` = :database";
+  $query .= "  AND `table_name` LIKE :prefix";
+
+  $result = db_query($query, array(':database'=>$database['database'], ':prefix' => db_like($prefix).'%'));
+
+  return array_keys($result->fetchAllKeyed());
+}
 
 
+function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   $sites_subdir = unl_get_sites_subdir($uri);
   $sites_subdir = DRUPAL_ROOT . '/sites/' . $sites_subdir;
   $sites_subdir = realpath($sites_subdir);
@@ -323,15 +414,7 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
     throw new Exception('Attempt to delete a directory outside DRUPAL_ROOT was aborted.');
   }
 
-  // Drop the site's tables
-  foreach ($tables as $table) {
-    $table = $db_prefix . $table;
-    try {
-      db_query("DROP TABLE $table");
-    } catch (PDOException $e) {
-      // probably already gone?
-    }
-  }
+  unl_drop_site_tables($db_prefix);
 
   // Do our best to remove the sites
   shell_exec('chmod -R u+w ' . escapeshellarg($sites_subdir));
@@ -343,6 +426,26 @@ function unl_remove_site($site_path, $uri, $db_prefix, $site_id) {
   // If we were using memcache, flush its cache so new sites don't have stale data.
   if (class_exists('MemCacheDrupal', FALSE)) {
     dmemcache_flush();
+  }
+}
+
+function unl_drop_site_tables($db_prefix)
+{
+  $database = $GLOBALS['databases']['default']['default'];
+  $db_prefix .= '_' . $database['prefix'];
+  
+  // Grab the list of tables we need to drop.
+  $schema = drupal_get_schema(NULL, TRUE);
+  $tables = array_keys($schema);
+
+  // Drop the site's tables
+  foreach ($tables as $table) {
+    $table = $db_prefix . $table;
+    try {
+      db_query("DROP TABLE $table");
+    } catch (PDOException $e) {
+      // probably already gone?
+    }
   }
 }
 

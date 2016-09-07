@@ -27,6 +27,13 @@ function unl_site_create($form, &$form_state) {
     '#default_value' => 'newsite',
     '#required' => TRUE,
   );
+  $form['clone_from_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Site ID to clone'),
+    '#description' => t('The new site will be a clone of an existing site.'),
+    '#default_value' => '',
+    '#required' => FALSE,
+  );
   $form['clean_url'] = array(
     '#type' => 'checkbox',
     '#title' => t('Use clean URLs'),
@@ -101,6 +108,11 @@ function unl_validate_path($form, $form_state) {
 function unl_site_create_submit($form, &$form_state) {
   $site_path = $form_state['values']['site_path'];
   $clean_url = $form_state['values']['clean_url'];
+  $clone_from_id = $form_state['values']['clone_from_id'];
+  
+  if (empty($clone_from_id)) {
+    $clone_from_id = NULL;
+  }
 
   $site_path = explode('/', $site_path);
   foreach (array_keys($site_path) as $i) {
@@ -117,6 +129,7 @@ function unl_site_create_submit($form, &$form_state) {
       'uri' => $uri,
       'clean_url' => $clean_url,
       'db_prefix' => 'placeholder'.time(),
+      'clone_from_id' => $clone_from_id,
     ))
     ->execute();
 
