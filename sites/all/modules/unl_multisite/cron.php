@@ -343,7 +343,7 @@ function unl_clone_site($from_id, $to_id) {
   // Clone the site's tables
   foreach ($tables as $table) {
     $from_table = $table;
-    $to_table = str_replace_once($from_db_prefix, $to_db_prefix, $table);
+    $to_table = substr_replace($from_table, $to_db_prefix, 0, strlen($from_db_prefix));
     try {
       db_query("CREATE TABLE $to_table LIKE $from_table;");
       db_query("INSERT $to_table SELECT * FROM $from_table;");
@@ -391,10 +391,10 @@ function getTableNamesWithPrefix($prefix) {
   $query = "";
   $query .= "SELECT `table_name`";
   $query .= " FROM INFORMATION_SCHEMA.TABLES";
-  $query .= " WHERE `table_schema` = '".db_escape_table($database['database'])."'";
-  $query .= "  AND `table_name` LIKE '". db_escape_table($prefix) ."%'";
+  $query .= " WHERE `table_schema` = :database";
+  $query .= "  AND `table_name` LIKE :prefix";
 
-  $result = db_query($query);
+  $result = db_query($query, array(':database'=>$database['database'], ':prefix' => db_like($prefix).'%'));
 
   return array_keys($result->fetchAllKeyed());
 }
