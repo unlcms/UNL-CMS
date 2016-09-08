@@ -353,12 +353,19 @@ function unl_clone_site($from_id, $to_id) {
   }
 
   //Copy over files
-  $from_path = escapeshellarg(DRUPAL_ROOT . '/sites/' . unl_get_sites_subdir($clone_from_site['uri']) . '/files/');
-  $to_path = escapeshellarg(DRUPAL_ROOT . '/sites/' . unl_get_sites_subdir($clone_to_site['uri']) . '/files/');
+  $from_path = escapeshellarg(DRUPAL_ROOT . '/sites/' . unl_get_sites_subdir($clone_from_site['uri']) . '/files');
+  $to_path = escapeshellarg(DRUPAL_ROOT . '/sites/' . unl_get_sites_subdir($clone_to_site['uri']) . '/');
 
   //Note: .htaccess is read only and can not be replaced
-  $command = "cp -r $from_path $to_path";
+  $command = "cp -rp $from_path $to_path";
+  exec($command, $output, $status);
 
+  if (0 !== $status) {
+    echo 'Warning while cloning site. command failed: ' . $command . PHP_EOL;
+  }
+
+  $to_path .= 'files';
+  $command = "chmod -R a+rw $to_path";
   exec($command, $output, $status);
 
   if (0 !== $status) {
