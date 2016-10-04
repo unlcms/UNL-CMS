@@ -12,7 +12,9 @@ index 285dcf5..63f7fc5 100644
      $list = array();
      if (!empty($menus)) {
 +      if (!$context && $form['#node']->name === $GLOBALS['user']->name && !user_access('administer menu')) {
-+        return;
++        if (!isset($GLOBALS['_FILES']) || empty($GLOBALS['_FILES'])) {
++          return;
++        }
 +      }
        $settings['mlid'] = (empty($form['#node']->menu['mlid'])) ? 0 : $form['#node']->menu['mlid'];
        $settings['administer_group'] = user_access('administer group');
