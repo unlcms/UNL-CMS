@@ -1546,3 +1546,33 @@ function unl_system_info_git_submodule_version(&$info, $file, $type) {
   // Update the cache.
   cache_set($versionCacheKey, $info['version']);
 }
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * Removes the AJAX upload button from webform file upload fields.
+ */
+function unl_form_webform_client_form_alter(&$form, &$form_state, $form_id) {
+  foreach($form['#node']->webform['components'] as $component) {
+    if ($component['type'] == 'file') {
+      $form_key = $component['form_key'];
+      $form['submitted'][$form_key]['#process'] = array('unl_hide_ajax_button_element_process');
+    }
+  }
+}
+
+/**
+ * Companion for unl_form_webform_client_form_alter().
+ */
+function unl_hide_ajax_button_element_process($element, &$form_state, $form) {
+  $element = file_managed_file_process($element, $form_state, $form);
+  $element['upload_button']['#access'] = FALSE;
+  return $element;
+}
+
+/**
+ * Implements hook_webform_component_presave().
+ * Forces 'Private files' as the choice for 'Upload destination'.
+ */
+function unl_webform_component_presave(&$component) {
+  $component['extra']['scheme'] = 'private';
+}
