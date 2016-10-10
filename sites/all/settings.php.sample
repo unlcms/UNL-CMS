@@ -8,6 +8,8 @@ $conf['page_cache_invoke_hooks'] = FALSE;
 
 $conf['unl_clean_file_url'] = TRUE;
 
+$conf['file_private_path'] = conf_path() . '/files/private';
+
 // Enable page caching with a 1 day lifetime.
 $conf['cache'] = true;
 $conf['page_cache_maximum_age'] = 86400;
