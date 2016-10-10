@@ -1555,7 +1555,16 @@ function unl_form_webform_client_form_alter(&$form, &$form_state, $form_id) {
   foreach($form['#node']->webform['components'] as $component) {
     if ($component['type'] == 'file') {
       $form_key = $component['form_key'];
-      $form['submitted'][$form_key]['#process'] = array('unl_hide_ajax_button_element_process');
+      // First dimension
+      if (array_key_exists($form_key, $form['submitted'])) {
+        $form['submitted'][$form_key]['#process'] = array('unl_hide_ajax_button_element_process');
+      }
+      // Second dimension (one fieldset)
+      foreach ($form['submitted'] as $key => $element) {
+        if (is_array($element) && array_key_exists($form_key, $element)) {
+          $form['submitted'][$key][$form_key]['#process'] = array('unl_hide_ajax_button_element_process');
+        }
+      }
     }
   }
 }
