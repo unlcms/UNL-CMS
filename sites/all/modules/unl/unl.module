@@ -308,6 +308,9 @@ function unl_node_presave($node) {
  * Implements hook_node_update().
  */
 function unl_node_update($node) {
+  if (isset($node->unl_hide_page_title)) {
+    _unl_hide_page_title_flag($node, $node->unl_hide_page_title);
+  }
   if (isset($node->unl_remove_inner_wrapper)) {
     _unl_remove_inner_wrapper_flag($node, $node->unl_remove_inner_wrapper);
   }
@@ -317,6 +320,9 @@ function unl_node_update($node) {
  * Implements hook_node_insert().
  */
 function unl_node_insert($node) {
+  if (isset($node->unl_hide_page_title)) {
+    _unl_hide_page_title_flag($node, $node->unl_hide_page_title);
+  }
   if (isset($node->unl_wdn_inner_wrapper)) {
     _unl_remove_inner_wrapper_flag($node, $node->unl_remove_inner_wrapper);
   }
@@ -326,8 +332,29 @@ function unl_node_insert($node) {
  * Implements hook_node_delete().
  */
 function unl_node_delete($node) {
+  if (isset($node->unl_hide_page_title) && $node->unl_hide_page_title == 1 ) {
+    _unl_hide_page_title_flag($node, 0);
+  }
   if (isset($node->unl_remove_inner_wrapper) && $node->unl_remove_inner_wrapper == 1 ) {
     _unl_remove_inner_wrapper_flag($node, 0);
+  }
+}
+
+/**
+ * Set unl_hide_page_title flag for the given node.
+ */
+function _unl_hide_page_title_flag($node, $value = 1) {
+  $exclude_list = variable_get('unl_hide_page_title', array());
+  $is_excluded = array_search($node->nid, $exclude_list);
+  if ($value == 1 && $is_excluded === FALSE) {
+    $exclude_list[] = $node->nid;
+    variable_set('unl_hide_page_title', $exclude_list);
+    return;
+  }
+  if ($value == 0 && $is_excluded !== FALSE) {
+    unset($exclude_list[$is_excluded]);
+    variable_set('unl_hide_page_title', $exclude_list);
+    return;
   }
 }
 
@@ -393,6 +420,12 @@ function unl_preprocess_node(&$vars) {
   $nid_exclude_list = variable_get('unl_remove_inner_wrapper', array());
   if (in_array($vars['nid'], $nid_exclude_list)) {
     $vars['unl_remove_inner_wrapper'] = TRUE;
+  }
+
+  $vars['unl_hide_page_title'] = FALSE;
+  $nid_exclude_list = variable_get('unl_hide_page_title', array());
+  if (in_array($vars['nid'], $nid_exclude_list)) {
+    $vars['unl_hide_page_title'] = TRUE;
   }
 }
 
@@ -905,6 +938,14 @@ function unl_form_alter(&$form, $form_state, $form_id) {
       '#title' => 'Display in menu',
       '#default_value' => $default_visible,
       '#weight' => 0,
+    );
+
+    // Add Publishing Option to hide #pagetitle
+    $form['options']['unl_hide_page_title'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Hide page title'),
+      '#description' => t('If the page title is hidden, an &lt;h1&gt; element needs to be inserted manually.'),
+      '#default_value' => (!empty($form['nid']['#value']) ? in_array($form['nid']['#value'], variable_get('unl_hide_page_title', array())) : FALSE ),
     );
 
     // Add Publishing Option for exclusion of .wdn-inner-wrapper
