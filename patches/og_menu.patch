@@ -11,7 +11,7 @@ index 285dcf5..63f7fc5 100644
  
      $list = array();
      if (!empty($menus)) {
-+      if (!$context && $form['#node']->name === $GLOBALS['user']->name && !user_access('administer menu')) {
++      if (!$context && !drupal_match_path(current_path(), 'node/add/*') && $form['#node']->name === $GLOBALS['user']->name && !user_access('administer menu') && !user_access('administer og menu')) {
 +        if (!isset($GLOBALS['_FILES']) || empty($GLOBALS['_FILES'])) {
 +          return;
 +        }
