@@ -124,7 +124,11 @@ function feeds_imagegrabber_node_update($node) {
  * Implements hook_node_delete().
  */
 function feeds_imagegrabber_node_delete($node) {
-  @db_query("DELETE FROM {feeds_imagegrabber} where feed_nid = %d", $node->nid);
+  if (isset($node->nid) && is_numeric($node->nid)) {
+    db_delete('feeds_imagegrabber')
+      ->condition('feed_nid', $node->nid)
+      ->execute();
+  }
 }
 
 //==================
