@@ -135,6 +135,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
+  *  feeds_imagegrabber.module
+
+     - Applied patch: https://www.drupal.org/files/issues/replace-feeds-imagegrabber-node-delete-2748459.patch. See: https://www.drupal.org/node/2748459
+
   *  media/includes/media.variables.inc
 
      - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286

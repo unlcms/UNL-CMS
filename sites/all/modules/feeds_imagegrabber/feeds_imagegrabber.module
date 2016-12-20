@@ -1,21 +1,21 @@
 <?php
-// $Id$
-
 
 /**
  * @file
- *  Grabs image for each feed-item from their respective web pages and stores
- *  it in an image field. Requires Feeds module.
+ * Grabs images for items imported using the feeds module.
  *
+ * Grabs images for each feed item from their respective web pages and stores
+ * them in an image field.
+ *
+ * Requires the Feeds module.
  */
 
-//=============
-//DRUPAL HOOKS.
-//=============
+//==================
+// DRUPAL HOOKS
+//==================
 
 /**
  * Implements hook_menu().
-().
  */
 function feeds_imagegrabber_menu() {
   $items = array();
@@ -245,7 +245,7 @@ function feeds_imagegrabber_feeds_set_target($source, $entity, $target, $page_ur
 }
 
 //==================
-//HELPER FUNCTIONS
+// HELPER FUNCTIONS
 //==================
 
 /**
@@ -256,7 +256,6 @@ function feeds_imagegrabber_feeds_set_target($source, $entity, $target, $page_ur
  *
  * @return
  *   An array of settings or FALSE if settings not found.
- *
  */
 function feeds_imagegrabber_get_settings($feed_nid) {
   $settings = db_query("SELECT enabled, id_class, id_class_desc, feeling_lucky, exec_time FROM {feeds_imagegrabber} WHERE feed_nid = :feed_nid", array(':feed_nid' => $feed_nid))->fetchAssoc();
@@ -268,7 +267,6 @@ function feeds_imagegrabber_get_settings($feed_nid) {
  *
  * @return
  *   An array of settings.
- *
  */
 function feeds_imagegrabber_get_default_settings() {
   $default = array(
@@ -303,10 +301,10 @@ function feeds_imagegrabber_admin($form, &$form_state) {
 }
 
 /**
- * Appends the form with the Feeds Image Grabber form using the
- * passed default settings.
+ * Appends the form with the Feeds Image Grabber form using the passed default
+ * settings.
  *
- * @param &$form
+ * @param $form
  *   The form to append under the 'feeds_imagegrabber' fieldset.
  * @param $default_settings
  *   The default values of the form elements.
@@ -364,17 +362,16 @@ function feeds_imagegrabber_form(&$form, $default_settings) {
  * @param $max_size
  *   Maximum size of the file to be downloaded.
  * @param $timeout
- *   A float representing the maximum number of seconds the function call
- *   may take. The default is 10 seconds. If a timeout occurs, the retuen
- *   code is set to the HTTP_REQUEST_TIMEOUT constant.
+ *   A float representing the maximum number of seconds the function call may
+ *   take. The default is 10 seconds. If a timeout occurs, the retuen code is
+ *   set to the HTTP_REQUEST_TIMEOUT constant.
  * @param $max_redirects
  *   An integer representing how many times a redirect may be followed.
  *   Defaults to 3.
  *
  * @return
- *   An integer code containing filesize in case the file exists and conforms to the
- *   size limit, -1 otherwise.
- *
+ *   An integer code containing filesize in case the file exists and conforms to
+ *   the size limit, -1 otherwise.
  */
 function feeds_imagegrabber_validate_download_size($file_url, $max_size, $timeout = 10, $max_redirects = 3) {
   $options = array(
@@ -412,18 +409,18 @@ function feeds_imagegrabber_validate_download_size($file_url, $max_size, $timeou
  * @param $ivalue
  *   A string specifying the ID or the CSS class.
  * @param $timeout
- *   A float representing the maximum number of seconds the function call
- *   may take. The default is 15 seconds. If a timeout occurs, the retuen
- *   code is set to the HTTP_REQUEST_TIMEOUT constant.
+ *   A float representing the maximum number of seconds the function call may
+ *   take. The default is 15 seconds. If a timeout occurs, the retuen code is
+ *   set to the HTTP_REQUEST_TIMEOUT constant.
  * @param $max_redirects
  *   An integer representing how many times a redirect may be followed.
  *   Defaults to 3.
  * @param $error_log
- *   An array which contains the error codes and messages in case the functions fails.
+ *   An array which contains the error codes and messages in case the functions
+ *   fails.
  *
  * @return
- *   FALSE on failure, OR content between the tags as XML on success
- *
+ *   FALSE on failure, OR content between the tags as XML on success.
  */
 function feeds_imagegrabber_webpage_scraper(&$page_url, $itype, $ivalue = '', $timeout = 15, $max_redirects = 3, &$error_log = array()) {
   $options = array(
@@ -552,7 +549,7 @@ function feeds_imagegrabber_scrape_images($content, $base_url, $settings, array 
     if ($options['getsize']) {
       if (($imagesize = feeds_imagegrabber_validate_download_size($url, $options['max_imagesize'], ($options['timeout'] - timer_read(__FUNCTION__) / 1000))) != -1) {
         $images[$url] = $imagesize;
-        if ($settings['feeling_lucky'] && count($images) == $settings['cardinality']) {
+        if ($settings['feeling_lucky'] && count($images) == $options['cardinality']) {
           break;
         }
       }
@@ -564,7 +561,7 @@ function feeds_imagegrabber_scrape_images($content, $base_url, $settings, array 
     }
     else {
       $images[$url] = $imagesize;
-      if ($settings['feeling_lucky'] && count($images) == $settings['cardinality']) {
+      if ($settings['feeling_lucky'] && count($images) == $options['cardinality']) {
         break;
       }
     }
@@ -576,9 +573,9 @@ function feeds_imagegrabber_scrape_images($content, $base_url, $settings, array 
 /**
  * Checks that a file is an image.
  *
- * This check allows the image formats identified by drupal i.e. jpeg, png
- * and gif. If the filename is missing an extension but is a valid image,
- * its actual extension is added to it and the original file is renamed.
+ * This check allows the image formats identified by drupal i.e. jpeg, png, and
+ * gif. If the filename is missing an extension but is a valid image, its actual
+ * extension is added to it and the original file is renamed.
  *
  * @param $file
  *   The file object.
@@ -631,9 +628,11 @@ function feeds_imagegrabber_is_image(&$file) {
 }
 
 /**
+ * Get the file info for in image file.
+ *
  * Drupal only supports GIF, JPG and PNG file formats.
- * (Mostly from drupal's image_get_info() expect the file 
- * need not be an uploaded one)
+ * This is similar to drupal's image_get_info() except the file need not be an
+ * uploaded one.
  *
  * @return
  *   FALSE, if the file could not be found or is not an image. Otherwise, a
@@ -674,9 +673,9 @@ function feeds_imagegrabber_get_image_info($file) {
  * @param $file
  *   The filename to load from.
  * @param $library
- *   The name of the library. If libraries module is installed,
- *   feeds_imagegrabber_include_library() will look for libraries
- *   with this name managed by libraries module.
+ *   The name of the library. If libraries module is installed, 
+ *   feeds_imagegrabber_include_library() will look for libraries with this name
+ *   managed by libraries module.
  */
 function feeds_imagegrabber_include_library($file, $library) {
   if (module_exists('libraries') && file_exists(libraries_get_path($library) . "/$file")) {
@@ -704,7 +703,7 @@ function feeds_imagegrabber_include_library($file, $library) {
 }
 
 /**
- * Validate the file object with field instance specific validators
+ * Validate the file object with field instance specific validators.
  *
  * @param $file
  *   The file object to be validated.
@@ -712,8 +711,8 @@ function feeds_imagegrabber_include_library($file, $library) {
  *   The instance info of the image field.
  *
  * @return
- *   An array containing the errors (if any) which occurs
- *   while running the validators.
+ *   An array containing the errors (if any) which occurs while running the
+ *   validators.
  */
 function feeds_imagegrabber_widget_file_validator($file, $instance) {
   $settings = $instance['settings'];
