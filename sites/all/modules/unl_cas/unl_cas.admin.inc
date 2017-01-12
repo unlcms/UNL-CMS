@@ -162,7 +162,6 @@ function unl_cas_config($form, &$form_state) {
   $form['ldap']['password'] = array(
     '#type' => 'password',
     '#title' => 'Password',
-    '#default_value' => unl_cas_get_setting('ldap_password'),
     '#parents' => array('ldap', 'password'),
     '#required' => TRUE,
   );
