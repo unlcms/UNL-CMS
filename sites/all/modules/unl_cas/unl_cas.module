@@ -125,6 +125,9 @@ function unl_cas_validate_ticket() {
   if ($auth) {
     $username = $cas->getUsername();
     $user = unl_cas_import_user($username);
+    if (!$user) {
+      drupal_set_message('An error occured importing the user.', 'error');
+    }
 
     if ($GLOBALS['user']->uid != $user->uid) {
       $GLOBALS['user'] = $user;
@@ -289,45 +292,51 @@ function unl_cas_get_user_record($username) {
 function unl_cas_import_user($username) {
   $username = trim($username);
   unl_load_zend_framework();
-  $user = array();
-  $result = unl_cas_get_user_record($username);
-
-  // Create the fields we will be using, and make an initial guess at the email address.
-  $userData = array(
-    'name'     => $username,
-    'mail'     => $username . '@unl.edu',
-    'status'   => 1,
-    'timezone' => variable_get('date_default_timezone', date_default_timezone_get()),
-    'data'     => array('unl' => array(
-      'fullName'           => '',
-      'affiliations'       => '',
-      'primaryAffiliation' => '',
-      'department'         => '',
-      'major'              => '',
-      'studentStatus'      => array(),
-    )),
-  );
-
-  // If either LDAP or PeopleFinder found data, use it.
-  if ($result) {
-    $result = array_change_key_case($result, CASE_LOWER);
-    $userData['mail'] = $result['mail'][0];
-    $userData['data']['unl'] = array(
-      'fullName'           => (isset($result['edupersonnickname']) ? $result['edupersonnickname'][0] : $result['givenname'][0]) . ' ' . $result['sn'][0],
-      'affiliations'       => $result['edupersonaffiliation'],
-      'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
-      'department'         => (isset($result['unlhrprimarydepartment']) ? $result['unlhrprimarydepartment'][0] : ''),
-      'major'              => (isset($result['unlsismajor']) ? $result['unlsismajor'][0] : ''),
-      'studentStatus'      => (isset($result['unlsisstudentstatus']) ? $result['unlsisstudentstatus'] : array()),
-    );
-  }
-
   $account = user_load_by_name($username);
 
-  // If an account already exists, don't reset blocked status or timezone preference.
-  if ($account) {
+  if (!$account) {
+    // Create the fields we will be using, and make an initial guess at the email address.
+    $userData = array(
+      'name' => $username,
+      'mail' => $username . '@unl.edu',
+      'status' => 1,
+      'timezone' => variable_get('date_default_timezone', date_default_timezone_get()),
+      'data' => array(
+        'unl' => array(
+          'fullName' => '',
+          'affiliations' => '',
+          'primaryAffiliation' => '',
+          'department' => '',
+          'major' => '',
+          'studentStatus' => array(),
+        )
+      ),
+    );
+  }
+  else {
+    // If an account already exists, don't reset blocked status or timezone preference.
     $userData['timezone'] = $account->timezone;
     $userData['status'] = $account->status;
+  }
+
+  // If a new account or enough time has passed since last login, do LDAP data lookup.
+  if (!$account || !array_key_exists('lastDataFetch', $account->data['unl']) || time() - $account->data['unl']['lastDataFetch'] > unl_cas_get_setting('ldap_seconds')) {
+    $result = unl_cas_get_user_record($username);
+
+    // If either LDAP or Directory found data, use it.
+    if ($result) {
+      $result = array_change_key_case($result, CASE_LOWER);
+      $userData['mail'] = $result['mail'][0];
+      $userData['data']['unl'] = array(
+        'fullName' => (isset($result['edupersonnickname']) ? $result['edupersonnickname'][0] : $result['givenname'][0]) . ' ' . $result['sn'][0],
+        'affiliations' => $result['edupersonaffiliation'],
+        'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
+        'department' => (isset($result['unlhrprimarydepartment']) ? $result['unlhrprimarydepartment'][0] : ''),
+        'major' => (isset($result['unlsismajor']) ? $result['unlsismajor'][0] : ''),
+        'studentStatus' => (isset($result['unlsisstudentstatus']) ? $result['unlsisstudentstatus'] : array()),
+        'lastDataFetch' => time(),
+      );
+    }
   }
 
   return user_save($account, $userData);
