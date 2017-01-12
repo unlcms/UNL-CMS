@@ -166,6 +166,16 @@ function unl_cas_config($form, &$form_state) {
     '#required' => TRUE,
   );
 
+  $form['ldap']['seconds'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Seconds between lookups',
+    '#description' => 'For existing users, the minimum length of time to wait before doing another lookup upon login.',
+    '#default_value' => unl_cas_get_setting('ldap_seconds'),
+    '#parents' => array('ldap', 'seconds'),
+    '#required' => TRUE,
+    '#element_validate' => array('element_validate_number'),
+  );
+
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => 'Update',
@@ -178,4 +188,5 @@ function unl_cas_config_submit($form, &$form_state) {
   unl_cas_set_setting('ldap_uri', $form_state['values']['ldap']['uri']);
   unl_cas_set_setting('ldap_dn', $form_state['values']['ldap']['dn']);
   unl_cas_set_setting('ldap_password', $form_state['values']['ldap']['password']);
+  unl_cas_set_setting('ldap_seconds', $form_state['values']['ldap']['seconds']);
 }
