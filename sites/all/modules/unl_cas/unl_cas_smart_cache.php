@@ -33,9 +33,14 @@ function unl_cas_smart_cache_force_varnish_for_user($username) {
  * @return bool
  */
 function unl_cas_smart_cache_force_varnish_for_site() {
-  //TODO: check if the site is configured to not force varnish for users will no role.
+  if ('disable' === unl_cas_get_setting('disable_smart_cache')) {
+    return false;
+  }
   
-  //TODO: check if the site has the unl_access module turned on
+  if (module_exists('unl_access')) {
+    //Turn off smart cache because unl_access is enabled... We could improve this so only specific resources protected by unl_access are not cached.
+    return false;
+  }
   
   return true;
 }
