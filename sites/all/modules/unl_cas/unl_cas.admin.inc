@@ -181,7 +181,8 @@ function unl_cas_config($form, &$form_state) {
     $default = 1;
   }
   $form['ldap']['disable_smart_cache'] = array(
-    '#title' => 'Do not use the CAS smart cache (disable varnish for authenticated users that have no role)',
+    '#title' => 'Do not use CAS smart cache',
+    '#description' => 'Default to standard Drupal behavior of bypassing varnish for authenticated users.',
     '#type' => 'checkbox',
     '#default_value' => $default,
   );
@@ -202,8 +203,8 @@ function unl_cas_config_submit($form, &$form_state) {
   
   if ($form_state['values']['ldap']['disable_smart_cache']) {
     unl_cas_set_setting('disable_smart_cache', 'disable');
-  } else {
+  }
+  else {
     unl_cas_set_setting('disable_smart_cache', 'enable');
   }
-  
 }
