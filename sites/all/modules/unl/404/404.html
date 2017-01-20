@@ -1,0 +1,98 @@
+<div class="wdn-band">
+    <div class="wdn-inner-wrapper wdn-inner-padding-no-bottom">
+        <div class="wdn-col-two-thirds">
+            <img src="sites/all/modules/unl/404/images/404.png" alt="404">
+        </div>
+        <div class="bp1-wdn-col-one-third">
+            <h1 class="clear-top"><span class="title-404">PAGE <br />NOT <br />FOUND</span></h1>
+        </div>
+    </div>
+</div>
+
+<div class="wdn-band">
+    <div class="wdn-inner-wrapper wdn-inner-padding-no-top">
+        <span id="path-404"></span>
+    </div>
+</div>
+
+<div class="front wdn-band band-404">
+    <div class="wdn-inner-wrapper">
+        <div class="wdn-grid-set">
+            <div class="wdn-col-full">
+                <label for="wdn-404-search" class="wdn-sans-serif clear-top">Search University of Nebraska Lincoln Resources</label>
+
+                <form id="404_search" action="https://www1.unl.edu/search/">
+                    <input type="text" name="q" placeholder="We <3 Harvey" id="wdn-404-search" class="bp1-wdn-col-full bp2-wdn-col-four-sixths wdn-404-search">
+                    <input type="submit" class="wdn-button bp1-wdn-col-full bp2-wdn-col-two-sixths" value="SEARCH" />
+                </form>
+                <script>
+                    require(['jquery'], function($) {
+                        $(function(){
+                            $("#path-404").text(window.location.pathname);
+                            var home_page = false;
+
+                            var $home_link = $('link[rel=home]');
+                            if ($home_link.length) {
+                                home_page = $home_link[0].href;
+                            }
+
+                            if (home_page && !(/^https?:\/\/www\.unl\.edu\/$/.test(home_page))) {
+                                //If we have a home page, and it is not top level
+                                $("#404_search").append($('<input>', {
+                                    type: "hidden",
+                                    name: "u",
+                                    value: home_page
+                                }));
+                            }
+                        });
+                    });
+                </script>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="wdn-band">
+    <div class="wdn-inner-wrapper">
+        <div class="wdn-col-full">
+            <div class="content">
+                <div id="node-19" class="node node-page wdn-inner-wrapper clearfix">
+
+                    <div class="content">
+                        <span class="wdn-subhead">You have attempted to access a page or resource which does not exist on the server.</span>
+                        <div class="wdn-grid-set">
+                            <div class="bp2-wdn-col-two-thirds">
+                                <div class="wdn-grid-set">
+                                    <div class="bp2-wdn-col-six-sevenths">
+                                        <p><em>If you followed a link from a referring page</em>, please click the &lsquo;Back&rsquo; button in your browser and inform the author of the referring page.</p>
+                                        <p><em>If this page appeared after using a bookmark</em> (or favorite) stored in your browser, please update the bookmark (or favorite) or delete it from your system.</p>
+                                        <p><em>If you attempted to access this page directly by typing in the address,</em> please ensure that you typed the URL correctly. URLs on this system are case-sensitive, so be sure you have used upper- and lower-case letters correctly.</p>
+                                        <p><em>If you are a UNL web content provider and your content is no longer available,</em> you must renew your account by contacting the UNLcms Team. <a href="http://unlcms.unl.edu/">http://unlcms.unl.edu/</a></p>
+                                        <p><em>If you think this page should be here or have continued difficulty locating the page you want</em> please let us know by using the "Email Us" or "Let's Chat" feature located at the bottom of this page</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bp2-wdn-col-one-third">
+                                <h3 class="wdn-list-header clear-top">Online Resources</h3>
+                                <ul class="wdn-list-reset">
+                                    <li><a href="http://www.unl.edu/depts/">Colleges &amp; Departments</a></li>
+                                    <li><a href="http://events.unl.edu/">Calendar of Events</a></li>
+                                    <li><a href="http://bf.unl.edu/NUPoliciesProceduresInfoLinks.shtml">UNL Policies</a></li>
+                                    <li><a href="http://maps.unl.edu/">Campus Tour &amp; Maps</a></li>
+                                    <li><a href="http://parking.unl.edu/">Parking</a></li>
+                                    <li><a href="http://www.unl.edu/regrec/calendar/calendar_main.shtml">Academic Calendar</a></li>
+                                    <li><a href="http://www.unl.edu/regrec/sites/unl.edu.registration-records.registration-and-records/files/AcademicServicesHandbook.pdf">Academic Handbook</a></li>
+                                    <li><a href="http://irp.unl.edu/factbooks.html">Fact Book</a></li>
+                                    <li><a href="http://emergency.unl.edu/">Emergency Planning &amp; Preparedness</a></li>
+                                </ul>
+                            </div>
+                        </div>  </div>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+</div>
