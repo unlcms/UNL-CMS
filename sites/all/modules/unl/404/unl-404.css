@@ -1,43 +1,27 @@
-
-
-
-/* 404 page styles */
 .wdn-404-search {
     display:block;
     height:48px;
-    margin-bottom:20px;
-}
-
-.title-404 {
-    font-size: 200%;
-    line-height:96px;
-    color:black;
-    margin-top:0;
-    margin-bottom:30px;
-}
-
-#path-404 {
-    display: block;
+    padding:0 20px;
 }
 
 .band-404 .wdn-button {
-    margin-right: auto;
-    margin-left: auto;
+    font-size:1.2em;
+    margin-right:auto;
+    margin-left:auto;
     width: 100%;
+    padding:1.069em 2.4em 1em;
 }
 
 @media (min-width: 480px){
     .band-404 .wdn-button {
-        margin-right:.5em;
+        font-size:1.2em;
         width: auto;
-        height: 48px;
-    }
-}
+    }}
 
-.band-404 h3 {
+.band-404 h3,.band-404 h3 {
     font-size:1.15em;
     color:#fff;
-    text-transform:uppercase
+    text-transform:uppercase;
 }
 
 .band-404 {
@@ -46,11 +30,8 @@
     background-repeat:repeat;
     color:#fff;
     font-size:1.2em;
-    margin-right:3em
-    text-transform:uppercase
 }
 
-/*End 404 page styles*/
 
 #pagetitle h1 { display: none; }
 
