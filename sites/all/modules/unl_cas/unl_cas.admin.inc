@@ -176,15 +176,11 @@ function unl_cas_config($form, &$form_state) {
     '#element_validate' => array('element_validate_number'),
   );
 
-  $default = 0;
-  if ('disable' === unl_cas_get_setting('disable_smart_cache')) {
-    $default = 1;
-  }
   $form['ldap']['disable_smart_cache'] = array(
     '#title' => 'Do not use CAS smart cache',
     '#description' => 'Default to standard Drupal behavior of bypassing varnish for authenticated users.',
     '#type' => 'checkbox',
-    '#default_value' => $default,
+    '#default_value' => (unl_cas_get_setting('disable_smart_cache') === 'disable' ? 1 : 0),
   );
 
   $form['submit'] = array(

@@ -12,19 +12,18 @@ function unl_cas_smart_cache_force_varnish_for_user($username) {
   
   if (!$account) {
     //Couldn't find the user, so don't use smart cache.
-    return true;
+    return false;
   }
-  
-  $user_role = array_shift(array_values($account->roles));
-  if (count($account->roles) === 1 && 'authenticated user' === $user_role) {
+
+  if (count($account->roles) > 1) {
     //The user has more than one role, which means that they are more than just a guest
-    return true;
+    return false;
   }
   
   //TODO: check if the user has any edit access to specific nodes (sounds like this might be possible)
   
   //else there is only one role left... make sure it is the authenticated user role
-  return false;
+  return true;
 }
 
 /**
