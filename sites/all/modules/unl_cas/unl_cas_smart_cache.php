@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Determine if we should force varnish for a user
+ * Determine if we should force varnish for a user.
  *
  * @param $username
  *
@@ -20,7 +20,11 @@ function unl_cas_smart_cache_force_varnish_for_user($username) {
     return false;
   }
   
-  //TODO: check if the user has any edit access to specific nodes (sounds like this might be possible)
+  // Check if the user is the author of any nodes.
+  $result = db_query('SELECT COUNT(nid) FROM {node} where uid = :uid', array(':uid' => $account->uid))->fetchfield();
+  if ($result > 0) {
+    return false;
+  }
 
   return true;
 }
@@ -49,15 +53,21 @@ function unl_cas_smart_cache_force_varnish_for_site() {
  * @param $username
  */
 function unl_cas_smart_cache_run_for_user($username) {
-  //do we really need to log the user in? Should we set a cookie to have VARNISH ignore the logged in state?
+
   if (unl_cas_smart_cache_force_varnish_for_user($username) && unl_cas_smart_cache_force_varnish_for_site()) {
     // Set a cookie to tell varnish to always run
     setcookie('unlcms_force_varnish', 'true', 0, base_path());
 
-    // Redirect back.
+    // Redirect back. If they are trying to visit 'user' just send them to the front page.
     $destination = drupal_get_destination();
-    unset($_GET['destination']);
-    drupal_goto($destination['destination']);
+    if ($destination['destination'] !== 'user' && $destination['destination'] !== 'user/cas') {
+      unset($_GET['destination']);
+      drupal_goto($destination['destination']);
+    }
+    else {
+      unset($_GET['destination']);
+      drupal_goto('<front>');
+    }
 
     // Don't proceed.
     return;
