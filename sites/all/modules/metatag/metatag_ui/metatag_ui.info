@@ -1,9 +1,10 @@
-name = Meta tags: Context
-description = "Assigned Meta tags using Context definitions, allowing them to be assigned by path and other criteria."
+name = Meta tag UI
+description = "DEPRECATED admin interface for the Meta tag API, this functionality has be merged into the main module."
 package = Meta tags
 core = 7.x
-dependencies[] = context
 dependencies[] = metatag
+dependencies[] = ctools
+hidden = TRUE
 
 ; Information added by drupal.org packaging script on 2013-03-24
 version = "7.x-1.0-beta5"

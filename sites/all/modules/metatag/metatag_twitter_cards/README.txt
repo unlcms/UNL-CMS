@@ -12,7 +12,6 @@ tags are provided:
 * twitter:image
 * twitter:image:width
 * twitter:image:height
-* twitter:image:alt
 * twitter:player
 * twitter:player:width
 * twitter:player:height
@@ -40,6 +39,6 @@ References
 ------------------------------------------------------------------------------
 1: https://dev.twitter.com/docs/cards
 2: https://dev.twitter.com/docs/cards/preview
-3: https://www.drupal.org/u/marty2081
+3: http://drupal.org/user/960720
 4: http://www.gemeentemuseum.nl/
-5: https://www.drupal.org/node/1664322
+5: http://drupal.org/node/1664322

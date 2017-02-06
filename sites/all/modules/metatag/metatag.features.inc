@@ -36,9 +36,6 @@ function metatag_features_export_render($module_name, $data, $export = NULL) {
     if ($config = metatag_config_load($name)) {
       $export = new stdClass();
       $export->instance = $config->instance;
-      if (isset($config->disabled)) {
-        $export->disabled = $config->disabled;
-      }
       $export->config = $config->config;
       $export = features_var_export($export, '  ');
       $key = features_var_export($name);
@@ -67,13 +64,6 @@ function metatag_features_revert($module) {
       $object->instance = $config;
       $object->config = $feature_conf[$config]['config'];
       metatag_config_save($object);
-
-      if (!empty($feature_conf[$config]['disabled'])) {
-        ctools_export_crud_disable('metatag_config', $config);
-      }
-      else {
-        ctools_export_crud_enable('metatag_config', $config);
-      }
     }
   }
 }

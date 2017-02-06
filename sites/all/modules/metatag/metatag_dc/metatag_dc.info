@@ -1,16 +1,12 @@
-name = Metatag: Dublin Core
+name = Meta tags: Dublin Core
 description = Provides the fifteen <a href="http://dublincore.org/documents/dces/">Dublin Core Metadata Element Set 1.1</a> meta tags from the <a href="http://dublincore.org/">Dublin Core Metadata Institute</a>.
-package = SEO
+package = Meta tags
 core = 7.x
 dependencies[] = metatag
 
-; Tests.
-files[] = tests/metatag_dc.test
-files[] = tests/metatag_dc.tags.test
-
-; Information added by Drupal.org packaging script on 2017-01-18
-version = "7.x-1.20"
+; Information added by drupal.org packaging script on 2013-03-24
+version = "7.x-1.0-beta5"
 core = "7.x"
 project = "metatag"
-datestamp = "1484735128"
+datestamp = "1364088611"
 
