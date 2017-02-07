@@ -176,6 +176,16 @@ function unl_cas_config($form, &$form_state) {
     '#element_validate' => array('element_validate_number'),
   );
 
+  $default = 0;
+  if ('disable' === unl_cas_get_setting('disable_smart_cache')) {
+    $default = 1;
+  }
+  $form['ldap']['disable_smart_cache'] = array(
+    '#title' => 'Do not use the CAS smart cache (disable varnish for authenticated users that have no role)',
+    '#type' => 'checkbox',
+    '#default_value' => $default,
+  );
+
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => 'Update',
@@ -189,4 +199,11 @@ function unl_cas_config_submit($form, &$form_state) {
   unl_cas_set_setting('ldap_dn', $form_state['values']['ldap']['dn']);
   unl_cas_set_setting('ldap_password', $form_state['values']['ldap']['password']);
   unl_cas_set_setting('ldap_seconds', $form_state['values']['ldap']['seconds']);
+  
+  if ($form_state['values']['ldap']['disable_smart_cache']) {
+    unl_cas_set_setting('disable_smart_cache', 'disable');
+  } else {
+    unl_cas_set_setting('disable_smart_cache', 'enable');
+  }
+  
 }
