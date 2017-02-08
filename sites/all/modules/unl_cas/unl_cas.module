@@ -1,6 +1,7 @@
 <?php
 
 require_once drupal_get_path('module', 'unl') . '/includes/common.php';
+require_once __DIR__ . '/unl_cas_smart_cache.php';
 
 /**
  * Implements hook_enable().
@@ -124,6 +125,12 @@ function unl_cas_validate_ticket() {
 
   if ($auth) {
     $username = $cas->getUsername();
+    
+    //Do logic for checking if we need to force varnish for this user...
+    //This will set a cookie and redirect early if the user does not have an account... and won't make an account
+    unl_cas_smart_cache_run_for_user($username);
+    
+    //Now load LDAP
     $user = unl_cas_import_user($username);
     if (!$user) {
       drupal_set_message('An error occured importing the user.', 'error');
