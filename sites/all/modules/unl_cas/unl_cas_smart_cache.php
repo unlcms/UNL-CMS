@@ -43,6 +43,16 @@ function unl_cas_smart_cache_force_varnish_for_site() {
     // Turn off smart cache because unl_access is enabled... We could improve this so only specific resources protected by unl_access are not cached.
     return false;
   }
+
+  if (module_exists('webform')) {
+    $result = db_query('SELECT nid, COUNT(*) as count
+      FROM {webform_roles}
+      GROUP BY nid
+      HAVING COUNT(*) = 1');
+    foreach ($result as $record) {
+      return false;
+    }
+  }
   
   return true;
 }
