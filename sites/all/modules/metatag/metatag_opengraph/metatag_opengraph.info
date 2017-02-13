@@ -1,12 +1,16 @@
-name = Meta tags: Open Graph
-description = Provides support for open graph meta tags.
-package = Meta tags
+name = Metatag: OpenGraph
+description = Provides support for Open Graph Protocol meta tags.
+package = SEO
 core = 7.x
 dependencies[] = metatag
 
-; Information added by drupal.org packaging script on 2013-03-24
-version = "7.x-1.0-beta5"
+; Tests.
+files[] = tests/metatag_opengraph.test
+files[] = tests/metatag_opengraph.tags.test
+
+; Information added by Drupal.org packaging script on 2017-01-18
+version = "7.x-1.20"
 core = "7.x"
 project = "metatag"
-datestamp = "1364088611"
+datestamp = "1484735128"
 
