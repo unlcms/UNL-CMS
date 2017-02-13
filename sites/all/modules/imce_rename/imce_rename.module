@@ -97,7 +97,7 @@ function imce_rename_callback($old_name, &$imce, $new_name) {
       $old_uri = imce_dir_uri($imce) . $old_name;
       $new_uri = imce_dir_uri($imce) . $new_name;
      
-      imce_rename_file($imce, $old_uri, $new_uri);
+      imce_rename_file($imce, $old_uri, $new_uri, $old_name);
     }
     else {
       drupal_set_message(t('You do not have permission to rename files'), 'error');
@@ -108,9 +108,19 @@ function imce_rename_callback($old_name, &$imce, $new_name) {
 /**
  * Rename a file
  */
-function imce_rename_file(&$imce, $old_uri, $new_uri) {
+function imce_rename_file(&$imce, $old_uri, $new_uri, $old_name) {
   $result = db_query("SELECT f.* FROM {file_managed} f WHERE f.uri = :uri", array(':uri' => $old_uri));
   $file = $result->fetchObject();
+
+  if (empty($file)) {
+    $file->uid = 1;
+    $file->filename = $old_name;
+    $file->uri = $old_uri;
+    $file->filemime = file_get_mimetype($old_uri);
+    $file->status = 1;
+
+    $file = file_save($file);
+  }
 
   $move = file_move($file, $new_uri, FILE_EXISTS_ERROR);
 
