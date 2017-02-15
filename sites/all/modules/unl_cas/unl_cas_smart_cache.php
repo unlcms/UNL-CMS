@@ -38,6 +38,13 @@ function unl_cas_smart_cache_force_varnish_for_site() {
   if ('disable' === unl_cas_get_setting('disable_smart_cache')) {
     return false;
   }
+
+  // We don't have a good way of setting cookies for sites that live in subdirectories, so we'll have to blacklist all www sites for now.
+  global $cookie_domain;
+  $cookie_domain = ltrim($cookie_domain, '.');
+  if (strpos($cookie_domain, 'www.') === 0) {
+    return false;
+  }
   
   if (module_exists('unl_access')) {
     // Turn off smart cache because unl_access is enabled... We could improve this so only specific resources protected by unl_access are not cached.
@@ -64,7 +71,7 @@ function unl_cas_smart_cache_force_varnish_for_site() {
  */
 function unl_cas_smart_cache_run_for_user($username) {
 
-  if (unl_cas_smart_cache_force_varnish_for_user($username) && unl_cas_smart_cache_force_varnish_for_site()) {
+  if ( unl_cas_smart_cache_force_varnish_for_site() && unl_cas_smart_cache_force_varnish_for_user($username)) {
     // Set a cookie to tell varnish to always run
     setcookie('unlcms_force_varnish', 'true', 0, base_path());
 
