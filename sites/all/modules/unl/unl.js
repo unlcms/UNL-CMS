@@ -37,8 +37,22 @@ Drupal.behaviors.unl = {
         return;
       }
 
+      var newHash = this.href.split('#')[1];
+
+      if (document.location.hash == '#'+newHash) {
+          /**
+           * Fix for chrome.
+           * Avoid calling preventDefault() if there is no change in the hash
+           * For example, if you load the page with #maincontent the skiplink would no longer work because
+           * e.preventDefault() tells chrome to stop sending focus to #maincontent.
+           * ¯\_(ツ)_/¯
+           */
+          return;
+      }
+      
       e.preventDefault();
-      document.location.hash = this.href.split('#')[1];
+      
+      document.location.hash = newHash;
     });
   }
 };
