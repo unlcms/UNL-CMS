@@ -25,7 +25,7 @@ Drupal.behaviors.unl = {
     // Make links ignore the base tag.
     $('a').click(function(e) {
       // If this link has a hash tag,
-      if (!this.href.split('#')[1]) {
+      if (this.href.split('#')[1] == undefined) {
         return;
       }
      // and it is specifically for this page,
