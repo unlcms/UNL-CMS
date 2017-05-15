@@ -37,6 +37,11 @@ Drupal.behaviors.unl = {
         return;
       }
 
+      if ($(this).hasClass('cboxElement')) {
+          //Skip cbox elements (changes to an absolute URL breaks cbox)
+          return;
+      }
+
       var newHash = '#'+this.href.split('#')[1];
       
       var newLocation = document.location.href.split('#')[0]+newHash;
