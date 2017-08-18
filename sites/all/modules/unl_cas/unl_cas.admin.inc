@@ -69,13 +69,18 @@ function unl_cas_user_import($form, &$form_state) {
       $displayName = $result['displayname'][0];
       $uid = $result['uid'];
       $affiliations = array();
-      foreach ($result['edupersonaffiliation'] as $affiliation) {
-        $affiliations[] = $affiliation;
+      if (isset($result['edupersonaffiliation'])) {
+        foreach ($result['edupersonaffiliation'] as $affiliation) {
+          $affiliations[] = $affiliation;
+        }
       }
       $affiliations = implode(', ', $affiliations);
       // TODO Need to handle incomplete results better
-      if ($uid) {
+      if ($uid && !empty($affiliations)) {
         $matches[$uid] = "$displayName ($affiliations) ($uid)";
+      }
+      else if ($uid) {
+        $matches[$uid] = "$displayName ($uid)";
       }
     }
 
