@@ -41,18 +41,17 @@ function unl_cas_user_import($form, &$form_state) {
         foreach ($searchFields as $searchField) {
           $filter .= '(' . $searchField . '=*' . $searchTerm . '*)';
         }
-        $filter .= ')';
+        $filter .= '))';
       }
-      $filter .= '(|(ou=people)(ou=guests)))';
       
       // Convert the uid to a string to match with peoplefinder results.
-      $results = $ldap->search('dc=unl,dc=edu', $filter);
+      $results = $ldap->search('ou=people,dc=unl,dc=edu', $filter);
       foreach ($results as $key => $result) {
         $results[$key]['uid'] = $result['uid'][0];
       }
     } catch (Exception $e) {
       $results = json_decode(file_get_contents('http://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
-      
+
       // Convert each key to lowercase to mimic the LDAP results.
       foreach ($results as $index => $result) {
         foreach ($result as $key => $value) {
