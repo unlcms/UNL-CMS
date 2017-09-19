@@ -89,6 +89,7 @@ function unl_bootstrap_multisite_without_symlinks() {
  */
 function unl_bootstrap_proxy_pass_support() {
   if (isset($_SERVER['HTTP_X_FORWARDED_HOST']) && isset($_SERVER['HTTP_X_FORWARDED_PATH'])) {
+    $GLOBALS['unl_proxy_pass'] = TRUE;
     $GLOBALS['base_url'] = 'https://' . $_SERVER['HTTP_X_FORWARDED_HOST'] . $_SERVER['HTTP_X_FORWARDED_PATH'];
     $GLOBALS['cookie_domain'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
     $_SERVER['REQUEST_URI'] = $_SERVER['HTTP_X_FORWARDED_PATH'] . '/' . request_path();

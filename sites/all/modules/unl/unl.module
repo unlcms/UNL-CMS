@@ -1161,7 +1161,7 @@ function unl_init() {
       '#type' => 'html_tag',
       '#tag' => 'base',
       '#attributes' => array(
-        'href' => $base_href
+        'href' => $GLOBALS['unl_proxy_pass'] ? $GLOBALS['base_url'] : $base_href
       ),
     );
     drupal_add_html_head($base_tag, 'base');
