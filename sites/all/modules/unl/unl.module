@@ -1150,7 +1150,7 @@ function unl_init() {
 
   // Insert <base> tag
   if (variable_get('unl_use_base_tag', TRUE)) {
-    $base_href = $GLOBALS['unl_proxy_pass'] ? $GLOBALS['base_url'] : url('<front>', array('absolute' => TRUE));
+    $base_href = isset($GLOBALS['unl_proxy_pass']) ? $GLOBALS['base_url'] : url('<front>', array('absolute' => TRUE));
     if (substr($base_href, -1) != '/') {
       $base_href .= '/';
     }
