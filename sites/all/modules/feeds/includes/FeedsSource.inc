@@ -86,8 +86,14 @@ class FeedsState {
   public $created;
   public $updated;
   public $deleted;
+  public $unpublished;
   public $skipped;
   public $failed;
+
+  /**
+   * IDs of entities to be removed.
+   */
+  public $removeList;
 
   /**
    * Constructor, initialize variables.
@@ -98,6 +104,7 @@ class FeedsState {
     $this->created =
     $this->updated =
     $this->deleted =
+    $this->unpublished =
     $this->skipped =
     $this->failed = 0;
   }

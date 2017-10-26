@@ -293,6 +293,34 @@ class FeedsRSStoNodesTest extends FeedsWebTestCase {
     $this->assertText('Created 10 nodes');
     $this->assertFeedItemCount(10);
 
+    // Enable unpublish missing nodes and import updated feed file.
+    $this->setSettings('syndication_standalone', 'FeedsNodeProcessor', array('update_non_existent' => 'unpublish'));
+    $missing_url = $GLOBALS['base_url'] . '/' . drupal_get_path('module', 'feeds') . '/tests/feeds/developmentseed_missing.rss2';
+    $this->importURL('syndication_standalone', $missing_url);
+    $this->assertText('Unpublished 1 node');
+    $this->assertFeedItemCount(10);
+
+    // Now delete all items.
+    $this->drupalPost('import/syndication_standalone/delete-items', array(), 'Delete');
+    $this->assertText('Deleted 10 nodes');
+    $this->assertFeedItemCount(0);
+
+    // Import again, to reset node counts.
+    $this->importURL('syndication_standalone', $feed_url);
+    $this->assertText('Created 10 nodes');
+    $this->assertFeedItemCount(10);
+
+    // Change settings to delete non-existent nodes from feed.
+    $this->setSettings('syndication_standalone', 'FeedsNodeProcessor', array('update_non_existent' => 'delete'));
+    $this->importURL('syndication_standalone', $missing_url);
+    $this->assertText('Removed 1 node');
+    $this->assertFeedItemCount(9);
+
+    // Now delete all items.
+    $this->drupalPost('import/syndication_standalone/delete-items', array(), 'Delete');
+    $this->assertText('Deleted 9 nodes');
+    $this->assertFeedItemCount(0);
+
     // Login with new user with only access content permissions.
     $this->drupalLogin($this->auth_user);
 

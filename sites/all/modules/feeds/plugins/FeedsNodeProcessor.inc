@@ -6,6 +6,12 @@
  */
 
 /**
+ * Option for handling content in Drupal but not in source data (unpublish
+ * instead of skip/delete).
+ */
+define('FEEDS_UNPUBLISH_NON_EXISTENT', 'unpublish');
+
+/**
  * Creates nodes from feed items.
  */
 class FeedsNodeProcessor extends FeedsProcessor {
@@ -201,9 +207,13 @@ class FeedsNodeProcessor extends FeedsProcessor {
       '#type' => 'select',
       '#title' => t('Expire nodes'),
       '#options' => $period,
-      '#description' => t('Select after how much time nodes should be deleted. The node\'s published date will be used for determining the node\'s age, see Mapping settings.'),
+      '#description' => t("Select after how much time nodes should be deleted. The node's published date will be used for determining the node's age, see Mapping settings."),
       '#default_value' => $this->config['expire'],
     );
+    // Add on the "Unpublish" option for nodes, update wording.
+    if (isset($form['update_non_existent'])) {
+      $form['update_non_existent']['#options'][FEEDS_UNPUBLISH_NON_EXISTENT] = t('Unpublish non-existent nodes');
+    }
     return $form;
   }
 
@@ -377,5 +387,32 @@ class FeedsNodeProcessor extends FeedsProcessor {
       }
     }
     return 0;
+  }
+
+  /**
+   * Overrides FeedsProcessor::clean()
+   * Allow unpublish instead of delete.
+   *
+   * @param FeedsState $state
+   *   The FeedsState object for the given stage.
+   */
+  protected function clean(FeedsState $state) {
+    // Delegate to parent if not unpublishing or option not set.
+    if (!isset($this->config['update_non_existent']) || $this->config['update_non_existent'] != FEEDS_UNPUBLISH_NON_EXISTENT) {
+      return parent::clean($state);
+    }
+
+    $total = count($state->removeList);
+    if ($total) {
+      $nodes = node_load_multiple($state->removeList);
+      foreach ($nodes as &$node) {
+        if ($node->status == 0) {
+          continue;
+        }
+        node_unpublish_action($node);
+        node_save($node);
+        $state->unpublished++;
+      }
+    }
   }
 }
