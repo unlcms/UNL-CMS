@@ -1157,6 +1157,11 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
     throw new Exception('Invalid argument for $search_by');
   }
 
+  $schema = 'http://';
+  if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') {
+    $schema = 'https://';
+  }
+
   $sites = db_select('unl_sites', 's')
     ->fields('s', array('site_id', 'db_prefix', 'installed', 'site_path', 'uri'))
     ->execute()
@@ -1226,7 +1231,7 @@ function unl_get_site_user_map($search_by, $username_or_role, $list_empty_sites 
       $last_update = db_query($query)->fetchCol();
 
       $audit_map[$site->site_id] = array(
-        'uri' => $uri,
+        'uri' => str_replace('http://', $schema, $uri),
         $return_label => $role_user,
         'last_update' => (isset($last_update[0]) ? $last_update[0] : null),
       );

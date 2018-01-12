@@ -66,7 +66,12 @@ function unl_multisite_schema() {
         'not null' => TRUE,
         'default'  => '',
         ),
-
+        'clone_from_id' => array(
+        'type'     => 'int',
+        'length'   => 10,
+        'not null' => FALSE,
+        'default'  => NULL,
+        )
       ),
       'primary key' => array('site_id'),
       'unique keys' => array(
