@@ -215,25 +215,28 @@ function unl_url_get_contents($url, $context = NULL, &$headers = array())
     $static = array();
   }
 
-  // If cached in the static array, return it.
-  if (array_key_exists($url, $static)) {
-    $headers = $static[$url]['headers'];
+  $url_parts = drupal_parse_url($url);
+  if (!array_key_exists('cache', $url_parts['query']) || $url_parts['query']['cache'] !== '0') {
+    // If cached in the static array, return it.
+    if (array_key_exists($url, $static)) {
+      $headers = $static[$url]['headers'];
 
-    // Don't let this page be cached since it contains uncacheable content.
-    $GLOBALS['conf']['cache'] = FALSE;
+      // Don't let this page be cached since it contains uncacheable content.
+      $GLOBALS['conf']['cache'] = FALSE;
 
-    return $static[$url]['body'];
-  }
+      return $static[$url]['body'];
+    }
 
-  // If cached in the drupal cache, return it.
-  $data = cache_get(__FUNCTION__ . $url);
-  if ($data && time() < $data->data['expires']) {
-    $headers = $data->data['headers'];
+    // If cached in the drupal cache, return it.
+    $data = cache_get(__FUNCTION__ . $url);
+    if ($data && time() < $data->data['expires']) {
+      $headers = $data->data['headers'];
 
-    // Don't let this page be cached any longer than the retrieved content.
-    $GLOBALS['conf']['page_cache_maximum_age'] = min(variable_get('page_cache_maximum_age', 0), $data->data['expires'] - time());
+      // Don't let this page be cached any longer than the retrieved content.
+      $GLOBALS['conf']['page_cache_maximum_age'] = min(variable_get('page_cache_maximum_age', 0), $data->data['expires'] - time());
 
-    return $data->data['body'];
+      return $data->data['body'];
+    }
   }
 
   if (!$context) {
