@@ -19,6 +19,11 @@ function unl_cas_init() {
     return;
   }
 
+  // Don't do any logins on the my.unl.edu page.
+  if (request_path() == 'myunl') {
+    return;
+  }
+
   // The current request is to the validation URL, we don't want to redirect while a login is pending.
   if (request_path() == 'user/cas') {
     return;
