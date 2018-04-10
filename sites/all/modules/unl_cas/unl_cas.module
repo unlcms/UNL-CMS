@@ -24,6 +24,11 @@ function unl_cas_init() {
     return;
   }
 
+  // If the user is logged in with shib_auth, don't do CAS.
+  if (!user_is_anonymous() && isset($_SESSION['shib_auth_username'])) {
+    return;
+  }
+
   // If the user's CAS service ticket is expired, and their drupal session hasn't,
   // redirect their next GET request to CAS to keep their CAS session active.
   // However, if their drupal session expired (and they're now anonymous), redirect them regardless.
@@ -151,7 +156,12 @@ function unl_cas_validate_ticket() {
 
   $destination = drupal_get_destination();
   unset($_GET['destination']);
-  drupal_goto($destination['destination']);
+  $url_parts = explode('?', $destination['destination']);
+  $options = array();
+  if (isset($url_parts[1])) {
+    parse_str($url_parts[1], $options);
+  }
+  drupal_goto($url_parts[0], array('query' => $options));
 }
 
 /**
