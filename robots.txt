@@ -93,3 +93,5 @@ Disallow: /book/export/html/
 Disallow: /*/book/export/html/
 Disallow: /?q=book/export/html/
 Disallow: /?q=*/book/export/html/
+Disallow: /user
+Disallow: /user/*
