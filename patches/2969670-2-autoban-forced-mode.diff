@@ -1,0 +1,30 @@
+diff --git a/autoban.module b/autoban.module
+index 77c752e..8e6812b 100644
+--- a/autoban.module
++++ b/autoban.module
+@@ -216,7 +216,7 @@ function autoban_ban($rule, &$context = NULL) {
+         }
+ 
+         // Check IP.
+-        if (autoban_can_banned($banned_ip)) {
++        if (autoban_can_banned($banned_ip, true)) {
+           // Insert banned IP to IP banned tables.
+           $success = autoban_insert_banned_table($banned_ip, $rule->ip_type);
+           if ($success) {
+@@ -784,10 +784,12 @@ function autoban_whitelist_ip($ip) {
+  * @return bool
+  *   IP address can be banned. 
+ */
+-function autoban_can_banned($ip) {
+-  $is_own_ip = _autoban_is_own_ip($ip);
+-  if ($is_own_ip) {
+-    return FALSE;
++function autoban_can_banned($ip, $allow_ban_own_ip = false) {
++  if (!$allow_ban_own_ip) {
++    $is_own_ip = _autoban_is_own_ip($ip);
++    if ($is_own_ip) {
++      return FALSE;
++    }
+   }
+ 
+   $ip_in_whitelist = autoban_whitelist_ip($ip);

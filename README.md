@@ -119,6 +119,11 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
 ## Hacks of Contrib modules:
 
+  *  autoban
+  
+     - A "Forced mode" ban doesn't take effect until another IP triggers a watchdog message. https://www.drupal.org/project/autoban/issues/2969670
+     - Applied patch: 2969670-2-autoban-forced-mode.diff
+
   *  draggableviews
 
      - Anonymous view displays an empty form with no submit button which fails webaudit.unl.edu testing. Applied draggableviews-add_hidden_submit_button_to_form-867.patch
