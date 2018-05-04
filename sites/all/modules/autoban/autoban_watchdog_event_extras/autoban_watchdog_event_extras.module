@@ -1,0 +1,239 @@
+<?php
+
+/**
+ * @file
+ * Defines the watchdog event extras autoban module.
+ * This adds IP ban links to the log event report.
+ */
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function autoban_watchdog_event_extras_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'menu_alter') {
+    $group = $implementations['autoban_watchdog_event_extras'];
+    unset($implementations['autoban_watchdog_event_extras']);
+    $implementations['autoban_watchdog_event_extras'] = $group;
+  }
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function autoban_watchdog_event_extras_menu_alter(&$items) {
+  $items['admin/reports/event/%']['page callback'] = 'autoban_watchdog_event_extras_dblog_event';
+  unset($items['admin/reports/event/%']['file']);
+
+  $items['admin/reports/dblog']['page callback'] = 'autoban_watchdog_event_extras_dblog_overview';
+  //unset($items['admin/reports/dblog']['file']);
+}
+
+/**
+ * Page callback: Displays details about a specific database log message.
+ *
+ * @param int $id
+ *   Unique ID of the database log message.
+ *
+ * @return array|string
+ *   If the ID is located in the Database Logging table, a build array in
+ *   the format expected by drupal_render(); otherwise, an empty string.
+ */
+function autoban_watchdog_event_extras_dblog_event($id) {
+  $severity = watchdog_severity_levels();
+  $result = db_query('SELECT w.*, u.name, u.uid FROM {watchdog} w INNER JOIN {users} u ON w.uid = u.uid WHERE w.wid = :id', array(':id' => $id))->fetchObject();
+  if ($dblog = $result) {
+    $rows = array(
+      array(
+        array('data' => t('Type'), 'header' => TRUE),
+        t($dblog->type),
+      ),
+      array(
+        array('data' => t('Date'), 'header' => TRUE),
+        format_date($dblog->timestamp, 'long'),
+      ),
+      array(
+        array('data' => t('User'), 'header' => TRUE),
+        theme('username', array('account' => $dblog)),
+      ),
+      array(
+        array('data' => t('Location'), 'header' => TRUE),
+        l($dblog->location, $dblog->location),
+      ),
+      array(
+        array('data' => t('Referrer'), 'header' => TRUE),
+        l($dblog->referer, $dblog->referer),
+      ),
+      array(
+        array('data' => t('Message'), 'header' => TRUE),
+        theme('dblog_message', array('event' => $dblog)),
+      ),
+      array(
+        array('data' => t('Severity'), 'header' => TRUE),
+        $severity[$dblog->severity],
+      ),
+      array(
+        array('data' => t('Hostname'), 'header' => TRUE),
+        check_plain($dblog->hostname),
+      ),
+      array(
+        array('data' => t('Operations'), 'header' => TRUE),
+        $dblog->link,
+      ),
+    );
+
+    //Get adding rows
+    _autoban_watchdog_event_extras_event_rows($rows, $dblog);
+
+    $build['dblog_table'] = array(
+      '#theme' => 'table',
+      '#rows' => $rows,
+      '#attributes' => array('class' => array('dblog-event')),
+    );
+    return $build;
+  }
+  else {
+    return '';
+  }
+}
+
+/**
+ * Page callback: Displays a listing of database log messages.
+ *
+ * Messages are truncated at 56 chars. Full-length messages can be viewed on the
+ * message details page.
+ *
+ * @see dblog_clear_log_form()
+ * @see dblog_event()
+ * @see dblog_filter_form()
+ * @see dblog_menu()
+ *
+ * @ingroup logging_severity_levels
+ */
+function autoban_watchdog_event_extras_dblog_overview() {
+  $filter = dblog_build_filter_query();
+  $rows = array();
+  $classes = array(
+    WATCHDOG_DEBUG     => 'dblog-debug',
+    WATCHDOG_INFO      => 'dblog-info',
+    WATCHDOG_NOTICE    => 'dblog-notice',
+    WATCHDOG_WARNING   => 'dblog-warning',
+    WATCHDOG_ERROR     => 'dblog-error',
+    WATCHDOG_CRITICAL  => 'dblog-critical',
+    WATCHDOG_ALERT     => 'dblog-alert',
+    WATCHDOG_EMERGENCY => 'dblog-emerg',
+  );
+
+  $build['dblog_filter_form'] = drupal_get_form('dblog_filter_form');
+  $build['dblog_clear_log_form'] = drupal_get_form('dblog_clear_log_form');
+
+  $header = array(
+    '', // Icon column.
+    array('data' => t('Type'), 'field' => 'w.type'),
+    array('data' => t('Date'), 'field' => 'w.wid', 'sort' => 'desc'),
+    t('Message'),
+    array('data' => t('User'), 'field' => 'u.name'),
+    array('data' => t('Operations')),
+  );
+
+  $query = db_select('watchdog', 'w')->extend('PagerDefault')->extend('TableSort');
+  $query->leftJoin('users', 'u', 'w.uid = u.uid');
+  $query
+    ->fields('w', array('wid', 'uid', 'severity', 'type', 'timestamp', 'message', 'variables', 'link', 'hostname', 'referer'))
+    ->addField('u', 'name');
+  if (!empty($filter['where'])) {
+    $query->where($filter['where'], $filter['args']);
+  }
+  $result = $query
+    ->limit(50)
+    ->orderByHeader($header)
+    ->execute();
+
+  foreach ($result as $dblog) {
+    $operations = filter_xss($dblog->link);
+    _autoban_watchdog_event_extras_event_rows($operations, $dblog, FALSE);
+
+    $rows[] = array('data' =>
+      array(
+        // Cells
+        array('class' => 'icon'),
+        t($dblog->type),
+        format_date($dblog->timestamp, 'short'),
+        theme('dblog_message', array('event' => $dblog, 'link' => TRUE)),
+        theme('username', array('account' => $dblog)),
+        $operations,
+      ),
+      // Attributes for tr
+      'class' => array(drupal_html_class('dblog-' . $dblog->type), $classes[$dblog->severity]),
+    );
+  }
+
+  $build['dblog_table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#attributes' => array('id' => 'admin-dblog'),
+    '#empty' => t('No log messages available.'),
+  );
+  $build['dblog_pager'] = array('#theme' => 'pager');
+
+  return $build;
+}
+
+/**
+ * Implements hook_watchdog_event_extras_alter().
+ */
+function _autoban_watchdog_event_extras_event_rows(&$rows, $dblog, $from_event_page = TRUE) {
+  if (!empty($dblog->hostname) && !in_array($dblog->type, autoban_get_log_whitelist()) && $dblog->uid != 1) {
+    $options = array('query' => drupal_get_destination());
+    
+    $is_banned = autoban_is_banned($dblog->hostname, AUTOBAN_SINGLE_IP);
+    if (!$is_banned && !empty($GLOBALS['AUTOBAN_IP_RANGES_ENABLE'])) {
+      $is_banned = autoban_is_banned($dblog->hostname, AUTOBAN_RANGE_IP);  
+    }
+    
+    $srows = array();
+    if (!$is_banned) {
+      $srows[] = l(t(_autoban_get_ip_type_name(AUTOBAN_SINGLE_IP) . ' ban'),
+        AUTOBAN_BASE_URL . "/ban/{$dblog->hostname}/" . AUTOBAN_SINGLE_IP, $options);
+      if (!empty($GLOBALS['AUTOBAN_IP_RANGES_ENABLE'])) {
+        $srows[] = l(t(_autoban_get_ip_type_name(AUTOBAN_RANGE_IP) . ' ban'),
+          AUTOBAN_BASE_URL . "/ban/{$dblog->hostname}/" . AUTOBAN_RANGE_IP, $options);
+      }
+      $options['query'] = array(
+        'type' => $dblog->type,
+        'message' => filter_xss($dblog->message),
+        'referer' => !empty($dblog->referer) ? filter_xss($dblog->referer) : '',
+        drupal_get_destination(),
+      );
+    }  
+    $srows[] = l(t('Add rule'), AUTOBAN_BASE_URL . '/add', $options);
+
+    if ($from_event_page) {
+      $rows[] = array(
+        array('data' => t('IP ban status'), 'header' => TRUE),
+        $is_banned ? t('Banned') : '',
+      );         
+      $rows[] = array(
+        array('data' => t('Real hostname'), 'header' => TRUE),
+        gethostbyaddr($dblog->hostname),
+      );        
+      $rows[] = array(
+        array('data' => t('IP location'), 'header' => TRUE),
+        autoban_get_ip_location($dblog->hostname),
+      );
+      if (isset($rows[8])) {
+        // Insert Operations row.
+        $rows[8][1] = implode(' ', $srows);
+      }
+      else {
+        $rows[] = array(
+          array('data' => t('Ban IP'), 'header' => TRUE),
+          implode(' ', $srows),
+        );
+      }
+    }
+    else {
+      $rows = implode(' ', $srows);
+    }
+  }
+}

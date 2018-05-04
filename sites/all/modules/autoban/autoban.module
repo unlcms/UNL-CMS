@@ -1,0 +1,828 @@
+<?php
+
+/**
+ * @file
+ * Main file for autoban module.
+ */
+
+define('AUTOBAN_BASE_URL', 'admin/config/people/autoban');
+define('AUTOBAN_SINGLE_IP', 0);
+define('AUTOBAN_RANGE_IP', 1);
+define('AUTOBAN_MESSAGE_SEPARATOR', '|');
+define('AUTOBAN_EXPORT_SEPARATOR', '||');
+
+/**
+ * Implements hook_help().
+ */
+function autoban_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#autoban':
+      $output = '<p>'
+              . t("This module allows you to automatize IP ban by cron using module rules. You <a href='@admin_url'>create a rule</a> which finds IP in <a href='@dblog_url'>watchlog table entries</a> and module then inserts IP to <a href='@banned_url'>banned IP table</a>.",
+                  array(
+                    '@admin_url' => url('admin/config/people/autoban'),
+                    '@dblog_url' => url('admin/reports/dblog'),
+                    '@banned_url' => url('admin/config/people/ip-blocking'),
+                  )
+                  )
+              . '</p>';
+      if ($GLOBALS['AUTOBAN_IP_RANGES_ENABLE']) {
+        $output .= '<p>'
+                . t("The module can also inserts IP to <a href='@banned_range_url'>IP range bans table</a>.",
+                  array(
+                    '@banned_range_url' => url('admin/config/people/ip-ranges'),
+                  )
+                  )
+              . '</p>';
+      };
+      if ($GLOBALS['AUTOBAN_BLOCKED_IPS_EXPIRE_ENABLE']) {
+        $output .= '<p>'
+                . t("The module can also expire inserted IPs using Blocked_ips_expire module.")
+              . '</p>';
+      };
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_init().
+ */
+function autoban_init() {
+  $GLOBALS['AUTOBAN_IP_RANGES_ENABLE'] = (int) module_exists('ip_ranges');
+  $GLOBALS['AUTOBAN_BLOCKED_IPS_EXPIRE_ENABLE'] = (int) module_exists('blocked_ips_expire');
+}
+
+/**
+ * Implements hook_permission().
+ */
+function autoban_permission() {
+  return array(
+    'administer autoban' => array(
+      'title' => t('Administer the automatic ban'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function autoban_menu() {
+  $items[AUTOBAN_BASE_URL] = array(
+    'title' => 'Autoban',
+    'description' => 'Configure automatic ban settings.',
+    'page callback' => 'autoban_page',
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/list'] = array(
+    'title' => 'Autoban rules',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items[AUTOBAN_BASE_URL . '/add'] = array(
+    'title' => 'Add rule',
+    'type' => MENU_LOCAL_ACTION,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_form'),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/ban_all'] = array(
+    'title' => 'Ban all',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_ban_all_form'),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/clear'] = array(
+    'title' => 'Clear tables',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_clear_tables_form'),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+ $items[AUTOBAN_BASE_URL . '/analyze'] = array(
+    'title' => 'Log analyze',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'autoban_analyze',
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/export'] = array(
+    'title' => 'Export',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_export_form'),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/import'] = array(
+    'title' => 'Import',
+    'type' => MENU_LOCAL_ACTION,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_import_form'),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/edit/%'] = array(
+    'title' => 'Edit autoban rule',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_form', 5),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/delete/%'] = array(
+    'title' => 'Delete autoban rule',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_delete', 5),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/test/%'] = array(
+    'title' => 'Test autoban rule',
+    'page callback' => 'autoban_test',
+    'page arguments' => array(5),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+  $items[AUTOBAN_BASE_URL . '/ban/%/%'] = array(
+    'title' => 'IP ban',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'autoban_ban_manual',
+    'page arguments' => array(5,6),
+    'access arguments' => array('administer autoban'),
+  );
+  $items[AUTOBAN_BASE_URL . '/settings'] = array(
+    'title' => 'Settings',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('autoban_settings_form'),
+    'access arguments' => array('administer autoban'),
+    'file' => 'autoban.admin.inc',
+  );
+ return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function autoban_cron() {
+  if (!variable_get('autoban_cron_enable', TRUE)) return;
+
+  $count = autoban_ban_all();
+  if ($count) {
+    watchdog('autoban', 'Banned IP by cron. Total count: @count. (cron IP @ip)',
+      array(
+        '@ip' => ip_address(),
+        '@count' => $count,
+      )
+    );
+  }
+}
+
+/**
+ * Ban IP's for rules.
+ *
+ * @param object $rule
+ *   Autoban rule object.
+ * @param array $context
+ *   The batch context array, passed by reference.
+ *
+ * @return int
+ *   Number of successful IP insertion for one rule.
+ */
+function autoban_ban($rule, &$context = NULL) {
+  $count = 0;
+  if (!empty($rule)) {
+    // Retrieve hostnames(IP) for ban.
+    $hostnames = autoban_get_hostnames($rule);
+    if (!empty($hostnames)) {
+      foreach ($hostnames as $hostname) {
+        // Make IP string: single or range.
+        $banned_ip = autoban_make_ip_style($hostname->hostname, $rule->ip_type);
+
+        if (isset($rule->rid)) {
+          $message_variables = array(
+            '@rule_url' => url(AUTOBAN_BASE_URL . '/edit/' . $rule->rid),
+            '@rule' => $rule->rid,
+          );
+          $message_rule = "by <a href='@rule_url'>rule @rule</a>";
+        }
+        else {
+          $message_variables = array();
+          $message_rule = '';
+        }
+
+        // Check IP.
+        if (autoban_can_banned($banned_ip)) {
+          // Insert banned IP to IP banned tables.
+          $success = autoban_insert_banned_table($banned_ip, $rule->ip_type);
+          if ($success) {
+            $message_variables['@ip'] = $banned_ip;
+            watchdog('autoban', "Banned IP @ip $message_rule.",
+              $message_variables
+            );
+            $count++;
+          }
+        }
+      }
+    }
+
+    // Batch operations.
+    if (!empty($context)) {
+      $context['results'][] = t('Banned by rule @rid', array('@rid' => $rule->rid));
+      $context['message'] = t('Ban by rule @rid', array('@rid' => $rule->rid));
+
+      // Update number banned IP.
+      if (isset($_SESSION['autoban_ban_all_count'])) {
+        $_SESSION['autoban_ban_all_count'] += $count;
+      }
+    }
+
+  }
+  return $count;
+}
+
+/**
+ * Ban all IP's for rules.
+ *
+ * @return int
+ *   Number of successful IP insertion for all rules.
+ */
+function autoban_ban_all() {
+  $count = 0;
+  $rules = autoban_get_rules();
+  if (!empty($rules)) {
+    foreach ($rules as $rule) {
+      $count += autoban_ban($rule);
+    }
+  }
+
+  return $count;
+}
+
+/**
+ * Check IP for ban.
+ *
+ * @param string $ip
+ *   Checked IP.
+ * @param int $ip_type
+ *   Single IP or range.
+ *
+ * @return bool
+ *   Already banned: TRUE or FALSE.
+ */
+function autoban_is_banned($ip, $ip_type) {
+  $ip_type = _autoban_ip_type_verification($ip_type);
+  $count = 0;
+
+  switch ($ip_type) {
+    case AUTOBAN_SINGLE_IP:
+      $count = db_select('blocked_ips', 't')
+        ->condition('t.ip', $ip)
+        ->countQuery()
+        ->execute()
+        ->fetchField();
+
+      break;
+
+    case AUTOBAN_RANGE_IP:
+      $ip = str_replace(' - ', '-', $ip);
+      $count = db_select('ip_ranges', 't')
+        ->condition('t.ip', $ip)
+        ->condition('t.type', 'blacklist')
+        ->countQuery()
+        ->execute()
+        ->fetchField();
+  }
+  return $count > 0;
+}
+
+/**
+ * Insert IP to table for banned IP.
+ *
+ * @param string $ip
+ *   IP for insert.
+ * @param int $ip_type
+ *   Single IP or range.
+ *
+ * @return bool
+ *   Insert success: TRUE or FALSE.
+ */
+function autoban_insert_banned_table($ip, $ip_type) {
+  $ip_type = _autoban_ip_type_verification($ip_type);
+
+  switch ($ip_type) {
+    case AUTOBAN_SINGLE_IP:
+      if (!autoban_is_banned($ip, $ip_type)) {
+        $iid = db_insert('blocked_ips')
+          ->fields(array('ip' => $ip))
+          ->execute();
+
+        if ($GLOBALS['AUTOBAN_BLOCKED_IPS_EXPIRE_ENABLE']) {    
+          $default_duration = variable_get('blocked_ips_expire_default_time', '+2 years');
+          $default_expiry_date = new DateTime($default_duration);
+          $expiry_date = $default_expiry_date->getTimestamp(); 
+
+          db_merge('blocked_ips_expire')
+            ->key(array('iid' => $iid))
+            ->fields(array('expiry_date' => $expiry_date))
+            ->execute();
+        } 
+
+        return TRUE;
+      }
+      break;
+
+    case AUTOBAN_RANGE_IP:
+     if (!autoban_is_banned($ip, $ip_type)) {
+        $ip = str_replace(' - ', '-', $ip);
+        db_insert('ip_ranges')
+          ->fields(array('ip' => $ip, 'type' => 'blacklist'))
+          ->execute();
+        return TRUE;
+      }
+  }
+  return FALSE;
+}
+
+/**
+ * Retrieves autoban rules from the database.
+ *
+ * @param int $rid
+ *   (optional) Autoban rule id.
+ * @param array $header
+ *   (optional) Autoban rule table header.
+ *
+ * @return array|object
+ *   An array of rules objects or rule object.
+ */
+function autoban_get_rules($rid = NULL, $header = array()) {
+  // Skip the cache for TableSort list.
+  if (empty($header)) {
+    $stored_rules = &drupal_static(__FUNCTION__);
+  }
+
+  // The cache was reset, we passed in headers, or $res hasn't been built.
+  if (empty($stored_rules)) {
+    $query = db_select('autoban', 'list')->fields('list');
+    if (!empty($header)) {
+      $query->extend('TableSort')->orderByHeader($header);
+    };
+    $stored_rules = $query->execute()->fetchAllAssoc('rid');
+  }
+
+  // Return rule object.
+  if ($rid !== NULL && empty($header)) {
+    if (!empty($stored_rules[$rid])) {
+      return $stored_rules[$rid];
+    }
+    else {
+      drupal_set_message(t('autoban_get_rules: Missing index @rid.', array('@rid' => $rid)), 'error');
+      return NULL;
+    }
+  }
+  return $stored_rules;
+}
+
+/**
+ * IP type verification.
+ *
+ * @param int $index
+ *   IP type index.
+ *
+ * @return int
+ *   Resulting IP type index.
+ */
+function _autoban_ip_type_verification($index) {
+  // If ip_ranges module was disabled after rules with
+  // type = AUTOBAN_RANGE_IP was created.
+  if ($index == AUTOBAN_RANGE_IP && !$GLOBALS['AUTOBAN_IP_RANGES_ENABLE']) {
+    $index = AUTOBAN_SINGLE_IP;
+  }
+  return $index;
+}
+
+/**
+ * Retrieves list of IP type names.
+ *
+ * @return array
+ *   An array of IP type names.
+ */
+function _autoban_get_ip_type_names_list() {
+  $ip_type_list = array(AUTOBAN_SINGLE_IP => t('Single'));
+  if (!empty($GLOBALS['AUTOBAN_IP_RANGES_ENABLE'])) {
+    $ip_type_list[AUTOBAN_RANGE_IP] = t('Range');
+  }
+  return $ip_type_list;
+}
+
+/**
+ * Retrieve IP type.
+ *
+ * @param int $index
+ *   IP type index.
+ *
+ * @return string
+ *   IP type name.
+ */
+function _autoban_get_ip_type_name($index) {
+  $index = _autoban_ip_type_verification($index);
+  $ip_type_list = _autoban_get_ip_type_names_list();
+  if (isset($ip_type_list[$index])) {
+    return $ip_type_list[$index];
+  }
+  return '';
+}
+
+/**
+ * Retrieve user type.
+ *
+ * @param int $index
+ *   (optional) User type index.
+ *
+ * @return array|string
+ *   User type name.
+ */
+function _autoban_get_user_type_name($index = NULL) {
+  $user_type_list = array(
+    t('Any'),
+    t('Anonymous'),
+    t('Authenticated'),
+  );
+
+  if ($index !== NULL) {
+    if (isset($user_type_list[$index])) {
+      return $user_type_list[$index];
+    }
+    else {
+      drupal_set_message(t('_autoban_get_user_type_name: Missing user type index @index.', array('@index' => $index)), 'error');
+      return '';
+    }
+  }
+  return $user_type_list;
+}
+
+/**
+ * Get hostnames for ban from watchdog table by autoban rules.
+ *
+ * @param object $options
+ *   Parameters query.
+ * @param array $header
+ *   (optional) Hostnames table header.
+ *
+ * @return array
+ *   An array of hostnames.
+ */
+function autoban_get_hostnames($options, $header = array()) {
+  $query = db_select('watchdog', 'log')
+    ->fields('log', array('hostname'))
+    ->groupBy('log.hostname');
+
+  if (!empty($options->type)) {
+    $query->condition('log.type', $options->type);
+  }
+  if (!empty($options->message)) {
+    $message_items = explode(AUTOBAN_MESSAGE_SEPARATOR, $options->message);
+    if (count($message_items) > 1) {
+      $or = db_or();
+      foreach ($message_items as $message_item) {
+        $or->condition('log.message', '%' . db_like(trim($message_item)) . '%', 'LIKE');
+      }
+      $query->condition($or);
+    }
+    else {
+      $query->condition('log.message', '%' . db_like($options->message) . '%', 'LIKE');
+    }
+  }
+  if (!empty($options->referer)) {
+    $referer_items = explode(AUTOBAN_MESSAGE_SEPARATOR, $options->referer);
+    if (count($referer_items) > 1) {
+      $or = db_or();
+      foreach ($referer_items as $referer_item) {
+        $or->condition('log.referer', '%' . db_like(trim($referer_item)) . '%', 'LIKE');
+      }
+      $query->condition($or);
+    }
+    else {
+      $query->condition('log.referer', '%' . db_like($options->referer) . '%', 'LIKE');
+    }
+  } 
+
+  if ($options->user_type > 0) {
+    if ($options->user_type == 1) {
+      // Anonymous user.
+      $query->condition('log.uid', 0);
+    }
+    else {
+      // Authenticated user.
+      $query->condition('log.uid', 0, '>');
+    }
+  }
+  $query->addExpression('COUNT(*)', 'hcount');
+  $query->havingCondition('hcount', $options->threshold, '>=');
+  if (count($header)) {
+    $query->extend('TableSort')->orderByHeader($header);
+  }
+
+  return $query->execute()->fetchAll();
+}
+
+/**
+ * Make IP style for insert.
+ *
+ * @param string $hostname
+ *   IP address for ban.
+ * @param int $ip_type
+ *   IP type for choose single or range ban.
+ *
+ * @return string
+ *   IP string for insert to ban table.
+ */
+function autoban_make_ip_style($hostname, $ip_type) {
+  $ip_type = _autoban_ip_type_verification($ip_type);
+
+  switch ($ip_type) {
+    case AUTOBAN_SINGLE_IP:
+      return $hostname;
+
+    case AUTOBAN_RANGE_IP:
+      return _autoban_create_range($hostname);
+
+    default:
+      return NULL;
+  };
+}
+
+/**
+ * Create IP range from single IP.
+ *
+ * @param string $hostname
+ *   IP address for ban.
+ *
+ * @return string
+ *   IP range string for insert to ban table.
+ */
+function _autoban_create_range($hostname) {
+  // Make range IP from aaa.bbb.ccc.ddd to aaa.bbb.ccc.0 - aaa.bbb.ccc.255 .
+  $parts = explode('.', $hostname);
+  if (count($parts) == 4) {
+    $parts[3] = '0';
+    $ip_start = implode('.', $parts);
+    $parts[3] = '255';
+    $ip_end = implode('.', $parts);
+    return "$ip_start - $ip_end";
+  }
+  return NULL;
+}
+
+/**
+ * Check own IP to prevent from ban.
+ *
+ * @param string $hostname
+ *   IP address for ban.
+ *
+ * @return bool
+ *   IP address is your own or include in the IP range.
+ */
+function _autoban_is_own_ip($hostname) {
+  // Own IP.
+  $my_ip = ip_address();
+  $parts = explode(' - ', $hostname);
+  if (count($parts) > 1) {
+    // Range IP.
+    $my_ip = ip2long($my_ip);
+    return ($my_ip <= ip2long($parts[1]) && $my_ip >= ip2long($parts[0]));
+  }
+  else {
+    // Single IP.
+    return ($hostname === $my_ip);
+  }
+}
+
+/**
+ * Get thresholds list.
+ *
+ * @return array
+ *   Thresholds list.
+ */
+function _autoban_get_thresholds() {
+  $autoban_thresholds = explode(',', variable_get('autoban_thresholds', '1,2,3,5,10,20,50,100,200,500,1000'));
+  return $autoban_thresholds ? array_map('trim', $autoban_thresholds) : array(1, 2, 3, 5, 10, 20, 50, 100, 200, 500, 1000);
+}
+
+/**
+ * Get watchdog events whitelist.
+ *
+ * @return array
+ *   Watchdog events whitelist list.
+ */
+function autoban_get_log_whitelist() {
+  $whitelist = explode(',', variable_get('autoban_dblog_type_exclude', 'autoban,cron,php,system,user'));
+  return $whitelist ? array_map('trim', $whitelist) : array('autoban', 'cron', 'php', 'system', 'user');
+}
+
+/**
+ * Export a variable in pretty formatted JSON.
+ */
+function autoban_var_json_export($var, $prefix = '') {
+  if (is_array($var) && $var) {
+    // Defines whether we use a JSON array or object.
+    $use_array = ($var == array_values($var));
+    $output = $use_array ? "[" : "{";
+
+    foreach ($var as $key => $value) {
+      if ($use_array) {
+        $values[] = autoban_var_json_export($value, '  ');
+      }
+      else {
+        $values[] = autoban_var_json_export((string) $key, '  ') . ' : ' . autoban_var_json_export($value, '  ');
+      }
+    }
+    // Use several lines for long content. However for objects with a single
+    // entry keep the key in the first line.
+    if (strlen($content = implode(', ', $values)) > 70 && ($use_array || count($values) > 1)) {
+      $output .= "\n  " . implode(",\n  ", $values) . "\n";
+    }
+    elseif (strpos($content, "\n") !== FALSE) {
+      $output .= " " . $content . "\n";
+    }
+    else {
+      $output .= " " . $content . ' ';
+    }
+    $output .= $use_array ? ']' : '}';
+  }
+  else {
+    $output = drupal_json_encode($var);
+  }
+
+  if ($prefix) {
+    $output = str_replace("\n", "\n$prefix", $output);
+  }
+  return $output;
+}
+
+/**
+ * Check own IP to prevent from ban.
+ *
+ * @param string $hostname
+ *   IP address.
+ *
+ * @return string
+ *   IP address location info.
+ */
+function autoban_get_ip_location($hostname) {
+  if (empty($hostname)) return '';
+
+  $req = drupal_http_request("http://freegeoip.net/json/$hostname");
+  if ($req->code != 200) return t('Error');
+  $data = json_decode($req->data);
+  $res = array($data->country_name, $data->region_name, $data->city);
+  foreach ($res as $key => $item) {
+    if (empty($item)) {
+      unset($res[$key]);
+    }
+  }
+
+  return implode(', ', $res);
+}
+
+/**
+ * Ban IP manually.
+ *
+ * @param string $ip
+ *   IP for ban.
+ * @param int $ip_type
+ *   Single IP or range.
+ */
+function autoban_ban_manual($ip, $ip_type) {
+  if (autoban_can_banned($ip)) {
+    // IP ban function.
+    $ip = autoban_make_ip_style($ip, $ip_type);
+    $res = autoban_insert_banned_table($ip, $ip_type);
+    $msg = $res ? t('added') : t('has already');
+
+    drupal_set_message(t('@ip has been banned (@msg).',
+      array('@ip' => $ip, '@msg' => $msg)));
+
+    //Real ban.
+    if ($res) {
+      watchdog('autoban', 'Banned @ip manually', array('@ip' => $ip));
+    }
+  }
+  else {
+    drupal_set_message(t('@ip was NOT banned.',
+      array('@ip' => $ip)));
+  }
+
+  if (isset($_GET['destination'])) {
+    drupal_goto($_GET['destination']);
+  }
+}
+
+/**
+ * Is IP address in subnet?
+ *
+ * @param string $ip
+ *   IP address for match check.
+ * @param string $network
+ *   IP subnet.
+ * @param string $cidr
+ *   CIDR.
+ *
+ * @return bool
+ *   IP mathes for subnet. 
+*/
+function _autoban_cidr_match($ip, $network, $cidr)
+{
+  return ((ip2long($ip) & ~((1 << (32 - $cidr)) - 1) ) == ip2long($network));
+}
+
+/**
+ * Is IP address in whitelist
+ *
+ * @param string $ip
+ *   IP address for check.
+ *
+ * @return bool
+ *   IP address in whitelist. 
+*/
+function autoban_whitelist_ip($ip) {
+   $autoban_whitelist = variable_get('autoban_whitelist', '');
+   if (!empty($autoban_whitelist)) {
+     $autoban_whitelist_arr = explode("\n", $autoban_whitelist);
+     foreach ($autoban_whitelist_arr as $whitelist_ip) {
+       $whitelist_ip = trim($whitelist_ip);
+       if (drupal_substr($whitelist_ip, 0, 1) == '#' ) {
+         continue;
+       }
+
+       $whitelist_ip_arr = explode('/', $whitelist_ip);
+       if (count($whitelist_ip_arr) > 1) {
+         $in_list = _autoban_cidr_match($ip, $whitelist_ip_arr[0], (int) $whitelist_ip_arr[1]);
+       }
+       else { 
+         $in_list = ($whitelist_ip == $ip);
+       }
+       if ($in_list) {
+         return TRUE;
+       } 
+     }
+   }
+
+   return FALSE;
+}
+
+/**
+ * May IP address can be banned
+ *
+ * @param string $ip
+ *   IP address.
+ *
+ * @return bool
+ *   IP address can be banned. 
+*/
+function autoban_can_banned($ip) {
+  $is_own_ip = _autoban_is_own_ip($ip);
+  if ($is_own_ip) {
+    return FALSE;
+  }
+
+  $ip_in_whitelist = autoban_whitelist_ip($ip);
+  if ($ip_in_whitelist) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implements hook_watchdog().
+*/
+function autoban_watchdog(array $log_entry) {
+  if (variable_get('autoban_force_enable', FALSE) && !in_array($log_entry['type'], autoban_get_log_whitelist())) {
+    autoban_ban_all();
+  }
+}
+
+/**
+ * Short referer
+ *
+ * @param string $referer
+ *   Referrer string.
+ * @param int $limit_width
+ *   Limit of the referrer width.
+ *
+ * @return string
+ *   Short referrer string. 
+*/
+function _autoban_short_referer($referer, $limit_width = 150) {
+  $item_referer = filter_xss($referer);
+  if (drupal_strlen($item_referer) > $limit_width) {
+    $item_referer = drupal_substr($item_referer, 0, $limit_width) . '...';
+  }        
+
+  return $item_referer;
+}

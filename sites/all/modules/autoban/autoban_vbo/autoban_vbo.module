@@ -1,0 +1,43 @@
+<?php
+
+/**
+ * @file
+ * Defines the VBO integration module.
+ * This adds ban actions to VBO.
+ */
+
+function autoban_vbo_action_info() {
+  $res = array();
+
+  $res['autoban_vbo_comment_ban_single_action'] = array(
+    'type' => 'comment',
+    'label' => t(_autoban_get_ip_type_name(AUTOBAN_SINGLE_IP) . ' ban'),
+    'configurable' => FALSE,
+    'vbo_configurable' => FALSE,
+    'triggers' => array('any'),
+  );
+
+  if (!empty($GLOBALS['AUTOBAN_IP_RANGES_ENABLE'])) {
+    $res['autoban_vbo_comment_ban_range_action'] = array(
+      'type' => 'comment',
+      'label' => t(_autoban_get_ip_type_name(AUTOBAN_RANGE_IP) . ' ban'),
+      'configurable' => FALSE,
+      'vbo_configurable' => FALSE,
+      'triggers' => array('any'),
+    );
+  }
+
+  return $res;
+}
+
+function autoban_vbo_comment_ban_single_action(&$comment, $context) {
+  if (!empty($comment->hostname)) {
+    autoban_ban_manual($comment->hostname, AUTOBAN_SINGLE_IP);
+  }
+}
+
+function autoban_vbo_comment_ban_range_action(&$comment, $context) {
+  if (!empty($comment->hostname)) {
+    autoban_ban_manual($comment->hostname, AUTOBAN_RANGE_IP);
+  }
+}

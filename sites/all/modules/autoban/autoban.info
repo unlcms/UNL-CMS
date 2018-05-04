@@ -1,0 +1,13 @@
+name = Autoban
+description = Automatic IP ban using watchdog table
+core = 7.x
+package = Autoban
+configure = admin/config/people/autoban
+dependencies[] = dblog
+
+; Information added by Drupal.org packaging script on 2017-08-16
+version = "7.x-1.6"
+core = "7.x"
+project = "autoban"
+datestamp = "1502925546"
+
