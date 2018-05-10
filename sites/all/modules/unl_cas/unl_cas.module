@@ -283,7 +283,7 @@ function unl_cas_get_user_record($username) {
   try {
     $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
     $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
-    $results = $ldap->search('dc=unl,dc=edu', 'uid=' . $username);
+    $results = $ldap->search('ou=people,dc=unl,dc=edu', 'sAMAccountName=' . $username);
     if (count($results) > 0) {
       $result = $results[0];
     }
@@ -343,14 +343,12 @@ function unl_cas_import_user($username) {
     // If either LDAP or Directory found data, use it.
     if ($result) {
       $result = array_change_key_case($result, CASE_LOWER);
-      $userData['mail'] = $result['mail'][0];
+      $userData['mail'] = $result['unlmail'][0];
       $userData['data']['unl'] = array(
-        'fullName' => isset($result['edupersonnickname']) ? $result['edupersonnickname'][0] : $result['givenname'][0] . ' ' . $result['sn'][0],
+        'fullName' => $result['displayname'][0],
         'affiliations' => $result['edupersonaffiliation'],
         'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
-        'department' => (isset($result['unlhrprimarydepartment']) ? $result['unlhrprimarydepartment'][0] : ''),
-        'major' => (isset($result['unlsismajor']) ? $result['unlsismajor'][0] : ''),
-        'studentStatus' => (isset($result['unlsisstudentstatus']) ? $result['unlsisstudentstatus'] : array()),
+        'department' => (isset($result['department']) ? $result['department'][0] : ''),
         'lastDataFetch' => time(),
       );
     }
