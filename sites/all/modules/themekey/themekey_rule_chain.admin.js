@@ -9,10 +9,14 @@
     var propertiesRow = $('#themekey-properties-row-' + parentId);
     if (1 == adjust) {
       $('.themekey-property-theme', propertiesRow).css('display', 'none');
+      $('.themekey-property-append-path', propertiesRow).css('display', 'none');
+      $('.themekey-property-append-path + label', propertiesRow).css('display', 'none');
       $('.themekey-rule-delete-link', propertiesRow).css('display', 'none');
     }
     else if (childCounter.val() < 1) {
       $('.themekey-property-theme', propertiesRow).css('display', 'block');
+      $('.themekey-property-append-path', propertiesRow).css('display', 'inline');
+      $('.themekey-property-append-path + label', propertiesRow).css('display', 'inline');
       $('.themekey-rule-delete-link', propertiesRow).css('display', 'block');
     }
   };
@@ -39,61 +43,63 @@
     });
   };
 
-  Drupal.tableDrag.prototype.onDrag = function() {
-    ThemeKey.oldParentId = $('.themekey-property-parent', $(this.rowObject.element)).val();
-    return null;
-  };
+  if (Drupal.tableDrag) {
+    Drupal.tableDrag.prototype.onDrag = function() {
+      ThemeKey.oldParentId = $('.themekey-property-parent', $(this.rowObject.element)).val();
+      return null;
+    };
 
-  Drupal.tableDrag.prototype.onDrop = function() {
-    if (this.changed) {
-      var rowElement = $(this.rowObject.element);
-      var newParentId = $('.themekey-property-parent', rowElement).val();
-      var enabledElement = $('.themekey-property-enabled', rowElement);
+    Drupal.tableDrag.prototype.onDrop = function() {
+      if (this.changed) {
+        var rowElement = $(this.rowObject.element);
+        var newParentId = $('.themekey-property-parent', rowElement).val();
+        var enabledElement = $('.themekey-property-enabled', rowElement);
 
-      if (enabledElement.attr('checked')) {
-        if (0 < ThemeKey.oldParentId) {
-          ThemeKey.adjustChildCounter(ThemeKey.oldParentId, -1);
+        if (enabledElement.attr('checked')) {
+          if (0 < ThemeKey.oldParentId) {
+            ThemeKey.adjustChildCounter(ThemeKey.oldParentId, -1);
+          }
+
+          if (0 < newParentId) {
+            var parentEnabledElement = $('.themekey-property-enabled', $('#themekey-properties-row-' + newParentId));
+            if (parentEnabledElement.attr('checked')) {
+              ThemeKey.adjustChildCounter(newParentId, 1);
+            }
+            else {
+              enabledElement.removeAttr('checked');
+              enabledElement.css('display', 'none');
+              rowElement.addClass('themekey-fade-out');
+              // hide and disable children
+              var id = enabledElement.attr('name').replace('old_items[', '').replace('][enabled]', '');
+              ThemeKey.disableChilds(id);
+            }
+          }
+        }
+        else {
+          if (0 < newParentId) {
+            var parentEnabledElement = $('.themekey-property-enabled', $('#themekey-properties-row-' + newParentId));
+            if (parentEnabledElement.attr('checked')) {
+              enabledElement.css('display', 'block');
+            }
+            else {
+              enabledElement.css('display', 'none');
+            }
+          }
         }
 
         if (0 < newParentId) {
-          var parentEnabledElement = $('.themekey-property-enabled', $('#themekey-properties-row-' + newParentId));
-          if (parentEnabledElement.attr('checked')) {
-            ThemeKey.adjustChildCounter(newParentId, 1);
-          }
-          else {
-            enabledElement.removeAttr('checked');
-            enabledElement.css('display', 'none');
-            rowElement.addClass('themekey-fade-out');
-            // hide and disable children
-            var id = enabledElement.attr('name').replace('old_items[', '').replace('][enabled]', '');
-            ThemeKey.disableChilds(id);
+          if (0 >= ThemeKey.oldParentId) {
+            rowElement.removeClass('themekey-top-level');
           }
         }
-      }
-      else {
-        if (0 < newParentId) {
-          var parentEnabledElement = $('.themekey-property-enabled', $('#themekey-properties-row-' + newParentId));
-          if (parentEnabledElement.attr('checked')) {
-            enabledElement.css('display', 'block');
-          }
-          else {
-            enabledElement.css('display', 'none');
-          }
+        else {
+          enabledElement.css('display', 'block');
+          rowElement.addClass('themekey-top-level');
         }
       }
-
-      if (0 < newParentId) {
-        if (0 >= ThemeKey.oldParentId) {
-          rowElement.removeClass('themekey-top-level');
-        }
-      }
-      else {
-        enabledElement.css('display', 'block');
-        rowElement.addClass('themekey-top-level');
-      }
-    }
-    return null;
-  };
+      return null;
+    };
+  }
 
   Drupal.behaviors.ThemeKey = {
     attach: function(context) {

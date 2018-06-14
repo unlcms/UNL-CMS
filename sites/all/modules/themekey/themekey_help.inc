@@ -260,6 +260,14 @@ function themekey_help_properties_form($form, &$form_state, $collapsed) {
       '#collapsed' => TRUE,
     );
 
+    if (isset($attribute['deprecated'])) {
+      $form['themekey_help_properties'][$property]['deprecated'] = array(
+        '#type' => 'item',
+        '#title' => t('Deprecated'),
+        '#markup' => isset($attribute['deprecated message']) ? $attribute['deprecated message'] : '',
+      );
+    }
+
     $form['themekey_help_properties'][$property]['item'] = array(
       '#type' => 'item',
       '#title' => t('Description'),

@@ -32,7 +32,7 @@ function themekey_book_themekey_properties() {
   );
   $attributes['book:has_children'] = array(
     'description' => t('Book: Has Children - Whether the book has child pages or not. Possible values are "0" for false and "1" for true.'),
-    'validator' => 'themekey_validator_nummeric_boolean',
+    'validator' => 'themekey_validator_numeric_boolean',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
 

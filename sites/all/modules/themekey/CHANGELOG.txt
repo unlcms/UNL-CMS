@@ -1,3 +1,123 @@
+ThemeKey 7.x-3.4, 2015-07-06
+----------------------------
+[#2224913] Rory Downes, mkalkbrenner: Admin Interface broken / Potential incompatibility with WAMP on Windows
+[#2517964] gratefulsk, mkalkbrenner: Path comment/#comment:cid does not populate comment:cid property
+[#2423365] Rubas, mkalkbrenner: Support for browscap:istablet
+[#2510924] Loparev, mkalkbrenner: Migrate Domain Theme Integration to Domain ThemeKey module
+
+
+ThemeKey 7.x-3.3, 2015-02-03
+----------------------------
+[#2277243] mkalkbrenner: fixed Call to undefined function themekey_invoke_modules() in themekey_ui.module on line 304
+[#2224913] mkalkbrenner: removed single quotes from module descriptions in info files which seemed to cause issues in some environments.
+[#2380909] mkalkbrenner: Redirect for is_front_page does not work for root URL
+[#2373821] paulbeaney, mkalkbrenner: differentiate between scalar and complex get and cookie values
+
+
+ThemeKey 7.x-3.2, 2014-05-13
+----------------------------
+[#2265813] mkalkbrenner: fatal error when submitting a contextual filter for a view via ajax
+
+
+ThemeKey 7.x-3.1, 2014-04-03
+----------------------------
+[#2188709] mkalkbrenner: 'Retain the theme until a new theme is set' doesn't work for static/triggered rules
+[#2212531] tannerjfco: organic groups type validating against membership type, not group type
+[#2232503] mkalkbrenner: themekey_compat creates broken property description
+[#2232571] meecect: ajax forms still return mixed themes
+[        ] mkalkbrenner: minor improvements on themekey_compat settings page
+
+
+ThemeKey 7.x-3.0, 2014-01-24
+----------------------------
+[        ] mkalkbrenner: improved error message if a theme is disabled or a css file is missing
+[#2161863] mkalkbrenner: Undefined offset: 3 in themekey_get_global_parameters()
+[        ] mkalkbrenner: removed flag "Experimental" from ThemeKey Redirect
+
+
+ThemeKey 7.x-3.0-rc2, 2013-12-03
+--------------------------------
+[        ] mkalkbrenner: ThemeKey Redirect: added an option to evaluate the rule chain only once to optimize the performance.
+[        ] mkalkbrenner: extended test cases.
+[#2128525] mkalkbrenner: Cookie values containing serialized data creates invalid auto rule links.
+[#1525016] mkalkbrenner: Mixed themes when using ajax
+[#1623078] mkalkbrenner: Add a hook to suppress themekey evaluation on special paths - added hook_themekey_disabled_paths()
+[#1851474] mkalkbrenner: JS error on empty Theme Switching Rule Chain
+[#1907196] mkalkbrenner: Declare built-in client detection as deprecated in favor of Browscap and Mobile Detect
+[        ] mkalkbrenner: fixed mobile_detect integration
+[        ] mkalkbrenner: added more options to improve ajax handling
+[#2144557] mkalkbrenner: fixed Notice: Undefined variable: properties
+[        ] mkalkbrenner: added validation of domain list of ThemeKey Redirect Domain Selector block
+
+
+ThemeKey 7.x-3.0-rc1, 2013-11-15
+--------------------------------
+[#2118987] mkalkbrenner: Browscap:ismobiledevice rule not working in some setups
+[        ] mkalkbrenner: fixed spelling of themekey_validator_numeric_boolean
+[#2128887] izus, mkalkbrenner: Do not rely on rowCount() for SELECT statement
+[        ] mkalkbrenner: fixed Cannot redeclare themekey_update_7300 if ThemeKey Redirect is enabled
+[#2128671] mkalkbrenner: Various errors if description in .info files exceeds 255 characters.
+[        ] mkalkbrenner: fixed Unknown column 'append_path' in 'field list' when enabling ThemeKey Redirect
+[        ] mkalkbrenner: new property locale:language_from_browser
+[        ] mkalkbrenner: improved ThemeKey Redirect to match more use cases, not just sub-domains for mobile devices.
+[        ] mkalkbrenner: ThemeKey Redirect: Removed redirects implemented in php for authenticated users because they caused trouble with varnish. Now we always rely on javascript.
+
+
+ThemeKey 7.x-3.0-beta1, 2013-10-31
+----------------------------------
+[        ] webservant316, mkalkbrenner: improved wording.
+[#1942444] yechuah: added taxonomy:name property
+[#2046143] Simon Georges: Move example module into "Example modules" package
+[#1600844] mkalkbrenner: Themekey fatals on External Pages with Bootstrap
+[#1811592] mkalkbrenner: redirect to different (sub-) domain by rule - added option "append path"
+
+
+ThemeKey 7.x-3.0-alpha2, 2013-10-15
+-----------------------------------
+[        ] mkalkbrenner: added support for mobile_detect and provided different related properties
+[        ] mkalkbrenner: refactored ThemeKey to make rule chain administration and matching reusable for sub-modules
+[        ] mkalkbrenner: added hook_themekey_rebuild()
+[#977572]  mkalkbrenner: add additional css file by rule - added experimental sub-module themekey_css
+[#2046143] Simon Georges, mkalkbrenner: clean up info files
+[#2052647] richard.french, mkalkbrenner: Workbench Access support
+[#1811592] mkalkbrenner: redirect to different (sub-) domain by rule - added experimental sub-module themekey_redirect
+[        ] mkalkbrenner: fixed ThemeKey Debug message for static rules
+[        ] mkalkbrenner: added support for mobile_detect_api
+[#2082427] mkalkbrenner: extend individually-styled channels to include the user profile page and contact page
+[        ] mkalkbrenner: added hook_themekey_ui_author_theme_selected()
+
+
+ThemeKey 7.x-3.0-alpha1, 2013-07-12
+-----------------------------------
+[        ] mkalkbrenner: added hook_themekey_custom_theme_alter()
+[#1977472] mjpa, mkalkbrenner: Domain Theme support
+[        ] mkalkbrenner: fixed creation of new rule with regex operator
+[#1510482] mkalkbrenner: Switch Theme by Field Value
+[#2039581] Nosta, mkalkbrenner: wrong boolean values in system:session
+[#1900864] Pacufist: selected modules disappear from Compatibility tab
+[#1957354] mkalkbrenner: $content_language property
+[        ] mkalkbrenner: fixed "Use of undefined constant LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX" caused by property overlay:mode if locale.module is enabled
+[#686650]  mkalkbrenner: added validator for property group:type
+[        ] mkalkbrenner: added support for browscap and provided different related properties
+
+
+ThemeKey 7.x-2.4, 2013-07-09
+----------------------------
+[        ] mkalkbrenner: new property drupal:path_is_admin
+[#1842066] netw3rker, mkalkbrenner: organic groups properties are not available
+[        ] mkalkbrenner: fixed rare fatal error on upgrades from early ThemeKey 6.x versions
+[#1705410] rooby, mkalkbrenner: new property overlay:mode
+[#1866850] frizi, mkalkbrenner: differentiate between scalar and complex post values for property system:post
+[#1900864] Pacufist: Bug in function themekey_compat_module_implements_alter().
+[#1916338] dwatson, mkalkbrenner: Undefined index: HTTP_USER_AGENT in themekey_dummy2user_os()
+[#1955062] andrewsuth, mkalkbrenner: support path aliases in themekey_get_global_parameters()
+[        ] mkalkbrenner: fixed explode() expects parameter 2 to be string, array given themekey_base.inc:77
+[        ] mkalkbrenner: Avoid caching of pages containing debug info in internal page cache and in external caches like varnish, boost, ...
+[        ] mkalkbrenner: fixed disabling rules on feature import
+[#2027069] mkalkbrenner: added property path:node_alias
+[#2034017] mkalkbrenner: added properties views:machine_name and views:human_name
+
+
 ThemeKey 7.x-2.3, 2012-07-24
 ----------------------------
 [#686650]  daggerhart, mkalkbrenner: add Organic Groups to properties (continued experimental implementation)
@@ -371,13 +491,13 @@ ThemeKey 6.x-2.0-beta4, 2009-01-04
 
 ThemeKey 6.x-2.0-beta3, 2009-12-18
 -----------------------------------
-[       ] Carsten Müller, mkalkbrenner: added validation function themekey_validator_string_boolean() and improved themekey_validator_nummeric_boolean()
+[       ] Carsten Müller, mkalkbrenner: added validation function themekey_validator_string_boolean() and improved themekey_validator_numeric_boolean()
 [#662786] mkalkbrenner: Error Message after upgrading to latest beta
 
 
 ThemeKey 6.x-2.0-beta2, 2009-12-17
 -----------------------------------
-[       ] Carsten Müller: improved validator themekey_validator_nummeric_boolean()
+[       ] Carsten Müller: improved validator themekey_validator_numeric_boolean()
 [       ] mkalkbrenner: moved modules into package ThemeKey
 [       ] mkalkbrenner: fixed theme for path detection in ThemeKey UI in combination with different operators
 [       ] mkalkbrenner: improved help section a little

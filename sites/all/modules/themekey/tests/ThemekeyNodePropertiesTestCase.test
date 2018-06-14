@@ -9,10 +9,14 @@
 class ThemekeyNodePropertiesTestCase extends ThemekeyWebTestCase {
   public static function getInfo() {
     return array(
-      'name' => 'Themekey Node Properties',
-      'description' => 'Test the themekey node properties (node:).',
-      'group' => 'Themekey',
+      'name' => 'ThemeKey Node Properties',
+      'description' => 'Test the ThemeKey node properties (node:).',
+      'group' => 'ThemeKey',
     );
+  }
+
+  public function setUp() {
+    parent::setUp(array('locale'));
   }
 
   public function testPropertyNodeChanged() {
@@ -30,10 +34,17 @@ class ThemekeyNodePropertiesTestCase extends ThemekeyWebTestCase {
     $this->simplePropertyTest('node:language', '=', 'neutral', array('path' => 'node/' . $node->nid));
   }
 
-//  public function testPropertyNodeLanguageEnglish() {
-//    $node = $this->drupalCreateNode(array('language' => 'en'));
-//    $this->simplePropertyTest('node:language', '=', 'en', array('path' => 'node/' . $node->nid));
-//  }
+  public function testPropertyNodeLanguageEnglish() {
+    // Add a new language.
+    require_once DRUPAL_ROOT . '/includes/locale.inc';
+    locale_add_language('it', 'Italian', 'Italiano', LANGUAGE_LTR, '', '', TRUE, FALSE);
+
+    $node = $this->drupalCreateNode(array(
+      'language' => 'it',
+      'body' => array('it' => array(array())),
+    ));
+    $this->simplePropertyTest('node:language', '=', 'it', array('path' => 'node/' . $node->nid));
+  }
 
   public function testPropertyNodeNid() {
     $node = $this->drupalCreateNode();

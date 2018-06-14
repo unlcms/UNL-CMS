@@ -89,7 +89,7 @@ function themekey_features_rule_chain_features_enable_feature($module) {
  */
 function themekey_features_rule_chain_features_disable_feature($module) {
   module_load_include('inc', 'themekey', 'themekey_build');
-  
+
   $rules = themekey_load_rules();
   foreach ($rules as $id => $rule) {
     if ($rule['module'] == $module) {
@@ -109,9 +109,9 @@ function themekey_features_rule_chain_features_revert($module) {
   // disable all remaining rules related to this feature,
   // including childs added by the administrator
   themekey_features_rule_chain_features_disable_feature($module);
-  
+
   // now re-enable or re-create all rules from
-  // exported feature in an unmodified state 
+  // exported feature in an unmodified state
   $rules = module_invoke($module, 'themekey_features_rule_chain');
   themekey_features_save_rule_childs($module, $rules, /* force */ TRUE);
 }
@@ -122,7 +122,7 @@ function themekey_features_rule_chain_features_revert($module) {
  */
 function themekey_features_graceful_rule_deletion($module) {
   module_load_include('inc', 'themekey', 'themekey_build');
-  
+
   $rules = themekey_load_rules();
   $delete = TRUE;
 
@@ -173,11 +173,11 @@ function themekey_features_load_rule_childs($module_name = '', $parent = 0) {
       // we have to load the rule again using themekey_rule_get() which applies some transformations
       // like themekey_complete_path()
       $rule = themekey_rule_get($record->id);
-      
+
       if (!empty($module_name)) {
         $rule->module = $module_name;
       }
-      
+
       // remove the database specific stuff for export
       unset($rule->id);
       unset($rule->parent);
@@ -209,10 +209,10 @@ function themekey_features_load_rule_childs($module_name = '', $parent = 0) {
  */
 function themekey_features_save_rule_childs($module, $childs, $force = FALSE, $parent = 0, $enabled = 1) {
   module_load_include('inc', 'themekey', 'themekey_build');
-  
+
   foreach ($childs as $child) {
     $child['rule']['parent'] = $parent;
-    
+
     $id = db_select('themekey_properties', 'tp')
       ->fields('tp', array('id'))
       ->condition('property', $child['rule']['property'])
@@ -228,20 +228,20 @@ function themekey_features_save_rule_childs($module, $childs, $force = FALSE, $p
       // re-enable a disabled rule
       $child['rule']['id'] = $id;
     }
-    
+
     try {
       themekey_rule_set($child['rule'], $module);
     }
-    catch (ThemeKeyRuleConfictException $e) {
+    catch (ThemeKeyRuleConflictException $e) {
       // disable a conflicting rule
       if ($force) {
-        themekey_rule_disable($e->code);
+        themekey_rule_disable($e->getCode());
       }
       else {
         $child['rule']['enabled'] = 0;
       }
       themekey_rule_set($child['rule'], $module);
-      drupal_set_message(t('ThemeKey rule %rule has been disabled because it conficts with an existing one.', array('%rule' => $child['string'])), 'warning');
+      drupal_set_message(t('ThemeKey rule %rule has been disabled because it conflicts with an existing one.', array('%rule' => $child['string'])), 'warning');
     }
     themekey_features_save_rule_childs($module, $child['childs'], $force, $child['rule']['id'], $child['rule']['enabled']);
   }

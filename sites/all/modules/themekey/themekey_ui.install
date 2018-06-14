@@ -68,7 +68,9 @@ function themekey_ui_schema() {
 function themekey_ui_disable() {
   module_load_include('inc', 'themekey', 'themekey_build');
   themekey_update_static_rule('themekey_ui:node_triggers_theme', FALSE);
-  themekey_update_static_rule('themekey_ui:node_author_triggers_theme', FALSE);
+  themekey_update_static_rule('themekey_ui:author_triggers_theme', FALSE);
+  themekey_update_static_rule('themekey_ui:contact_triggers_theme', FALSE);
+  themekey_update_static_rule('themekey_ui:profile_triggers_theme', FALSE);
 }
 
 /**
@@ -122,7 +124,6 @@ function themekey_ui_update_6200() {
       'primary key' => array('uid'),
     );
 
-    $ret = array();
     db_create_table('themekey_ui_author_theme', $schema['themekey_ui_author_theme']);
     // hook_update_N() no longer returns a $ret array. Instead, return
     // nothing or a translated string indicating the update ran successfully.
@@ -132,4 +133,45 @@ function themekey_ui_update_6200() {
   else {
     return '';
   }
+}
+
+/**
+ * Collapse properties themekey_ui:node_author_triggers_theme and themekey_ui:blog_author_triggers_theme into themekey_ui:author_triggers_theme
+ */
+function themekey_ui_update_7300() {
+  db_update('themekey_properties')
+    ->fields(array(
+      'property' => 'themekey_ui:author_triggers_theme'
+    ))
+    ->condition('property', 'themekey_ui:node_author_triggers_theme')
+    ->execute();
+
+  $id = db_query("SELECT id FROM {themekey_properties} WHERE property = 'themekey_ui:blog_author_triggers_theme'")->fetchField();
+  if ($id) {
+    db_update('themekey_properties')
+      ->fields(array(
+        'parent' => 0
+      ))
+      ->condition('parent', $id)
+      ->execute();
+
+    db_delete('themekey_properties')
+      ->condition('property', 'themekey_ui:blog_author_triggers_theme')
+      ->execute();
+  }
+
+  return t('Renamed themekey_ui:node_author_triggers_theme to themekey_ui:author_triggers_theme, removed themekey_ui:blog_author_triggers_theme');
+}
+
+/**
+ * Remove variable themekey_ui_blog_author.
+ */
+function themekey_ui_update_7301() {
+  variable_del('themekey_ui_blog_author');
+
+  module_load_include('inc', 'themekey', 'themekey_base');
+  module_load_include('inc', 'themekey', 'themekey_build');
+  themekey_rebuild();
+
+  return t('Removed variable themekey_ui_blog_author');
 }

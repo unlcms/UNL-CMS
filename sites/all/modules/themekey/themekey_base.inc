@@ -23,26 +23,43 @@
  *   mixed output of all hooks
  */
 function themekey_invoke_modules($hook) {
-  $return = array();
-  foreach (variable_get('themekey_modules', array('node')) as $module) {
-    if (module_exists($module) && is_readable(drupal_get_path('module', 'themekey') . '/modules/themekey.' . $module . '.inc')) {
-      require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'themekey') . '/modules/themekey.' . $module . '.inc';
+  $modules = & drupal_static('themekey_modules', array());
 
-      $function = 'themekey_' . $module . '_' . $hook;
-      if (function_exists($function)) {
-        $return = array_merge_recursive($return, $function());
+  $return = array();
+
+  if (empty($modules)) {
+    foreach (variable_get('themekey_modules', array('node')) as $module) {
+      if (module_exists($module) && is_readable(drupal_get_path('module', 'themekey') . '/modules/themekey.' . $module . '.inc')) {
+        require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'themekey') . '/modules/themekey.' . $module . '.inc';
+        $modules[] = $module;
+      }
+      else {
+        // seems like a module has been deactivated => update variable 'themekey_modules'
+        module_load_include('inc', 'themekey', 'themekey_build');
+        themekey_scan_modules();
       }
     }
-    else {
-      // seems like a module has been deactivated => update variable 'themekey_modules'
-      module_load_include('inc', 'themekey', 'themekey_build');
-      themekey_scan_modules();
+  }
+
+  $args = func_get_args();
+  // Remove $hook from the arguments.
+  unset($args[0]);
+
+  foreach ($modules as $module) {
+    $function = 'themekey_' . $module . '_' . $hook;
+    if (function_exists($function)) {
+      $result = call_user_func_array($function, $args);
+      if (isset($result) && is_array($result)) {
+        $return = array_merge_recursive($return, $result);
+      }
+      elseif (isset($result)) {
+        $return[] = $result;
+      }
     }
   }
 
   return $return;
 }
-
 
 /**
  * Detects if a ThemeKey rule for property drupal:path
@@ -63,11 +80,11 @@ function themekey_invoke_modules($hook) {
  */
 function themekey_match_path($condition, &$parameters) {
   global $language;
-  
+
   // don't repeat alias detection for all rules during one page request
   static $alias_uri = '';
   static $language_prefix = NULL;
-  
+
   if ('drupal:path' != $condition->property) {
     return FALSE;
   }
@@ -80,7 +97,8 @@ function themekey_match_path($condition, &$parameters) {
   $wildcards = themekey_match_path_parts($get_q_parts, $condition_parts);
   if (FALSE === $wildcards && module_exists('path')) {
     if (empty($alias_uri)) {
-      // Derive path from request_uri
+      // Derive path from request_uri.
+      // drupal_parse_url() is not suitable because it lacks language prefix support.
       $offset = (variable_get('clean_url', 0) ? 0 : 3) + drupal_strlen(base_path());
       $alias_uri = drupal_substr(request_uri(), $offset);
       if (strpos($alias_uri, '?') !== FALSE) {
@@ -88,7 +106,7 @@ function themekey_match_path($condition, &$parameters) {
         $alias_uri_parts = explode('?', $alias_uri);
         $alias_uri = $alias_uri_parts[0];
       }
-      
+
       if (NULL === $language_prefix) {
         if (drupal_multilingual() && LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX ==
           variable_get('locale_language_negotiation_url_part', LOCALE_LANGUAGE_NEGOTIATION_URL_PREFIX)
@@ -109,7 +127,7 @@ function themekey_match_path($condition, &$parameters) {
           $language_prefix = FALSE;
         }
       }
-            
+
       // For $alias_uri != $_GET['q'] the page was requested using an
       // aliased path, otherwise get the path alias internally
       if ($alias_uri == $get_q) {
@@ -117,7 +135,7 @@ function themekey_match_path($condition, &$parameters) {
         if (!empty($language->language) && LANGUAGE_NONE != $language->language) {
           $lang_code = $language->language;
         }
-        
+
         $alias_uri = drupal_get_path_alias($get_q, $lang_code);
       }
     }
@@ -211,14 +229,16 @@ function themekey_get_global_parameters() {
   if (is_null($global_parameters)) {
     $global_parameters = array_merge_recursive(themekey_invoke_modules('themekey_global'), module_invoke_all('themekey_global'));
 
-    $get_q_parts = explode('/', themekey_get_q());
+    $path_condition = new stdClass();
+    $path_condition->property = 'drupal:path';
     $paths = variable_get('themekey_paths', array());
     foreach ($paths as $item) {
-      $item_parts = explode('/', $item['path']);
-      $wildcards = themekey_match_path_parts($get_q_parts, $item_parts);
-      if (!empty($wildcards)) {
-        foreach ($item['wildcards'] as $index => $item_wildcard) {
-          $global_parameters[$item_wildcard] = $wildcards[$index];
+      $path_condition->value = $item['path'];
+      $parameters = array();
+
+      if (themekey_match_path($path_condition, $parameters)) {
+        foreach ($parameters['internal:temp_wildcards'] as $index => $item_wildcard) {
+          $global_parameters[$item['wildcards'][$index]] = $item_wildcard;
         }
 
         if (count($item['callbacks'])) {
@@ -238,20 +258,24 @@ function themekey_get_global_parameters() {
  * the rule chain and returns a theme.
  *
  * @return
- *   a theme as string or NULL
+ *   array containing the name of the selected theme and the cascade of rules matched
+ *   or NULL
  */
 function themekey_match_rules() {
   $parameters = themekey_get_global_parameters();
 
-  $theme = themekey_match_rule_childs($parameters);
-  if (FALSE === $theme || TRUE === $theme) {
-    $theme = NULL;
+  $result = themekey_match_rule_childs($parameters, array(
+    'table' => 'themekey_properties',
+    'format_rule_as_string_callback' => 'themekey_format_rule_as_string',
+    'check_enabled_callback' => 'themekey_check_theme_enabled',
+  ));
+  if (!is_array($result)) {
+    $result = NULL;
   }
-  elseif ('ThemeKeyAdminTheme' === $theme) {
-    $theme = variable_get('admin_theme', '0');
+  elseif ('ThemeKeyAdminTheme' === $result['theme']) {
+    $result['theme'] = variable_get('admin_theme', '0');
   }
-
-  return $theme;
+  return $result;
 }
 
 /**
@@ -265,21 +289,29 @@ function themekey_match_rules() {
  * @param $parent
  *   id of parent rule
  *
+ * @param $rules
+ *   array of matched rules
+ *
  * @return
  *   NULL in case of an error
- *   string name of the theme if child rule matched
+ *   array containing the name of the theme if child rule matched and the cascade of parent rules matched
  *   FALSE if no child rule matches
  *   TRUE if no child properties in the chain
  */
-function themekey_match_rule_childs(&$parameters, $parent = 0) {
+function themekey_match_rule_childs(&$parameters, $options, $parent = 0) {
   static $child_lookups = array();
 
+  if (!$parent) {
+    // reset
+    $child_lookups = array();
+  }
+
   if (isset($child_lookups[$parent])) {
-    // prevent endless recursion in case of malformatted data in database
+    // prevent endless recursion in case of mal-formatted data in database
     return $child_lookups[$parent];
   }
 
-  if ($result = db_select('themekey_properties', 'tp')
+  if ($result = db_select($options['table'], 'tp')
     ->fields('tp')
     ->condition('enabled', 1)
     ->condition('parent', $parent)
@@ -303,30 +335,41 @@ function themekey_match_rule_childs(&$parameters, $parent = 0) {
         }
 
         if (variable_get('themekey_debug_trace_rule_switching', FALSE)) {
-          themekey_set_debug_message('Match: %rule', array('%rule' => themekey_format_rule_as_string($item->id)));
+          themekey_set_debug_message('Match: %rule', array('%rule' => $options['format_rule_as_string_callback']($item->id)));
         }
 
-        $child_lookups[$parent] = themekey_match_rule_childs($parameters, $item->id);
+        $child_lookups[$parent] = themekey_match_rule_childs($parameters, $options, $item->id);
 
         if (FALSE === $child_lookups[$parent]) {
           continue;
         }
         elseif (TRUE === $child_lookups[$parent]) {
-          if (!themekey_check_theme_enabled($item->theme)) {
+          if (isset($options['check_enabled_callback']) && !$options['check_enabled_callback']($item->theme)) {
+            if (!empty($options['stop_on_check_enabled_false'])) {
+              if (variable_get('themekey_debug_trace_rule_switching', FALSE)) {
+                themekey_set_debug_message('Stop on same target: %theme', array('%theme' => $item->theme));
+              }
+              return FALSE;
+            }
+
             if (variable_get('themekey_debug_trace_rule_switching', FALSE)) {
-              themekey_set_debug_message('Theme disabled: %theme', array('%theme' => $item->theme));
+              themekey_set_debug_message('Target disabled or not found: %theme', array('%theme' => $item->theme));
             }
             continue;
           }
 
-          $child_lookups[$parent] = $item->theme;
+          $rules[] = $item;
+          $child_lookups[$parent] = array(
+            'theme' => $item->theme,
+            'rules_matched' => $rules,
+          );
         }
 
         // return own theme or theme from child property or NULL in case of a database error
         return $child_lookups[$parent];
       }
       elseif (variable_get('themekey_debug_trace_rule_switching', FALSE)) {
-        themekey_set_debug_message('No match: %rule', array('%rule' => themekey_format_rule_as_string($item->id)));
+        themekey_set_debug_message('No match: %rule', array('%rule' => $options['format_rule_as_string_callback']($item->id)));
       }
     }
 
@@ -447,6 +490,8 @@ function themekey_match_condition($condition, &$parameters) {
   else {
     trigger_error(t('Function themekey_match_condition() called with illegal parameters'), E_USER_ERROR);
   }
+
+  return FALSE;
 }
 
 
@@ -522,88 +567,33 @@ function themekey_property_value(&$parameters, $property) {
   return $parameters[$property];
 }
 
-
-/**
- * Checks if a theme is enabled and fires warning messages
- * to the site's administrator
- *
- * @param $theme
- *   name of the theme as string
- *
- * @param $settings_page
- *   boolean that indicates if the function
- *   is called from ThemeKey's administration
- *   backend which causes a different message
- *
- * @return
- *   TRUE if the theme is enabled, otherwise FALSE
- */
-function themekey_check_theme_enabled($theme, $settings_page = FALSE) {
-  static $themes_enabled = array();
-  static $warned = FALSE;
-  static $displayed_error = FALSE;
-
-  if (!$theme || 'default' == $theme) {
-    return TRUE;
-  }
-
-  if (empty($themes_enabled)) {
-
-    if ($result = db_select('system', 's')
-      ->fields('s', array('name'))
-      ->condition('type', 'theme')
-      ->condition('status', '1')
-      ->execute()
-    ) {
-      foreach ($result as $row) {
-        $themes_enabled[] = $row->name;
-      }
-
-    }
-  }
-
-  if (in_array($theme, $themes_enabled)) {
-    return TRUE;
-  }
-  elseif ('ThemeKeyAdminTheme' == $theme && variable_get('admin_theme', '0') && in_array(variable_get('admin_theme', '0'), $themes_enabled)) {
-    return TRUE;
-  }
-
-  if ($settings_page) {
-    if (!$displayed_error) {
-      drupal_set_message(filter_xss(t("Your current configuration of theme rules uses at least one theme that is not enabled. Nevertheless, this configuration is stored, but affected rules won't be applied until the targeted theme is enabled at !build_themes.",
-        array('!build_themes' => l(t('!path', array('!path' => 'admin/appearance')), 'admin/appearance')))), 'error');
-      $displayed_error = TRUE;
-    }
-  }
-  else {
-    if (!$warned && variable_get('themekey_debug_trace_rule_switching', FALSE)) {
-      // Don't use the l() function at this early stage of bootstrapping because it will initialize the theme engine. Use url() instead.
-      themekey_set_debug_message('A matching Theme Switching Rule to select theme %theme was not applied because this theme is disabled. You can enable this theme at !build_themes, remove this Theme Switching Rule at !themekey_properties, or edit the current node if the theme was selected using ThemeKey UI.',
-        array('%theme' => $theme, '!build_themes' => '<a href="' . url('admin/appearance') . '">admin/appearance</a>', '!themekey_properties' => '<a href="' . url('admin/config/user-interface/themekey/properties') . '">admin/config/user-interface/themekey/properties</a>'));
-      $warned = TRUE;
-    }
-  }
-
-  return FALSE;
-}
-
 /**
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
  */
 function themekey_format_rule_as_string($themekey_property_id) {
   module_load_include('inc', 'themekey', 'themekey_build');
+  return themekey_abstract_format_rule_as_string($themekey_property_id, array(
+    'rule' => themekey_rule_get($themekey_property_id),
+  ));
+}
 
+function themekey_abstract_format_rule_as_string($themekey_property_id, $options) {
   // fallback title
   $title = $themekey_property_id;
 
-  $item = themekey_rule_get($themekey_property_id);
+  $item = $options['rule'];
   if (!empty($item)) {
     $properties = variable_get('themekey_properties', array());
     if (!in_array($item->property, $properties)) {
-      $item->wildcard = $item->property;
-      $item->property = 'drupal:path:wildcard';
+      $attributes = variable_get('themekey_attributes', array());
+      if (!array_key_exists($item->property, $attributes)) {
+        $item->wildcard = $item->property;
+        $item->property = 'drupal:path:wildcard';
+      }
+      elseif (!empty($attributes[$item->property]['static'])) {
+        $item->theme = 'triggered';
+      }
     }
 
     $title = '"' . $item->property . ' ';

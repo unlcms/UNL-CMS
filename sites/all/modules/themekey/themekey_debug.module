@@ -166,11 +166,21 @@ function themekey_debug_form_node_form_alter() {
  * @return string
  */
 function themekey_debug_page_alter(&$page) {
+  if (variable_get('themekey_debug_show_property_values', FALSE)) {
+    // add the properties to the end of debug messages
+    themekey_debug_properties();
+  }
+
   if ($messages = themekey_set_debug_message('flush')) {
     $page['page_bottom']['themekey']= array(
       '#type' => 'markup',
       '#markup' => $messages,
     );
+
+    // Avoid caching of pages containing debug info in internal page cache
+    drupal_page_is_cacheable(FALSE);
+    // ... and external caches like varnish, boost, ...
+    drupal_add_http_header('Status', '503 Service unavailable');
   }
 }
 

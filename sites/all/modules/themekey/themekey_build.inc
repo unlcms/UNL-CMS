@@ -55,10 +55,10 @@ function themekey_theme_options($default = TRUE, $admin = FALSE) {
 
 
 /**
- * Rebuilds all ThemeKey-related Drupal variables
- * by calling ThemeKey's hooks:
+ * Rebuilds all ThemeKey-related Drupal variables by calling the hooks:
  * - hook_themekey_properties()
  * - hook_themekey_paths()
+ * - hook_themekey_rebuild()
  */
 function themekey_rebuild() {
   // includes all modules in the themekey/modules subfolder (internal modules)
@@ -118,6 +118,8 @@ function themekey_rebuild() {
   }
 
   variable_set('themekey_paths', $paths);
+
+  module_invoke_all('themekey_rebuild');
 }
 
 
@@ -135,7 +137,7 @@ function themekey_rebuild() {
  */
 function themekey_scan_modules($blacklist = array()) {
   $modules = array();
-  $files = file_scan_directory(dirname(__FILE__) . '/modules', '/^themekey\.[a-z]+\.inc$/');
+  $files = file_scan_directory(dirname(__FILE__) . '/modules', '/^themekey\.[^.]+\.inc$/');
   foreach ($files as $file) {
     list( , $module) = explode('.', $file->name);
     if (!in_array($module, $blacklist) && module_exists($module)) {
@@ -151,7 +153,7 @@ function themekey_scan_modules($blacklist = array()) {
  * Named wildcards in ThemeKey rules based on property
  * drupal:path are stored as serialized array in the database.
  *
- * This function deserializes those wildcards and injects them back
+ * This function de-serializes those wildcards and injects them back
  * into the value of the rule. This format is needed by ThemeKey's
  * administration interface.
  *
@@ -271,6 +273,19 @@ function themekey_prepare_custom_path($path) {
  * Loads all ThemeKey Rules from the database.
  * Therefore, it uses recursion to build the rule chains.
  *
+ * @return
+ *   sorted array containing all ThemeKey rules
+ */
+function themekey_load_rules() {
+  return themekey_abstract_load_rules('themekey_properties');
+}
+
+/**
+ * Loads all ThemeKey Rules from the database.
+ * Therefore, it uses recursion to build the rule chains.
+ *
+ * @param $table
+ *
  * @param $parent
  *   id of the parent rule. Default is '0'.
  *   During the recursion this parameter changes.
@@ -283,10 +298,10 @@ function themekey_prepare_custom_path($path) {
  * @return
  *   sorted array containing all ThemeKey rules
  */
-function themekey_load_rules($parent = 0, $depth = 0) {
+function themekey_abstract_load_rules($table, $parent = 0, $depth = 0) {
   $properties = array();
 
-  $result = db_select('themekey_properties', 'tp')
+  $result = db_select($table, 'tp')
     ->fields('tp')
     ->condition('parent', $parent)
     ->orderBy('weight', 'asc')
@@ -298,7 +313,7 @@ function themekey_load_rules($parent = 0, $depth = 0) {
     }
     $item->depth = $depth;
     $properties[$item->id] = get_object_vars($item);
-    $properties = $properties + themekey_load_rules($item->id, $depth + 1);
+    $properties = $properties + themekey_abstract_load_rules($table, $item->id, $depth + 1);
   }
 
   return $properties;
@@ -325,9 +340,13 @@ function themekey_load_rules($parent = 0, $depth = 0) {
  * @param $module
  *   name of the module that sets the item
  *
- * @throws ThemeKeyRuleConfictException
+ * @throws ThemeKeyRuleConflictException
  */
 function themekey_rule_set(&$item, $module = 'themekey') {
+  themekey_abstract_rule_set('themekey_properties', $item, $module);
+}
+
+function themekey_abstract_rule_set($table, &$item, $module = 'themekey') {
   if ('drupal:path' == $item['property']) {
     list($item['value'], $item['wildcards']) = themekey_prepare_custom_path($item['value']);
   }
@@ -345,7 +364,7 @@ function themekey_rule_set(&$item, $module = 'themekey') {
 
   if (empty($item['id'])) {
     if ($item['enabled']) {
-      $id = db_select('themekey_properties', 'tp')
+      $id = db_select($table, 'tp')
         ->fields('tp', array('id'))
         ->condition('property', $item['property'])
         ->condition('operator', $item['operator'])
@@ -356,23 +375,25 @@ function themekey_rule_set(&$item, $module = 'themekey') {
         ->fetchField();
 
       if ($id) {
-        throw new ThemeKeyRuleConfictException(t('New rule conficts with an existing rule on the same level.'), $id);
+        // Transaction is only required for a lock => no rollback
+        throw new ThemeKeyRuleConflictException(t('New rule conflicts with an existing rule on the same level.'), $id);
       }
     }
 
     // new entry should be added at the end of the chain
-    $result = db_select('themekey_properties', 'tp');
+    $result = db_select($table, 'tp');
     $result->addExpression('MAX(weight)', 'weight');
     $weight = $result->execute()->fetchField();
 
     // if query fails $weight will be FALSE which will cause $item['weight'] to be set to '1'
     $item['weight'] = 1 + $weight;
-    drupal_write_record('themekey_properties', $item, array());
+    // It is important to use drupal_write_record() because it sets $item['id']!
+    drupal_write_record($table, $item, array());
 
   }
   else {
     if ($item['enabled']) {
-      $id = db_select('themekey_properties', 'tp')
+      $id = db_select($table, 'tp')
         ->fields('tp', array('id'))
         ->condition('property', $item['property'])
         ->condition('operator', $item['operator'])
@@ -384,11 +405,12 @@ function themekey_rule_set(&$item, $module = 'themekey') {
         ->fetchField();
 
       if ($id) {
-        throw new ThemeKeyRuleConfictException(t('Updated rule conficts with an existing rule on the same level.'), $id);
+        // Transaction is only required for a lock => no rollback
+        throw new ThemeKeyRuleConflictException(t('Updated rule conflicts with an existing rule on the same level.'), $id);
       }
     }
 
-    drupal_write_record('themekey_properties', $item, 'id');
+    drupal_write_record($table, $item, 'id');
   }
 
   // $txn goes out of scope here, and the entire transaction commits.
@@ -404,12 +426,16 @@ function themekey_rule_set(&$item, $module = 'themekey') {
  * @throws ThemeKeyRuleDeletionException
  */
 function themekey_rule_del($id) {
+  return themekey_abstract_rule_del('themekey_properties', $id);
+}
+
+function themekey_abstract_rule_del($table, $id) {
 
   // TRANSACTIONS - SEE http://drupal.org/node/355875
   // The transaction opens here.
   $txn = db_transaction();
 
-  $result = db_select('themekey_properties', 'tp');
+  $result = db_select($table, 'tp');
   $result->condition('parent', $id);
   $result->addExpression('COUNT(*)', 'num_childs');
   $num_childs = $result->execute()->fetchField();
@@ -419,7 +445,7 @@ function themekey_rule_del($id) {
       throw new ThemeKeyRuleDeletionException(t('ThemeKey rule could not be deleted because it has children in the chain'));
     }
     else {
-      $result = db_delete('themekey_properties')
+      $result = db_delete($table)
       ->condition('id', $id)
       ->execute();
       if (!$result) {
@@ -443,6 +469,10 @@ function themekey_rule_del($id) {
  *   id of the rule to be ddisabled
  */
 function themekey_rule_disable($id) {
+  themekey_abstract_rule_disable('themekey_properties', $id);
+}
+
+function themekey_abstract_rule_disable($table, $id) {
   // TRANSACTIONS - SEE http://drupal.org/node/355875
   // The transaction opens here.
   $txn = db_transaction();
@@ -450,7 +480,7 @@ function themekey_rule_disable($id) {
   $childs = themekey_load_rules($id);
   $ids = array_merge(array($id), array_keys($childs));
   foreach ($ids as $id) {
-    db_update('themekey_properties')
+    db_update($table)
       ->fields(array(
         'enabled' => 0,
       ))
@@ -469,8 +499,12 @@ function themekey_rule_disable($id) {
  *   the rule as associative array or NULL
  */
 function themekey_rule_get($id) {
+  return themekey_abstract_rule_get('themekey_properties', $id);
+}
 
-  if ($result = db_select('themekey_properties', 'tp')
+function themekey_abstract_rule_get($table, $id) {
+
+  if ($result = db_select($table, 'tp')
     ->fields('tp')
     ->condition('id', $id)
     ->execute()
@@ -504,8 +538,12 @@ function themekey_rule_get($id) {
  *   - FALSE the rule should be deleted
  */
 function themekey_update_static_rule($property, $state) {
+  themekey_abstract_update_static_rule('themekey_properties', $property, $state);
+}
 
-  $existing_rule = db_select('themekey_properties', 'tp')
+function themekey_abstract_update_static_rule($table, $property, $state) {
+
+  $existing_rule = db_select($table, 'tp')
     ->fields('tp', array('id', 'enabled', 'parent'))
     ->condition('property', $property)
     ->execute()
@@ -531,13 +569,13 @@ function themekey_update_static_rule($property, $state) {
       $item['parent'] = 0;
     }
 
-    themekey_rule_set($item);
+    themekey_abstract_rule_set($table, $item);
   }
   elseif (!empty($existing_rule)) {
-    themekey_rule_del($existing_rule['id']);
+    themekey_abstract_rule_del($table, $existing_rule['id']);
   }
 }
 
-class ThemeKeyRuleConfictException extends Exception { }
+class ThemeKeyRuleConflictException extends Exception { }
 
 class ThemeKeyRuleDeletionException extends Exception { }

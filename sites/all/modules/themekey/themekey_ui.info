@@ -6,15 +6,9 @@ dependencies[]= themekey
 package = ThemeKey
 configure = admin/config/user-interface/themekey/settings/ui
 
-files[] = themekey_ui.install
-files[] = themekey_ui.module
-files[] = themekey_ui_admin.inc
-files[] = themekey_ui_help.inc
-files[] = themekey_ui_helper.inc
-
-; Information added by drupal.org packaging script on 2012-07-24
-version = "7.x-2.3"
+; Information added by Drupal.org packaging script on 2015-07-06
+version = "7.x-3.4"
 core = "7.x"
 project = "themekey"
-datestamp = "1343146960"
+datestamp = "1436191441"
 

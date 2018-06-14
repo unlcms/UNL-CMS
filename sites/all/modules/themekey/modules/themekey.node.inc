@@ -29,6 +29,7 @@
  * - node:type
  * - node:uid
  * - node:title
+ * - node:field_...
  *
  * @return
  *   array of themekey properties and mapping functions
@@ -84,12 +85,12 @@ function themekey_node_themekey_properties() {
   );
   $attributes['node:promote'] = array(
     'description' => t('Node: Promoted - If the node is promoted to the front page. Possible values are "0" for true and "1" for false.'),
-    'validator' => 'themekey_validator_nummeric_boolean',
+    'validator' => 'themekey_validator_numeric_boolean',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
   $attributes['node:sticky'] = array(
     'description' => t('Node: Sticky - If the node is set "Sticky at top of lists". Possible values are "0" for true and "1" for false.'),
-    'validator' => 'themekey_validator_nummeric_boolean',
+    'validator' => 'themekey_validator_numeric_boolean',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
   $attributes['node:type'] = array(
@@ -106,7 +107,6 @@ function themekey_node_themekey_properties() {
   );
   $attributes['node:title'] = array(
     'description' => t('Node: Title - The title of the node.'),
-    'validator' => '',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
 
@@ -183,6 +183,33 @@ function themekey_node_themekey_properties() {
     'callback' => 'themekey_node_get_q2type',
   );
 
+  foreach (field_info_field_map() as $field_name => $field_info) {
+    if (array_key_exists('node', $field_info['bundles'])) {
+      $field_info = field_info_field($field_name);
+
+      foreach (array_keys($field_info['columns']) as $column) {
+        $property = 'node:' . $field_name . '_' . $column;
+
+        $attributes[$property] = array(
+          'description' => t('Node: Field Value - The (simple scalar) value of the column %column of the field %field_name. The value will be converted in its string representation.', array('%column' => $column, '%field_name' => $field_name)),
+          'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
+        );
+
+        $maps[] = array(
+          'src' => 'node:nid',
+          'dst' => $property,
+          'callback' => 'themekey_node_nid2field_value',
+          'args' => array(
+            'field_name' => $field_name,
+            'type' => $field_info['type'],
+            'column' => $column,
+            'translatable' => $field_info['translatable'],
+          ),
+        );
+      }
+    }
+  }
+
   return array('attributes' => $attributes, 'maps' => $maps);
 }
 
@@ -197,6 +224,22 @@ function themekey_node_themekey_paths() {
   return $paths;
 }
 
+
+/**
+ * Implements hook_themekey_global().
+ */
+function themekey_node_themekey_global() {
+  global $user;
+
+  $parameters = array();
+
+  if (0 === strpos(themekey_get_q(), 'node/add')) {
+    // required by themekey_ui:author_triggers_theme
+    $parameters['profile:uid'] = $user->uid; // this user creates new content
+  }
+
+  return $parameters;
+}
 
 /**
  * Helper function that loads a node and returns the
@@ -217,10 +260,10 @@ function themekey_node_get_simple_node_property($nid, $property) {
   if (!isset($nodes[$nid])) {
     //node_load() must not be called from hook_init(). Therefore, we have to execute SQL here
     $nodes[$nid] = db_select('node', 'n')
-                   ->fields('n')
-                   ->condition('n.nid', $nid)
-                   ->execute()
-                   ->fetchObject();
+      ->fields('n')
+      ->condition('n.nid', $nid)
+      ->execute()
+      ->fetchObject();
   }
 
   if (isset($nodes[$nid]->$property)) {
@@ -479,6 +522,44 @@ function themekey_node_get_q2type($q) {
 
 
 /**
+ * ThemeKey mapping function to set a
+ * ThemeKey property's value (destination)
+ * with the aid of another ThemeKey property (source).
+ *
+ * src: node:nid
+ * dst: node:field_...
+ *
+ * @param $nid
+ *   a node id
+ * @param $args
+ *   array, keys required:
+ *    - 'field_name'
+ *    - 'column'
+ *
+ * @return
+ *   string
+ *   or NULL if no value could be mapped
+ */
+function themekey_node_nid2field_value($nid, $args) {
+  $values = array();
+
+  $query = new ThemeKeyEntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->propertyCondition('nid', $nid)
+    ->fieldCondition($args['field_name'], $args['column'], '', '<>') // field not empty
+  ;
+
+  if ($query->execute() && !empty($query->orderedResults)) {
+    foreach ($query->orderedResults as $result) {
+      $values[] = (string) $result->{$args['field_name']};
+    }
+  }
+
+  return count($values) ? $values : NULL;
+}
+
+
+/**
  * This function isn't needed anymore and has been removed with ThemeKey 6.x-2.0-beta2.
  * But if it's missing a fatal error occurs if you upgrade from any version before
  * 6.x-2.0-beta2 until you call update.php. That should be avoided.
@@ -487,9 +568,8 @@ function themekey_node_get_q2type($q) {
  *
  * see http://drupal.org/node/662786
  *
- * @param unknown_type $item
- * @param unknown_type $parameters
- * @return unknown_type
+ * @param $item
+ * @param $parameters
  */
 function _themekey_node_callback(&$item, &$parameters) {
   global $user;

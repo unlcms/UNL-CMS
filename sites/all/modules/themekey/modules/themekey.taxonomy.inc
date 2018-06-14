@@ -42,6 +42,11 @@ function themekey_taxonomy_themekey_properties() {
     'validator' => 'themekey_validator_ctype_digit',
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
   );
+  $attributes['taxonomy:name'] = array(
+    'description' => t('Taxonomy: Name - The term name (name) of a taxonomy term without support for translations.'),
+    'validator' => '',
+    'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
+  );
 
   // Mapping functions
   $maps = array();
@@ -59,6 +64,11 @@ function themekey_taxonomy_themekey_properties() {
     'src' => 'node:nid',
     'dst' => 'taxonomy:tid',
     'callback' => 'themekey_taxonomy_nid2tid',
+  );
+  $maps[] = array(
+    'src' => 'taxonomy:tid',
+    'dst' => 'taxonomy:name',
+    'callback' => 'themekey_taxonomy_tid2name',
   );
 
   return array('attributes' => $attributes, 'maps' => $maps);
@@ -109,7 +119,7 @@ function themekey_taxonomy_tid2vid($tids) {
     ->fetchField();
   }
 
-  return count($vid) ? $vid : NULL;
+  return count($vid) ? array_unique($vid) : NULL;
 }
 
 
@@ -136,10 +146,8 @@ function themekey_taxonomy_nid2tid($nid) {
   $query->condition('t.nid', $nid);
   $result = $query->execute();
 
-  if ($result->rowCount()) {
-    foreach ($result as $item) {
-      $tids[] = $item->tid;
-    }
+  foreach ($result as $item) {
+    $tids[] = $item->tid;
   }
 
   return count($tids) ? $tids : NULL;
@@ -181,5 +189,36 @@ function themekey_taxonomy_tid2tid_and_parents($tids) {
   }
 
   return count($parents) ? array_unique($parents) : NULL;
+}
+
+/**
+ * ThemeKey mapping function to set a
+ * ThemeKey property's value (destination)
+ * with the aid of another ThemeKey property (source).
+ *
+ * src: taxonomy:tid
+ * dst: taxonomy:name
+ *
+ * @param $tids
+ *   array of taxonomy term ids or a single term id
+ *
+ * @return
+ *   array of taxonomy names
+ *   or NULL if no value could be mapped
+ */
+function themekey_taxonomy_tid2name($tids) {
+  $name = array();
+  // Use SQL instead taxonomy API because this code runs during hook_init() stage.
+  // Using taxonomy API will require to load the node using node_load() which is not allowed in this stage.
+  $tids = is_array($tids) ? $tids : array($tids);
+  foreach ($tids as $tid) {
+    $name[] = db_select('taxonomy_term_data', 't')
+    ->fields('t', array('name'))
+    ->condition('tid', $tid)
+    ->execute()
+    ->fetchField();
+  }
+
+  return count($name) ? $name : NULL;
 }
 

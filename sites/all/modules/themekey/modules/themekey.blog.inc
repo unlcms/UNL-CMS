@@ -19,7 +19,7 @@
  *
  * Provides additional properties for the ThemeKey module:
  *   themekey_ui:node_triggers_theme
- *   themekey_ui:node_author_triggers_theme
+ *   themekey_ui:author_triggers_theme
  *
  * @return
  *   array of themekey properties
@@ -35,15 +35,6 @@ function themekey_blog_themekey_properties() {
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
 
-  if (module_exists('themekey_ui')) {
-    $attributes['themekey_ui:blog_author_triggers_theme'] = array(
-      'description' => t("The property, themekey_ui:blog_author_triggers_theme, could not be selected from the property drop down. You get this static property by activating !link. Afterwards, you can move the property to any position in the rule chain. When done, it triggers the switch to the theme the author selected for her nodes in her user profile. This property is an addition to themekey_ui:node_author_triggers_theme to cover the automatically generated blog pages as well.",
-        array('!link' => l(t('Let the user select a theme for her blog pages'), 'admin/config/user-interface/themekey/settings/ui'))),
-      'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
-      'static' => TRUE,
-    );
-  }
-
   // Mapping functions
   $maps = array();
 
@@ -55,7 +46,7 @@ function themekey_blog_themekey_properties() {
 
   $maps[] = array(
     'src' => 'blog:uid',
-    'dst' => 'themekey_ui:blog_author_triggers_theme',
+    'dst' => 'themekey_ui:author_triggers_theme',
     'callback' => 'themekey_blog_author2theme',
   );
 
@@ -64,8 +55,8 @@ function themekey_blog_themekey_properties() {
 
 
 /**
-* Implements hook_themekey_paths().
-*/
+ * Implements hook_themekey_paths().
+ */
 function themekey_blog_themekey_paths() {
   $paths = array();
 
@@ -74,6 +65,17 @@ function themekey_blog_themekey_paths() {
   return $paths;
 }
 
+/**
+ * Implements hook_themekey_ui_author_theme_selected().
+ */
+function themekey_blog_themekey_ui_author_theme_selected($uid, $theme) {
+  global $base_root;
+
+  $cid = $base_root . '/blog/' . $uid;
+
+  cache_clear_all($cid, 'cache_page');
+  cache_clear_all($cid . '/', 'cache_page', TRUE);
+}
 
 /**
  * ThemeKey mapping function to set a
@@ -113,19 +115,6 @@ function themekey_blog_nid2uid($nid) {
  *   or NULL if no theme has been assigned to the node
  */
 function themekey_blog_author2theme($uid) {
-  $custom_theme = &drupal_static('themekey_custom_theme', '');
-
-  $query = db_select('themekey_ui_author_theme', 'tuat')
-    ->fields('tuat', array('theme'))
-    ->condition('tuat.uid', $uid);
-
-  if ($theme = $query->execute()->fetchField()) {
-    if ('default' != $theme && themekey_check_theme_enabled($theme)) {
-      $custom_theme = $theme;
-      return 'static';
-    }
-  }
-
-  return NULL;
+  return themekey_ui_author2theme($uid);
 }
 

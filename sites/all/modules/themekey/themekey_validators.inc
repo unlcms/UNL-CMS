@@ -83,7 +83,7 @@ function themekey_validator_string_boolean($rule) {
  *     describing a problem with the value
  *   If no errors detected the array is empty.
  */
-function themekey_validator_nummeric_boolean($rule) {
+function themekey_validator_numeric_boolean($rule) {
   $errors = array();
   switch ($rule['operator']) {
     case '=':
@@ -204,7 +204,7 @@ function themekey_validator_language($rule) {
  *
  * @param $rule
  *   A Theme Switching Rule as associative array:
- *   - property: ThemeKey property as string (e.g. "drupal:path")
+ *   - property: ThemeKey property as string (for example, "drupal:path")
  *   - wildcard: optional string, only used if property is "drupal:path:wildcard"
  *   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
  *   - value: ThemeKey property value as string
@@ -830,31 +830,31 @@ function themekey_validator_day_of_week($rule) {
 
 
 /**
-* Validates a Theme Switching Rule.
-* Allowed Operators: "=", "!"
-* Allowed values:
-* - a three letter day string if operator is "=" or "!"
-*
-*
-* @param $rule
-*   A Theme Switching Rule as associative array:
-*   - property: ThemeKey property as string (e.g., "drupal:path")
-*   - wildcard: optional string, only used if property is "drupal:path:wildcard"
-*   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
-*   - value: ThemeKey property value as string
-*
-* @return
-*   An associative array of errors:
-*   - property: translated error message as string
-*     describing a problem with the property
-*   - wildcard: translated error message as string
-*     describing a problem with the wildcard
-*   - operator: translated error message as string
-*     describing a problem with the operator
-*   - value: translated error message as string
-*     describing a problem with the value
-*   If no errors detected the array is empty.
-*/
+ * Validates a Theme Switching Rule.
+ * Allowed Operators: "=", "!"
+ * Allowed values:
+ * - a three letter day string if operator is "=" or "!"
+ *
+ *
+ * @param $rule
+ *   A Theme Switching Rule as associative array:
+ *   - property: ThemeKey property as string (e.g., "drupal:path")
+ *   - wildcard: optional string, only used if property is "drupal:path:wildcard"
+ *   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
+ *   - value: ThemeKey property value as string
+ *
+ * @return
+ *   An associative array of errors:
+ *   - property: translated error message as string
+ *     describing a problem with the property
+ *   - wildcard: translated error message as string
+ *     describing a problem with the wildcard
+ *   - operator: translated error message as string
+ *     describing a problem with the operator
+ *   - value: translated error message as string
+ *     describing a problem with the value
+ *   If no errors detected the array is empty.
+ */
 function themekey_validator_month($rule) {
   static $months = array('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
 
@@ -879,31 +879,30 @@ function themekey_validator_month($rule) {
 
 
 /**
-* Validates a Theme Switching Rule.
-* Allowed Operators: "=", "!", "<", "<=", ">", ">="
-* Allowed values:
-* - a three letter month string if operator is "=" or "!"
-*
-*
-* @param $rule
-*   A Theme Switching Rule as associative array:
-*   - property: ThemeKey property as string (e.g., "drupal:path")
-*   - wildcard: optional string, only used if property is "drupal:path:wildcard"
-*   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
-*   - value: ThemeKey property value as string
-*
-* @return
-*   An associative array of errors:
-*   - property: translated error message as string
-*     describing a problem with the property
-*   - wildcard: translated error message as string
-*     describing a problem with the wildcard
-*   - operator: translated error message as string
-*     describing a problem with the operator
-*   - value: translated error message as string
-*     describing a problem with the value
-*   If no errors detected the array is empty.
-*/
+ * Validates a Theme Switching Rule.
+ * Allowed Operators: "=", "!", "<", "<=", ">", ">="
+ * Allowed values:
+ * - a number between 1 and 31
+ *
+ * @param $rule
+ *   A Theme Switching Rule as associative array:
+ *   - property: ThemeKey property as string (e.g., "drupal:path")
+ *   - wildcard: optional string, only used if property is "drupal:path:wildcard"
+ *   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
+ *   - value: ThemeKey property value as string
+ *
+ * @return
+ *   An associative array of errors:
+ *   - property: translated error message as string
+ *     describing a problem with the property
+ *   - wildcard: translated error message as string
+ *     describing a problem with the wildcard
+ *   - operator: translated error message as string
+ *     describing a problem with the operator
+ *   - value: translated error message as string
+ *     describing a problem with the value
+ *   If no errors detected the array is empty.
+ */
 function themekey_validator_day_of_month($rule) {
   $errors = array();
 
@@ -922,6 +921,107 @@ function themekey_validator_day_of_month($rule) {
     default:
       $errors['operator'] = t('Possible operators are "=", "!", "<", "<=", ">", ">="');
     break;
+
+  }
+
+  return $errors;
+}
+
+
+/**
+ * Validates a Theme Switching Rule.
+ * Allowed Operators: "=", "!"
+ * Allowed values:
+ * - 'parent', 'child', 'none'
+ *
+ *
+ * @param $rule
+ *   A Theme Switching Rule as associative array:
+ *   - property: ThemeKey property as string (e.g., "drupal:path")
+ *   - wildcard: optional string, only used if property is "drupal:path:wildcard"
+ *   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
+ *   - value: ThemeKey property value as string
+ *
+ * @return
+ *   An associative array of errors:
+ *   - property: translated error message as string
+ *     describing a problem with the property
+ *   - wildcard: translated error message as string
+ *     describing a problem with the wildcard
+ *   - operator: translated error message as string
+ *     describing a problem with the operator
+ *   - value: translated error message as string
+ *     describing a problem with the value
+ *   If no errors detected the array is empty.
+ */
+function themekey_validator_overlay_mode($rule) {
+  static $modes = array('parent', 'child', 'none');
+
+  $errors = array();
+
+  switch ($rule['operator']) {
+    case '=':
+    case '!':
+      if (!in_array($rule['value'], $modes)) {
+        $errors['value'] = t('The mode %value is not valid. Possible modes are "%modes".', array('%value' => $rule['value'], '%modes' => implode('", "', $modes)));
+      }
+      break;
+
+    default:
+      $errors['operator'] = t('Possible operators are "=" and "!"');
+      break;
+
+  }
+
+  return $errors;
+}
+
+
+/**
+ * Validates a Theme Switching Rule.
+ * Allowed Operators: "=", "!"
+ * Allowed values:
+ * - og group types as string
+ *
+ *
+ * @param $rule
+ *   A Theme Switching Rule as associative array:
+ *   - property: ThemeKey property as string (e.g., "drupal:path")
+ *   - wildcard: optional string, only used if property is "drupal:path:wildcard"
+ *   - operator: ThemeKey operator as string ("=", "!", "*", "!*", "<", "<=", ">", ">=", "~", "!~")
+ *   - value: ThemeKey property value as string
+ *
+ * @return
+ *   An associative array of errors:
+ *   - property: translated error message as string
+ *     describing a problem with the property
+ *   - wildcard: translated error message as string
+ *     describing a problem with the wildcard
+ *   - operator: translated error message as string
+ *     describing a problem with the operator
+ *   - value: translated error message as string
+ *     describing a problem with the value
+ *   If no errors detected the array is empty.
+ */
+function themekey_validator_og_group_type($rule) {
+  $errors = array();
+
+  switch ($rule['operator']) {
+    case '=':
+    case '!':
+      if (function_exists('og_get_all_group_entity')) {
+        if(!array_key_exists($rule['value'], og_get_all_group_entity())) {
+          $errors['value'] = t('The group type %value is not defined.', array('%value' => $rule['value']));
+      }
+      }
+      else {
+        $errors['property'] = t('Unable to verify property group:type because function og_get_all_group_entity() is missing.');
+      }
+      break;
+
+    default:
+      $errors['operator'] = t('Possible operators are "=" and "!"');
+      break;
 
   }
 

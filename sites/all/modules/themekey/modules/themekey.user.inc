@@ -56,7 +56,28 @@ function themekey_user_themekey_properties() {
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
 
-  return array('attributes' => $attributes);
+  // Mapping functions
+  $maps = array();
+
+  $maps[] = array(
+    'src' => 'profile:uid',
+    'dst' => 'themekey_ui:author_triggers_theme',
+    'callback' => 'themekey_user_profile2theme',
+  );
+
+  return array('attributes' => $attributes, 'maps' => $maps);
+}
+
+/**
+ * Implements hook_themekey_paths().
+ */
+function themekey_user_themekey_paths() {
+  $paths = array();
+
+  $paths[] = array('path' => 'user/#profile:uid');
+  $paths[] = array('path' => 'user/#profile:uid/edit');
+
+  return $paths;
 }
 
 
@@ -67,11 +88,46 @@ function themekey_user_themekey_global() {
   global $user;
 
   $parameters = array();
+
   $parameters['user:hostname'] = !empty($user->hostname) ? $user->hostname : NULL;
   $parameters['user:language'] = !empty($user->language) ? $user->language : NULL;
   $parameters['user:name'] = !empty($user->name) ? $user->name : NULL;
   $parameters['user:uid'] = $user->uid;
   $parameters['user:role'] = $user->roles;
 
+  if ('user' == themekey_get_q() && user_is_logged_in()) {
+    // required by themekey_ui:author_triggers_theme
+    $parameters['profile:uid'] = $user->uid; // a user watches his own profile
+  }
+
   return $parameters;
+}
+
+/**
+ * Implements hook_themekey_ui_author_theme_selected().
+ */
+function themekey_user_themekey_ui_author_theme_selected($uid, $theme) {
+  global $base_root;
+
+  $cid = $base_root . '/user/' . $uid;
+
+  cache_clear_all($cid, 'cache_page');
+  cache_clear_all($cid . '/', 'cache_page', TRUE);
+}
+
+/**
+ * This function implements the interface of a ThemeKey
+ * mapping function but doesn't set a ThemeKey property's
+ * value. It sets the Drupal static themekey_custom_theme
+ * which will cause ThemeKey to use this theme.
+ *
+ * @param $uid
+ *   the user's id of the profile, current value of ThemeKey property profile:uid
+ *
+ * @return
+ *   string "static" if global custom theme has been set
+ *   or NULL if no theme has been assigned to the contact form
+ */
+function themekey_user_profile2theme($uid) {
+  return themekey_ui_author2theme($uid);
 }

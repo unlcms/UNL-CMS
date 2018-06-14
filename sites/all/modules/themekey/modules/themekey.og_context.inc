@@ -12,16 +12,16 @@
  */
 
 /**
-* Implements hook_themekey_properties().
-*
-* Provides additional properties for module ThemeKey:
-* - group:id
-* - group:type
-*
-* @return
-* array of themekey properties and mapping functions
-*/
-function themekey_og_themekey_properties() {
+ * Implements hook_themekey_properties().
+ *
+ * Provides additional properties for module ThemeKey:
+ * - group:id
+ * - group:type
+ *
+ * @return
+ * array of themekey properties and mapping functions
+ */
+function themekey_og_context_themekey_properties() {
   // Attributes for properties
   $attributes = array();
   $attributes['group:id'] = array(
@@ -30,9 +30,8 @@ function themekey_og_themekey_properties() {
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
   $attributes['group:type'] = array(
-    'description' => t('Group: Type - The type of a og group'),
-    // TODO
-    // 'validator' => 'themekey_validator_og_group_type',
+    'description' => t('Group: Type - The type of an og group'),
+    'validator' => 'themekey_validator_og_group_type',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
 
@@ -40,22 +39,22 @@ function themekey_og_themekey_properties() {
   $maps = array();
   $maps[] = array('src' => 'node:nid',
                   'dst' => 'group:id',
-                  'callback' => 'themekey_og_nid2gid');
+                  'callback' => 'themekey_og_context_nid2gid');
   $maps[] = array('src' => 'node:nid',
                   'dst' => 'group:type',
-                  'callback' => 'themekey_og_nid2type');
+                  'callback' => 'themekey_og_context_nid2type');
 
   return array('attributes' => $attributes, 'maps' => $maps);
 }
 
 /**
-* Implements hook_themekey_paths().
-*/
-function themekey_og_themekey_paths() {
+ * Implements hook_themekey_paths().
+ */
+function themekey_og_context_themekey_paths() {
   $paths = array();
-  
-  $paths[] = array('path' => 'group/%group:type/#group:id/%');
-  
+
+  $paths[] = array('path' => 'group/%group:type/#group:id');
+
   return $paths;
 }
 
@@ -74,12 +73,12 @@ function themekey_og_themekey_paths() {
  *   int
  *   or NULL if no value could be mapped
  */
-function themekey_og_nid2gid($nid) {
+function themekey_og_context_nid2gid($nid) {
   // look for group info from context
   if ($group = og_context()) {
     return $group['gid'];
   }
-  
+
   return NULL;
 }
 
@@ -99,9 +98,9 @@ function themekey_og_nid2gid($nid) {
  *   string
  *   or NULL if no value could be mapped
  */
-function themekey_og_nid2type($nid){
+function themekey_og_context_nid2type($nid) {
   // look for group info from context
-  if ($group = og_context()){
+  if ($group = og_context()) {
     return $group['group_type'];
   }
 

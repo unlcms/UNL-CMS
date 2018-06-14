@@ -53,7 +53,7 @@ function themekey_system_themekey_properties() {
   $attributes = array();
 
   $attributes['system:host'] = array(
-    'description' => t('System: HTTP_HOST - The hostname/domain of the site without http:// or https://, like "www.drupal.org" or "drupal.cocomore.com"'),
+    'description' => t('System: HTTP_HOST - The hostname/domain of the site without http:// or https://, like "www.drupal.org" or "www.biologis.com"'),
     'validator' => 'themekey_validator_http_host',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
@@ -79,7 +79,7 @@ function themekey_system_themekey_properties() {
   );
 
   $attributes['system:post'] = array(
-    'description' => t("System: POST - Every single POST value formatted like 'POST_VARIABLE_NAME=POST_VARIABLE_VALUE'. Example: form_id=node_form"),
+    'description' => t("System: POST - Every single POST value formatted like 'POST_VARIABLE_NAME=POST_VARIABLE_VALUE'. Example: form_id=node_form. If the POST value is not a scalar but a complex type like array or object, the resulting string is formatted as 'POST_VARIABLE_NAME' without a value."),
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
   );
 
@@ -125,21 +125,29 @@ function themekey_system_themekey_properties() {
   $attributes['system:user_browser'] = array(
     'description' => t("System: Browser - Information about user's browser. Possible values: 'Blazer [VERSION]', 'Internet Explorer [VERSION]', 'Internet Explorer Mobile [VERSION]', 'Mozilla Firefox [VERSION]', 'Netscape [VERSION]', 'Google Chrome [VERSION]', 'Safari [VERSION]', 'Galeon [VERSION]', 'Konqueror [VERSION]', 'Gecko based', 'Opera [VERSION]', 'Lynx [VERSION]', 'Fennec [VERSION]', 'Maemo [VERSION]', 'unknown'"),
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
+    'deprecated' => TRUE,
+    'deprecated message' => filter_xss(t('Property system:user_browser is deprecated. Consider to use one of the new properties ThemeKey provides in combination with !browscap, !mobile_detect_api, or !mobile_detect.', array('!browscap' => l(t('Browscap'), 'https://drupal.org/project/browscap'), '!mobile_detect_api' => l(t('Mobile Detect API'), 'https://drupal.org/project/mobile_detect_api'), '!mobile_detect' => l(t('Mobile Detect'), 'https://drupal.org/project/mobile_detect_api')))),
   );
 
   $attributes['system:user_browser_simplified'] = array(
     'description' => t("System: Browser - Simplified information about user's browser. Possible values: 'Blazer', 'Internet Explorer', 'Internet Explorer Mobile', 'Mozilla Firefox', 'Netscape', 'Google Chrome', 'Safari', 'Galeon', 'Konqueror', 'Gecko based', 'Opera', 'Lynx', 'Fennec', 'Maemo', 'unknown'"),
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
+    'deprecated' => TRUE,
+    'deprecated message' => filter_xss(t('Property system:user_browser_simplified is deprecated. Consider to use one of the new properties ThemeKey provides in combination with !browscap, !mobile_detect_api, or !mobile_detect.', array('!browscap' => l(t('Browscap'), 'https://drupal.org/project/browscap'), '!mobile_detect_api' => l(t('Mobile Detect API'), 'https://drupal.org/project/mobile_detect_api'), '!mobile_detect' => l(t('Mobile Detect'), 'https://drupal.org/project/mobile_detect_api')))),
   );
 
   $attributes['system:user_os'] = array(
     'description' => t("System: Operating System - Information about user's browser. Possible values: 'Windows XP', 'Windows Vista', 'Windows 98', 'Windows 2000', 'Windows 2003 server', 'Windows NT',  'Windows ME', 'Windows CE', 'Windows ME', 'Windows Phone', 'iPhone', 'iPad', 'Mac OS X', 'Macintosh', 'Linux', 'Free BSD', 'Symbian', 'webOS', 'Android', 'Blackberry', 'unknown'"),
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
+    'deprecated' => TRUE,
+    'deprecated message' => filter_xss(t('Property system:user_os is deprecated. Consider to use one of the new properties ThemeKey provides in combination with !browscap, !mobile_detect_api, or !mobile_detect.', array('!browscap' => l(t('Browscap'), 'https://drupal.org/project/browscap'), '!mobile_detect_api' => l(t('Mobile Detect API'), 'https://drupal.org/project/mobile_detect_api'), '!mobile_detect' => l(t('Mobile Detect'), 'https://drupal.org/project/mobile_detect_api')))),
   );
 
   $attributes['system:user_os_simplified'] = array(
     'description' => t("System: Operating System - Simplified information about user's browser. Possible values: 'Windows', 'Windows Phone', 'iPhone', 'iPad', 'Mac OS X', 'Macintosh', 'Linux', 'Free BSD', 'Symbian', 'webOS', 'Android', 'Blackberry', 'unknown'"),
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
+    'deprecated' => TRUE,
+    'deprecated message' => filter_xss(t('Property system:user_os_simplified is deprecated. Consider to use one of the new properties ThemeKey provides in combination with !browscap, !mobile_detect_api, or !mobile_detect.', array('!browscap' => l(t('Browscap'), 'https://drupal.org/project/browscap'), '!mobile_detect_api' => l(t('Mobile Detect API'), 'https://drupal.org/project/mobile_detect_api'), '!mobile_detect' => l(t('Mobile Detect'), 'https://drupal.org/project/mobile_detect_api')))),
   );
 
   $attributes['system:date_time'] = array(
@@ -190,15 +198,15 @@ function themekey_system_themekey_properties() {
 
   $attributes['system:random'] = array(
     'description' => t("System: Random - A random value that could be '0' or 1'."),
-    'validator' => 'themekey_validator_nummeric_boolean',
+    'validator' => 'themekey_validator_numeric_boolean',
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
   );
 
   $attributes['drupal:path'] = array(
     'description' => t('Drupal: Drupal path like "node/add/story" or path alias with support for wildcards.<br />
-Query parameters are stripped off before the path gets examined. P.e. "node/add/story?destination=node" becomes "node/add/story" first. If you want to access query parameters, have a look at the system:query_param property provided by !link.<br />
+Query parameters are stripped off before the path gets examined. P.e. "node/add/story?destination=node" becomes "node/add/story" first. If you want to access query parameters, have a look at the <strong>system:query_param</strong> property.<br />
 Wildcard characters are "#" for numeric parts and "%" for all characters. To match conditions against a certain part, use an identifier with the wildcard. For example "comment/reply/#xyz" matches all paths with "comment/reply" and a numeric third argument. You can then specify conditions for every wildcard argument using the property "drupal:path:wildcard" and the identifier you choose ("xyz" in this example).<br />
-These are the possible wildcard replacements for foo/bar/42/test.html:', array('!link' => l(t('!path', array('!path' => 'ThemeKey Properties')), 'http://drupal.org/project/themekey_properties'))) .
+These are the possible wildcard replacements for foo/bar/42/test.html:') .
 '<pre>
 foo/bar/42/test.html
 foo/bar/42/%
@@ -264,6 +272,12 @@ foo
 
   $attributes['drupal:is_front_page'] = array(
     'description' => t("Drupal: Is front page - 'true' if current page is front page, otherwise just 'false'."),
+    'validator' => 'themekey_validator_string_boolean',
+    'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
+  );
+
+  $attributes['drupal:path_is_admin'] = array(
+    'description' => t("Drupal: Path is admin - 'true' if current page's path belongs to the admin section, otherwise just 'false'."),
     'validator' => 'themekey_validator_string_boolean',
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
   );
@@ -345,6 +359,7 @@ function themekey_system_themekey_global() {
 
   $parameters['drupal:base_path'] = base_path();
   $parameters['drupal:is_front_page'] = drupal_is_front_page() ? 'true' : 'false';
+  $parameters['drupal:path_is_admin'] = path_is_admin($_GET['q']) ? 'true' : 'false';
 
   return $parameters;
 }
@@ -370,7 +385,12 @@ function themekey_dummy2query_param($dummy) {
   $query_params = $_GET;
   unset($query_params['q']);
   foreach ($query_params as $key => $value) {
-    $filtered_params[] = $key . (!empty($value) ? '=' . $value : '');
+    if (!empty($value) && is_scalar($value)) {
+      $filtered_params[] = $key . '=' . $value;
+    }
+    else {
+      $filtered_params[] = $key;
+    }
   }
   return count($filtered_params) ? array_unique($filtered_params) : NULL;
 }
@@ -394,7 +414,12 @@ function themekey_dummy2query_param($dummy) {
 function themekey_dummy2cookie($dummy) {
   $filtered_cookies = array();
   foreach ($_COOKIE as $key => $value) {
-    $filtered_cookies[] = $key . (!empty($value) ? '=' . $value : '');
+    if (!empty($value) && is_scalar($value)) {
+      $filtered_cookies[] = $key . '=' . $value;
+    }
+    else {
+      $filtered_cookies[] = $key;
+    }
   }
   return count($filtered_cookies) ? array_unique($filtered_cookies) : NULL;
 }
@@ -421,7 +446,7 @@ function themekey_dummy2http_header($dummy) {
     // Function apache_request_headers() is only available when PHP runs as an Apache module.
     // P.e. when running drush, it's not available
     foreach (apache_request_headers() as $key => $value) {
-      $filtered_headers[] = $key . (!empty($value) ? '=' . $value : '');
+        $filtered_headers[] = $key . (!empty($value) ? '=' . $value : '');
     }
   }
   return count($filtered_headers) ? array_unique($filtered_headers) : NULL;
@@ -446,7 +471,12 @@ function themekey_dummy2http_header($dummy) {
 function themekey_dummy2post($dummy) {
   $filtered_post = array();
   foreach ($_POST as $key => $value) {
-    $filtered_post[] = $key . (!empty($value) ? '=' . $value : '');
+    if (!empty($value) && is_scalar($value)) {
+      $filtered_post[] = $key . '=' . $value;
+    }
+    else {
+      $filtered_post[] = $key;
+    }
   }
   return count($filtered_post) ? array_unique($filtered_post) : NULL;
 }
@@ -468,14 +498,8 @@ function themekey_dummy2post($dummy) {
  *   or NULL if no value could be mapped
  */
 function themekey_dummy2query_string($dummy) {
-  if (!empty($_SERVER['QUERY_STRING'])) {
-    $query_string = trim(preg_replace("/q=[^&]*/", '', $_SERVER['QUERY_STRING']), '&');
-    if (!empty($query_string)) {
-      return $query_string;
-    }
-  }
-
-  return NULL;
+  $query_string = themekey_query_string();
+  return $query_string ? $query_string : NULL;
 }
 
 
@@ -570,9 +594,12 @@ function themekey_dummy2time($dummy) {
  *   current user's browser as string
  */
 function themekey_dummy2user_browser($dummy) {
-  return ThemekeyBrowserDetection::getBrowser($_SERVER['HTTP_USER_AGENT']);
-}
+  if (!empty($_SERVER['HTTP_USER_AGENT'])) {
+    return ThemekeyBrowserDetection::getBrowser($_SERVER['HTTP_USER_AGENT']);
+  }
 
+  return NULL;
+}
 
 /**
  * ThemeKey mapping function to set a
@@ -589,7 +616,11 @@ function themekey_dummy2user_browser($dummy) {
  *   current user's operating system as string
  */
 function themekey_dummy2user_os($dummy) {
-  return ThemekeyBrowserDetection::getOs($_SERVER['HTTP_USER_AGENT']);
+  if (!empty($_SERVER['HTTP_USER_AGENT'])) {
+    return ThemekeyBrowserDetection::getOs($_SERVER['HTTP_USER_AGENT']);
+  }
+
+  return NULL;
 }
 
 
@@ -651,7 +682,7 @@ function themekey_dummy2session($dummy) {
   if (!empty($_SESSION)) {
     foreach ($_SESSION as $key => $value) {
       if (is_bool($value)) {
-        $filtered_params[] = $key . '=' . ($value) ? '1' : '0';
+        $filtered_params[] = $key . '=' . ($value ? '1' : '0');
       }
       elseif (!empty($value) && (is_numeric($value) || is_string($value))) {
         $filtered_params[] = $key . '=' . $value;
@@ -685,19 +716,19 @@ function themekey_dummy2day_of_week($dummy) {
 
 
 /**
-* ThemeKey mapping function to set a
-* ThemeKey property's value (destination)
-* with the aid of another ThemeKey property (source).
-*
-* src: system:dummy
-* dst: system:day_of_month
-*
-* @param $dummy
-*   string containing current value of ThemeKey property system:dummy
-*
-* @return
-*   current day of the month without leading zeros
-*/
+ * ThemeKey mapping function to set a
+ * ThemeKey property's value (destination)
+ * with the aid of another ThemeKey property (source).
+ *
+ * src: system:dummy
+ * dst: system:day_of_month
+ *
+ * @param $dummy
+ *   string containing current value of ThemeKey property system:dummy
+ *
+ * @return
+ *   current day of the month without leading zeros
+ */
 function themekey_dummy2day_of_month($dummy) {
   return format_date(time(), 'custom', 'j', variable_get('date_default_timezone', 0));
 }

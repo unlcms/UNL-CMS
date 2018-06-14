@@ -18,6 +18,8 @@ function themekey_compat_settings_form() {
 
   $modules = module_implements('custom_theme');
   $modules = array_diff($modules, array('themekey'));
+  $modules = array_merge($modules, variable_get('themekey_compat_modules_enabled', array()));
+  asort($modules);
 
   if (!empty($modules)) {
     $modules_list = system_list('module_enabled');
@@ -25,10 +27,10 @@ function themekey_compat_settings_form() {
     foreach ($modules as $module) {
       $name = $module;
       if (isset($modules_list[$module]->info) && !empty($modules_list[$module]->info['name'])) {
-        $name = $modules_list[$module]->info['name'];
+        $name = $modules_list[$module]->info['name'] . ' (' . $modules_list[$module]->info['description'] . ')';
       }
       if ('system' == $module) {
-        $name .= ' (' . t('Administration theme') . ')';
+        $name = preg_replace("/\)$/", ' ' . t('Provides the "Administration theme".') . ')', $name);
       }
       $options[$module] = $name;
     }
@@ -42,7 +44,8 @@ function themekey_compat_settings_form() {
 
     $form['themekey_compat']['modules_enabled']['themekey_compat_modules_enabled'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Integrate Modules in Theme Switching Rule Chain'),
+      '#title' => t('Modules to become part of the Theme Switching Rule Chain'),
+      '#description' => t("Optionally disable the theme switching capability of core and additional modules. Their theme switching capabilities will become part of ThemeKey's theme switching rule chain instead and therefor configurable."),
       '#default_value' => variable_get('themekey_compat_modules_enabled', array()),
       '#options' => $options,
     );
@@ -94,8 +97,8 @@ function themekey_compat_settings_form_submit($form, &$form_state) {
   variable_set('themekey_compat_modules_enabled', $modules_enabled);
 
   if (!empty($modules_enabled)) {
-    drupal_set_message(t('You integrated some modules in Theme Switching Rule Chain. !link',
-      array('!link' => l(t('Review the Theme Switching Rule Chain.'), 'admin/config/user-interface/themekey/properties'))),
+    drupal_set_message(filter_xss(t('You integrated some modules in Theme Switching Rule Chain. !link',
+      array('!link' => l(t('Review the Theme Switching Rule Chain.'), 'admin/config/user-interface/themekey/properties')))),
       'warning');
   }
 

@@ -28,7 +28,7 @@ function themekey_purl_themekey_properties() {
   // Support for PURL Providers
   $attributes['purl:active_provider'] = array(
     'description' => t('Purl: Active Provider - The active provider that triggered the current id.'),
-#    'validator' => 'themekey_validator_purl_providers',
+    //'validator' => 'themekey_validator_purl_providers',
     // TODO page cache support depends on the purl processors executed
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
   );
@@ -36,8 +36,8 @@ function themekey_purl_themekey_properties() {
   // Support for PURL modifiers
   $attributes['purl:active_modifier'] = array(
     'description' => t('Purl: Active Modifier - The active modifier for the triggered provider'),
-//    'validator' => 'themekey_validator_purl_modifiers',
-  // TODO page cache support depend on the purl processors executed
+    //'validator' => 'themekey_validator_purl_modifiers',
+    // TODO page cache support depend on the purl processors executed
     'page cache' => THEMEKEY_PAGECACHE_UNSUPPORTED,
   );
 

@@ -1,6 +1,5 @@
 <?php
 
-
 /**
  * @file
  *   ThemeKey API documentation
@@ -13,12 +12,12 @@
  * Two assign a value to a property during a page request
  * you have three possibilities:
  * 1. Provide a mapping function from one property
- *    to another and tell ThemeKey about it using this hook
- * 2. Implement hook_themekey_global()
- * 3. Implement hook_themekey_paths()
+ *    to another and tell ThemeKey about it using this hook.
+ * 2. Implement hook_themekey_global().
+ * 3. Implement hook_themekey_paths().
  *
  * There's an example implementation of this hook,
- * @see themekey_example_themeley_properties()
+ * @see themekey_example_themekey_properties()
  *
  * @return
  *   An array of ThemeKey properties and mapping functions:
@@ -118,4 +117,58 @@ function hook_themekey_paths() {
   $paths[] = array('path' => 'example/#example:path_number');
 
   return $paths;
+}
+
+
+/**
+ * By implementing hook_themekey_rebuild() you can trigger own actions when
+ * themekey_rebuild() is called.
+ */
+function hook_themekey_rebuild() {
+  module_load_include('inc', 'themekey_css', 'themekey_css_build');
+  themekey_css_scan();
+}
+
+
+/**
+ * By implementing hook_themekey_ui_author_theme_selected() you can trigger
+ * actions based on the user associated with the theme selection.
+ *
+ * @param int $uid
+ *   user id associated with the theme selection
+ * @param string $theme
+ *   the selected theme
+ */
+function hook_themekey_ui_author_theme_selected($uid, $theme) {
+  global $base_root;
+
+  $cid = $base_root . '/blog/' . $uid;
+
+  cache_clear_all($cid, 'cache_page');
+  cache_clear_all($cid . '/', 'cache_page', TRUE);
+}
+
+
+/**
+ * By implementing hook_themekey_custom_theme_alter() you can modify
+ * ThemeKey's theme selection after the decision has been taken.
+ *
+ * @param string $custom_theme
+ *   selected theme
+ * @param array $rules_matched
+ *   array of rules matched
+ */
+function hook_themekey_custom_theme_alter(&$custom_theme, $rules_matched) {
+  $rule = reset($rules_matched);
+  if ('themekey_simpletest:custom_theme_alter_test' == $rule->property) {
+    $custom_theme = 'seven';
+  }
+}
+
+/**
+ * By implementing hook_themekey_disabled_paths() you can specify paths
+ * where ThemeKey should not be active.
+ */
+function themekey_redirect_themekey_disabled_paths() {
+  return array('themekey/redirect_callback');
 }

@@ -5,11 +5,10 @@ ThemeKey
 Name: themekey
 Authors: Markus Kalkbrenner | bio.logis GmbH
          Carsten Müller | Cocomore AG
-         Christian Spitzlay | Cocomore AG
+         Christian Spitzlay | bio.logis GmbH
          Thilo Wawrzik <drupal at profix898 dot de>
 Drupal: 7.x
-Sponsor: Cocomore AG - http://www.cocomore.com
-                     - http://drupal.cocomore.com
+Sponsor: bio.logis GmbH - https://www.biologis.com
 
 Description
 ===========
@@ -57,7 +56,7 @@ HOOK_themekey_properties()
     Value:  array()
             - description => Readable name of property (required)
             - validator   => Callback function to validate a rule starting with that property (optional)
-                             TODO: describe validator arguments and return value 
+                             TODO: describe validator arguments and return value
             - file        => File that provides the validator function (optional)
             - path        => Alternative path relative to dupal's doc root to load the file (optional)
             - static      => true/false, static properties don't occur in properties drop down
@@ -94,3 +93,4 @@ HOOK_themekey_paths()
               - $item:    array of elements associated with the path/callback
               - $params:  array of parameters available for load callback
 
+HOOK_themekey_custom_theme_alter(&$custom_theme, $rules_matched)

@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Integration of different theme switching modules into ThemeKey and it's theme switching rule chain.
+ * Integration of different theme switching modules into ThemeKey and its theme switching rule chain.
  * @see themekey.module
  *
  * @author Markus Kalkbrenner | bio.logis GmbH
@@ -47,16 +47,24 @@ function themekey_compat_themekey_properties() {
   $maps = array();
 
   foreach (variable_get('themekey_compat_modules_enabled', array()) as $module) {
-    $attributes['themekey_compat:module_' . $module . '_triggers_theme'] = array(
-      'description' => t("The property, themekey_compat:module_' . $module . '_triggers_theme, could not be selected from the property drop-down. You get this static property by activating !link. Afterwards, you can move the property to any position in the rule chain. When done, it triggers the switch to the theme assigned to the current node using ThemeKey UI.",
-        array('!link' => l(t('Show theme option in create/edit node forms'), 'admin/config/user-interface/themekey/settings/ui'))),
+    $property_name = 'themekey_compat:module_' . $module . '_triggers_theme';
+    $module_info = system_get_info('module', $module);
+
+    $attributes[$property_name] = array(
+      'description' => t('The property %property could not be selected from the property drop-down. You got this static property by activating the %module module at the ThemeKey Compatibility !settings_link. You can move the property to any position in the rule chain.',
+        array(
+          '%property' => $property_name,
+          '%module' => $module_info['name'],
+          '!settings_link' => l(t('settings'), 'admin/config/user-interface/themekey/settings/compat')
+        )
+      ),
       'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
       'static' => TRUE,
     );
 
     $maps[] = array(
       'src' => 'system:dummy',
-      'dst' => 'themekey_compat:module_' . $module . '_triggers_theme',
+      'dst' => $property_name,
       'callback' => 'themekey_compat_dummy2theme',
       'args' => array('module' => $module),
     );
@@ -117,7 +125,7 @@ function themekey_compat_modules_disabled($modules) {
 function themekey_compat_module_implements_alter(&$implementations, $hook) {
   if ('custom_theme' == $hook) {
     foreach (variable_get('themekey_compat_modules_enabled', array()) as $module) {
-      unset($implementations['$module']);
+      unset($implementations[$module]);
     }
   }
 }

@@ -50,6 +50,7 @@ function themekey_comment_themekey_paths() {
   $paths = array();
   $paths[] = array('path' => 'comment/reply/#node:nid');
   $paths[] = array('path' => 'comment/reply/#node:nid/#comment:cid');
+  $paths[] = array('path' => 'comment/#comment:cid');
   $paths[] = array('path' => 'comment/#comment:cid/edit');
   $paths[] = array('path' => 'comment/#comment:cid/delete');
 

@@ -28,7 +28,7 @@
  *
  * Provides additional properties for the ThemeKey module:
  *   themekey_ui:node_triggers_theme
- *   themekey_ui:node_author_triggers_theme
+ *   themekey_ui:author_triggers_theme
  *
  * @return
  *   array of themekey properties
@@ -45,9 +45,9 @@ function themekey_ui_themekey_properties() {
     'static' => TRUE,
   );
 
-  $attributes['themekey_ui:node_author_triggers_theme'] = array(
-    'description' => t("The property, themekey_ui:node_author_triggers_theme, could not be selected from the property drop down. You get this static property by activating !link. Afterwards, you can move the property to any position in the rule chain. When done, it triggers the switch to the theme the author selected for her nodes in her user profile.",
-      array('!link' => l(t('Let the user select a theme for her nodes in her user profile'), 'admin/config/user-interface/themekey/settings/ui'))),
+  $attributes['themekey_ui:author_triggers_theme'] = array(
+    'description' => t("The property, themekey_ui:author_triggers_theme, could not be selected from the property drop down. You get this static property by activating !link. Afterwards, you can move the property to any position in the rule chain. When done, it triggers the switch to the theme the author selected in her user profile for own content, a contact form or blog pages.",
+      array('!link' => l(t('Let the user select a theme that will be used to display all content she creates.'), 'admin/config/user-interface/themekey/settings/ui'))),
     'page cache' => THEMEKEY_PAGECACHE_SUPPORTED,
     'static' => TRUE,
   );
@@ -63,13 +63,12 @@ function themekey_ui_themekey_properties() {
 
   $maps[] = array(
     'src' => 'node:nid',
-    'dst' => 'themekey_ui:node_author_triggers_theme',
-    'callback' => 'themekey_ui_author2theme',
+    'dst' => 'themekey_ui:author_triggers_theme',
+    'callback' => 'themekey_ui_node_author2theme',
   );
 
   return array('attributes' => $attributes, 'maps' => $maps);
 }
-
 
 /**
  * This function implements the interface of a ThemeKey
@@ -86,6 +85,10 @@ function themekey_ui_themekey_properties() {
  */
 function themekey_ui_nid2theme($nid) {
   $custom_theme = &drupal_static('themekey_custom_theme', '');
+
+  if (!function_exists('themekey_node_get_simple_node_property')) {
+    require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'themekey') . '/modules/themekey.node.inc';
+  }
 
   // node_load() must not be called from hook_init().
   // Therefore, we have to execute SQL here using hook_nodeapi().
@@ -118,7 +121,7 @@ function themekey_ui_nid2theme($nid) {
  *   string "static" if global custom theme has been set
  *   or NULL if no theme has been assigned to the node
  */
-function themekey_ui_author2theme($nid) {
+function themekey_ui_node_author2theme($nid) {
   $custom_theme = &drupal_static('themekey_custom_theme', '');
 
   // node_load() must not be called from hook_init().
@@ -127,6 +130,37 @@ function themekey_ui_author2theme($nid) {
   ->fields('tuat', array('theme'))
   ->condition('n.nid', $nid);
   $query->join('themekey_ui_author_theme', 'tuat', 'n.uid = tuat.uid');
+
+  if ($theme = $query->execute()->fetchField()) {
+    if ('default' != $theme && themekey_check_theme_enabled($theme)) {
+      $custom_theme = $theme;
+      return 'static';
+    }
+  }
+
+  return NULL;
+}
+
+
+/**
+ * This function implements the interface of a ThemeKey
+ * mapping function but doesn't set a ThemeKey property's
+ * value. It sets the Drupal static themekey_custom_theme
+ * which will cause ThemeKey to use this theme.
+ *
+ * @param $uid
+ *   the user's id
+ *
+ * @return
+ *   string "static" if global custom theme has been set
+ *   or NULL if no theme has been assigned to the contact form
+ */
+function themekey_ui_author2theme($uid) {
+  $custom_theme = &drupal_static('themekey_custom_theme', '');
+
+  $query = db_select('themekey_ui_author_theme', 'tuat')
+    ->fields('tuat', array('theme'))
+    ->condition('tuat.uid', $uid);
 
   if ($theme = $query->execute()->fetchField()) {
     if ('default' != $theme && themekey_check_theme_enabled($theme)) {
@@ -170,8 +204,8 @@ function themekey_ui_permission() {
       'description' => '',
     ),
     'assign theme to own nodes' => array(
-      'title' => t('assign theme to own nodes'),
-      'description' => '',
+      'title' => t('assign theme to own content'),
+      'description' => t('Let the user select a theme that will be used to display all content she creates.'),
     ),
   );
 }
@@ -233,7 +267,9 @@ function themekey_ui_form_alter(&$form, $form_state, $form_id) {
         ->fetchField();
       }
 
-      themekey_ui_theme_select_form($form, t('Theme configuration for my nodes'), t('Every node I create will be shown to other users using this theme.'), $theme ? $theme : 'default');
+      themekey_ui_theme_select_form($form, t('Theme configuration for my content'), t('Any content I create will be shown to other users using this theme.'), $theme ? $theme : 'default');
+      $form['#prev_themekey_ui_author_theme'] = $theme;
+      $form['#submit'][] = 'themekey_ui_user_profile_form_submit';
     }
   }
   elseif ('themekey_help_tutorials_form' == $form_id) {
@@ -254,7 +290,7 @@ function themekey_ui_form_alter(&$form, $form_state, $form_id) {
             ' ' . t('(site default theme)'))) . '</p>';
           $description .= '<p>' .
             t('This default behaviour could be modified using the !themekey_compat_link module.',
-              array('!themekey_compat_link' => l('ThemeKey Compatibilty', module_exists('themekey_compat') ? 'admin/config/user-interface/themekey/settings/compat' : 'admin/modules'))) .
+              array('!themekey_compat_link' => l(t('ThemeKey Compatibilty'), module_exists('themekey_compat') ? 'admin/config/user-interface/themekey/settings/compat' : 'admin/modules'))) .
             '</p>';
         }
         themekey_ui_theme_select_form($form, t('Theme configuration for this node'), $description, !empty($form['#node']->themekey_ui_theme) ? $form['#node']->themekey_ui_theme : 'default');
@@ -263,9 +299,16 @@ function themekey_ui_form_alter(&$form, $form_state, $form_id) {
   }
 }
 
+function themekey_ui_user_profile_form_submit($form, &$form_state) {
+  if ($form_state['values']['themekey_ui_theme'] != $form['#prev_themekey_ui_author_theme']) {
+    module_load_include('inc', 'themekey', 'themekey_base');
+    themekey_invoke_modules('themekey_ui_author_theme_selected', $form['#user']->uid, $form_state['values']['themekey_ui_theme']);
+    module_invoke_all('themekey_ui_author_theme_selected', $form['#user']->uid, $form_state['values']['themekey_ui_theme']);
+  }
+}
 
-
-/** Implementation of hook_node_load
+/**
+ * Implements hook_node_load().
  *
  * @param $nodes
  * @param $types
@@ -301,8 +344,8 @@ function themekey_ui_node_load($nodes, $types) {
 
 
 /**
- * Implementation of hook_node_insert
- * @param unknown_type $node
+ * Implements hook_node_insert().
+ * @param $node
  */
 function themekey_ui_node_insert($node) {
   if (!empty($node->themekey_ui_theme)) {
@@ -318,45 +361,26 @@ function themekey_ui_node_insert($node) {
 
 
 /**
- * Implementation of hook_node_update
- * @param unknown_type $node
+ * Implements hook_node_update().
+ * @param $node
  */
 function themekey_ui_node_update($node) {
-
   if (!empty($node->themekey_ui_theme)) {
-
-    if (!(isset($node->revision) && $node->revision) && 0 < db_select('themekey_ui_node_theme', 't')
-                                                            ->fields('t')
-                                                            ->condition('nid', $node->nid)
-                                                            ->condition('vid', $node->vid)
-                                                            ->execute()
-                                                            ->rowCount()
-    ) {
-
-      // UPDATE
-      $query = db_update('themekey_ui_node_theme')
-        ->fields(array(
-          'nid' => $node->nid,
-          'vid' => $node->vid,
-          'theme' => $node->themekey_ui_theme,
-        ));
-      $query->condition('nid', $node->nid, '=');
-      $query->condition('vid', $node->vid, '=');
-      $query->execute();
-    }
-    else {
-      // INSERT
-      themekey_ui_node_insert($node);
-    }
-
+    db_merge('themekey_ui_node_theme')
+      ->key(array('nid' => $node->nid, 'vid' => $node->vid))
+      ->fields(array(
+        'nid' => $node->nid,
+        'vid' => $node->vid,
+        'theme' => $node->themekey_ui_theme,
+      ))
+      ->execute();
   }
-
 }
 
 
 /**
- * Implementation of hook_node_delete
- * @param unknown_type $node
+ * Implements hook_node_delete().
+ * @param $node
  */
 function themekey_ui_node_delete($node) {
   db_delete('themekey_ui_node_theme')
@@ -366,44 +390,26 @@ function themekey_ui_node_delete($node) {
 
 
 /**
- * Implementation of hook_user_insert()
- * @param unknown_type $edit
- * @param unknown_type $account
- * @param unknown_type $category
+ * Implements hook_user_insert().
+ * @param $edit
+ * @param $account
+ * @param $category
  */
 function themekey_ui_user_insert(&$edit, $account, $category) {
   if (user_access('assign theme to own nodes') && variable_get('themekey_ui_author', 0) && !empty($edit['themekey_ui_theme'])) {
-
-    if (db_select('themekey_ui_author_theme', 't')
-        ->fields('t')
-        ->condition('uid', $account->uid)
-        ->execute()
-        ->rowCount()
-    ) {
-
-      db_update('themekey_ui_author_theme')
-        ->fields(array(
-         'uid' => $account->uid,
-         'theme' => $edit['themekey_ui_theme'],
-        ))
-        ->condition('uid', $account->uid)
-        ->execute();
-    }
-    else {
-      db_insert('themekey_ui_author_theme')
-        ->fields(array(
-         'uid' => $account->uid,
-         'theme' => $edit['themekey_ui_theme'],
-        ))
-        ->execute();
-    }
+    db_merge('themekey_ui_author_theme')
+      ->key(array('uid' => $account->uid))
+      ->fields(array(
+        'uid' => $account->uid,
+        'theme' => $edit['themekey_ui_theme'],
+      ))
+      ->execute();
 
     if (isset($account->themekey_ui_theme) && $edit['themekey_ui_theme'] != $account->themekey_ui_theme) {
       // theme settings changed
       // fast deletion of page cache (truncate)
       cache_clear_all('*', 'cache_page', TRUE);
     }
-
 
     $edit['themekey_ui_theme'] = NULL;
   }
@@ -412,7 +418,7 @@ function themekey_ui_user_insert(&$edit, $account, $category) {
 
 
 /**
- * Implementation of hook_node_update()
+ * Implements hook_node_update().
  */
 function themekey_ui_user_update(&$edit, $account, $category) {
   themekey_ui_user_insert($edit, $account, $category);
@@ -420,7 +426,7 @@ function themekey_ui_user_update(&$edit, $account, $category) {
 
 
 /**
- * Implementation of hook_user_delete()
+ * Implements hook_user_delete().
  * @param $account
  */
 function themekey_ui_user_delete($account) {
