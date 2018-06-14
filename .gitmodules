@@ -13,25 +13,12 @@
 [submodule "vendor/Twig"]
 	path = vendor/Twig
 	url = https://github.com/fabpot/Twig.git
-[submodule "sites/all/themes/unl_og"]
-	path = sites/all/themes/unl_og
-	url = git@github.com:unlcms/unl_og.git
-[submodule "sites/all/themes/unl_wdn"]
-	path = sites/all/themes/unl_wdn
-	url = git@github.com:unlcms/unl_wdn.git
-[submodule "sites/all/themes/unl_four"]
-	path = sites/all/themes/unl_four
-	url = git@github.com:unlcms/unl_four.git
-
 [submodule "sites/all/libraries/codemirror"]
 	path = sites/all/libraries/codemirror
 	url = https://github.com/marijnh/CodeMirror.git
 [submodule "sites/all/modules/og"]
 	path = sites/all/modules/og
 	url = http://git.drupal.org/project/og.git
-[submodule "sites/all/themes/unl_four_og"]
-	path = sites/all/themes/unl_four_og
-	url = git@github.com:unlcms/unl_four_og.git
 [submodule "sites/all/modules/override_node_options"]
 	path = sites/all/modules/override_node_options
 	url = http://git.drupal.org/project/override_node_options.git
