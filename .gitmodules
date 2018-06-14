@@ -50,12 +50,6 @@
 [submodule "sites/all/modules/feeds_xpathparser"]
 	path = sites/all/modules/feeds_xpathparser
 	url = http://git.drupal.org/project/feeds_xpathparser.git
-[submodule "sites/all/libraries/filemaker"]
-	path = sites/all/libraries/filemaker
-	url = https://bitbucket.org/clscmdnrepo/filemaker-api.git
-[submodule "sites/all/modules/feeds_filemaker"]
-	path = sites/all/modules/feeds_filemaker
-	url = http://git.drupal.org/project/feeds_filemaker.git
 [submodule "sites/all/modules/libraries"]
 	path = sites/all/modules/libraries
 	url = http://git.drupal.org/project/libraries.git
