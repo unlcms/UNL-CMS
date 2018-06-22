@@ -294,7 +294,7 @@ function unl_cas_get_user_record($username) {
 
   // Next, if LDAP didn't work, try PeopleFinder service.
   if (!$result) {
-    //$json = unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid=' . $username);
+    $json = unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid=' . $username);
     if ($json) {
       $result = json_decode($json, TRUE);
     }
