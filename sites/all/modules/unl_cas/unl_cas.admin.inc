@@ -50,7 +50,7 @@ function unl_cas_user_import($form, &$form_state) {
         $results[$key]['uid'] = $result['samaccountname'][0];
       }
     } catch (Exception $e) {
-      //$results = json_decode(file_get_contents('https://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
+      $results = json_decode(file_get_contents('https://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
 
       // Convert each key to lowercase to mimic the LDAP results.
       foreach ($results as $index => $result) {
