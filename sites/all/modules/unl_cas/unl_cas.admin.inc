@@ -33,7 +33,7 @@ function unl_cas_user_import($form, &$form_state) {
       $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
       $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
       
-      $searchFields = array('uid', 'mail', 'cn', 'givenName', 'sn', 'eduPersonNickname');
+      $searchFields = array('sAMAccountName', 'mail', 'unlMail', 'cn', 'givenName', 'sn', 'eduPersonNickname');
       $filter = '(&';
       foreach (preg_split('/\s+/', $search) as $searchTerm) {
         $searchTerm = str_replace(array('"', ',', '*'), '', $searchTerm);
@@ -47,10 +47,10 @@ function unl_cas_user_import($form, &$form_state) {
       // Convert the uid to a string to match with peoplefinder results.
       $results = $ldap->search('ou=people,dc=unl,dc=edu', $filter);
       foreach ($results as $key => $result) {
-        $results[$key]['uid'] = $result['uid'][0];
+        $results[$key]['uid'] = $result['samaccountname'][0];
       }
     } catch (Exception $e) {
-      $results = json_decode(file_get_contents('http://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
+      //$results = json_decode(file_get_contents('https://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
 
       // Convert each key to lowercase to mimic the LDAP results.
       foreach ($results as $index => $result) {
@@ -61,7 +61,7 @@ function unl_cas_user_import($form, &$form_state) {
     }
     
     
-    $ldap = new Unl_Ldap('ldap://ldap.unl.edu/');
+    $ldap = new Unl_Ldap('ldap://unl.edu/');
     foreach ($results as $result) {
       if (!$result['uid']) {
         continue;
