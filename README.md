@@ -8,7 +8,7 @@
 
 In this example the web root is /Library/WebServer/Documents and Apache runs as _www - modify the instructions below according to your setup
 
-  *  Fork UNL-Information-Services/UNL-CMS and clone your fork into /Library/WebServer/Documents/workspace/UNL-CMS
+  *  Fork and clone your fork into /Library/WebServer/Documents/workspace/UNL-CMS
   *  Create a local database (example name: unlcms)
   *  From /Library/WebServer/Documents/workspace/UNL-CMS run:
 
