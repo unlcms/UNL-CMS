@@ -1,5 +1,5 @@
 name = UNL CAS
-description = Enables CAS authentication/registration of users through login.unl.edu.
+description = Enables CAS authentication/registration of users .
 package = UNL
 dependencies[] = unl
 core = 7.x

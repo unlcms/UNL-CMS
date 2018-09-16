@@ -62,7 +62,7 @@ function unl_cas_get_adapter() {
     } else {
       $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
     }
-    $adapter = new Unl_Cas($url, 'https://login.unl.edu/cas');
+    $adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
   }
   return $adapter;
 }
