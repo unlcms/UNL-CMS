@@ -1,0 +1,34 @@
+diff --git a/honeypot.install b/honeypot.install
+index 5a56052..9b122b9 100644
+--- a/honeypot.install
++++ b/honeypot.install
+@@ -17,6 +17,7 @@ function honeypot_schema() {
+         'type' => 'int',
+         'unsigned' => TRUE,
+         'not null' => TRUE,
++        'default' => 0,
+       ),
+       'hostname' => array(
+         'type' => 'varchar',
+@@ -31,6 +32,7 @@ function honeypot_schema() {
+         'not null' => TRUE,
+       ),
+     ),
++    'primary key' => array('uid', 'timestamp'),
+     'indexes' => array(
+       'uid' => array('uid'),
+       'timestamp' => array('timestamp'),
+@@ -183,3 +185,13 @@ function honeypot_update_7101() {
+   // relying on the flood mechanism to track anonymous honeypot captures.
+   flood_clear_event('honeypot');
+ }
++
++/**
++ * Add primary key for `honeypot_user` table.
++ */
++function honeypot_update_7102() {
++  $table = 'honeypot_user';
++  $schema = drupal_get_schema($table);
++  db_change_field($table, 'uid', 'uid', $schema['fields']['uid']);
++  db_add_primary_key($table, $schema['primary key']);
++}

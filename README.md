@@ -148,6 +148,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Applied patch: https://www.drupal.org/files/issues/replace-feeds-imagegrabber-node-delete-2748459.patch. See: https://www.drupal.org/node/2748459
 
+  *  honeypot
+
+     - Applied patch: https://www.drupal.org/project/honeypot/issues/2943526
+
   *  imce_rename.module
   
      - Applied patch: https://www.drupal.org/files/issues/imce_rename-file_move-1376260-8.patch See https://www.drupal.org/node/1376260
