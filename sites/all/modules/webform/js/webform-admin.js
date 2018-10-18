@@ -1,6 +1,6 @@
 /**
  * @file
- * Webform node form interface enhancments.
+ * Webform node form interface enhancements.
  */
 
 (function ($) {
@@ -285,7 +285,9 @@
    * Event callback to make sure all group and/or operators match.
    */
   Drupal.webform.conditionalAndOrChange = function () {
-    $(this).parents('.webform-conditional:first').find('.webform-conditional-andor select').val(this.value);
+    var rid = this.getAttribute('data-rid');
+    var text = $(this).find('option:selected').text();
+    $(this).parents('.webform-conditional:first').find('.webform-conditional-andor div[data-rid="' + rid + '"]').text(text);
   };
 
   /**
@@ -302,6 +304,7 @@
           $argument.hide();
         }
         break;
+
       case 'set':
         if (!isShown) {
           $argument.show();
