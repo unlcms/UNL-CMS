@@ -1,34 +1,31 @@
 <?php
 
 /**
- * @file media_youtube/media_youtube.module
- *
- * Media: YouTube provides a stream wrapper and formatters for videos provided
- * by YouTube, available at http://youtube.com/.
- *
- * @TODO:
- * Get the YouTube tab working.
- *  - Search by video name, user name, and channel.
- *  - Default to user's channel videos.
- * Review all code and remove cruft.
- * Assess if M:YT 3.x could be formatters added on to the OEmbed module.
+ * @file
+ * Provides a stream wrapper and formatters appropriate for accessing and
+ * displaying YouTube videos.
  */
 
-// A registry of variable_get defaults.
-include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'media_youtube') . '/includes/media_youtube.variables.inc';
+/**
+ * This is the rest point for the YouTube api.
+ *
+ * Avoid using the gdata api url when possible. Too many calls will result in
+ * throttling and 403 errors.
+ */
+define('MEDIA_YOUTUBE_REST_API', variable_get('media_youtube_api_url', ''));
 
-// Hooks and callbacks for integrating with File Entity module for display.
-include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'media_youtube') . '/includes/media_youtube.formatters.inc';
+// Load all YouTube file formatters.
+require_once dirname(__FILE__) . '/includes/media_youtube.formatters.inc';
 
 /**
  * Implements hook_media_internet_providers().
  */
 function media_youtube_media_internet_providers() {
-  $info['MediaInternetYouTubeHandler'] = array(
-    'title' => t('YouTube'),
+  return array(
+    'MediaInternetYouTubeHandler' => array(
+      'title' => t('YouTube'),
+    ),
   );
-
-  return $info;
 }
 
 /**
@@ -39,7 +36,7 @@ function media_youtube_stream_wrappers() {
     'youtube' => array(
       'name' => t('YouTube videos'),
       'class' => 'MediaYouTubeStreamWrapper',
-      'description' => t('Videos provided by YouTube.'),
+      'description' => t('Remote videos hosted on the YouTube video-sharing website.'),
       'type' => STREAM_WRAPPERS_READ_VISIBLE,
     ),
   );
@@ -53,7 +50,7 @@ function media_youtube_theme($existing, $type, $theme, $path) {
     'media_youtube_video' => array(
       'variables' => array('uri' => NULL, 'options' => array()),
       'file' => 'media_youtube.theme.inc',
-      'path' => $path . '/includes/themes',
+      'path' => $path . '/themes',
       'template' => 'media-youtube-video',
     ),
   );
@@ -63,8 +60,8 @@ function media_youtube_theme($existing, $type, $theme, $path) {
  * Implements hook_media_parse().
  *
  * @todo This hook should be deprecated. Refactor Media module to not call it
- *   any more, since media_internet should be able to automatically route to the
- *   appropriate handler.
+ * any more, since media_internet should be able to automatically route to the
+ * appropriate handler.
  */
 function media_youtube_media_parse($embed_code) {
   $handler = new MediaInternetYouTubeHandler($embed_code);
@@ -73,33 +70,17 @@ function media_youtube_media_parse($embed_code) {
 
 /**
  * Implements hook_file_mimetype_mapping_alter().
- *
- * Regster the video/youtube mimetype.
  */
 function media_youtube_file_mimetype_mapping_alter(&$mapping) {
   $mapping['mimetypes'][] = 'video/youtube';
 }
 
-/*
- * Implements hook_file_default_types_alter().
- *
- * Adds the video/youtube fake mimetype to video files.
- */
-function media_youtube_file_default_types_alter(&$types) {
-  $types['video']->mimetypes[] = 'video/youtube';
-}
-
 /**
  * Implements hook_ctools_plugin_api().
  */
-function media_youtube_ctools_plugin_api($owner, $api) {
-  static $api_versions = array(
-    'file_entity' => array(
-      'file_default_displays' => 1,
-    ),
-  );
-  if (isset($api_versions[$owner][$api])) {
-    return array('version' => $api_versions[$owner][$api]);
+function media_youtube_ctools_plugin_api($module, $api) {
+  if ($module == 'file_entity' && $api == 'file_default_displays') {
+    return array('version' => 1);
   }
 }
 
@@ -126,6 +107,20 @@ function media_youtube_media_browser_plugin_info() {
  * Provides a form for adding media items from YouTube search.
  */
 function media_youtube_add($form, &$form_state = array()) {
+  if (strlen(variable_get('media_youtube_api_key', '')) == 0) {
+    $form = array();
+    $form['message'] = array(
+      '#markup' => t('YouTube Data API v3 is required. You can obtain your key ' .
+        '<a href="https://developers.google.com/youtube/v3/getting-started">' .
+        'here</a>. Then you need to put it in the configurations page click <a href="@url"> here ' .
+        '</a> to go the configuration page.', array(
+          '@url' => url('admin/config/media/media-youtube'),
+        )
+      )
+    );
+    $form['actions'] = array('#type' => 'actions');
+    return $form;
+  }
   module_load_include('inc', 'media', 'includes/media.browser');
 
   // Our search term can come from the form, or from the pager.
@@ -156,38 +151,41 @@ function media_youtube_add($form, &$form_state = array()) {
 
   $empty = FALSE;
   $files = array();
-  if (!isset($search['entry'])) {
+  if (!isset($search->items)) {
     $empty = TRUE;
   }
   else {
-    foreach ($search['entry'] as $video) {
-      try {
-        $uri = media_parse_to_uri($video['link'][0]['@attributes']['href']);
-      }
-      catch (Exception $e) {
-        // Ignore invalid videos.
-        continue;
-      }
-      // Create a temporary file object for our retrieved video.
-      $file = file_uri_to_object($uri);
-      $file->type = 'video';
-      if (!isset($file->fid)) {
-        $file->fid = 0;
-      }
-      media_browser_build_media_item($file);
-      $file->preview = l($file->preview, 'media/browser', array(
-        'html' => TRUE,
-        'attributes' => array(
+    // $search['entry'] is different depending on whether there is a single
+    // result or multiple results. So normalise it.
+    $videos = $search->items;
+    foreach ($videos as $video) {
+      if ($video->id->kind == "youtube#video") {
+        try {
+          $uri = 'youtube://v/' . $video->id->videoId;
+        } catch (Exception $e) {
+          // Ignore invalid videos.
+          continue;
+        }
+        // Create a temporary file object for our retrieved video.
+        $file = file_uri_to_object($uri);
+        $file->type = 'video';
+        $file->filemime = 'video/youtube';
+
+        if (!isset($file->fid)) {
+          $file->fid = 0;
+        }
+        media_browser_build_media_item($file);
+        $attributes = array(
           'data-uri' => $uri,
-        ),
-        'query' => array('render' => 'media-popup', 'uri' => $uri),
-      ));
-      $form['videos'][$uri] = array(
-        '#markup' => $file->preview,
-        '#prefix' => '<li>',
-        '#suffix' => '</li>',
-      );
-      $files[$uri] = $file;
+          'class' => array('media-youtube-wrapper'),
+        );
+        $form['videos'][$uri] = array(
+          '#markup' => $file->preview,
+          '#prefix' => '<li' . drupal_attributes($attributes) . '>',
+          '#suffix' => '</li>',
+        );
+        $files[$uri] = $file;
+      }
     }
   }
 
@@ -221,7 +219,7 @@ function media_youtube_add($form, &$form_state = array()) {
     '#markup' => $prev . ' ' . $next,
   );
 
-  $form['sumitted-video'] = array(
+  $form['submitted-video'] = array(
     '#type' => 'hidden',
     '#default_value' => FALSE,
   );
@@ -257,7 +255,7 @@ function media_youtube_add_validate($form, &$form_state) {
   if ($form_state['values']['op'] == t('Apply')) {
     return;
   }
-  $uri = $form_state['values']['sumitted-video'];
+  $uri = $form_state['values']['submitted-video'];
   try {
     $file = file_uri_to_object($uri, TRUE);
   }
@@ -271,7 +269,7 @@ function media_youtube_add_validate($form, &$form_state) {
     return;
   }
 
-  $validators = $form['#validators'];
+  $validators = isset($form['#validators']) ? $form['#validators'] : array();
   if ($validators) {
     // Check for errors. @see media_add_upload_validate calls file_save_upload().
     // this code is ripped from file_save_upload because we just want the validation part.
@@ -306,7 +304,7 @@ function media_youtube_add_validate($form, &$form_state) {
  * @TODO: Document this function.
  */
 function media_youtube_add_submit($form, &$form_state) {
-  $uri = $form_state['values']['sumitted-video'];
+  $uri = $form_state['values']['submitted-video'];
   try {
     // Save the remote file
     $file = file_uri_to_object($uri, TRUE);
@@ -326,9 +324,7 @@ function media_youtube_add_submit($form, &$form_state) {
   }
 
   // Redirect to the file edit page after submission.
-  // @TODO: media_access() is a wrapper for file_entity_access(). Switch to the
-  // new function when Media 1.x is deprecated.
-  if (media_access('update', $file)) {
+  if (media_youtube_access('update', $file)) {
     $destination = array('destination' => 'admin/content/file');
     if (isset($_GET['destination'])) {
       $destination = drupal_get_destination();
@@ -342,11 +338,70 @@ function media_youtube_add_submit($form, &$form_state) {
 }
 
 /**
+ * Determine if a user may perform the given operation on the specified file.
+ *
+ * Enables compatibility with Media 1.x and 2.x by providing a wrapper around
+ * both media_access() and file_entity_access().
+ *
+ * @return boolean
+ *   TRUE if the operation may be performed, FALSE otherwise.
+ *
+ * @see media_access()
+ * @see file_entity_access()
+ */
+function media_youtube_access($op, $file = NULL, $account = NULL) {
+  if (function_exists('file_entity_access')) {
+    $access = file_entity_access($op, $file, $account);
+  }
+  elseif (function_exists('media_access')) {
+    $access = media_access($op, $account);
+  }
+  else {
+    $access = FALSE;
+  }
+
+  return $access;
+}
+
+/**
  * @TODO: Document this function.
  */
 function media_youtube_video_search($options = array()) {
-  $options['v'] = 2;
-  return media_retrieve_xml(url(MEDIA_YOUTUBE_REST_API, array('query' => $options)));
+  $options['v'] = 3;
+  $options['key'] = variable_get('media_youtube_api_key', '');
+  $options['part'] = 'snippet';
+  $options['maxResults'] = variable_get('media_youtube_max_results', '5');
+  $request = drupal_http_request(url(MEDIA_YOUTUBE_REST_API, array('query' => $options)));
+  if (!isset($request->error)) {
+    $json = json_decode($request->data);
+  }
+  else {
+    throw new Exception("Error Processing Request. (Error: {$request->code}, {$request->error}, {$request->data})");
+
+    //if request wasn't successful, create object for return to avoid errors
+    //$entry = new SimpleXMLElement();
+  }
+
+  // return media_youtube_unserialize_xml($entry);
+  return $json;
+}
+
+/**
+ * Recursively converts a SimpleXMLElement object into an array.
+ *
+ * @param object $xml
+ *   The original XML object.
+ */
+function media_youtube_unserialize_xml($xml) {
+  if ($xml instanceof SimpleXMLElement) {
+    $xml = (array) $xml;
+  }
+  if (is_array($xml)) {
+    foreach ($xml as $key => $item) {
+      $xml[$key] = media_youtube_unserialize_xml($item);
+    }
+  }
+  return $xml;
 }
 
 /**
@@ -382,4 +437,49 @@ function media_youtube_valid_id($id, $refresh = FALSE) {
   $ids[$id] = ($response->code == 200);
   cache_set('media_youtube:id:' . $id, $ids[$id], 'cache_media_xml', media_variable_get('xml_cache_expire', 3600));
   return $ids[$id];
+}
+
+/**
+ * Implements hook_menu().
+ *
+ * Added to configure YouTube API KEY
+ */
+function media_youtube_menu() {
+  $items['admin/config/media/media-youtube'] = array(
+    'title' => "Media: YouTube",
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('media_youtube_settings_form'),
+    'access arguments' => array('administer media browser'), // TODO: is this permission ok here ? (come from media module)
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Settings form.
+ *
+ * Added to configure YouTube API KEY
+ */
+function media_youtube_settings_form($form, &$form_state) {
+  $form['media_youtube_api_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('YouTube API Url'),
+    '#description' => t('YouTube API Url'),
+    '#default_value' => variable_get('media_youtube_api_url', ''),
+  );
+  $form['media_youtube_api_key'] = array(
+    '#type' => 'textfield',
+    '#title' => t('API key'),
+    '#description' => t('The Google API key has to be requested from the Google website. A Google account is needed too. See https://developers.google.com/youtube/v3/getting-started'),
+    '#default_value' => variable_get('media_youtube_api_key', ''),
+  );
+  $form['media_youtube_max_results'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Maximum search results to display in media browser'),
+    '#description' => t('The <em>maxResults</em> parameter specifies the maximum number of items that should be returned in the result set. Acceptable values are 1 to 50, inclusive.'),
+    '#default_value' => variable_get('media_youtube_max_results', 5),
+  );
+  $form = system_settings_form($form);
+  return $form;
 }

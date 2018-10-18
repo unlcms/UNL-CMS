@@ -6,25 +6,6 @@
  */
 
 /**
- * Implement hook_install().
- */
-function media_youtube_install() {
-  return array();
-}
-
-/**
- * Implement hook_uninstall().
- */
-function media_youtube_uninstall() {
-  drupal_load('module', 'media_youtube');
-
-  foreach (media_youtube_variable_default() as $variable => $value) {
-    media_youtube_variable_del($variable);
-  }
-  return array(array('success' => TRUE, 'query' => "Deleted all variables in the Media: YouTube namespace."));
-}
-
-/**
  * Clear style and preset caches.
  */
 function media_youtube_update_7001() {
@@ -161,14 +142,27 @@ function media_youtube_update_7201() {
 }
 
 /**
-* Update Media YouTube files to the new video file_entity type.
-*/
+ * Empty update function.
+ */
 function media_youtube_update_7202() {
-  $video_type = file_type_load('video');
-  $video_type->mimetypes[] = 'video/youtube';
-  // maybe also add stream if is not there already?
-  file_type_save($video_type);
+  // Code removed in response to http://drupal.org/node/1911970.
+}
 
-  // Update existing files
-  db_query("UPDATE {file_managed} SET type = 'video' WHERE type = 'undefined' AND filemime = 'video/youtube'");
+/**
+ * Remove obsolete variables.
+ */
+function media_youtube_update_7203() {
+  foreach (array('width', 'height', 'autohide', 'autoplay', 'color', 'enablejsapi', 'loop', 'modestbranding', 'nocookie', 'origin', 'protocol', 'protocol_specify', 'rel', 'showinfo', 'theme') as $setting) {
+    variable_del("media_youtube__{$setting}");
+  }
+}
+
+/**
+ * Update the Media YouTube browser's access check.
+ *
+ * Check your permissions; after this update the Media YouTube browser will be
+ * available to users with the "administer files" or "add media from remote
+ * sources" permissions only.
+ */
+function media_youtube_update_7204() {
 }

@@ -13,10 +13,10 @@
  */
 Drupal.behaviors.mediaAdmin = {
   attach: function (context) {
-    // Show a javascript confirmation dialog if a user has files selected and
+    // Show a JavaScript confirmation dialog if a user has files selected and
     // they try to switch between the "Thumbnail" and "List" local tasks.
     $('.tabs.secondary a').once('media-admin').bind('click', function () {
-      if ($(':checkbox:checked', $('.file-entity-admin-files-form')).length != 0) {
+      if ($(':checkbox:checked', $('.file-entity-admin-file-form')).length != 0) {
         return confirm(Drupal.t('If you switch views, you will lose your selection.'));
       }
     });
