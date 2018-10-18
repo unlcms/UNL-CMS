@@ -152,10 +152,6 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
   
      - Applied patch: https://www.drupal.org/files/issues/imce_rename-file_move-1376260-8.patch See https://www.drupal.org/node/1376260
 
-  *  media/includes/media.variables.inc
-
-     - Convert FILE_ENTITY_DEFAULT_ALLOWED_EXTENSIONS to the new variable. See http://drupal.org/node/1846674#comment-6760286
-
   * og_menu.module
 
      - Fix permission problem for editor that is only the author of the page with no other permissions.
