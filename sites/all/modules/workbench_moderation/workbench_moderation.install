@@ -18,6 +18,33 @@ function workbench_moderation_install() {
 }
 
 /**
+ * Implements hook_uninstall().
+ */
+function workbench_moderation_uninstall() {
+
+  // Delete workbench_moderation variables.
+  variable_del('workbench_moderation_nodedraft_disabled');
+  variable_del('workbench_moderation_per_node_type');
+  variable_del('workbench_moderation_show_revision_navigation');
+
+  // Get all node types. Loop through them and delete workbench-related variables.
+  $types = node_type_get_types();
+  foreach ($types as $type_object) {
+    $type = $type_object->type;
+    variable_del("workbench_moderation_default_state_$type");
+
+    // Get node options that might hold a moderation flag.
+    $node_options = variable_get("node_options_$type", array());
+    foreach ($node_options as $key => $option) {
+      if ($option === 'moderation') {
+        unset($node_options[$key]);
+      }
+    }
+    variable_set("node_options_$type", $node_options);
+  }
+}
+
+/**
  * Implements hook_schema().
  */
 function workbench_moderation_schema() {
@@ -28,7 +55,7 @@ function workbench_moderation_schema() {
         'description' => 'The machine name of the moderation state.',
         'type' => 'varchar',
         'length' => '255',
-        'not null' => FALSE,
+        'not null' => TRUE,
       ),
       'label' => array(
         'description' => 'A label for the moderation state.',
@@ -54,6 +81,18 @@ function workbench_moderation_schema() {
   $schema['workbench_moderation_transitions'] = array(
     'description' => 'Defines the valid transitions for states',
     'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'description' => 'Primary Key: Unique workbench_moderation transition identifier.',
+      ),
+      'name' => array(
+        'description' => 'The machine-readable name of this workbench_moderation transition.',
+        'type' => 'varchar',
+        'length' => 255,
+        'initial' => 'from_name',
+      ),
       'from_name' => array(
         'description' => 'The starting moderation state.',
         'type' => 'varchar',
@@ -67,6 +106,7 @@ function workbench_moderation_schema() {
         'not null' => FALSE,
       ),
     ),
+    'primary key' => array('id'),
   );
 
   $schema['workbench_moderation_node_history'] = array(
@@ -82,7 +122,6 @@ function workbench_moderation_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'disp-width' => '10',
       ),
       'nid' => array(
         'description' => 'Node id. Foreign key to {node}',
@@ -90,7 +129,6 @@ function workbench_moderation_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'disp-width' => '10',
       ),
       'from_state' => array(
         'description' => 'The old moderation state of the node',
@@ -110,7 +148,6 @@ function workbench_moderation_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'disp-width' => '10',
       ),
       'stamp' => array(
         'description' => 'The timestamp of the change.',
@@ -118,7 +155,6 @@ function workbench_moderation_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'disp-width' => '10',
       ),
       'published' => array(
         'description' => 'Indicated the live revision of a node.',
@@ -126,15 +162,13 @@ function workbench_moderation_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'disp-width' => '10',
       ),
-      'current' => array(
+      'is_current' => array(
         'description' => 'Indicated the current revision of a node.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-        'disp-width' => '10',
       ),
     ),
     'primary key' => array('hid'),
@@ -191,14 +225,17 @@ function _workbench_moderation_insert_values() {
   // Default transitions.
   $transitions = array(
     array(
+      'name' => 'Submit for Review',
       'from_name' => 'draft',
       'to_name' => 'needs_review',
     ),
     array(
+      'name' => 'Reject',
       'from_name' => 'needs_review',
       'to_name' => 'draft',
     ),
     array(
+      'name' => 'Publish',
       'from_name' => 'needs_review',
       'to_name' => 'published',
     ),
@@ -206,7 +243,7 @@ function _workbench_moderation_insert_values() {
 
   // Save default transitions to the database.
   $query = db_insert('workbench_moderation_transitions')
-    ->fields(array('from_name', 'to_name'));
+    ->fields(array('name', 'from_name', 'to_name'));
 
   foreach ($transitions as $transition) {
     $query->values($transition);
@@ -568,4 +605,68 @@ function workbench_moderation_update_7007() {
     '%from' => $transition->from_name,
     '%to' => $transition->to_name,
   ));
+}
+
+/**
+ * Fix the not null column schema for {workbench_moderation_states}.name.
+ */
+function workbench_moderation_update_7008() {
+  db_drop_primary_key('workbench_moderation_states');
+  db_change_field('workbench_moderation_states', 'name', 'name', array(
+    'description' => 'The machine name of the moderation state.',
+    'type' => 'varchar',
+    'length' => '255',
+    'not null' => TRUE,
+  ));
+  db_add_primary_key('workbench_moderation_states', array('name'));
+}
+
+/**
+ * Add new fields to workbench_moderation_transitions table.
+ */
+function workbench_moderation_update_7009() {
+  $fields = array(
+    'id' => array(
+      'type' => 'serial',
+      'not null' => TRUE,
+      'unsigned' => TRUE,
+      'description' => 'Primary Key: Unique workbench_moderation transition identifier.',
+    ),
+    'name' => array(
+      'description' => 'The machine-readable name of this workbench_moderation transition.',
+      'type' => 'varchar',
+      'length' => 255,
+      'initial' => 'from_name',
+    ),
+  );
+  // Add index too.
+  $index = array(
+    'primary key' => array('id'),
+  );
+
+  db_add_field('workbench_moderation_transitions', 'id', $fields['id'], $index);
+  db_add_field('workbench_moderation_transitions', 'name', $fields['name']);
+
+  // Fill in the blanks.
+  db_update('workbench_moderation_transitions')
+    ->expression('name', "CONCAT(from_name, '-', to_name)")
+    ->execute();
+}
+
+/**
+ * Comply with SQL-99:  Rename the 'current' column to 'is_current'.
+ */
+function workbench_moderation_update_7010() {
+  $table = 'workbench_moderation_node_history';
+  $field = 'current';
+  $field_new = 'is_current';
+  $spec = array(
+    'description' => 'Indicated the current revision of a node.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  );
+  db_change_field($table, $field, $field_new, $spec);
+  return t("Renamed 'current' column in node_history table");
 }

@@ -228,9 +228,9 @@ $handler->display->display_options['filters']['state']['expose']['identifier'] =
 $handler->display->display_options['filters']['state']['expose']['remember'] = TRUE;
 $handler->display->display_options['filters']['state']['expose']['reduce'] = TRUE;
 /* Filter criterion: Workbench Moderation: Current */
-$handler->display->display_options['filters']['current']['id'] = 'current';
-$handler->display->display_options['filters']['current']['table'] = 'workbench_moderation_node_history';
-$handler->display->display_options['filters']['current']['field'] = 'current';
+$handler->display->display_options['filters']['is_current']['id'] = 'is_current';
+$handler->display->display_options['filters']['is_current']['table'] = 'workbench_moderation_node_history';
+$handler->display->display_options['filters']['is_current']['field'] = 'is_current';
 
 /* Display: Needs review page */
 $handler = $view->new_display('page', 'Needs review page', 'needs_review_page');
@@ -250,10 +250,10 @@ $handler->display->display_options['empty']['area']['format'] = 'plain_text';
 $handler->display->display_options['defaults']['filter_groups'] = FALSE;
 $handler->display->display_options['defaults']['filters'] = FALSE;
 /* Filter criterion: Workbench Moderation: Current */
-$handler->display->display_options['filters']['current']['id'] = 'current';
-$handler->display->display_options['filters']['current']['table'] = 'workbench_moderation_node_history';
-$handler->display->display_options['filters']['current']['field'] = 'current';
-$handler->display->display_options['filters']['current']['value'] = '1';
+$handler->display->display_options['filters']['is_current']['id'] = 'is_current';
+$handler->display->display_options['filters']['is_current']['table'] = 'workbench_moderation_node_history';
+$handler->display->display_options['filters']['is_current']['field'] = 'is_current';
+$handler->display->display_options['filters']['is_current']['value'] = '1';
 /* Filter criterion: Workbench Moderation: State */
 $handler->display->display_options['filters']['state']['id'] = 'state';
 $handler->display->display_options['filters']['state']['table'] = 'workbench_moderation_node_history';
@@ -314,11 +314,11 @@ $handler->display->display_options['filters']['uid_current']['relationship'] = '
 $handler->display->display_options['filters']['uid_current']['value'] = '1';
 $handler->display->display_options['filters']['uid_current']['group'] = 1;
 /* Filter criterion: Workbench Moderation: Current */
-$handler->display->display_options['filters']['current']['id'] = 'current';
-$handler->display->display_options['filters']['current']['table'] = 'workbench_moderation_node_history';
-$handler->display->display_options['filters']['current']['field'] = 'current';
-$handler->display->display_options['filters']['current']['value'] = '1';
-$handler->display->display_options['filters']['current']['group'] = 1;
+$handler->display->display_options['filters']['is_current']['id'] = 'is_current';
+$handler->display->display_options['filters']['is_current']['table'] = 'workbench_moderation_node_history';
+$handler->display->display_options['filters']['is_current']['field'] = 'is_current';
+$handler->display->display_options['filters']['is_current']['value'] = '1';
+$handler->display->display_options['filters']['is_current']['group'] = 1;
 /* Filter criterion: Workbench Moderation: State */
 $handler->display->display_options['filters']['state_1']['id'] = 'state_1';
 $handler->display->display_options['filters']['state_1']['table'] = 'workbench_moderation_node_history';

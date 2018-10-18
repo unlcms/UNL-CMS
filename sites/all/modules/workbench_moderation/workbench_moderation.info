@@ -13,12 +13,13 @@ files[] = includes/workbench_moderation_handler_filter_state.inc
 files[] = includes/workbench_moderation_handler_filter_moderated_type.inc
 files[] = includes/workbench_moderation_handler_filter_user_can_moderate.inc
 files[] = workbench_moderation.migrate.inc
+files[] = tests/external_node_update.test
 files[] = tests/workbench_moderation.test
 files[] = tests/workbench_moderation.files.test
 
-; Information added by drupal.org packaging script on 2013-01-18
-version = "7.x-1.3"
+; Information added by Drupal.org packaging script on 2015-02-17
+version = "7.x-1.4"
 core = "7.x"
 project = "workbench_moderation"
-datestamp = "1358534883"
+datestamp = "1424191727"
 

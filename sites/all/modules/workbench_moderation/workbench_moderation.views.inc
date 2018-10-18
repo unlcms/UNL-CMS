@@ -14,9 +14,8 @@ function workbench_moderation_views_data() {
   $data['workbench_moderation_node_history']['table']['group'] = t('Workbench Moderation');
   $data['workbench_moderation_node_history']['table']['join'] = array(
     'node' => array(
-      'left_table' => 'node_revision',
-      'left_field' => 'vid',
-      'field' => 'vid',
+      'left_field' => 'nid',
+      'field' => 'nid',
       'type' => 'INNER',
     ),
     'node_revision' => array(
@@ -133,7 +132,7 @@ function workbench_moderation_views_data() {
       'handler' => 'views_handler_sort',
     ),
   );
-  $data['workbench_moderation_node_history']['current'] = array(
+  $data['workbench_moderation_node_history']['is_current'] = array(
     'title' => t('Current'),
     'help' => t('Whether or not this is the current revision.'),
     'field' => array(
@@ -157,7 +156,7 @@ function workbench_moderation_views_data() {
       'title' => t('Moderation links'),
       'handler' => 'workbench_moderation_handler_field_links',
       'click sortable' => FALSE,
-      'additional fields' => array('nid', 'vid', 'current'),
+      'additional fields' => array('nid', 'vid', 'is_current'),
     ),
     'filter' => array(
       'title' => t('User can moderate'),
@@ -186,6 +185,7 @@ function workbench_moderation_views_data() {
   );
   $data['workbench_moderation_states']['description'] = array(
     'title' => t('Moderation state description'),
+    'help' => t('Shows a description of the moderation state.'),
     'field' => array(
       'handler' => 'views_handler_field',
     ),

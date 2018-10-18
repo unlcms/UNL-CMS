@@ -66,3 +66,71 @@ function hook_workbench_moderation_states_next_alter(&$states, $current_state, $
 function hook_workbench_moderation_transition($node, $previous_state, $new_state) {
   // Your code here.
 }
+
+/**
+ * Allows modules to respond when a transition is saved.
+ *
+ * @param object $state
+ *   The state which was just saved.
+ * @param int $status
+ *   Either MergeQuery::STATUS_INSERT or MergeQuery::STATUS_UPDATE depending
+ *   on if this INSERT'ing a new transation or UPDATE'ing an existing one.
+ */
+function hook_workbench_moderation_state_save($state, $status) {
+  if ($status == MergeQuery::STATUS_INSERT) {
+    // Add data to a custom table for each new transition.
+    db_insert('mytable')
+      ->fields(array(
+        'state' => $state->name,
+      ))
+      ->execute();
+  }
+}
+
+/**
+ * Allows modules to respond when a transition is saved.
+ *
+ * @param object $transition
+ *   The transition which was just saved.
+ * @param int $status
+ *   Either MergeQuery::STATUS_INSERT or MergeQuery::STATUS_UPDATE depending
+ *   on if this INSERT'ing a new transation or UPDATE'ing an existing one.
+ */
+function hook_workbench_moderation_transition_save($transition, $status) {
+  if ($status == MergeQuery::STATUS_INSERT) {
+    // Add data to a custom table for each new transition.
+    db_insert('mytable')
+      ->fields(array(
+        'from_state' => $transition->from_name,
+        'to_state' => $transition->to_name,
+      ))
+      ->execute();
+  }
+}
+
+/**
+ * Allows modules to respond when a state is deleted.
+ *
+ * @param object $state
+ *  The state which was just deleted.
+ */
+function hook_workbench_moderation_state_delete($state) {
+  // Remove data from a custom table which refers to the old state.
+  db_delete('mytable')
+    ->condition('state', $state->name)
+    ->execute();
+}
+
+/**
+ * Allows modules to respond when a transition is deleted.
+ *
+ * @param object $transition
+ *  The transition which was just deleted.
+ */
+function hook_workbench_moderation_transition_delete($transition) {
+  // Remove data from a custom table which refers to the old state.
+  db_delete('mytable')
+    ->condition('from_state', $transition->from_name)
+    ->condition('to_state', $transition->to_name)
+    ->execute();
+}

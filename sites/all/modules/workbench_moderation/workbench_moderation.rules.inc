@@ -178,6 +178,25 @@ function workbench_moderation_rules_action_info() {
     ),
   );
 
+  $items['workbench_moderation_load_current_revision'] = array(
+    'label' => t("Load current node revision"),
+    'group' => t("Node"),
+    'base' => 'workbench_moderation_load_current_revision_rules_action',
+
+    'parameter' => array(
+      'node' => array(
+        'type' => 'node',
+        'label' => t("Content"),
+      ),
+    ),
+    'provides' => array(
+      'node_revision' => array(
+        'type' => 'node',
+        'label' => t("Current node revision"),
+      ),
+    ),
+  );
+
   return $items;
 }
 
@@ -232,7 +251,9 @@ function workbench_moderation_rules_condition_contents_current_state($node, $mod
     return FALSE;
   }
 
-  if ($node->workbench_moderation['current']->state != $moderation_state) {
+  $state = (!empty($node->workbench_moderation)) ? $node->workbench_moderation['current']->state : $node->workbench_moderation_state_current;
+
+  if ($state != $moderation_state) {
     return FALSE;
   }
 
@@ -325,4 +346,18 @@ function workbench_moderation_load_current_state_rules_action($node) {
   }
 
   return array('node' => $node, 'workbench_moderation_state' => $state);
+}
+
+/**
+ * Action: Loads the current node revision.
+ *
+ * $param $node
+ *   A node object
+ *
+ * @return
+ *   A loaded node revision.
+ */
+function workbench_moderation_load_current_revision_rules_action($node) {
+  $node_revision = workbench_moderation_node_current_load($node);
+  return array('node' => $node, 'node_revision' => $node_revision);
 }

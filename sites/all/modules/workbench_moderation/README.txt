@@ -97,8 +97,7 @@ track the moderation history of a particular revision, right up through the
 point where it is published.
 
 Revisions are a linear; revision history may not fork. This means that only the
-latest revision--Workbench Moderation calls this the "current draft"--may be
-edited or moderated.
+latest revision may be edited or moderated.
 
 ----
 2.  Installation

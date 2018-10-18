@@ -82,11 +82,6 @@ function workbench_moderation_node_history_view($node) {
   // Page title.
   drupal_set_title(t('History of %title', array('%title' => $node->title)), PASS_THROUGH);
 
-  // Alert if there is no live node
-  if (!isset($node->workbench_moderation['published'])) {
-    drupal_set_message(t('Currently there is no published revision of this node.'), 'warning');
-  }
-
   // Get all of the node revisions, each with its most recent moderation.
   $query = db_select('node', 'n');
   $query->leftJoin('node_revision', 'r', 'n.nid = r.nid');
@@ -135,17 +130,32 @@ function workbench_moderation_node_history_view($node) {
     // Revision operations.
     $revision_operations = array();
     if (isset($node->workbench_moderation['published']) && $revision->vid == $node->workbench_moderation['published']->vid) {
-      $revision_operations['view'] = workbench_moderation_access_link(t('view'), "node/{$revision->nid}");
+      $revision_operations['view'] = workbench_moderation_access_link(t('View'), "node/{$revision->nid}");
     }
     elseif ($revision->vid == $node->workbench_moderation['current']->vid) {
-      $revision_operations['view'] = workbench_moderation_access_link(t('view'), "node/{$revision->nid}/current-revision");
+      $revision_operations['view'] = workbench_moderation_access_link(t('View'), "node/{$revision->nid}/current-revision");
     }
     else {
-      $revision_operations['view'] = workbench_moderation_access_link(t('view'), "node/{$revision->nid}/revisions/{$revision->vid}/view");
+      $revision_operations['view'] = workbench_moderation_access_link(t('View'), "node/{$revision->nid}/revisions/{$revision->vid}/view");
     }
 
-    $revision_operations['revert'] = workbench_moderation_access_link(t('revert'), "node/{$revision->nid}/revisions/{$revision->vid}/revert");
-    $revision_operations['delete'] = workbench_moderation_access_link(t('delete'), "node/{$revision->nid}/revisions/{$revision->vid}/delete");
+    // Provide a courtesy edit operation if this is the current revision.
+    if ($revision->vid == $node->workbench_moderation['current']->vid) {
+      // The edit operation's default link title, "Edit draft", matches
+      // the logic tree in workbench_moderation_edit_tab_title().
+      $edit_operation_title = t('Edit draft');
+
+      // Modify the edit operation's link title to "New draft", matching the
+      // logic tree in workbench_moderation_edit_tab_title() when the current
+      // revision is the published node.
+      if (isset($node->workbench_moderation['published']) && $revision->vid == $node->workbench_moderation['published']->vid) {
+        $edit_operation_title = t('New draft');
+      }
+      $revision_operations['edit'] = l($edit_operation_title, "node/{$revision->nid}/edit", array('query' => array('destination' => "node/{$revision->nid}/moderation")));
+    }
+
+    $revision_operations['revert'] = workbench_moderation_access_link(t('Revert'), "node/{$revision->nid}/revisions/{$revision->vid}/revert");
+    $revision_operations['delete'] = workbench_moderation_access_link(t('Delete'), "node/{$revision->nid}/revisions/{$revision->vid}/delete");
 
     $row['data']['revision'] = implode(' | ', array_filter($revision_operations));
 
@@ -212,6 +222,14 @@ function workbench_moderation_node_history_view($node) {
     $row['data']['moderation'] .= theme('item_list', array('items' => $items));
 
     $rows[] = $row;
+  }
+
+  // If this page is being re-loaded as a result of the revision form being
+  // submitted, it is not until this point that we can accurately check
+  // if the moderation state is published or not.
+  // Alert if there is no live node
+  if (!isset($node->workbench_moderation['published'])) {
+    drupal_set_message(t('Currently there is no published revision of this node.'), 'warning');
   }
 
   // Set the table header.
@@ -284,23 +302,8 @@ function workbench_moderation_node_unpublish_form_submit($form, &$form_state) {
   global $user;
   $node = $form['node']['#value'];
 
-  // Remove the moderation record's "published" flag.
-  $query = db_update('workbench_moderation_node_history')
-    ->condition('hid', $node->workbench_moderation['published']->hid)
-    ->fields(array('published' => 0))
-    ->execute();
-
-  // Moderate the revision.
+  // Moderate the revision. This will do the heavy lifting.
   workbench_moderation_moderate($node, $form_state['values']['state']);
-
-  // Make sure the 'current' revision is the 'live' revision -- ie, the revision
-  // in {node}.
-  $live_revision = workbench_moderation_node_current_load($node);
-  $live_revision->status = 0;
-  $live_revision->revision = 0;
-  $live_revision->workbench_moderation['updating_live_revision'] = TRUE;
-  // @TODO: do we trust node_save() here?
-  node_save($live_revision);
 
   drupal_set_message(t('The live revision of this content has been unpublished.'));
   $form_state['redirect'] ="node/{$node->nid}/moderation";
