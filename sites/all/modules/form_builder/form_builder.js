@@ -60,21 +60,46 @@ Drupal.behaviors.formBuilderElement.attach = function(context) {
 /**
  * Behavior to disable preview fields and instead open up the configuration.
  */
-Drupal.behaviors.formBuilderFields = {};
+Drupal.behaviors.formBuilderFields = {
+  tableDragAttached: false,
+};
 Drupal.behaviors.formBuilderFields.attach = function(context) {
   // Bind a function to all elements to update the preview on change.
-  var $configureForm = $('#form-builder-field-configure');
+  var $forms = $('.form-builder-field-configure', context)
+    .add($(context).filter('.form-builder-field-configure'));
 
-  $configureForm.find('input, textarea, select')
+  $forms.find('input, textarea, select')
     .not('.form-builder-field-change')
     .addClass('form-builder-field-change')
     .bind('change', Drupal.formBuilder.elementPendingChange);
 
-  $configureForm.find('input.form-text, textarea')
+  $forms.find('input.form-text, textarea')
     .not('.form-builder-field-keyup')
     .addClass('form-builder-field-keyup')
     .bind('keyup', Drupal.formBuilder.elementPendingChange);
+
+  this.attachTableDrag();
 };
+/**
+ * Register a tableDrag onDrop callback - so we catch weight changes.
+ */
+Drupal.behaviors.formBuilderFields.attachTableDrag = function() {
+  if (this.tableDragAttached) {
+    return;
+  }
+  if (Drupal.tableDrag.prototype) {
+    var oldOnDrop = Drupal.tableDrag.prototype.onDrop;
+    Drupal.tableDrag.prototype.onDrop = function() {
+      oldOnDrop();
+      if ($(this.table).parents('.form-builder-field-configure').length) {
+        Drupal.formBuilder.elementPendingChange.apply(this.table, [{
+          type: 'change',
+        }]);
+      }
+    };
+    this.tableDragAttached = true;
+  }
+}
 
 /**
  * Behavior for the entire form builder. Add drag and drop to elements.
@@ -256,7 +281,6 @@ Drupal.formBuilder = {
   // Variable to prevent multiple requests.
   updatingElement: false,
   // Variables to allow delayed updates on textfields and textareas.
-  updateDelayElement: false,
   updateDelay: false,
   // Variable holding the actively edited element (if any).
   activeElement: false,
@@ -357,13 +381,18 @@ Drupal.formBuilder.editField = function() {
       $(Drupal.formBuilder.fieldConfigureForm).html(Drupal.settings.formBuilder.fieldLoading);
     }
 
-    $.ajax({
+    var options = {
       url: $link.attr('href'),
-      type: 'GET',
+      type: 'POST',
       dataType: 'json',
-      data: 'js=1',
-      success: Drupal.formBuilder.displayForm
-    });
+      data: {js: 1},
+      success: function (response, status) {
+        Drupal.formBuilder.displayForm(response, status, $element);
+      },
+    };
+    // Add ajax page-state variables.
+    Drupal.ajax.prototype.beforeSerialize(Drupal.formBuilder.fieldConfigureForm, options);
+    $.ajax(options);
   };
 
   Drupal.formBuilder.updatingElement = true;
@@ -501,38 +530,52 @@ Drupal.formBuilder.highlightField = function(timeout) {
 /**
  * Display the edit form from the server.
  */
-Drupal.formBuilder.displayForm = function(response) {
-  // Update Drupal settings.
-  if (response.settings) {
-    $.extend(true, Drupal.settings, response.settings);
+Drupal.formBuilder.displayForm = function(response, status, $wrapper) {
+  var fake_ajax = {
+    effect: 'none',
+    speed: '',
+    getEffect: Drupal.ajax.prototype.getEffect,
+  };
+
+  for (var i = 0; i < response.length; i++) {
+    if (response.hasOwnProperty(i) && response[i]['command']) {
+      var c = response[i];
+      if (c.command == 'formBuilder-displayForm') {
+        // Insert the configure form element.
+        var $form = $(c.data);
+        if (Drupal.formBuilder.fieldConfigureForm) {
+          $(Drupal.formBuilder.fieldConfigureForm).html($form);
+          $form.css('display', 'none');
+        }
+        else {
+          var $preview = $(c.selector);
+          $form.insertAfter($preview).css('display', 'none');
+        }
+        Drupal.attachBehaviors($form.get(0));
+
+        $form
+          // Add the ajaxForm behavior to the new form.
+          .ajaxForm()
+          // Using the 'data' $.ajaxForm property doesn't seem to work.
+          // Manually add a hidden element to pass additional data on submit.
+          .prepend('<input type="hidden" name="return" value="field" />')
+          // Add in any messages from the server.
+          .find('fieldset:first').find('.fieldset-wrapper:first').prepend(response.messages);
+
+
+        $form.slideDown(function() {
+          $wrapper.find('a.progress').removeClass('progress');
+          $form.find('input:visible:first').focus();
+        });
+
+      }
+      else {
+        if (Drupal.ajax.prototype.commands[c.command]) {
+          Drupal.ajax.prototype.commands[c.command](fake_ajax, response[i], status);
+        }
+      }
+    }
   }
-
-  var $preview = $('#form-builder-element-' + response.elementId);
-  var $form = $(response.html);
-
-  if (Drupal.formBuilder.fieldConfigureForm) {
-    $(Drupal.formBuilder.fieldConfigureForm).html($form);
-    $form.css('display', 'none');
-  }
-  else {
-    $form.insertAfter($preview).css('display', 'none');
-  }
-
-  Drupal.attachBehaviors($form.get(0));
-
-  $form
-    // Add the ajaxForm behavior to the new form.
-    .ajaxForm()
-    // Using the 'data' $.ajaxForm property doesn't seem to work.
-    // Manually add a hidden element to pass additional data on submit.
-    .prepend('<input type="hidden" name="return" value="field" />')
-    // Add in any messages from the server.
-    .find('fieldset:first').find('.fieldset-wrapper:first').prepend(response.messages);
-
-  $form.slideDown(function() {
-    $preview.parents('div.form-builder-wrapper:first').find('a.progress').removeClass('progress');
-    $form.find('input:visible:first').focus();
-  });
 
   Drupal.formBuilder.updatingElement = false;
 };
@@ -546,7 +589,8 @@ Drupal.formBuilder.elementChange = function() {
       success: Drupal.formBuilder.updateElement,
       dataType: 'json',
       data: {
-        '_triggering_element_name': 'op'
+        'js': 1,
+        '_triggering_element_name': 'op',
       }
     });
   }
@@ -582,8 +626,10 @@ Drupal.formBuilder.elementPendingChange = function(e) {
   if (Drupal.formBuilder.updateDelay) {
     clearTimeout(Drupal.formBuilder.updateDelay);
   }
-  Drupal.formBuilder.updateDelayElement = this;
-  Drupal.formBuilder.updateDelay = setTimeout("Drupal.formBuilder.elementChange.apply(Drupal.formBuilder.updateDelayElement, [true])", 500);
+  var $element = this;
+  Drupal.formBuilder.updateDelay = setTimeout(function() {
+    Drupal.formBuilder.elementChange.apply($element, [true]);
+  }, 500);
 };
 
 /**
@@ -662,6 +708,7 @@ Drupal.formBuilder.addElement = function(response) {
   var positionAction = $('#form-builder-positions').attr('action');
   $('#form-builder-positions').replaceWith(response.positionForm);
   $('#form-builder-positions').attr('action', positionAction);
+  Drupal.attachBehaviors($('#form-builder-positions'));
 
   // Submit the new positions form to save the new element position.
   Drupal.formBuilder.updateElementPosition($new.get(0));
@@ -688,7 +735,7 @@ Drupal.formBuilder.updateElementPosition = function(element) {
   $('#form-builder-positions input.form-builder-parent').filter('.' + child_id).val(parent_id);
 
   // Submit the position form via AJAX to save the new weights and parents.
-  $('#form-builder-positions').ajaxSubmit();
+  $('#form-builder-positions [type=submit]').triggerHandler('mousedown');
 };
 
 /**

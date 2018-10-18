@@ -8,77 +8,32 @@
 /**
  * Load a form configuration cache.
  *
- * @param $form_type
- *   The type of form being edited.
- * @param $form_id
- *   The unique identifier for the form type.
- * @return
- *   A FAPI array if a cache entry was found. Boolean FALSE if an entry does not
- *   yet exist. Note that an empty FAPI array may exist, so be sure to use
- *   strict comparison (===) when checking return values.
+ * @deprecated Use FormBuilderLoader::fromCache() instead.
+ *
+ * @see FormBuilderLoader::fromCache()
  */
 function form_builder_cache_load($form_type, $form_id, $sid = NULL, $reset = FALSE) {
-  static $data;
-  $sid = isset($sid) ? $sid : session_id();
-
-  if ($reset) {
-    $data = NULL;
-  }
-
-  if (empty($data) && !empty($form_type) && !empty($form_id)) {
-    $data = db_query("SELECT data FROM {form_builder_cache} WHERE type = :type AND form_id = :form_id AND sid = :sid", array(':type' => $form_type, ':form_id' => $form_id, ':sid' => $sid))->fetchField();
-
-    if ($data) {
-      $data = unserialize($data);
-    }
-  }
-
-  return $data;
+  $form = FormBuilderLoader::instance()
+    ->fromCache($form_type, $form_id, $sid, $reset);
+  return $form ? $form->getFormArray() : FALSE;
 }
 
 /**
  * Save a form builder cache based on the form structure.
+ *
+ * @deprecated Use FormBuilderFormBase::save() instead.
+ *
+ * @see FormBuilderFormBase::save()
  */
 function form_builder_cache_save($form_type, $form_id, $form, $sid = NULL) {
-  $sid = isset($sid) ? $sid : session_id();
-
-  if (form_builder_cache_load($form_type, $form_id, $sid) === FALSE) {
-    $result = db_insert('form_builder_cache')
-      ->fields(array(
-        'sid' => $sid,
-        'type' => $form_type,
-        'form_id' => $form_id,
-        'updated' => REQUEST_TIME,
-        'data' => serialize($form),
-      ))
-      ->execute();
-  }
-  else {
-    $result = db_update('form_builder_cache')
-      ->fields(array(
-        'updated' => REQUEST_TIME,
-        'data' => serialize($form),
-      ))
-      ->condition('sid', $sid)
-      ->condition('type', $form_type)
-      ->condition('form_id', $form_id)
-      ->execute();
-  }
-
-  // Ensure caches are fresh for any retrievals made this request.
-  form_builder_cache_load(NULL, NULL, NULL, TRUE);
-
-  return $result;
+  $form = FormBuilderLoader::instance()->getForm($form_type, $form_id, $sid, $form);
+  return $form->save();
 }
 
 function form_builder_cache_delete($form_type, $form_id, $sid = NULL) {
-  $sid = isset($sid) ? $sid : session_id();
-
-  return db_delete('form_builder_cache')
-    ->condition('sid', $sid)
-    ->condition('type', $form_type)
-    ->condition('form_id', $form_id)
-    ->execute();
+  $form = FormBuilderLoader::instance()
+    ->fromCache($form_type, $form_id, $sid)
+    ->delete();
 }
 
 /**
@@ -88,11 +43,7 @@ function form_builder_cache_delete($form_type, $form_id, $sid = NULL) {
  *   The maximum amount of time allowed for entries to be kept, in seconds.
  */
 function form_builder_cache_purge($expire_threshold = NULL) {
-  $expire_threshold = isset($expire_threshold) ? $expire_threshold : ini_get('session.cache_expire');
-
-  return db_delete('form_builder_cache')
-    ->condition('updated', REQUEST_TIME - $expire_threshold, '<')
-    ->execute();
+  FormBuilderFormBase::purge($expire_threshold);
 }
 
 /**
@@ -101,12 +52,16 @@ function form_builder_cache_purge($expire_threshold = NULL) {
  * @return
  *   An array of elements keyed by the element_id of the changed element. Each
  *   value contains an array of the 'original' and 'modified' elements.
+ *
+ * @todo Implement this as a form object method.
  */
 function form_builder_cache_difference($form_type, $form_id, $exclude_weight = TRUE) {
-  if (($modified_form = form_builder_cache_load($form_type, $form_id)) && $modified_form !== FALSE) {
-    $original_form = form_builder_load_form($form_type, $form_id);
-    $original_ids = form_builder_get_element_ids($original_form);
-    $modified_ids = form_builder_get_element_ids($modified_form);
+  $loader = FormBuilderLoader::instance();
+  $modified_form = $loader->fromCache($form_type, $form_id);
+  if ($modified_form) {
+    $original_form = $loader->fromStorage($form_type, $form_id);
+    $original_ids = $original_form->getElementIds();
+    $modified_ids = $modified_form->getElementIds();
 
     // Find the union of IDs in both arrays.
     $element_ids = array_keys(array_flip($original_ids) + array_flip($modified_ids));
@@ -114,8 +69,8 @@ function form_builder_cache_difference($form_type, $form_id, $exclude_weight = T
     // Build a list of all elements that have changed.
     $differences = array();
     foreach ($element_ids as $element_id) {
-      $original = form_builder_get_element($original_form, $element_id);
-      $modified = form_builder_get_element($modified_form, $element_id);
+      $original = $original_form->getElementArray($element_id);
+      $modified = $modified_form->getElementArray($element_id);
 
       if ($exclude_weight) {
         if (isset($original['#weight'])) {
@@ -140,33 +95,30 @@ function form_builder_cache_difference($form_type, $form_id, $exclude_weight = T
 }
 
 /**
- * Retrieve a single field from a form cache..
+ * Retrieve a single field from a form cache.
  */
 function form_builder_cache_field_load($form_type, $form_id, $element_id, $sid = NULL, $reset = FALSE) {
-  $sid = isset($sid) ? $sid : session_id();
-
-  $form = form_builder_cache_load($form_type, $form_id, $sid, $reset);
-  return form_builder_get_element($form, $element_id);
+  $form = FormBuilderLoader::instance()
+    ->fromCache($form_type, $form_id, $sid, $reset);
+  return $form ? $form->getElementArray($element_id) : FALSE;
 }
 
 /**
  * Add or update a single field in a form builder cache.
  */
 function form_builder_cache_field_save($form_type, $form_id, $element, $sid = NULL) {
-  $sid = isset($sid) ? $sid : session_id();
-
-  $form = form_builder_cache_load($form_type, $form_id, $sid);
-  form_builder_set_element($form, $element);
-  form_builder_cache_save($form_type, $form_id, $form, $sid);
+  $form = FormBuilderLoader::instance()
+    ->fromCache($form_type, $form_id, $sid);
+  $form->setElementArray($element);
+  $form->save();
 }
 
 /**
  * Remove a single field from a form builder cache.
  */
 function form_builder_cache_field_delete($form_type, $form_id, $element_id, $sid = NULL) {
-  $sid = isset($sid) ? $sid : session_id();
-
-  $form = form_builder_cache_load($form_type, $form_id, $sid);
-  form_builder_unset_element($form, $element_id);
-  form_builder_cache_save($form_type, $form_id, $form, $sid);
+  $form = FormBuilderLoader::instance()
+    ->fromCache($form_type, $form_id, $sid);
+  $form->unsetElement($element_id);
+  $form->save();
 }

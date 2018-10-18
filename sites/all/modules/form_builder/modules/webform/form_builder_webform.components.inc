@@ -9,6 +9,7 @@
  * Configuration form for the "unique" property.
  */
 function form_builder_webform_property_unique_form(&$form_state, $form_type, $element, $property) {
+  $component = &$element['#webform_component'];
   $form = array();
 
   $form['unique'] = array(
@@ -16,7 +17,7 @@ function form_builder_webform_property_unique_form(&$form_state, $form_type, $el
     '#title' => t('Unique'),
     '#description' => t('Check that all entered values for this field are unique. The same value is not allowed to be used twice.'),
     '#type' => 'checkbox',
-    '#default_value' => $element['#unique'],
+    '#default_value' => $component['extra']['unique'],
   );
 
   return $form;
@@ -37,8 +38,8 @@ function _form_builder_webform_form_builder_types_date() {
     'title' => t('Date'),
     'weight' => -2,
   );
-  $fields['date']['default'] = _form_builder_webform_default('date');
-  $fields['date']['default']['#title'] = t('New date');
+  $component['name'] = t('New date');
+  $fields['date']['default'] = _form_builder_webform_default('date', array(), $component);
 
   return $fields;
 }
@@ -93,8 +94,8 @@ function _form_builder_webform_form_builder_types_email() {
     'title' => t('E-mail'),
     'weight' => -18,
   );
-  $fields['email']['default'] = _form_builder_webform_default('email');
-  $fields['email']['default']['#title'] = t('New e-mail');
+  $component['name'] = t('New e-mail');
+  $fields['email']['default'] = _form_builder_webform_default('email', array(), $component);
 
   return $fields;
 }
@@ -131,15 +132,6 @@ function _form_builder_webform_form_builder_properties_email() {
 }
 
 /**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_email($element) {
-  $element['#unique'] = !empty($element['#webform_component']['extra']['unique']);
-
-  return $element;
-}
-
-/**
  * @} End of "defgroup form-builder-webform-email-callbacks"
  */
 
@@ -158,8 +150,8 @@ function _form_builder_webform_form_builder_types_fieldset() {
     'title' => t('Fieldset'),
     'weight' => 19,
   );
-  $fields['fieldset']['default'] = _form_builder_webform_default('fieldset');
-  $fields['fieldset']['default']['#title'] = t('New fieldset');
+  $component['name'] = t('New fieldset');
+  $fields['fieldset']['default'] = _form_builder_webform_default('fieldset', array(), $component);
 
   return $fields;
 }
@@ -201,8 +193,8 @@ function _form_builder_webform_form_builder_types_file() {
     'weight' => 6,
   );
 
-  $fields['file']['default'] = _form_builder_webform_default('file');
-  $fields['file']['default']['#title'] = t('New file');
+  $component['name'] = t('New file');
+  $fields['file']['default'] = _form_builder_webform_default('file', array(), $component);
 
   return $fields;
 }
@@ -245,22 +237,6 @@ function _form_builder_webform_form_builder_map_file() {
 }
 
 /**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_file($form_element) {
-  if (isset($form_element['#upload_validators'])) {
-    // Extension list and size comes from #upload_validators on load.
-    $form_element['#webform_file_extensions']['types'] = empty($form_element['#upload_validators']['file_validate_extensions'][0]) ? array() : explode(' ', $form_element['#upload_validators']['file_validate_extensions'][0]);
-    $form_element['#webform_file_size'] = empty($form_element['#upload_validators']['file_validate_size'][0]) ? '' : format_size($form_element['#upload_validators']['file_validate_size'][0]);
-    // File directory and scheme come from #upload_location on load.
-    $form_element['#webform_file_directory'] = preg_replace('/^webform[\/]?/', '', file_uri_target($form_element['#upload_location']));
-    $form_element['#webform_file_scheme'] = file_uri_scheme($form_element['#upload_location']);
-  }
-
-  return $form_element;
-}
-
-/**
  * Implements _form_builder_webform_form_builder_preview_alter_component().
  */
 function _form_builder_webform_form_builder_preview_alter_file($form_element) {
@@ -299,10 +275,10 @@ function _form_builder_webform_form_builder_types_grid() {
     ),
     'weight' => -4,
   );
-  $fields['grid']['default'] = _form_builder_webform_default('grid');
-  $fields['grid']['default']['#title'] = t('New grid');
-  $fields['grid']['default']['#grid_options'] = array(t('poor'), t('average'), t('good'), t('excellent'));
-  $fields['grid']['default']['#grid_questions'] = array(t('question one'), t('question two'), t('question three'));
+  $component['name'] = t('New grid');
+  $extra['options'] = _webform_select_options_to_text(array(t('poor'), t('average'), t('good'), t('excellent')));
+  $extra['questions'] = _webform_select_options_to_text(array(t('question one'), t('question two'), t('question three')));
+  $fields['grid']['default'] = _form_builder_webform_default('grid', $extra, $component);
 
   return $fields;
 }
@@ -314,6 +290,18 @@ function _form_builder_webform_form_builder_map_grid() {
   return array(
     'form_builder_type' => 'grid',
     'properties' => array(
+      'custom_grid_option_keys' => array(
+        'storage_parents' => array('extra', 'custom_option_keys'),
+      ),
+      'custom_grid_question_keys' => array(
+        'storage_parents' => array('extra', 'custom_question_keys'),
+      ),
+      'grid_options' => array(
+        'storage_parents' => array('extra', 'options'),
+      ),
+      'grid_questions' => array(
+        'storage_parents' => array('extra', 'questions'),
+      ),
       'optrand' => array(
         'form_parents' => array('display', 'optrand'),
         'storage_parents' => array('extra', 'optrand'),
@@ -349,49 +337,11 @@ function _form_builder_webform_form_builder_properties_grid() {
 }
 
 /**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_grid($element) {
-  // Convert properties used only in Form Builder.
-  $element['#custom_grid_option_keys'] = !empty($element['#webform_component']['extra']['custom_option_keys']);
-  $element['#custom_grid_question_keys'] = !empty($element['#webform_component']['extra']['custom_question_keys']);
-  $element['#unique'] = !empty($element['#webform_component']['extra']['unique']);
-
-  return $element;
-}
-
-/**
- * Implements _form_builder_webform_form_builder_save_component().
- */
-function _form_builder_webform_form_builder_save_grid($component, $form_element) {
-  $options = '';
-
-  foreach ($form_element['#grid_options'] as $key => $option_value) {
-    $options .= $key . '|' . $option_value . "\n";
-  }
-
-  $questions = '';
-  foreach ($form_element['#grid_questions'] as $key => $question_value) {
-    $questions .= $key . '|' . $question_value . "\n";
-  }
-
-  $component['extra']['options'] = $options;
-  $component['extra']['questions'] = $questions;
-  $component['extra']['custom_option_keys'] = isset($form_element['#custom_grid_option_keys']) ? $form_element['#custom_grid_option_keys'] : FALSE;
-  $component['extra']['custom_question_keys'] =  isset($form_element['#custom_grid_question_keys']) ? $form_element['#custom_grid_question_keys'] : FALSE;
-
-  return $component;
-}
-
-/**
  * Configuration form for the "grid_options" property.
  */
 function form_builder_webform_property_grid_options_form(&$form_state, $form_type, $element) {
-  $element['#grid_options'] = _webform_select_options_to_text($element['#grid_options']);
+  $component = &$element['#webform_component'];
   $form = _form_builder_webform_build_edit_form('grid', $element, 'grid_options', 'options', array('options'), array('extra', 'options'));
-  // The _form_builder_webform_build_edit_form() function can only pull in one
-  // property at a time, so we have to set the key toggle manually.
-  $form['grid_options']['options']['#key_type_toggled'] = !empty($element['#custom_grid_option_keys']);
   return $form;
 }
 
@@ -399,11 +349,8 @@ function form_builder_webform_property_grid_options_form(&$form_state, $form_typ
  * Configuration form for the "grid_questions" property.
  */
 function form_builder_webform_property_grid_questions_form(&$form_state, $form_type, $element) {
-  $element['#grid_questions'] = _webform_select_options_to_text($element['#grid_questions']);
+  $component = &$element['#webform_component'];
   $form = _form_builder_webform_build_edit_form('grid', $element, 'grid_questions', 'options', array('questions'), array('extra', 'questions'));
-  // The _form_builder_webform_build_edit_form() function can only pull in one
-  // property at a time, so we have to set the key toggle manually.
-  $form['grid_questions']['options']['#key_type_toggled'] = !empty($element['#custom_grid_question_keys']);
   return $form;
 }
 
@@ -411,13 +358,14 @@ function form_builder_webform_property_grid_questions_form(&$form_state, $form_t
  * Submit handler for the "grid_options" and "grid_questions" properties.
  */
 function form_builder_webform_property_grid_form_submit(&$form, &$form_state) {
+  // _webform_edit_validate_options() hardcodes the #parents for values.
   if (empty($form_state['values']['grid_options'])) {
-    $form_state['values']['grid_options'] = _webform_select_options_from_text($form_state['values']['extra']['grid_options']);
+    $form_state['values']['grid_options'] = $form_state['values']['extra']['grid_options'];
     $form_state['values']['custom_grid_option_keys'] = $form_state['values']['extra']['custom_grid_option_keys'];
   }
 
   if (empty($form_state['values']['grid_questions'])) {
-    $form_state['values']['grid_questions'] = _webform_select_options_from_text($form_state['values']['extra']['grid_questions']);
+    $form_state['values']['grid_questions'] = $form_state['values']['extra']['grid_questions'];
     $form_state['values']['custom_grid_question_keys'] = $form_state['values']['extra']['custom_grid_question_keys'];
   }
 }
@@ -440,25 +388,14 @@ function _form_builder_webform_form_builder_types_hidden() {
   $fields['hidden'] = array(
     'title' => t('Hidden'),
     'weight' => 8,
+    'class' => 'FormBuilderWebformHiddenElement',
   );
-  $fields['hidden']['default'] = _form_builder_webform_default('hidden');
-  $fields['hidden']['default']['#title'] = t('New hidden');
+  $component['name'] = t('New hidden');
+  $fields['hidden']['default'] = _form_builder_webform_default('hidden', array(
+    'hidden_type' => 'hidden',
+  ), $component);
 
   return $fields;
-}
-
-/**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_hidden($form_element) {
-  // Hidden elements may be #type "value" or "hidden". Set the internal property
-  // to keep track of hidden fields.
-  $form_element['#form_builder']['element_type'] = 'hidden';
-  if (!isset($form_element['#default_value'])) {
-    $form_element['#default_value'] = $form_element['#value'];
-  }
-
-  return $form_element;
 }
 
 /**
@@ -469,14 +406,18 @@ function _form_builder_webform_form_builder_preview_alter_hidden($form_element) 
   $form_element['#type'] = 'markup';
   $form_element['#form_builder']['element_type'] = 'markup';
   unset($form_element['#theme']);
-
-  // Add the 'webform_element' theme wrapper at the beginning, where it would
-  // normally be.
-  array_unshift($form_element['#theme_wrappers'], 'webform_element');
+  $c = $form_element['#webform_component'];
+  if ($c['extra']['hidden_type'] == 'value') {
+    array_unshift($form_element['#theme_wrappers'], 'webform_element');
+  }
+  else {
+    unset($form_element['#wrapper_attributes']);
+  }
 
   // Display the title of the hidden field as regular markup.
-  $form_element['#children'] = t('@title - <em>hidden field</em>', array('@title' => $form_element['#title']));
-  $form_element['#title'] = NULL;
+  $v['@title'] = $c['name'];
+  $v['@type'] = $c['extra']['hidden_type'] == 'value' ? 'secure' : 'insecure - editable by JavaScript';
+  $form_element['#children'] = t('@title - <em>hidden field (@type)</em>', $v);
 
   return $form_element;
 }
@@ -508,9 +449,9 @@ function _form_builder_webform_form_builder_types_markup() {
     ),
     'weight' => 17,
   );
-  $fields['markup']['default'] = _form_builder_webform_default('markup');
-  $fields['markup']['default']['#markup'] = $default;
-  $fields['markup']['default']['#title'] = t('New markup');
+  $component['name'] = t('New markup');
+  $component['value'] = $default;
+  $fields['markup']['default'] = _form_builder_webform_default('markup', array(), $component);
 
   return $fields;
 }
@@ -576,8 +517,8 @@ function _form_builder_webform_form_builder_types_number() {
     'weight' => -17,
   );
 
-  $fields['number']['default'] = _form_builder_webform_default('number');
-  $fields['number']['default']['#title'] = t('New number');
+  $component['name'] = t('New number');
+  $fields['number']['default'] = _form_builder_webform_default('number', array(), $component);
 
   return $fields;
 }
@@ -651,15 +592,6 @@ function _form_builder_webform_form_builder_properties_number() {
 }
 
 /**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_number($element) {
-  $element['#unique'] = !empty($element['#webform_component']['extra']['unique']);
-
-  return $element;
-}
-
-/**
  * @} End of "defgroup form-builder-webform-number-callbacks"
  */
 
@@ -674,12 +606,10 @@ function _form_builder_webform_form_builder_load_number($element) {
 function _form_builder_webform_form_builder_types_pagebreak() {
   $fields = array();
 
+  $component['name'] = t('Page break');
   $fields['pagebreak'] = array(
     'title' => t('Page break'),
-    'default' => array(
-      '#title' => t('Page break'),
-      '#type' => 'pagebreak',
-    ),
+    'default' => _form_builder_webform_default('pagebreak', array(), $component),
     'weight' => 20,
   );
 
@@ -687,28 +617,18 @@ function _form_builder_webform_form_builder_types_pagebreak() {
 }
 
 /**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_pagebreak($form_element) {
-  // Pagebreak components are rendered as hidden elements by webform, but
-  // hidden elements do not have a #title property. So we have to convert the
-  // rendered value to be used as the #title instead.
-  $form_element['#title'] = $form_element['#value'];
-  $form_element['#form_builder']['element_type'] = 'pagebreak';
-
-  return $form_element;
-}
-
-/**
  * Implements _form_builder_webform_form_builder_save_component().
+ *
+ * @todo make this actually work.
  */
 function _form_builder_webform_form_builder_save_pagebreak($component, $form_element) {
   // Ensure pagebreaks are saved at the root level.
   if ($component['pid'] !== 0) {
     drupal_set_message(t('Page breaks may not be nested inside fieldsets. Each pagebreak has been moved outside of fieldsets.'), 'status', FALSE);
 
-    $form_cache = form_builder_cache_load('webform', $form_element['#form_builder']['form_id']);
-    $parent = form_builder_get_element($form_cache, $form_element['#form_builder']['parent_id']);
+    $parent = FormBuilderLoader::instance()
+      ->fromCache('webform', $form_element['#form_builder']['form_id'])
+      ->getElementArray($form_element['#form_builder']['parent_id']);
 
     $component['weight'] = $parent['#weight'] + 1;
     $component['pid'] = 0;
@@ -731,7 +651,7 @@ function _form_builder_webform_form_builder_preview_alter_pagebreak($form_elemen
   array_unshift($form_element['#theme_wrappers'], 'webform_element');
 
   // Display the title of the pagebreak field as regular markup.
-  $form_element['#children'] = '--- ' . check_plain($form_element['#title']) . ' ---';
+  $form_element['#children'] = '--- ' . check_plain($form_element['#webform_component']['name']) . ' ---';
   $form_element['#children'] .= '<div class="description">' . t('(Fields below will be displayed on a new page)') . '</div>';
   $form_element['#title_display'] = 'none';
 
@@ -769,11 +689,10 @@ function _form_builder_webform_form_builder_types_select() {
   );
   $items['items'] = "1|" . t('one') . "\n2|" . t('two') . "\n3|" . t('three');
   $fields['select']['default'] = _form_builder_webform_default('select', array(
-    'name' => t('New select'),
     'aslist' => TRUE,
     'multiple' => FALSE,
     'value' => '1',
-  ) + $items);
+  ) + $items, array('name' => t('New select')));
 
   $fields['checkboxes'] = array(
     'title' => t('Checkboxes'),
@@ -785,11 +704,10 @@ function _form_builder_webform_form_builder_types_select() {
     'weight' => -6,
   );
   $fields['checkboxes']['default'] = _form_builder_webform_default('select', array(
-    'name' => t('New checkboxes'),
     'aslist' => FALSE,
     'multiple' => TRUE,
     'value' => '1,2',
-  ) + $items);
+  ) + $items, array('name' => t('New checkboxes')));
 
   $fields['radios'] = array(
     'title' => t('Radios'),
@@ -800,11 +718,10 @@ function _form_builder_webform_form_builder_types_select() {
     'weight' => -7,
   );
   $fields['radios']['default'] = _form_builder_webform_default('select', array(
-    'name' => t('New radios'),
     'aslist' => FALSE,
     'multiple' => FALSE,
     'value' => '1',
-  ) + $items);
+  ) + $items, array('name' => t('New radios')));
 
   return $fields;
 }
@@ -838,6 +755,7 @@ function _form_builder_webform_form_builder_properties_select() {
     'options' => array(
       'form' => 'form_builder_webform_property_select_options_form',
       'submit' => array('form_builder_property_options_form_submit'),
+      'storage_parents' => array('extra', 'items'),
     ),
   );
 }
@@ -848,43 +766,7 @@ function _form_builder_webform_form_builder_properties_select() {
 function _form_builder_webform_form_builder_load_select($form_element) {
   // Properties that are only used by Form Builder and not in the normal form.
   $form_element['#key_type_toggled'] = !empty($form_element['#webform_component']['extra']['custom_keys']);
-  $form_element['#other_option'] = !empty($form_element['#webform_component']['extra']['other_option']);
-  $form_element['#other_text'] = !empty($form_element['#webform_component']['extra']['other_text']) ? $form_element['#webform_component']['extra']['other_text'] : '';
   return $form_element;
-}
-
-/**
- * Serializes the value of a select component.
- *
- * @param array $options
- *   Select component options.
- *
- * @return string
- */
-function _form_builder_serialize_select(array $options) {
-  $serialized = '';
-  foreach ($options as $key => $option_value) {
-    if (is_array($option_value)) {
-      $serialized .= "<{$key}>\n" . _form_builder_serialize_select($option_value) . "<>\n";
-    }
-    else {
-      $serialized .= "{$key}|{$option_value}\n";
-    }
-  }
-
-  return $serialized;
-}
-
-/**
- * Implements _form_builder_webform_form_builder_save_component().
- */
-function _form_builder_webform_form_builder_save_select($component, $form_element) {
-  $component['extra']['items'] = _form_builder_serialize_select($form_element['#options']);
-  $component['extra']['multiple'] = $form_element['#form_builder']['element_type'] == 'checkboxes';
-  $component['extra']['aslist'] = $form_element['#form_builder']['element_type'] == 'select';
-  $component['extra']['other_option'] = !empty($form_element['#other_option']);
-  $component['extra']['other_text'] = !empty($form_element['#other_text']) ? $form_element['#other_text'] : '';
-  return $component;
 }
 
 /**
@@ -916,8 +798,8 @@ function _form_builder_webform_form_builder_types_textarea() {
     'title' => t('Textarea'),
     'weight' => -19,
   );
-  $fields['textarea']['default'] = _form_builder_webform_default('textarea');
-  $fields['textarea']['default']['#title'] = t('New textarea');
+  $component['name'] = t('New textarea');
+  $fields['textarea']['default'] = _form_builder_webform_default('textarea', array(), $component);
 
   return $fields;
 }
@@ -961,8 +843,8 @@ function _form_builder_webform_form_builder_types_textfield() {
     'title' => t('Textfield'),
     'weight' => -20,
   );
-  $fields['textfield']['default'] = _form_builder_webform_default('textfield');
-  $fields['textfield']['default']['#title'] = t('New textfield');
+  $component['name'] = t('New textfield');
+  $fields['textfield']['default'] = _form_builder_webform_default('textfield', array(), $component);
 
   return $fields;
 }
@@ -1008,15 +890,6 @@ function _form_builder_webform_form_builder_properties_textfield() {
 }
 
 /**
- * Implements _form_builder_webform_form_builder_load_component().
- */
-function _form_builder_webform_form_builder_load_textfield($element) {
-  $element['#unique'] = !empty($element['#webform_component']['extra']['unique']);
-
-  return $element;
-}
-
-/**
  * @} End of "defgroup form-builder-webform-textfield-callbacks"
  */
 
@@ -1035,8 +908,8 @@ function _form_builder_webform_form_builder_types_time() {
     'title' => t('Time'),
     'weight' => -1,
   );
-  $fields['time']['default'] = _form_builder_webform_default('time');
-  $fields['time']['default']['#title'] = t('New time');
+  $component['name'] = t('New time');
+  $fields['time']['default'] = _form_builder_webform_default('time', array(), $component);
 
   return $fields;
 }
@@ -1073,38 +946,10 @@ function _form_builder_webform_mapped_form(&$form_state, $form_type, $element, $
   if ($component_type = $element['#webform_component']['type']) {
     if ($map = _form_builder_webform_property_map($component_type)) {
       $property_group = isset($map['properties'][$property]['property_group']) ? $map['properties'][$property]['property_group'] : reset($map['properties'][$property]['form_parents']);
-      $form = _form_builder_webform_build_edit_form($component_type, $element, $property, $property_group, $map['properties'][$property]['form_parents'], $map['properties'][$property]['storage_parents']);
+      $form = _form_builder_webform_build_edit_form($component_type, $element, $property, $property_group, $map['properties'][$property]['form_parents']);
     }
   }
   return $form;
-}
-
-/**
- * Helper function; Save an element to a Webform component based on a map.
- */
-function _form_builder_webform_save_mapped_component($component, $element) {
-  if ($map = _form_builder_webform_property_map($component['type'])) {
-    foreach ($map['properties'] as $property => $property_map) {
-      if (isset($property_map['storage_parents'])) {
-        $property_value = isset($element['#' . $property]) ? $element['#' . $property] : NULL;
-        _form_builder_webform_save_mapped_component_value($component, $property_value, $property_map['storage_parents']);
-      }
-    }
-  }
-  return $component;
-}
-
-/**
- * Recursive function to set the value of a $component property.
- */
-function _form_builder_webform_save_mapped_component_value(&$component, $value, $parents) {
-  $parent = array_shift($parents);
-  if (empty($parents)) {
-    $component[$parent] = $value;
-  }
-  else {
-    _form_builder_webform_save_mapped_component_value($component[$parent], $value, $parents);
-  }
 }
 
 /**
@@ -1125,14 +970,16 @@ function _form_builder_webform_set_mapped_type($element) {
 /**
  * Helper function; Generate a default FAPI element for any component type.
  */
-function _form_builder_webform_default($component_type, $merge_extras = array()) {
-  $default_component = webform_component_invoke($component_type, 'defaults');
-  $default_component['extra'] = isset($default_component['extra']) ? array_merge($default_component['extra'], $merge_extras) : $merge_extras;
-  $default_element = webform_component_invoke($component_type, 'render', $default_component, NULL, FALSE);
-
-  // Set a bare-minimum component for identification of the component type.
-  $default_element['#webform_component'] = $default_component;
-  $default_element['#webform_component']['type'] = $component_type;
+function _form_builder_webform_default($component_type, $merge_extras = array(), $merge_component = array()) {
+  module_load_include('inc', 'webform', 'includes/webform.components');
+  $component = array(
+    'type' => $component_type,
+    'extra' => array(),
+  );
+  webform_component_defaults($component);
+  $component['extra'] = array_merge($component['extra'], $merge_extras);
+  $component = array_merge($component, $merge_component);
+  $default_element['#webform_component'] = $component;
 
   // Call the loading function to make sure that the default element gets the
   // same treatment as an existing one.
@@ -1181,7 +1028,7 @@ function _form_builder_webform_default($component_type, $merge_extras = array())
  *   A form array that can be used to edit the specified part of the webform
  *   component represented by $element.
  */
-function _form_builder_webform_build_edit_form($component_type, $element, $property, $form_builder_property_group, $form_nested_keys, $component_nested_keys) {
+function _form_builder_webform_build_edit_form($component_type, $element, $property, $form_builder_property_group, $form_nested_keys) {
   module_load_include('inc', 'webform', 'includes/webform.components');
 
   // The Webform module stores existing component data as part of the passed-in
@@ -1190,13 +1037,6 @@ function _form_builder_webform_build_edit_form($component_type, $element, $prope
   $defaults_function = '_webform_defaults_' . $component_type;
   $component = isset($element['#webform_component']) ? $element['#webform_component'] : $defaults_function();
   $nid = isset($component['nid']) ? $component['nid'] : NULL;
-
-  // The most up-to-date configuration data stored by Form Builder for the
-  // part of the component we are editing is also stored in the passed-in
-  // element, and should always take precedence.
-  if (array_key_exists("#$property", $element)) {
-    drupal_array_set_nested_value($component, $component_nested_keys, $element["#$property"]);
-  }
 
   // Build the entire _webform_edit_file() form based on the current state of
   // the component, and obtain the slice of it that we want.
