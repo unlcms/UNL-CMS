@@ -14,33 +14,6 @@
  */
 function masquerade_schema() {
   return array(
-    'masquerade' => array(
-      'description' => 'Each masquerading user has their session recorded into the masquerade table. Each record represents a masquerading user.',
-      'fields' => array(
-        'sid' => array(
-          'description' => 'The current session for this masquerading user corresponding to their {sessions}.sid.',
-          'type' => 'varchar',
-          'length' => '64',
-          'not null' => TRUE,
-          'default' => ''),
-        'uid_from' => array(
-          'description' => 'The {users}.uid corresponding to a session.',
-          'type' => 'int',
-          'not null' => TRUE,
-          'default' => 0,
-          'disp-width' => '10'),
-        'uid_as' => array(
-          'description' => 'The {users}.uid this session is masquerading as.',
-          'type' => 'int',
-          'not null' => TRUE,
-          'default' => 0,
-          'disp-width' => '10'),
-      ),
-      'indexes' => array(
-        'sid' => array('sid', 'uid_from'),
-        'sid_2' => array('sid', 'uid_as'),
-      ),
-    ),
     'masquerade_users' => array(
       'description' => 'Per-user permission table granting permissions to switch as a specific user.',
       'fields' => array(
@@ -177,7 +150,16 @@ function masquerade_update_7000() {
 function masquerade_update_7001() {
   db_update('block')
     ->fields(array('cache' => DRUPAL_NO_CACHE))
-    ->condition('module', 'masqurade')
+    ->condition('module', 'masquerade')
     ->condition('delta', 'masquerade')
     ->execute();
+}
+
+/**
+ * Delete masquerade table.
+ */
+function masquerade_update_7200() {
+  if (db_table_exists('masquerade')) {
+    db_drop_table('masquerade');
+  }
 }

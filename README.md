@@ -156,7 +156,12 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
   
      - Applied patch: https://www.drupal.org/files/issues/imce_rename-file_move-1376260-8.patch See https://www.drupal.org/node/1376260
 
-  * og_menu.module
+  *  masquerade
+
+     - Applied patch: patches/masquerade-remove_masquerade_table_and_rely_on_session-d7-1926074-31.patch.txt
+     - Removed login/logout hooks calls that were added in https://www.drupal.org/project/masquerade/issues/1364574 because they break SSO
+
+  *  og_menu.module
 
      - Fix permission problem for editor that is only the author of the page with no other permissions.
 
