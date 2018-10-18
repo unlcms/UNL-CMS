@@ -78,6 +78,12 @@ See INSTALL.txt for installation and administration instructions.
 
 VI. CREDITS:
 
+Version 7.x-1.x by:
+  - Brett Birschbach
+    Drupal username: HitmanInWis
+  - Eric Rasmussen
+    Drupal username: ericras
+
 Version 7.x-dev by:
   - Michael Rossetti
     Drupal username: MikeyR
