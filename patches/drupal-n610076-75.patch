@@ -1,0 +1,66 @@
+diff --git a/modules/taxonomy/taxonomy.install b/modules/taxonomy/taxonomy.install
+index ebd0084..53cc680 100644
+--- a/modules/taxonomy/taxonomy.install
++++ b/modules/taxonomy/taxonomy.install
+@@ -204,9 +204,9 @@ function taxonomy_schema() {
+         'default'=> 0,
+       ),
+     ),
++    'primary key' => array('nid', 'tid'),
+     'indexes' => array(
+       'term_node' => array('tid', 'sticky', 'created'),
+-      'nid' => array('nid'),
+     ),
+     'foreign keys' => array(
+       'tracked_node' => array(
+@@ -934,5 +934,25 @@ function taxonomy_update_7011(&$sandbox) {
+ }
+ 
+ /**
++ * Add primary key and drop nid key.
++ */
++function taxonomy_update_7012() {
++  db_add_field('taxonomy_index', 'tempid', array(
++    'type' => 'serial',
++    'not null' => TRUE,
++    'description' => 'Tempid.',
++  ), array(
++      'unique keys' => array(
++        'tempid' => array('tempid')
++      ),
++    )
++  );
++  db_query('DELETE t1 FROM {taxonomy_index} as t1 join {taxonomy_index} as t2 WHERE t1.nid = t2.nid AND t1.tid = t2.tid and t1.tempid > t2.tempid');
++  db_drop_field('taxonomy_index', 'tempid');
++  db_drop_index('taxonomy_index', 'nid');
++  db_add_primary_key('taxonomy_index', array('nid', 'tid'));
++}
++
++/**
+  * @} End of "addtogroup updates-7.x-extra".
+  */
+diff --git a/modules/taxonomy/taxonomy.module b/modules/taxonomy/taxonomy.module
+index 554d6d2..b3e5564 100644
+--- a/modules/taxonomy/taxonomy.module
++++ b/modules/taxonomy/taxonomy.module
+@@ -1969,16 +1969,12 @@ function taxonomy_build_node_index($node) {
+     }
+     // Insert index entries for all the node's terms.
+     if (!empty($tid_all)) {
+-      $query = db_insert('taxonomy_index')->fields(array('nid', 'tid', 'sticky', 'created'));
+       foreach ($tid_all as $tid) {
+-        $query->values(array(
+-          'nid' => $node->nid,
+-          'tid' => $tid,
+-          'sticky' => $sticky,
+-          'created' => $node->created,
+-        ));
++        db_merge('taxonomy_index')
++          ->key(array('nid' => $node->nid, 'tid' => $tid))
++          ->fields(array('sticky' => $sticky, 'created' => $node->created))
++          ->execute();
+       }
+-      $query->execute();
+     }
+   }
+ }
