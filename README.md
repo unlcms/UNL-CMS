@@ -117,6 +117,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Add nl2br() on Plain Text processor. See http://drupal.org/node/1152216#comment-7174876
 
+  *  modules/forum
+  
+     - Removed completely because its table doesn't have a primary key. (https://github.com/unlcms/UNL-CMS/issues/942)
+
   *  modules/taxonomy
   
      - Add a primary key to the {taxonomy_index} table. https://www.drupal.org/files/issues/drupal-n610076-75.patch
