@@ -594,15 +594,28 @@ function unl_menu_alter(&$items) {
  * Custom page callback.
  */
 function unl_404_page() {
-  drupal_add_css('sites/all/modules/unl/404/unl-404.css');
-  
-  $build = array(
-    '#markup' => file_get_contents(__DIR__ . '/404/404.html')
-  );
+  $theme_default = variable_get('theme_default');
 
-  // Restore database connection.
-  db_set_active();
-  return drupal_render($build);
+  if ($theme_default == 'unl_fourone' || $theme_default == 'unl_fourone_og') {
+
+    drupal_add_css('sites/all/modules/unl/404/unl-404.css');
+
+    $build = array(
+      '#markup' => file_get_contents(__DIR__ . '/404/404.html')
+    );
+
+    return drupal_render($build);
+  }
+  elseif ($theme_default == 'unl_five') {
+    $build = array(
+      '#markup' => file_get_contents(__DIR__ . '/404/unl_five.html')
+    );
+
+    return drupal_render($build);
+  }
+  else {
+    return false;
+  }
 }
 
 /**

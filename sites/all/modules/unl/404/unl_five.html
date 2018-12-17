@@ -1,0 +1,44 @@
+
+<div class="wdn-center">
+    <p>The page you're looking for can't be found.</p>
+    <p><span class="clear-top" id="404path"></span></p>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function(event) {
+            require(['jquery'], function($) {
+                $(function(){
+                    $("#404path").text(window.location.pathname);
+                    var home_page = false;
+
+                    var $home_link = $('link[rel=home]');
+                    if ($home_link.length) {
+                        home_page = $home_link[0].href;
+                    }
+
+                    //TODO: why the regex check?
+                    if (home_page && !(/^https?:\/\/www\.unl\.edu\/$/.test(home_page))) {
+                        //If we have a home page, and it is not top level
+                        $("#404_search").append($('<input>', {
+                            type: "hidden",
+                            name: "u",
+                            value: home_page
+                        }));
+                    }
+                });
+            });
+        });
+    </script>
+</div>
+
+
+<div class="wdn-grid-set">
+    <div class="bp2-wdn-col-two-thirds wdn-center centered">
+        <h3 class="dcf-pt-5">Search unl.edu</h3>
+        <form action="https://www1.unl.edu/search/" id="404_search" name="404_search" class="centered" style="margin:auto auto;">
+            <label class="centered">
+                <input type="text" class="bp2-wdn-col-full bp3-wdn-col-five-sevenths clear-top" name="q" style="display:inline-block;height:48px;padding:0 20px;margin-bottom:10px;float:initial;width:initial;">
+                <input type="submit" class="wdn-button bp2-wdn-col-full bp3-wdn-col-one-seventh clear-top" value="search" style="display:inline-block;float:initial;margin-bottom: 4px;">
+            </label>
+        </form>
+    </div>
+</div>
