@@ -101,6 +101,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      Add support for a "db_select_only" config option that prevents drupal from issuing non-select queries to that database.
      This can be used to allow Drupal to function during a FLUSH TABLES WITH READ LOCK;
 
+  *  includes/install.inc
+  
+     Add primary key to drupal_install_test https://www.drupal.org/project/drupal/issues/2856362
+
   *  rewrite.php
 
      This custom file is used to allow public files to be accessed without the sites/<site_dir>/files prefix.
