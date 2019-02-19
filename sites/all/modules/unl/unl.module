@@ -562,6 +562,9 @@ function unl_menu() {
  * Implements hook_menu_alter().
  */
 function unl_menu_alter(&$items) {
+  // Return a 404 for the default /node page that we don't want.
+  unset($items['node']);
+
   // This duplicates the form at admin/appearance/settings/unl_wdn for roles that can't 'administer themes' but have 'unl theme settings' permission.
   // For these users the Appearance link is changed to point to admin/themes
   foreach (array('module', 'file', 'page arguments') as $key) {
