@@ -55,3 +55,6 @@
 [submodule "sites/all/themes/unl_five"]
 	path = sites/all/themes/unl_five
 	url = https://github.com/unlcms/unl_five.git
+[submodule "sites/all/modules/unl_hero"]
+	path = sites/all/modules/unl_hero
+	url = git@github.com:unlcms/unl_hero.git
