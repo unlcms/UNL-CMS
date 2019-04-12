@@ -387,6 +387,9 @@ function menu_tree_build($config) {
 function menu_block_get_title($render_title_as_link = TRUE) {
   $menu_item = menu_block_set_title();
 
+  $menu_item['localized_options'] = array();
+  $menu_item['localized_options']['attributes'] = array();
+  $menu_item['localized_options']['attributes']['class'] = array();
   $menu_item['localized_options']['attributes']['class'][] = 'dcf-pt-6 dcf-pb-4 dcf-txt-sm dcf-d-block unl-cream';
 
   // The tree's title is a menu title, a normal string.
