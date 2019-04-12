@@ -387,17 +387,13 @@ function menu_tree_build($config) {
 function menu_block_get_title($render_title_as_link = TRUE) {
   $menu_item = menu_block_set_title();
 
-  $menu_item['localized_options'] = array();
-  $menu_item['localized_options']['attributes'] = array();
-  $menu_item['localized_options']['attributes']['class'] = array();
-  $menu_item['localized_options']['attributes']['class'][] = 'dcf-pt-6 dcf-pb-4 dcf-txt-sm dcf-d-block unl-cream';
-
   // The tree's title is a menu title, a normal string.
   if (is_string($menu_item)) {
     $title = array('#markup' => check_plain($menu_item));
   }
   // The tree's title is a menu item with a link.
   elseif ($render_title_as_link) {
+    $menu_item['localized_options']['attributes']['class'][] = 'dcf-pt-6 dcf-pb-4 dcf-txt-sm dcf-d-block unl-cream';
     if (!empty($menu_item['in_active_trail'])) {
       if (!empty($menu_item['localized_options']['attributes']['class'])) {
         $menu_item['localized_options']['attributes']['class'][] = 'active-trail';
@@ -415,6 +411,7 @@ function menu_block_get_title($render_title_as_link = TRUE) {
   }
   // The tree's title is a menu item.
   else {
+    $menu_item['localized_options']['attributes']['class'][] = 'dcf-pt-6 dcf-pb-4 dcf-txt-sm dcf-d-block unl-cream';
     $title = array('#markup' => check_plain($menu_item['title']));
   }
   return $title;
