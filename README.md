@@ -173,6 +173,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - Applied patch: patches/masquerade-remove_masquerade_table_and_rely_on_session-d7-1926074-31.patch.txt
      - Removed login/logout hooks calls that were added in https://www.drupal.org/project/masquerade/issues/1364574 because they break SSO
 
+  *  menu_block
+  
+     - Added additional classes to menu_block_get_title() in menu_block.module
+
   *  og_menu.module
 
      - Fix permission problem for editor that is only the author of the page with no other permissions.

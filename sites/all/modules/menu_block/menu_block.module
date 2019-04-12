@@ -395,10 +395,10 @@ function menu_block_get_title($render_title_as_link = TRUE) {
   elseif ($render_title_as_link) {
     if (!empty($menu_item['in_active_trail'])) {
       if (!empty($menu_item['localized_options']['attributes']['class'])) {
-        $menu_item['localized_options']['attributes']['class'][] = 'active-trail';
+        $menu_item['localized_options']['attributes']['class'][] = 'active-trail dcf-pt-6 dcf-pb-4 dcf-txt-sm dcf-d-block unl-cream';
       }
       else {
-        $menu_item['localized_options']['attributes']['class'][] = 'active-trail';
+        $menu_item['localized_options']['attributes']['class'][] = 'active-trail dcf-pt-6 dcf-pb-4 dcf-txt-sm dcf-d-block unl-cream';
       }
     }
     $title = array(
