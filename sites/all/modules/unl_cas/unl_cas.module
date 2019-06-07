@@ -292,12 +292,15 @@ function unl_cas_get_user_record($username) {
     // don't do anything, just go on to try the PeopleFinder method
   }
 
-  // Next, if LDAP didn't work, try PeopleFinder service.
-  if (!$result) {
-    $json = unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid=' . $username);
-    if ($json) {
-      $result = json_decode($json, TRUE);
-    }
+  // Next, if LDAP didn't work, try PeopleFinder service...
+  $json = unl_url_get_contents('https://directory.unl.edu/service.php?format=json&uid=' . $username);
+  $json_decode = json_decode($json, TRUE);
+  if (!$result && $json) {
+    $result = $json_decode;
+  }
+  // ...or, just use it to get NUID.
+  else {
+    $result['unluncwid'][0] = $json_decode['unluncwid'][0];
   }
   
   return $result;
@@ -345,6 +348,7 @@ function unl_cas_import_user($username) {
       $result = array_change_key_case($result, CASE_LOWER);
       $userData['mail'] = $result['unlmail'][0];
       $userData['data']['unl'] = array(
+        'NUID' => $result['unluncwid'][0],
         'fullName' => $result['displayname'][0],
         'affiliations' => $result['edupersonaffiliation'],
         'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
@@ -461,4 +465,38 @@ function unl_cas_set_setting($name, $value) {
       ->condition('name', $name)
       ->execute();
   }
+}
+
+/**
+ * Implements hook_token_info().
+ */
+function unl_cas_token_info() {
+  $info['tokens']['user']['nuid'] = array(
+    'name' => t('NUID'),
+    'description' => t('Nebraska NUID of the user account.'),
+  );
+
+  return $info;
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function unl_cas_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+
+  if ($type == 'user' && !empty($data['user'])) {
+    $account = $data['user'];
+    $user = user_load_by_name($account->uid);
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'nuid':
+          $replacements[$original] = $user->data['unl']['NUID'];
+          break;
+      }
+    }
+  }
+
+  return $replacements;
 }
