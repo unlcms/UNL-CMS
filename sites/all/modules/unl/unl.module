@@ -457,6 +457,14 @@ function unl_preprocess_page(&$vars) {
 function unl_menu() {
   $items = array();
 
+  // 403 page.
+  $items['unl-403'] = array(
+    'title' => 'Access Denied',
+    'access callback' => TRUE,
+    'page callback' => 'unl_403_page',
+    'type' => MENU_CALLBACK,
+  );
+
   // 404 page pulled from default site.
   $items['unl-404'] = array(
     'title' => '404 - Page not found',
@@ -591,6 +599,35 @@ function unl_menu_alter(&$items) {
   }
 
   $items['admin/modules/uninstall']['access callback'] = 'unl_user_is_administrator';
+}
+
+/**
+ * Custom page callback.
+ */
+function unl_403_page() {
+  $theme_default = variable_get('theme_default');
+
+  if ($theme_default == 'unl_five') {
+    $pagetitle = user_is_logged_in() ? 'Access Denied' : 'Login Required';
+    drupal_set_title($pagetitle);
+
+    if (user_is_logged_in()) {
+      $build = [
+        '#markup' => 'You do not have sufficient permission to access this page. If you believe this is in error, contact this department through the contact information at the bottom of this page.',
+      ];
+    }
+    else {
+      $build = [
+        '#markup' => 'This page requires you to be logged in:<br><br>
+                        <a class="dcf-btn dcf-btn-primary" href="user/login?destination=' . request_path() . '" role="button">Log In</a>',
+      ];
+    }
+
+    return drupal_render($build);
+  }
+  else {
+    return false;
+  }
 }
 
 /**
