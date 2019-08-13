@@ -1021,6 +1021,10 @@ function unl_node_form_submit($form, &$form_state) {
   // When a node is modified, update its menu link to be hidden or not based on the user input.
   $menu_data = $form_state['values']['menu'];
 
+  // On UNL's current hosting with database replication, sometimes on a new node save
+  // the menu item doesn't show up in a select query soon enough.
+  sleep(1);
+
   if ($menu_data['mlid']) {
     $menu_link = menu_link_load($menu_data['mlid']);
   }
