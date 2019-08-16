@@ -475,6 +475,10 @@ function unl_cas_token_info() {
     'name' => t('NUID'),
     'description' => t('Nebraska NUID of the user account.'),
   );
+  $info['tokens']['user']['full-name'] = array(
+    'name' => t('Full Name'),
+    'description' => t('First and last name of the user.'),
+  );
 
   return $info;
 }
@@ -492,6 +496,9 @@ function unl_cas_tokens($type, $tokens, array $data = array(), array $options = 
       switch ($name) {
         case 'nuid':
           $replacements[$original] = $account->data['unl']['NUID'];
+          break;
+        case 'full-name':
+          $replacements[$original] = $account->data['unl']['fullName'];
           break;
       }
     }
