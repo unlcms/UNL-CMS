@@ -275,6 +275,7 @@ function unl_cas_user_profile_form_validate(&$form, &$form_state, $form_id = '')
 function unl_cas_user_logout($account) {
   session_destroy();
   $cas = unl_cas_get_adapter();
+  unset($_GET['destination']);
   drupal_goto($cas->getLogoutUrl(url('<front>', array('absolute' => TRUE))));
 }
 
