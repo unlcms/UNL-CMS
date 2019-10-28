@@ -44,6 +44,33 @@ function unl_varnish_form_system_performance_settings_alter(&$form, &$form_state
     ),
   );
 
+  // Emergency mode toggle
+  if (array_key_exists('HTTP_X_EMERGENCY_MODE', $_SERVER)) {
+    $form['emergency_mode'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Emergency Mode'),
+      '#access' => user_access('administer varnish') && conf_path() == 'sites/default',
+      '#weight' => 0,
+      'emergency_mode' => array(
+        '#type' => 'submit',
+        '#value' => t('Disable Emergency Mode'),
+        '#submit' => array('unl_varnish_disable_emergency_mode'),
+      ),
+    );
+  } else {
+    $form['emergency_mode'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Emergency Mode'),
+      '#access' => user_access('administer varnish') && conf_path() == 'sites/default',
+      '#weight' => 0,
+      'emergency_mode' => array(
+        '#type' => 'submit',
+        '#value' => t('Enable Emergency Mode'),
+        '#submit' => array('unl_varnish_enable_emergency_mode'),
+      ),
+    );
+  }
+
   return $form;
 }
 
@@ -62,6 +89,24 @@ function unl_varnish_purge_all_sites_submit($form, &$form_state) {
   $path = $form_state['values']['varnish_path'];
   varnish_purge('.*', $path);
   drupal_set_message("Varnish purged paths matching $path.", 'status');
+}
+
+/**
+ * Submit callback: Uses the varnish module to switch to the emergency VCL
+ */
+function unl_varnish_enable_emergency_mode($form, &$form_state) {
+  setcookie('emergency-bypass', '1');
+  $commands = ['vcl.use emergency'];
+  _varnish_terminal_run($commands);
+}
+
+/**
+ * Submit callback: Uses the varnish module to switch to the emergency VCL
+ */
+function unl_varnish_disable_emergency_mode($form, &$form_state) {
+  setcookie('emergency-bypass', '0', 1);
+  $commands = ['vcl.use unlcms'];
+  _varnish_terminal_run($commands);
 }
 
 /**
