@@ -38,10 +38,10 @@ function unl_cas_init() {
   // redirect their next GET request to CAS to keep their CAS session active.
   // However, if their drupal session expired (and they're now anonymous), redirect them regardless.
   $cas = unl_cas_get_adapter();
-  if ($cas->isTicketExpired() && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
-    $cas->setGateway();
+  if (!$cas->isAuthenticated() && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
+    $cas->getProtocol()->gateway = true;
     unset($_GET['destination']);
-    drupal_goto($cas->getLoginUrl());
+    drupal_goto($cas->getProtocol()->getLoginURL($cas->getURL()));
   }
 }
 
@@ -51,7 +51,7 @@ function unl_cas_init() {
  * @return Unl_Cas
  */
 function unl_cas_get_adapter() {
-  unl_load_zend_framework();
+  //unl_load_zend_framework();
 
   // Start the session because if drupal doesn't then Zend_Session will.
   drupal_session_start();
@@ -62,7 +62,17 @@ function unl_cas_get_adapter() {
     } else {
       $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
     }
-    $adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
+    set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../../libraries/Unl');
+    require_once dirname(__FILE__) . '/../../libraries/SimpleCAS/Autoload.php';
+    require_once dirname(__FILE__) . '/../../libraries/Net/URL2.php';
+    require_once dirname(__FILE__) . '/../../libraries/HTTP/Request2.php';
+    $options = array('hostname' => 'shib.unl.edu',
+      'port'     => 443,
+      'uri'      => 'idp/profile/cas');
+    $protocol = new SimpleCAS_Protocol_Version2($options);
+
+    $adapter = SimpleCAS::client($protocol);
+    //$adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
   }
   return $adapter;
 }
@@ -135,11 +145,11 @@ function unl_cas_validate_ticket() {
 
   if ($auth) {
     $username = $cas->getUsername();
-    
+
     //Do logic for checking if we need to force varnish for this user...
     //This will set a cookie and redirect early if the user does not have an account... and won't make an account
     unl_cas_smart_cache_run_for_user($username);
-    
+
     //Now load LDAP
     $user = unl_cas_import_user($username);
     if (!$user) {
@@ -173,8 +183,7 @@ function unl_cas_validate_ticket() {
  * Form pre-render handler used to redirect to a different page instead of rending the form.
  * @param $element
  */
-function unl_cas_redirect($element)
-{
+function unl_cas_redirect($element) {
   drupal_goto($element['#unl_cas_destination']);
   return $element;
 }
@@ -216,7 +225,7 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     }
     $cas = unl_cas_get_adapter();
     unset($_GET['destination']);
-    $form['#unl_cas_destination'] = $cas->getLoginUrl();
+    $form['#unl_cas_destination'] = $cas->getProtocol()->getLoginURL(url('<front>', array('absolute' => TRUE)));
     $form['#pre_render'][] = 'unl_cas_redirect';
   }
 
@@ -276,7 +285,7 @@ function unl_cas_user_logout($account) {
   session_destroy();
   $cas = unl_cas_get_adapter();
   unset($_GET['destination']);
-  drupal_goto($cas->getLogoutUrl(url('<front>', array('absolute' => TRUE))));
+  $cas->logout(url('<front>', array('absolute' => TRUE)));
 }
 
 function unl_cas_get_user_record($username) {
@@ -303,7 +312,7 @@ function unl_cas_get_user_record($username) {
   else {
     $result['unluncwid'][0] = $json_decode['unluncwid'][0];
   }
-  
+
   return $result;
 }
 
@@ -312,7 +321,7 @@ function unl_cas_get_user_record($username) {
  */
 function unl_cas_import_user($username) {
   $username = trim($username);
-  unl_load_zend_framework();
+  //unl_load_zend_framework();
   $account = user_load_by_name($username);
 
   if (!$account) {
