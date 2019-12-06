@@ -38,7 +38,8 @@ function unl_cas_init() {
   // redirect their next GET request to CAS to keep their CAS session active.
   // However, if their drupal session expired (and they're now anonymous), redirect them regardless.
   $cas = unl_cas_get_adapter();
-  if (!$cas->isAuthenticated() && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
+  $isTicketExpired = $cas->getProtocol()->validateTicket($cas->getTicket(), $cas->getURL());
+  if (!$isTicketExpired && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
     $cas->getProtocol()->gateway = true;
     unset($_GET['destination']);
     drupal_goto($cas->getProtocol()->getLoginURL($cas->getURL()));
@@ -46,15 +47,11 @@ function unl_cas_init() {
 }
 
 /**
- * Sets up an instance of Unl_Cas
+ * Sets up an instance of SimpleCAS
  *
- * @return Unl_Cas
+ * @return SimpleCAS
  */
 function unl_cas_get_adapter() {
-  //unl_load_zend_framework();
-
-  // Start the session because if drupal doesn't then Zend_Session will.
-  drupal_session_start();
   static $adapter;
   if (!$adapter) {
     if (variable_get('https', FALSE)) {
@@ -62,7 +59,7 @@ function unl_cas_get_adapter() {
     } else {
       $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
     }
-    set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../../libraries/Unl');
+
     require_once dirname(__FILE__) . '/../../libraries/SimpleCAS/Autoload.php';
     require_once dirname(__FILE__) . '/../../libraries/Net/URL2.php';
     require_once dirname(__FILE__) . '/../../libraries/HTTP/Request2.php';
@@ -70,9 +67,8 @@ function unl_cas_get_adapter() {
       'port'     => 443,
       'uri'      => 'idp/profile/cas');
     $protocol = new SimpleCAS_Protocol_Version2($options);
-
     $adapter = SimpleCAS::client($protocol);
-    //$adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
+    $adapter->setURL($url);
   }
   return $adapter;
 }
@@ -141,11 +137,9 @@ function unl_cas_validate_ticket() {
     $cas->handleLogoutRequest($_POST['logoutRequest']);
   }
 
-  $auth = $cas->validateTicket();
+  $username = $cas->getProtocol()->validateTicket($cas->getTicket(), $cas->getURL());
 
-  if ($auth) {
-    $username = $cas->getUsername();
-
+  if ($username) {
     //Do logic for checking if we need to force varnish for this user...
     //This will set a cookie and redirect early if the user does not have an account... and won't make an account
     unl_cas_smart_cache_run_for_user($username);
@@ -225,7 +219,7 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     }
     $cas = unl_cas_get_adapter();
     unset($_GET['destination']);
-    $form['#unl_cas_destination'] = $cas->getProtocol()->getLoginURL(url('<front>', array('absolute' => TRUE)));
+    $form['#unl_cas_destination'] = $cas->getProtocol()->getLoginURL($cas->getURL());
     $form['#pre_render'][] = 'unl_cas_redirect';
   }
 
@@ -288,19 +282,19 @@ function unl_cas_user_logout($account) {
   $cas->logout(url('<front>', array('absolute' => TRUE)));
 }
 
-function unl_cas_get_user_record($username) {
+function unl_cas_get_user_record($username) {$result=0;
   // First, try getting the info from LDAP.
-  try {
-    $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
-    $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
-    $results = $ldap->search('ou=people,dc=unl,dc=edu', 'sAMAccountName=' . $username);
-    if (count($results) > 0) {
-      $result = $results[0];
-    }
-  }
-  catch (Exception $e) {
-    // don't do anything, just go on to try the PeopleFinder method
-  }
+//  try {
+//    $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
+//    $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
+//    $results = $ldap->search('ou=people,dc=unl,dc=edu', 'sAMAccountName=' . $username);
+//    if (count($results) > 0) {
+//      $result = $results[0];
+//    }
+//  }
+//  catch (Exception $e) {
+//    // don't do anything, just go on to try the PeopleFinder method
+//  }
 
   // Next, if LDAP didn't work, try PeopleFinder service...
   $json = unl_url_get_contents('https://directory.unl.edu/service.php?format=json&uid=' . $username);
@@ -321,7 +315,6 @@ function unl_cas_get_user_record($username) {
  */
 function unl_cas_import_user($username) {
   $username = trim($username);
-  //unl_load_zend_framework();
   $account = user_load_by_name($username);
 
   if (!$account) {
