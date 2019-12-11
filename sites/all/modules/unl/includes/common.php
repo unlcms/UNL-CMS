@@ -183,17 +183,15 @@ function unl_user_is_administrator() {
 
 /**
  * Fetch the contents at the given URL and cache the result using
- * drupal's cache for as long as the response headers allow.
+ * Drupal's cache for as long as the response headers allow.
  * @param string $url
  * @param resource $context
  */
-function unl_url_get_contents($url, $context = NULL, &$headers = array())
-{
-//  unl_load_zend_framework();
-//  if (!Zend_Uri::check($url)) {
-//    watchdog('unl', 'A non-url was passed to %func().', array('%func' => __FUNCTION__), WATCHDOG_WARNING);
-//    return FALSE;
-//  }
+function unl_url_get_contents($url, $context = NULL, &$headers = array()) {
+  if (!valid_url($url, TRUE)) {
+    watchdog('unl', 'A non-url was passed to %func().', array('%func' => __FUNCTION__), WATCHDOG_WARNING);
+    return FALSE;
+  }
 
   // get some per-request static storage
   $static = &drupal_static(__FUNCTION__);

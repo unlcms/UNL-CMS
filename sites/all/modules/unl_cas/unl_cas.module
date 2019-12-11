@@ -543,6 +543,9 @@ function unl_cas_tokens($type, $tokens, array $data = array(), array $options = 
   return $replacements;
 }
 
+/**
+ * Perform an ldap_search() and clean-up the results.
+ */
 function _unl_cas_ldap_search($ldap_connection, $base_dn, $filter) {
   $result = @ldap_search($ldap_connection, $base_dn, $filter);
   if ($result === FALSE) {
