@@ -39,10 +39,10 @@ function unl_cas_init() {
   // However, if their drupal session expired (and they're now anonymous), redirect them regardless.
   $cas = unl_cas_get_adapter();
   $isTicketExpired = $cas->getProtocol()->validateTicket($cas->getTicket(), $cas->getURL());
-  if (!$isTicketExpired && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
+  if ($isTicketExpired && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
     $cas->getProtocol()->gateway = true;
     unset($_GET['destination']);
-    drupal_goto($cas->getProtocol()->getLoginURL($cas->getURL()));
+    $cas->forceAuthentication();
   }
 }
 
@@ -60,9 +60,9 @@ function unl_cas_get_adapter() {
       $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
     }
 
-    require_once dirname(__FILE__) . '/../../libraries/SimpleCAS/Autoload.php';
-    require_once dirname(__FILE__) . '/../../libraries/Net/URL2.php';
-    require_once dirname(__FILE__) . '/../../libraries/HTTP/Request2.php';
+    require_once __DIR__ . '/../../libraries/SimpleCAS/Autoload.php';
+    require_once __DIR__ . '/../../libraries/Net/URL2.php';
+    require_once __DIR__ . '/../../libraries/HTTP/Request2.php';
     $options = array('hostname' => 'shib.unl.edu',
       'port'     => 443,
       'uri'      => 'idp/profile/cas');
@@ -134,7 +134,7 @@ function unl_cas_validate_ticket() {
   $cas = unl_cas_get_adapter();
 
   if (array_key_exists('logoutRequest', $_POST)) {
-    $cas->handleLogoutRequest($_POST['logoutRequest']);
+    $cas->handleSingleLogOut();
   }
 
   $username = $cas->getProtocol()->validateTicket($cas->getTicket(), $cas->getURL());
@@ -174,11 +174,18 @@ function unl_cas_validate_ticket() {
 }
 
 /**
- * Form pre-render handler used to redirect to a different page instead of rending the form.
+ * Form pre-render handler used to redirect to a different page instead of
+ * rendering the form.
  * @param $element
  */
 function unl_cas_redirect($element) {
-  drupal_goto($element['#unl_cas_destination']);
+  if (isset($element['#unl_cas_destination'])) {
+    drupal_goto($element['#unl_cas_destination']);
+  }
+  else {
+    $cas = unl_cas_get_adapter();
+    $cas->forceAuthentication();
+  }
   return $element;
 }
 
@@ -219,7 +226,6 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     }
     $cas = unl_cas_get_adapter();
     unset($_GET['destination']);
-    $form['#unl_cas_destination'] = $cas->getProtocol()->getLoginURL($cas->getURL());
     $form['#pre_render'][] = 'unl_cas_redirect';
   }
 
@@ -257,7 +263,7 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     $form['#validate'] = array();
     $form['#submit'] = array();
 
-    $form['#unl_cas_destination'] = 'https://id.unl.edu/user/userForgotPassword.jsp';
+    $form['#unl_cas_destination'] = 'https://trueyou.nebraska.edu/SelfService/ForgotPassword.jsp';
     $form['#pre_render'][] = 'unl_cas_redirect';
   }
 }
