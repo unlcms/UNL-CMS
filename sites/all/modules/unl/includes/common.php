@@ -1,19 +1,5 @@
 <?php
 
-function unl_load_zend_framework() {
-  static $isLoaded = FALSE;
-
-  if ($isLoaded) {
-    return;
-  }
-
-  set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../../libraries');
-  require_once 'Zend/Loader/Autoloader.php';
-  $autoloader = Zend_Loader_Autoloader::getInstance();
-  $autoloader->registerNamespace('Unl_');
-  $isLoaded = TRUE;
-}
-
 /**
  * Custom function to get the db settings for the 'main' site.
  * @return array
@@ -197,14 +183,12 @@ function unl_user_is_administrator() {
 
 /**
  * Fetch the contents at the given URL and cache the result using
- * drupal's cache for as long as the response headers allow.
+ * Drupal's cache for as long as the response headers allow.
  * @param string $url
  * @param resource $context
  */
-function unl_url_get_contents($url, $context = NULL, &$headers = array())
-{
-  unl_load_zend_framework();
-  if (!Zend_Uri::check($url)) {
+function unl_url_get_contents($url, $context = NULL, &$headers = array()) {
+  if (!valid_url($url, TRUE)) {
     watchdog('unl', 'A non-url was passed to %func().', array('%func' => __FUNCTION__), WATCHDOG_WARNING);
     return FALSE;
   }
