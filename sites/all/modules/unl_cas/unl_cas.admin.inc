@@ -28,11 +28,23 @@ function unl_cas_user_import($form, &$form_state) {
   if (isset($form_state['values']['name'])) {
     $matches = array();
     $search = $form_state['values']['name'];
-    // TODO Use directory for now, use LDAP query once this app is granted access
+
     try {
-      $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
-      $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
-      
+      $ldap_connection = ldap_connect(unl_cas_get_setting('ldap_uri'));
+      if ($ldap_connection === FALSE) {
+        throw new Exception('Unable to connect to the LDAP server');
+      }
+      ldap_set_option($ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3) or die('Unable to set LDAP protocol version');
+      ldap_set_option($ldap_connection, LDAP_OPT_REFERRALS, 0); // We need this for doing an LDAP search.
+      // Check for an actual connection.
+      @ldap_start_tls($ldap_connection);
+      if (ldap_errno($ldap_connection) == -1) {
+        throw new Exception('Could not connect to LDAP Server', -1);
+      }
+      if (@ldap_bind($ldap_connection, unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password')) === FALSE) {
+        throw new Exception('Unable to LDAP bind: ' . ldap_error($ldap_connection), ldap_errno($ldap_connection));
+      }
+
       $searchFields = array('sAMAccountName', 'mail', 'unlMail', 'cn', 'givenName', 'sn', 'eduPersonNickname');
       $filter = '(&';
       foreach (preg_split('/\s+/', $search) as $searchTerm) {
@@ -43,9 +55,9 @@ function unl_cas_user_import($form, &$form_state) {
         }
         $filter .= '))';
       }
-      
-      // Convert the uid to a string to match with peoplefinder results.
-      $results = $ldap->search('ou=people,dc=unl,dc=edu', $filter);
+
+      // Convert the uid to a string to match with UNL Directory results.
+      $results = _unl_cas_ldap_search($ldap_connection, 'ou=people,dc=unl,dc=edu', $filter);
       foreach ($results as $key => $result) {
         $results[$key]['uid'] = $result['samaccountname'][0];
       }
@@ -59,9 +71,7 @@ function unl_cas_user_import($form, &$form_state) {
         }
       }
     }
-    
-    
-    $ldap = new Unl_Ldap('ldap://unl.edu/');
+
     foreach ($results as $result) {
       if (!$result['uid']) {
         continue;
@@ -200,7 +210,7 @@ function unl_cas_config_submit($form, &$form_state) {
   unl_cas_set_setting('ldap_dn', $form_state['values']['ldap']['dn']);
   unl_cas_set_setting('ldap_password', $form_state['values']['ldap']['password']);
   unl_cas_set_setting('ldap_seconds', $form_state['values']['ldap']['seconds']);
-  
+
   if ($form_state['values']['ldap']['disable_smart_cache']) {
     unl_cas_set_setting('disable_smart_cache', 'disable');
   }
