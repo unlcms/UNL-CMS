@@ -7,6 +7,7 @@ function unl_bootstrap() {
   unl_bootstrap_short_hostname_redirect();
   unl_bootstrap_multisite_without_symlinks();
   unl_bootstrap_proxy_pass_support();
+  unl_bootstrap_fast_short_public_file_urls();
 }
 
 /**
@@ -123,3 +124,105 @@ function unl_bootstrap_update() {
     }
   }
 }
+
+/**
+ * This replaces the old rewrite.php method of serving static files
+ * with their short URLS (no sites/unl.edu.whatever/files garbage)
+ * If a file is found te serve, it is done so via mod_xsendfile.
+ */
+function unl_bootstrap_fast_short_public_file_urls() 
+{
+  if (substr(request_path(), 0, 7) == 'private') {
+    return;
+  }
+  
+  $public_file_path = conf_path() . '/files/' . request_path();
+  
+  if ($_SERVER['HTTP_HOST'] === 'lancaster.unl.edu' && $insensitive_path = unl_bootstrap_insensitive_is_file($public_file_path)) {
+    $public_file_path = $insensitive_path;
+  }
+  $public_file_path = DRUPAL_ROOT . '/' . $public_file_path;
+  if (!file_exists($public_file_path) || is_dir($public_file_path)) {
+    return;
+  }
+  $mime_type = unl_bootstrap_get_mime_type($public_file_path);
+  
+  header('X-Sendfile: ' . $public_file_path);
+  header('Content-type: ' . $mime_type);
+  
+  exit;
+}
+
+/**
+ * @param $path
+ * @return string
+ *
+ * Looks up the mime type of a path in /etc/mime.types
+ * Returns text/plain if nothing else can be found.
+ */
+function unl_bootstrap_get_mime_type($path) {
+  $extension = pathinfo($path);
+  $extension = $extension['extension'];
+  $mime = 'text/plain';
+  switch ($extension) {
+    case 'shtml':
+      return 'text/plain';
+    case '7z':
+      return 'application/x-7z-compressed';
+  }
+
+  $f = fopen('/etc/mime.types', 'r');
+  $pattern = '/^([^#]\S+)\s+.*\s(' . $extension . ')(\s|$)/i';
+  while (($l = fgets($f, 4096)) !== false) {
+    $matches = array();
+    if (preg_match($pattern, $l, $matches)) {
+      $mime = $matches[1];
+      break;
+    }
+  }
+  fclose($f);
+  return $mime;
+}
+
+/**
+ * @param $path
+ * @return bool|string
+ *
+ * Checks to see if the file exists with a case-insensitive search.
+ * $path is relative to the DRUPAL_ROOT.
+ * Returns the correctly capitalized path on success, FALSE on failure.
+ */
+function unl_bootstrap_insensitive_is_file($path) {
+  error_log($path);
+  $subdirs = array();
+  $filename = basename($path);
+  for ($subdir = $path; ($subdir = dirname($subdir)) != '.';) {
+    $subdirs[] = basename($subdir);
+  }
+  $subdirs = array_reverse($subdirs);
+  $path = DRUPAL_ROOT;
+  foreach ($subdirs as $subdir) {
+    $cmd = 'find '
+         . escapeshellarg($path) . ' '
+         . '-maxdepth 1 '
+         . '-type d '
+         . '-iname ' . escapeshellarg($subdir) . ' '
+         ;
+    $path = trim(shell_exec($cmd));
+    if (!$path) {
+      return false;
+    }
+  }
+  $cmd = 'find '
+    . escapeshellarg($path) . ' '
+    . '-maxdepth 1 '
+    . '-type f '
+    . '-iname ' . escapeshellarg($filename) . ' '
+    ;
+  $path = trim(shell_exec($cmd));
+  if (!$path) {
+    return false;
+  }
+  return substr($path, strlen(DRUPAL_ROOT) + 1);
+}
+
