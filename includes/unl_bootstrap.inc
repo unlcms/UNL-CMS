@@ -172,7 +172,7 @@ function unl_bootstrap_get_mime_type($path) {
   }
 
   $f = fopen('/etc/mime.types', 'r');
-  $pattern = '/^([^#]\S+)\s+.*\s(' . $extension . ')(\s|$)/i';
+  $pattern = '/^([^#]\S+)\s+(\S+\s)*(' . $extension . ')(\s|$)/i';
   while (($l = fgets($f, 4096)) !== false) {
     $matches = array();
     if (preg_match($pattern, $l, $matches)) {
