@@ -63,6 +63,34 @@ function unl_cas_get_adapter() {
       $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
     }
     $adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
+
+    $frontendOptions = array(
+      'lifetime' => 60*60,
+      'automatic_serialization' => TRUE,
+      'automatic_cleaning_factor' => 0,
+    );
+    if (is_array($GLOBALS['conf']['memcache_servers'])) {
+      $servers = array();
+      foreach (array_keys($GLOBALS['conf']['memcache_servers']) as $server) {
+        $server = parse_url($server);
+        $servers[] = $server;
+      }
+      $backendOptions = array(
+        'servers' => $servers,
+      );
+      $ticketCache = Zend_Cache::factory('Core', 'Libmemcached', $frontendOptions, $backendOptions);
+    } else {
+      $cache_dir = session_save_path();
+      if (!$cache_dir) {
+        $cache_dir = sys_get_temp_dir();
+      }
+      $backendOptions = array(
+        'cache_dir' => $cache_dir,
+        'file_locking' => FALSE
+      );
+      $ticketCache = Zend_Cache::factory('Core', 'File', $frontendOptions, $backendOptions);
+    }
+    $adapter->setTicketCache($ticketCache);
   }
   return $adapter;
 }
