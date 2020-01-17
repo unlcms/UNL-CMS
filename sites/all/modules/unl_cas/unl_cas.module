@@ -14,6 +14,12 @@ function unl_cas_enable() {
  * Implements hook_init().
  */
 function unl_cas_init() {
+  // In read only mode, we don't process login  requests.
+  if (_unl_cas_is_read_only()) {
+    $GLOBALS['user'] = drupal_anonymous_user();
+    return;
+  }
+
   // If no one is claiming to be logged in while no one is actually logged in, we don't need CAS.
   if (!array_key_exists('unl_sso', $_COOKIE) && user_is_anonymous()) {
     return;
@@ -63,6 +69,34 @@ function unl_cas_get_adapter() {
       $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
     }
     $adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
+
+    $frontendOptions = array(
+      'lifetime' => 60*60,
+      'automatic_serialization' => TRUE,
+      'automatic_cleaning_factor' => 0,
+    );
+    if (is_array($GLOBALS['conf']['memcache_servers'])) {
+      $servers = array();
+      foreach (array_keys($GLOBALS['conf']['memcache_servers']) as $server) {
+        $server = parse_url($server);
+        $servers[] = $server;
+      }
+      $backendOptions = array(
+        'servers' => $servers,
+      );
+      $ticketCache = Zend_Cache::factory('Core', 'Libmemcached', $frontendOptions, $backendOptions);
+    } else {
+      $cache_dir = session_save_path();
+      if (!$cache_dir) {
+        $cache_dir = sys_get_temp_dir();
+      }
+      $backendOptions = array(
+        'cache_dir' => $cache_dir,
+        'file_locking' => FALSE
+      );
+      $ticketCache = Zend_Cache::factory('Core', 'File', $frontendOptions, $backendOptions);
+    }
+    $adapter->setTicketCache($ticketCache);
   }
   return $adapter;
 }
@@ -202,6 +236,11 @@ function unl_cas_login_authenticate($form, &$form_state) {
  * Implements hook_form_alter().
  */
 function unl_cas_form_alter(&$form, &$form_state, $form_id) {
+  // If the CMS is in read-only mode, just display a message.  Don't let a user log in.
+  if (_unl_cas_is_read_only() && in_array($form_id, ['user_login', 'user_login_block'])) {
+    echo 'UNLCMS environment is currently in maintenance mode and logins have been disabled.  When logins are enabled a notice will be sent to the WDN Developers.  We apologiz
+    exit;
+  }
   if ($form_id == 'user_login') {
     $defaultValidatorIndex = array_search('user_login_final_validate', $form['#validate']);
     if ($defaultValidatorIndex !== FALSE) {
@@ -506,4 +545,11 @@ function unl_cas_tokens($type, $tokens, array $data = array(), array $options = 
   }
 
   return $replacements;
+}
+
+/**
+ * Returns true if the CMS is running in read-only mode, and logins should be disabled.
+ */
+function _unl_cas_is_read_only() {
+  return (isset($GLOBALS['conf']['db_select_only']) && $GLOBALS['conf']['db_select_only']);
 }
