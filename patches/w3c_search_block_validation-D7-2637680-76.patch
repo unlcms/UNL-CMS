@@ -1,0 +1,54 @@
+diff --git a/includes/form.inc b/includes/form.inc
+index 6c33de7f96..725aca1641 100644
+--- a/includes/form.inc
++++ b/includes/form.inc
+@@ -3917,6 +3917,11 @@ function theme_button($variables) {
+   $element['#attributes']['type'] = 'submit';
+   element_set_attributes($element, array('id', 'name', 'value'));
+ 
++  // Remove name attribute, if empty, for W3C compliance.
++  if (isset($element['#attributes']['name']) && $element['#attributes']['name'] === '') {
++    unset($element['#attributes']['name']);
++  }
++
+   $element['#attributes']['class'][] = 'form-' . $element['#button_type'];
+   if (!empty($element['#attributes']['disabled'])) {
+     $element['#attributes']['class'][] = 'form-button-disabled';
+diff --git a/modules/simpletest/tests/form.test b/modules/simpletest/tests/form.test
+index e52c8c42e1..56bb1b2828 100644
+--- a/modules/simpletest/tests/form.test
++++ b/modules/simpletest/tests/form.test
+@@ -836,6 +836,12 @@ class FormsElementsLabelsTestCase extends DrupalWebTestCase {
+     $this->assertEqual($elements[0]['title'], 'Checkboxes test' . ' (' . t('Required') . ')', 'Title attribute found.');
+     $elements = $this->xpath('//div[@id="edit-form-radios-title-attribute"]');
+     $this->assertEqual($elements[0]['title'], 'Radios test' . ' (' . t('Required') . ')', 'Title attribute found.');
++
++    // Check that empty name attribute is not printed on buttons.
++    $elements = $this->xpath('//input[@id="edit-form-button-with-name"]');
++    $this->assertTrue($elements[0]['name'] == 'op', 'Name attribute found.');
++    $elements = $this->xpath('//input[@id="edit-form-button-without-name"]');
++    $this->assertFalse(isset($elements[0]['name']), 'No name attribute found.');
+   }
+ }
+ 
+diff --git a/modules/simpletest/tests/form_test.module b/modules/simpletest/tests/form_test.module
+index 9f071826e5..63730c9fd0 100644
+--- a/modules/simpletest/tests/form_test.module
++++ b/modules/simpletest/tests/form_test.module
+@@ -1022,6 +1022,16 @@ function form_label_test_form() {
+     '#title_display' => 'attribute',
+     '#required' => TRUE,
+   );
++  // Button elements with and without name attribute.
++  $form['form_button_with_name'] = array(
++    '#type' => 'button',
++    '#value' => t('Button with name'),
++  );
++  $form['form_button_without_name'] = array(
++    '#type' => 'button',
++    '#value' => t('Button without name'),
++    '#name' => '',
++  );
+ 
+   return $form;
+ }
