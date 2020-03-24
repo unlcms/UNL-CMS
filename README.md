@@ -158,6 +158,11 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
+  *  feeds_imagegrabber
+
+     - https://www.drupal.org/project/feeds_imagegrabber/issues/2244833
+     - Applied patch: patches/feeds_imagegrabber-update_processor_callback-2244833-45.patch
+
   *  honeypot
 
      - Applied patch: https://www.drupal.org/project/honeypot/issues/2943526
