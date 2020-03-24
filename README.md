@@ -102,13 +102,13 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      This can be used to allow Drupal to function during a FLUSH TABLES WITH READ LOCK;
 
   *  includes/form.inc
-  
+
      Submit buttons for GET forms in search/views are not W3C valid due to empty 'name' attribute.
      patches/w3c_search_block_validation-D7-2637680-76.patch - https://www.drupal.org/project/drupal/issues/2637680
 
 
   *  includes/install.inc
-  
+
      Add primary key to drupal_install_test https://www.drupal.org/project/drupal/issues/2856362
 
   *  rewrite.php
@@ -128,17 +128,17 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - Add nl2br() on Plain Text processor. See http://drupal.org/node/1152216#comment-7174876
 
   *  modules/forum
-  
+
      - Removed completely because its table doesn't have a primary key. (https://github.com/unlcms/UNL-CMS/issues/942)
 
   *  modules/taxonomy
-  
+
      - Add a primary key to the {taxonomy_index} table. https://www.drupal.org/files/issues/drupal-n610076-75.patch
 
 ## Hacks of Contrib modules:
 
   *  autoban
-  
+
      - A "Forced mode" ban doesn't take effect until another IP triggers a watchdog message. https://www.drupal.org/project/autoban/issues/2969670
      - Applied patch: 2969670-2-autoban-forced-mode.diff
 
@@ -158,20 +158,12 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
-  *  feeds
-  
-     - Applied patch: https://www.drupal.org/files/issues/feeds-unpublish-delete-entities-not-in-feed-1470530-204.patch. See https://www.drupal.org/node/1470530
-
-  *  feeds_imagegrabber.module
-
-     - Applied patch: https://www.drupal.org/files/issues/replace-feeds-imagegrabber-node-delete-2748459.patch. See: https://www.drupal.org/node/2748459
-
   *  honeypot
 
      - Applied patch: https://www.drupal.org/project/honeypot/issues/2943526
 
   *  imce_rename.module
-  
+
      - Applied patch: https://www.drupal.org/files/issues/imce_rename-file_move-1376260-8.patch See https://www.drupal.org/node/1376260
 
   *  masquerade
@@ -180,7 +172,7 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - Removed login/logout hooks calls that were added in https://www.drupal.org/project/masquerade/issues/1364574 because they break SSO
 
   *  menu_block
-  
+
      - Added additional classes to menu_block_get_title() in menu_block.module
 
   *  og_menu.module
@@ -210,9 +202,9 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - Fix label and settings var notices. See https://drupal.org/node/1790304#comment-7395496 Patch applied: https://drupal.org/files/viewreference-1790304-03-complex-entity-form.patch
 
   *  webform/components/number.inc
-  
+
      - Use type='number' for number elements.
-     
+
      - https://www.drupal.org/node/2290029, override: https://git.drupalcode.org/project/webform/commit/92fa0fc
 
   *  workbench_moderation.module
