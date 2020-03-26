@@ -158,6 +158,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
+  *  feeds/plugins/FeedsParser.inc
+
+     - Remove the file extension check so that UNL Events images (like https://events.unl.edu/images/12345) that don't have extensions will work.
+
   *  feeds_imagegrabber
 
      - https://www.drupal.org/project/feeds_imagegrabber/issues/2244833

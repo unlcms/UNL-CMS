@@ -422,10 +422,10 @@ class FeedsEnclosure extends FeedsElement {
     }
 
     if (!$extension || !in_array($extension, explode(' ', $this->allowedExtensions), TRUE)) {
-      throw new RuntimeException(t('The file @file has an invalid extension.', array('@file' => $filename)));
+//    throw new RuntimeException(t('The file @file has an invalid extension.', array('@file' => $filename)));
     }
 
-    $this->safeFilename = file_munge_filename($filename, $this->allowedExtensions, FALSE);
+//  $this->safeFilename = file_munge_filename($filename, $this->allowedExtensions, FALSE);
 
     return $this->safeFilename;
   }
