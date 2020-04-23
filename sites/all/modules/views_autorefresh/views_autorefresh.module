@@ -1,0 +1,249 @@
+<?php
+
+/**
+ * Implementation of hook_views_api().
+ */
+function views_autorefresh_views_api() {
+  return array(
+    'api' => 3.0,
+    'path' => drupal_get_path('module', 'views_autorefresh') . '/views',
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function views_autorefresh_theme() {
+  return array(
+    'views_autorefresh' => array(
+      'variables' => array(
+        'interval' => NULL,
+        'ping' => NULL,
+        'trigger_onload' => NULL,
+        'incremental' => NULL,
+        'view' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Theme function for views_autorefresh.
+ */
+function theme_views_autorefresh($variables) {
+  // Get Auto-Refresh settings.
+  $interval = $variables['interval'];
+  $ping = $variables['ping'];
+  $trigger_onload = $variables['trigger_onload'];
+  $incremental = $variables['incremental'];
+  $nodejs = $variables['nodejs'];
+  $view = $variables['view'];
+
+  if (empty($view)) {
+    $view = views_get_current_view();
+  }
+
+  $view_name_id = $view->name . '-' . $view->current_display;
+
+  // Add the JavaScript settings.
+  drupal_add_js(drupal_get_path('module', 'views_autorefresh') . '/js/views_autorefresh.js');
+  drupal_add_js(array('views_autorefresh' => array(
+    $view_name_id => array(
+      'interval' => $interval,
+      'ping' => $ping,
+      'trigger_onload' => $trigger_onload,
+      'incremental' => $incremental,
+      'nodejs' => $nodejs,
+    )
+  )), 'setting');
+
+  $timestamp = views_autorefresh_get_timestamp($view);
+
+  if ($timestamp) {
+    drupal_add_js(array('views_autorefresh' => array(
+      $view_name_id => array(
+        'timestamp' => $timestamp,
+      )
+    )), 'setting');
+  }
+
+  // Signal modules to add their own plugins.
+  module_invoke_all('views_autorefresh_plugins', $view);
+
+  // Check for nodejs and create view channel.
+  if (
+    !empty($nodejs) &&
+    module_exists('nodejs') &&
+    function_exists('nodejs_send_content_channel_token')
+  ) {
+    $channel = 'views_autorefresh_' . $view_name_id;
+
+    drupal_alter('views_autorefresh_nodejs_channel', $channel, $view);
+
+    nodejs_send_content_channel_token($channel);
+  }
+
+  // Return link to autorefresh.
+  $query = drupal_get_query_parameters($_REQUEST, array_merge(array('q', 'pass'), array_keys($_COOKIE)));
+  $link = l('', $_GET['q'], array('query' => $query));
+
+  return '<div class="auto-refresh">' . $link . '</div>';
+}
+
+/**
+ * Implementation of hook_views_ajax_data_alter().
+ */
+function views_autorefresh_views_ajax_data_alter(&$commands, $view) {
+  $autorefresh = views_autorefresh_get_settings($view);
+
+  if (isset($_REQUEST['autorefresh']) && $_REQUEST['autorefresh'] && $autorefresh) {
+    $view_name_id = $view->name . '-' . $view->current_display;
+    $view_dom = '.view-dom-id-' . $view->dom_id;
+
+    if ($commands) {
+      foreach ($commands as $key => &$command) {
+        if (
+          !empty($autorefresh['incremental']) &&
+          $command['command'] == 'insert' &&
+          $command['selector'] == $view_dom
+        ) {
+          $command['command'] = 'viewsAutoRefreshIncremental';
+          $command['view_name'] = $view_name_id;
+        }
+
+        if ($command['command'] == 'viewsScrollTop') {
+          unset($commands[$key]);
+        }
+      }
+    }
+
+    $timestamp = views_autorefresh_get_timestamp($view);
+
+    if ($timestamp) {
+      $commands[] = array(
+        'command' => 'viewsAutoRefreshTriggerUpdate',
+        'selector' => $view_dom,
+        'timestamp' => $timestamp,
+      );
+    }
+  }
+}
+
+/**
+ * Helper function to get autorefresh settings.
+ */
+function views_autorefresh_get_settings($view) {
+  if (isset($view->display_handler->handlers['header']['autorefresh'])) {
+    return $view->display_handler->handlers['header']['autorefresh']->options;
+  }
+
+  if ($view->display) {
+    foreach ($view->display as $id => $display) {
+      if (isset($display->display_options['header']['autorefresh'])) {
+        return $display->display_options['header']['autorefresh'];
+      }
+    }
+  }
+
+  return NULL;
+}
+
+/**
+ * Helper function to return a view timestamp.
+ */
+function views_autorefresh_get_timestamp($view) {
+  $autorefresh = views_autorefresh_get_settings($view);
+
+  if (empty($autorefresh)) {
+    return FALSE;
+  }
+
+  if (empty($autorefresh['incremental'])) {
+    return time();
+  }
+
+  $autorefresh_display = $autorefresh['display'];
+  $arguments = isset($view->display[$autorefresh_display]->display_options['arguments']) ?
+    $view->display[$autorefresh_display]->display_options['arguments'] :
+    $view->display['default']->display_options['arguments'];
+
+  if ($arguments) {
+    foreach ($arguments as $argument) {
+      $handler = views_get_handler($argument['table'], $argument['field'], 'argument');
+
+      switch ($handler->definition['handler']) {
+        case 'views_autorefresh_handler_argument_date':
+          return time();
+
+          break;
+        case 'views_autorefresh_handler_argument_base':
+          // Fallback to max primary key in view rows.
+          // Find the max nid/uid/... of the result set.
+          $max_id = array_reduce($view->result, function($max_id, $row) use ($view) {
+            return max($max_id, $row->{$view->base_field});
+          }, ~PHP_INT_MAX);
+
+          return $max_id === ~PHP_INT_MAX ? FALSE : $max_id;
+
+          break;
+      }
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_views_pre_render().
+ */
+function views_autorefresh_views_pre_render(&$view) {
+  // Reset information about first display instead of the second display (incremental approach only).
+  // @TODO Check if it's necessary to reset any further information
+  $original_view_data = isset($_REQUEST['original_view_data']) ? $_REQUEST['original_view_data'] : array();
+  $original_view_display_id = $original_view_data && isset($original_view_data['view_display_id']) ? $original_view_data['view_display_id'] : '';
+  $original_view_dom_id = $original_view_data && isset($original_view_data['view_dom_id']) ? $original_view_data['view_dom_id'] : '';
+
+  if ($original_view_display_id && $original_view_dom_id == $view->dom_id) {
+    $view->current_display = $original_view_display_id;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function views_autorefresh_form_views_ui_add_item_form_alter(&$form, $form_state) {
+  $type = isset($form_state['type']) ? $form_state['type'] : '';
+
+  if ($type != 'header') {
+    $types = views_object_types();
+    $view_type = $types && isset($types[$type]) && isset($types[$type]['type']) ? $types[$type]['type'] : '';
+
+    if ($view_type == 'area') {
+      unset($form['options']['name']['views.autorefresh']);
+    }
+  }
+}
+
+/**
+ * Helper function to refresh a view through nodejs.
+ */
+function views_autorefresh_nodejs_refresh($views, $context) {
+  if (
+    module_exists('nodejs') &&
+    function_exists('nodejs_send_content_channel_message')
+  ) {
+    if ($views) {
+      foreach ($views as $view_name) {
+        $message = (object) array(
+          'channel' => 'views_autorefresh_' . $view_name,
+          'callback' => 'viewsAutoRefresh',
+          'view_name' => $view_name,
+        );
+
+        drupal_alter('views_autorefresh_nodejs_message', $message, $context);
+
+        nodejs_send_content_channel_message($message);
+      }
+    }
+  }
+}

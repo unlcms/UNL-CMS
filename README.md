@@ -204,6 +204,14 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - RSS feed double-encodes HTML-Entity (in Feed titles) https://www.drupal.org/node/1424096 patch: views.feed-displays.1424096-10.patch
 
+  *  views_autorefresh
+
+     - In Drupal.ajax.prototype.commands.viewsAutoRefreshIncremental, change `var view_name_id = response.view_name_id;` to `var view_name_id = response.view_name;`
+
+  *  views_infinite_scroll
+
+     - views_plugin_pager_infinite_scroll.inc: render() - move views_infinite_scroll.js to scope => footer for compatibility with UNL Web Framework.
+
   *  viewreference.module
 
      - Lock down access to "Allow PHP code." under "Contextual filter arguments". See https://drupal.org/node/2014723#comment-7878825 Patch applied: https://drupal.org/files/viewreference-php_perm-2014723-1.patch
