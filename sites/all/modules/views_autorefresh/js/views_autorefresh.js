@@ -200,6 +200,9 @@
 
       var $view = $(response.selector);
       var view_name_id = response.view_name;
+
+      Drupal.settings.views_autorefresh[view_name_id].timestamp = response.timestamp;
+
       var emptySelector = Drupal.settings.views_autorefresh[view_name_id].incremental.emptySelector || '.view-empty';
       var sourceSelector = Drupal.settings.views_autorefresh[view_name_id].incremental.sourceSelector || '.view-content';
       var $source = $(response.data).find(sourceSelector).not(sourceSelector + ' ' + sourceSelector).children();

@@ -99,6 +99,7 @@ function views_autorefresh_views_ajax_data_alter(&$commands, $view) {
   if (isset($_REQUEST['autorefresh']) && $_REQUEST['autorefresh'] && $autorefresh) {
     $view_name_id = $view->name . '-' . $view->current_display;
     $view_dom = '.view-dom-id-' . $view->dom_id;
+    $timestamp = views_autorefresh_get_timestamp($view);
 
     if ($commands) {
       foreach ($commands as $key => &$command) {
@@ -109,6 +110,7 @@ function views_autorefresh_views_ajax_data_alter(&$commands, $view) {
         ) {
           $command['command'] = 'viewsAutoRefreshIncremental';
           $command['view_name'] = $view_name_id;
+          $command['timestamp'] = $timestamp;
         }
 
         if ($command['command'] == 'viewsScrollTop') {
@@ -116,8 +118,6 @@ function views_autorefresh_views_ajax_data_alter(&$commands, $view) {
         }
       }
     }
-
-    $timestamp = views_autorefresh_get_timestamp($view);
 
     if ($timestamp) {
       $commands[] = array(
