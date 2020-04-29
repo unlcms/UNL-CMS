@@ -1,0 +1,38 @@
+<?php
+
+/**
+ * @file
+ * Module file for webform_validation_testing.
+ */
+
+/**
+ * Implements hook_webform_validation_validators().
+ */
+function webform_validation_testing_webform_validation_validators() {
+  $validators = array(
+    'webform_validation_testing_1' => array(
+      'name' => t('Webform Validation Testing 1'),
+      'component_types' => array(
+        'all',
+      ),
+      'custom_data' => array(
+        'label' => t('Custom data: Should be textarea'),
+        'type' => 'textarea',
+        'description' => t('Test textarea.'),
+        'required' => FALSE,
+      ),
+      'description' => t('Used for testing.'),
+    ),
+  );
+  return $validators;
+}
+
+/**
+ * Implements hook_webform_validation_validate().
+ */
+function webform_validation_testing_webform_validation_validate($validator_name, $items, $components, $rule) {
+  switch ($validator_name) {
+    case 'webform_validation_testing_1':
+      return array();
+  }
+}

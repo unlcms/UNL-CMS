@@ -1,0 +1,89 @@
+<?php
+
+/**
+ * Test Webform Validation module.
+ */
+class WebformValidationTestCase extends WebformTestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Webform Validation'),
+      'description' => t('Test Webform Validation module.'),
+      'group' => t('Webform'),
+    );
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setUp($added_modules = array()) {
+    $modules = array('webform_validation', 'webform_validation_testing');
+    parent::setUp(array_merge($modules, $added_modules));
+  }
+
+  /**
+   * The tests.
+   */
+  public function test() {
+    // Create test Webform.
+    $node = $this->webformForm();
+
+    // Access to "Form validation" tab.
+    $this->drupalLogin($this->webform_users['userAccess']);
+    $this->drupalGet('node/' . $node->nid . '/webform/validation');
+    $this->assertResponse(403, 'Authenticated user does not have access to "Form validation" tab');
+
+    // Empty validation rules list.
+    $this->drupalLogin($this->webform_users['admin']);
+    $this->drupalGet('node/' . $node->nid . '/webform/validation');
+    $this->assertResponse(200, 'Webform admin user has access to "Form validation" tab');
+    $this->assertTitle('Test Webform | Drupal');
+    $this->assertText('Add a validation rule');
+    $this->assertText('No validation rules available.');
+
+    // Rule creation page.
+    $this->clickLink('Minimum length');
+    $this->assertTitle('Add validation rule | Drupal');
+    $this->assertText('Minimum length');
+    $element = $this->xpath("//input[@id='edit-data'][@name='data'][@type='text']");
+    $this->assertTrue($element, 'Page contains "edit-data" input.');
+
+    // Rule created.
+    $values = array(
+      'rulename' => $this->randomString(),
+      'rule_components[21]' => TRUE,
+      'data' => 2,
+    );
+    $this->drupalPost(NULL, $values, t('Add rule'));
+    $this->assertText(htmlspecialchars($values['rulename'], ENT_QUOTES), 'Rule name appears on page.');
+
+    // Test rule creation validation.
+    $this->clickLink('Compare two values');
+    $this->assertTitle('Add validation rule | Drupal');
+    $this->assertText('Compare two values');
+    $values = array(
+      'rulename' => $this->randomString(),
+      'data' => 'invalid',
+    );
+    $this->drupalPost(NULL, $values, t('Add rule'));
+    $this->assertText('Comparison operator is invalid.', 'Custom data validation fails.');
+    $this->assertText('You need to select exactly 2 components.', 'Custom data validation fails.');
+    $this->assertText('Custom error message field is required.', 'Custom data validation fails.');
+
+    $values = array(
+      'rule_components[20]' => TRUE,
+      'rule_components[21]' => TRUE,
+      'data' => '<',
+      'error_message' => 'Error message.',
+    );
+    $this->drupalPost(NULL, $values, t('Add rule'));
+
+    $this->clickLink('Webform Validation Testing 1');
+    $element = $this->xpath("//textarea[@id='edit-data'][@name='data']");
+    $this->assertTrue($element, 'Page contains "edit-data" textarea.');
+  }
+
+}

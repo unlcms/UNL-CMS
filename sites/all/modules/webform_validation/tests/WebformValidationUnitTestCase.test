@@ -1,0 +1,86 @@
+<?php
+
+/**
+ * Unit test Webform Validation module.
+ */
+class WebformValidationUnitTestCase extends DrupalUnitTestCase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Webform Validation Unit Tests'),
+      'description' => t('Unit tests for Webform Validation module.'),
+      'group' => t('Webform'),
+    );
+  }
+
+  /**
+   * The tests.
+   */
+  public function test() {
+    require_once __DIR__ . '/../webform_validation.validators.inc';
+
+    $validator_name = 'comparison';
+    $items = array(
+      'one' => array(
+        'hour' => 12,
+        'minute' => 1,
+        'ampm' => 'AM',
+      ),
+      'two' => array(
+        'hour' => 12,
+        'minute' => 4,
+        'ampm' => 'AM',
+      ),
+    );
+    $components = array(
+      'one' => array(
+        'type' => 'time',
+      ),
+      'two' => array(
+        'type' => 'time',
+      ),
+    );
+    $rule = array(
+      'data' => '<',
+      'components' => $components,
+      'error_message' => 'Error message.',
+    );
+    $test_value = webform_validation_webform_validation_validate($validator_name, $items, $components, $rule);
+    $value = array();
+    $this->assertIdentical($test_value, $value, 'No error for passing validation.');
+
+    $rule['data'] = '>';
+    $test_value = webform_validation_webform_validation_validate($validator_name, $items, $components, $rule);
+    $value = array('two' => 'Error message.');
+    $this->assertIdentical($test_value, $value, 'Error for failing validation.');
+
+    // Test the 'pattern' validator.
+    $validator_name = 'pattern';
+    $items = [];
+    $components = [];
+    $rule = [
+      'data' => 'D-25##|(###) ###-####|@# #@@|@## #@@|@@# #@@|@@## #@@|@#@ #@@|@@#@ #@@|GIR0AA',
+      'error_message' => 'Invalid value.',
+    ];
+
+    $items['item_1'] = 'D-25AA';
+    $test = webform_validation_webform_validation_validate($validator_name, $items, $components, $rule);
+    $this->assertIdentical(count($test), 1, $items['item_1'] . ' fails validation.');
+
+    $items['item_1'] = 'D-2500';
+    $test = webform_validation_webform_validation_validate($validator_name, $items, $components, $rule);
+    $this->assertIdentical(count($test), 0, $items['item_1'] . ' passes validation.');
+
+    $items['item_1'] = '(123)-456-7890';
+    $test = webform_validation_webform_validation_validate($validator_name, $items, $components, $rule);
+    $this->assertIdentical(count($test), 1, $items['item_1'] . ' fails validation.');
+
+    $items['item_1'] = '(123) 456-7890';
+    $test = webform_validation_webform_validation_validate($validator_name, $items, $components, $rule);
+    $this->assertIdentical(count($test), 0, $items['item_1'] . ' passes validation.');
+  }
+
+}
