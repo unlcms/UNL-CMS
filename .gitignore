@@ -19,3 +19,5 @@ sites/default/settings.php
 /resetunlcms.sh
 /UNL_CMS.sublime-project
 /UNL_CMS.sublime-workspace
+
+profiles/unl_profile/unl_profile.ini
