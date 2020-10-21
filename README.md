@@ -200,10 +200,6 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558
 
-  *  views
-
-     - RSS feed double-encodes HTML-Entity (in Feed titles) https://www.drupal.org/node/1424096 patch: views.feed-displays.1424096-10.patch
-
   *  views_autorefresh
 
      - In Drupal.ajax.prototype.commands.viewsAutoRefreshIncremental, change `var view_name_id = response.view_name_id;` to `var view_name_id = response.view_name;`
