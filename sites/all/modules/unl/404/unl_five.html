@@ -1,13 +1,13 @@
 
-<div class="wdn-center">
-    <p>The page you're looking for can't be found.</p>
-    <p><span class="clear-top" id="404path"></span></p>
+<div class="dcf-pb-6 dcf-txt-center">
+    <p class="dcf-mb-1">The page you’re looking for can’t be found.</p>
+    <p class="dcf-mb-0"><span id="404path"></span></p>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function(event) {
+        document.addEventListener('inlineJSReady', function(event) {
             require(['jquery'], function($) {
                 $(function(){
-                    $("#404path").text(window.location.pathname);
+                    $('#404path').text(window.location.pathname);
                     var home_page = false;
 
                     var $home_link = $('link[rel=home]');
@@ -18,9 +18,9 @@
                     //TODO: why the regex check?
                     if (home_page && !(/^https?:\/\/www\.unl\.edu\/$/.test(home_page))) {
                         //If we have a home page, and it is not top level
-                        $("#404_search").append($('<input>', {
-                            type: "hidden",
-                            name: "u",
+                        $('#404_search').append($('<input>', {
+                            type: 'hidden',
+                            name: 'u',
                             value: home_page
                         }));
                     }
@@ -30,15 +30,14 @@
     </script>
 </div>
 
-
-<div class="wdn-grid-set">
-    <div class="bp2-wdn-col-two-thirds wdn-center centered">
-        <h3 class="dcf-pt-5">Search unl.edu</h3>
-        <form action="https://www1.unl.edu/search/" id="404_search" name="404_search" class="centered" style="margin:auto auto;">
-            <label class="centered">
-                <input type="text" class="bp2-wdn-col-full bp3-wdn-col-five-sevenths clear-top" name="q" style="display:inline-block;height:48px;padding:0 20px;margin-bottom:10px;float:initial;width:initial;">
-                <input type="submit" class="wdn-button bp2-wdn-col-full bp3-wdn-col-one-seventh clear-top" value="search" style="display:inline-block;float:initial;margin-bottom: 4px;">
-            </label>
+<div class="dcf-d-flex dcf-jc-center">
+    <div class="dcf-w-max-lg dcf-flex-grow-1">
+        <form class="dcf-form dcf-txt-center" id="404_search" name="404_search" action="https://www1.unl.edu/search/">
+            <label class="dcf-txt-h4 dcf-bold unl-ls-h" for="404_search_input">Search unl.edu</label>
+            <div class="dcf-input-group">
+                <input id="404_search_input" name="q" type="search" required>
+                <input class="dcf-btn dcf-btn-primary dcf-flex-shrink-0" type="submit" value="Search">
+            </div>
         </form>
     </div>
 </div>
