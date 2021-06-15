@@ -1751,7 +1751,7 @@ function file_validate(stdClass &$file, $validators = array()) {
   // needs to take similar steps if they need to permit files with malicious
   // extensions to be uploaded.
   if (empty($errors) && !variable_get('allow_insecure_uploads', 0) && preg_match('/\.(php|phar|pl|py|cgi|asp|js)(\.|$)/i', $file->filename)) {
-    $errors[] = t('For security reasons, your upload has been rejected.');
+    // UNL change // $errors[] = t('For security reasons, your upload has been rejected.');
   }
 
   return $errors;

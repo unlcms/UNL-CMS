@@ -247,20 +247,20 @@ function unl_field_attach_view_alter(&$output, $context) {
  */
 function unl_node_access($node, $op, $account) {
   // When content types are created they have blank permissions. Normally, unless a role has full admin access, you would need to go flip on permissions for a content type.  Our users can't do that.  So we use the (Basic) Page permissions for all other content types.
-  
+
   $type = is_string($node) ? $node : $node->type;
-  
+
   //Exclude unl_node_access for all types on this site
   if (variable_get('unl_node_access_exclude_all')) {
     return NODE_ACCESS_IGNORE;
   }
-  
+
   //Exclude ony this content type
   $excluded_types = variable_get('unl_node_access_exclude_types');
   if (is_array($excluded_types) && in_array($type, $excluded_types)) {
     return NODE_ACCESS_IGNORE;
   }
-  
+
   if (!module_exists('unl_extension')) { // Exclude extension.unl.edu site
     switch($op) {
       case 'view':
@@ -705,11 +705,11 @@ function unl_sharedcode($file = null) {
  * Fires when files are uploaded after Drupal Core sanitization but before saving to file system or db
  */
 function unl_file_validate($file) {
-  // For IMCE uploads only, check if Drupal core just altered a *.js upload to *.js.txt and correct if permitted
-  if (isset($file->source) && $file->source == 'imce' && substr($file->filename, -7) == '.js.txt' && user_access('unl imce javascript upload')) {
-    // Chop off the .txt extesnsion that's been added
-    $file->destination = substr($file->destination, 0, -4);
-    $file->filename = substr($file->filename, 0, -4);
+  // For IMCE uploads only, check if file_save_upload() just altered a *.js upload to *.js_.txt and correct if permitted.
+  if (isset($file->source) && $file->source == 'imce' && substr($file->filename, -8) == '.js_.txt' && user_access('unl imce javascript upload')) {
+    // Chop off the _.txt extension that's been added.
+    $file->destination = substr($file->destination, 0, -5);
+    $file->filename = substr($file->filename, 0, -5);
   }
   return;
 }
