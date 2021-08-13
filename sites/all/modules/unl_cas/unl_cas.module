@@ -238,7 +238,7 @@ function unl_cas_login_authenticate($form, &$form_state) {
 function unl_cas_form_alter(&$form, &$form_state, $form_id) {
   // If the CMS is in read-only mode, just display a message.  Don't let a user log in.
   if (_unl_cas_is_read_only() && in_array($form_id, ['user_login', 'user_login_block'])) {
-    echo 'The UNLCMS environment is currently in maintenance mode and logins have been disabled. Visit <a href="https://status.nebraska.edu/">status.nebraska.edu</a> for more information. When logins are re-enabled a notice will be sent to site owners.';
+    echo 'Login has been temporarily disabled due to maintenance. Please try again later. Visit <a href="https://status.nebraska.edu/">status.nebraska.edu</a> for more information (if available).';
     exit;
   }
   if ($form_id == 'user_login') {
