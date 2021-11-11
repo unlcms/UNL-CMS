@@ -1,0 +1,12 @@
+name = Image Class
+description = Extends the Image formatter by adding an option to add an element class.
+core = 7.x
+dependencies[] = image
+dependencies[] = field_formatter_settings
+
+; Information added by Drupal.org packaging script on 2017-10-13
+version = "7.x-1.0-beta1+0-dev"
+core = "7.x"
+project = "image_class"
+datestamp = "1507928346"
+
