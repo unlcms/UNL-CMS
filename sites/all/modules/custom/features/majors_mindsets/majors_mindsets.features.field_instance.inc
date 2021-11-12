@@ -893,7 +893,7 @@ function majors_mindsets_field_default_field_instances() {
         'label' => 'above',
         'module' => 'image',
         'settings' => array(
-          'class' => 'dcf-1st dcf-circle',
+          'class' => 'dcf-ratio-child dcf-obj-fit-cover dcf-circle',
           'image_link' => '',
           'image_style' => 'contact_card',
         ),
