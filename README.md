@@ -101,12 +101,6 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      Add support for a "db_select_only" config option that prevents drupal from issuing non-select queries to that database.
      This can be used to allow Drupal to function during a FLUSH TABLES WITH READ LOCK;
 
-  *  includes/form.inc
-
-     Submit buttons for GET forms in search/views are not W3C valid due to empty 'name' attribute.
-     patches/w3c_search_block_validation-D7-2637680-76.patch - https://www.drupal.org/project/drupal/issues/2637680
-
-
   *  includes/install.inc
 
      Add primary key to drupal_install_test https://www.drupal.org/project/drupal/issues/2856362
