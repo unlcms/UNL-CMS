@@ -18,7 +18,7 @@ function unl_node_add_list($variables) {
   $content = $variables['content'];
   $output = '';
   $have_central_types = false;
-  foreach ($content as $item) {  
+  foreach ($content as $item) {
     if (in_array($item['path'], $central_types)) {
       $have_central_types = true;
     }
@@ -26,7 +26,7 @@ function unl_node_add_list($variables) {
 
   if ($content) {
     $output = '<ul class="admin-list">';
-    foreach ($content as $item) { 
+    foreach ($content as $item) {
      if (!in_array($item['path'], $central_types)) {
       $output .= '<li class="clearfix">';
       $output .= '<span class="label">' . l($item['title'], $item['href'], $item['localized_options']) . '</span>';
@@ -35,11 +35,11 @@ function unl_node_add_list($variables) {
      }
     }
     $output .= '</ul>';
-    
+
     if ($have_central_types) {
       $output .= '<h2 style="margin-top:30px">Common</h2><p>These content types are centrally managed at UNL and common among all sites.</p>';
       $output .= '<ul class="admin-list">';
-      foreach ($content as $item) { 
+      foreach ($content as $item) {
         if (in_array($item['path'], $central_types)) {
           $output .= '<li class="clearfix">';
           $output .= '<span class="label">' . l($item['title'], $item['href'], $item['localized_options']) . '</span>';
@@ -215,6 +215,18 @@ function unl_page_alter(&$page) {
   // Add UNLcms technical feedback link to toolbar
   if (isset($page['page_top']['toolbar'])) {
     $page['page_top']['toolbar']['#pre_render'][] = 'unl_toolbar_add_links';
+  }
+
+  // Remove content types provided by Features from the admin list.
+  if (request_path() == 'admin/structure/types' && !unl_user_is_administrator()) {
+    foreach ($page['content']['system_main']['node_table']['#rows'] as $key => $row) {
+      if (
+        strpos($row[0], '(Machine name: admission)') ||
+        strpos($row[0], '(Machine name: mindset)')
+      ) {
+        unset ($page['content']['system_main']['node_table']['#rows'][$key]);
+      }
+    }
   }
 }
 
@@ -651,7 +663,27 @@ function unl_menu_alter(&$items) {
     $items['styles/%image_style']['page arguments'] = array(1);
   }
 
+  // Prevent module uninstall.
   $items['admin/modules/uninstall']['access callback'] = 'unl_user_is_administrator';
+
+  // Prevent editing content types provided by Features.
+  if (isset($items['admin/structure/types/manage/%node_type'])) {
+    $items['admin/structure/types/manage/%node_type']['access callback'] = '_unl_content_type_access';
+    $items['admin/structure/types/manage/%node_type']['access arguments'] = array(4);
+  }
+}
+
+/**
+ * Custom access callback.
+ */
+function _unl_content_type_access($type) {
+  if (in_array($type->type, array('admission', 'mindset'))) {
+    $return = unl_user_is_administrator();
+  }
+  else {
+    $return = user_access('administer content types');
+  }
+  return $return;
 }
 
 /**
@@ -1082,7 +1114,7 @@ function unl_node_form_submit($form, &$form_state) {
     $menu_link = menu_link_load($menu_data['mlid']);
   }
   else {
-    list($parent_menu_name, $parent_mlid) = explode(':', $menu_data['parent']);
+    [$parent_menu_name, $parent_mlid] = explode(':', $menu_data['parent']);
     $menu_links = menu_load_links($parent_menu_name);
     foreach ($menu_links as $menu_link) {
       if ($menu_link['plid'] != $parent_mlid) {

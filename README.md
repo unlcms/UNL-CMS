@@ -228,6 +228,15 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Comment out the part that switches wrappers from table-based to div. We need the original TinyMCE code for the PDW toggle plugin to work
 
+## Use of Features
+
+There are content types provided by Features located in sites/all/modules/custom/features. If a new content type is added the following should be done:
+ * Add templates and css to unl_five theme and update unl_five_preprocess_node() to only attach css to the content type.
+ * Add machine name to _unl_content_type_access() in unl.module to prevent editing the content type.
+ * Remove the content type from the admin/structure/types list in unl_page_alter() in unl.module.
+ * Update unl_node_add_list() in unl.module to organize the /node/add page.
+ * (Optional) Update the unl_hero module to not add the standard hero group and fields.
+
 ## How to Contribute
 
 Development is handled through GitHub
