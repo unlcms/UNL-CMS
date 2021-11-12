@@ -4,6 +4,59 @@ require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/c
 require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'unl') . '/includes/unl.token.inc';
 
 /**
+ * Implements hook_theme_registry_alter().
+ */
+function unl_theme_registry_alter(&$theme_registry) {
+  if (isset($theme_registry['node_add_list'])) {
+    $theme_registry['node_add_list']['function'] = 'unl_node_add_list';
+  }
+}
+
+function unl_node_add_list($variables) {
+  // These are the content types provided by Features modules.
+  $central_types = array('node/add/admission', 'node/add/mindset');
+  $content = $variables['content'];
+  $output = '';
+  $have_central_types = false;
+  foreach ($content as $item) {  
+    if (in_array($item['path'], $central_types)) {
+      $have_central_types = true;
+    }
+  }
+
+  if ($content) {
+    $output = '<ul class="admin-list">';
+    foreach ($content as $item) { 
+     if (!in_array($item['path'], $central_types)) {
+      $output .= '<li class="clearfix">';
+      $output .= '<span class="label">' . l($item['title'], $item['href'], $item['localized_options']) . '</span>';
+      $output .= '<div class="description">' . filter_xss_admin($item['description']) . '</div>';
+      $output .= '</li>';
+     }
+    }
+    $output .= '</ul>';
+    
+    if ($have_central_types) {
+      $output .= '<h2 style="margin-top:30px">Common</h2><p>These content types are centrally managed at UNL and common among all sites.</p>';
+      $output .= '<ul class="admin-list">';
+      foreach ($content as $item) { 
+        if (in_array($item['path'], $central_types)) {
+          $output .= '<li class="clearfix">';
+          $output .= '<span class="label">' . l($item['title'], $item['href'], $item['localized_options']) . '</span>';
+          $output .= '<div class="description">' . filter_xss_admin($item['description']) . '</div>';
+          $output .= '</li>';
+        }
+      }
+      $output .= '</ul>';
+    }
+  }
+  else {
+    $output = '<p>' . t('You have not created any content types yet. Go to the <a href="@create-content">content type creation page</a> to add a new content type.', array('@create-content' => url('admin/structure/types/add'))) . '</p>';
+  }
+  return $output;
+}
+
+/**
  * Implements hook_og_membership_insert().
  * Give a user the Contributor role when they are added to a group.
  */
