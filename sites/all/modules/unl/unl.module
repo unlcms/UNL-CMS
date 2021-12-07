@@ -14,7 +14,7 @@ function unl_theme_registry_alter(&$theme_registry) {
 
 function unl_node_add_list($variables) {
   // These are the content types provided by Features modules.
-  $central_types = array('node/add/admission', 'node/add/mindset');
+  $central_types = array('node/add/admission', 'node/add/major', 'node/add/mindset');
   $content = $variables['content'];
   $output = '';
   $have_central_types = false;
@@ -222,6 +222,7 @@ function unl_page_alter(&$page) {
     foreach ($page['content']['system_main']['node_table']['#rows'] as $key => $row) {
       if (
         strpos($row[0], '(Machine name: admission)') ||
+        strpos($row[0], '(Machine name: major)') ||
         strpos($row[0], '(Machine name: mindset)')
       ) {
         unset ($page['content']['system_main']['node_table']['#rows'][$key]);
@@ -677,7 +678,7 @@ function unl_menu_alter(&$items) {
  * Custom access callback.
  */
 function _unl_content_type_access($type) {
-  if (in_array($type->type, array('admission', 'mindset'))) {
+  if (in_array($type->type, array('admission', 'major', 'mindset'))) {
     $return = unl_user_is_administrator();
   }
   else {

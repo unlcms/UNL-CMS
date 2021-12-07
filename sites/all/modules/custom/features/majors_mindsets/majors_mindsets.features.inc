@@ -100,6 +100,14 @@ function majors_mindsets_node_info() {
       'title_label' => t('Title'),
       'help' => '',
     ),
+    'major' => array(
+      'name' => t('Major'),
+      'base' => 'node_content',
+      'description' => t('Information about majors for support of Admission.'),
+      'has_title' => '1',
+      'title_label' => t('Title'),
+      'help' => '',
+    ),
     'mindset' => array(
       'name' => t('Mindset page'),
       'base' => 'node_content',
@@ -118,6 +126,13 @@ function majors_mindsets_node_info() {
  */
 function majors_mindsets_paragraphs_info() {
   $items = array(
+    'career_path' => array(
+      'name' => 'Career Path',
+      'bundle' => 'career_path',
+      'label' => 'Career Path',
+      'description' => 'Title with bullet points of examples',
+      'locked' => '1',
+    ),
     'contact' => array(
       'name' => 'Contact',
       'bundle' => 'contact',
@@ -132,6 +147,20 @@ function majors_mindsets_paragraphs_info() {
       'description' => 'Mindsets information for Admission / Prospective Student page.',
       'locked' => '1',
     ),
+    'notable_course' => array(
+      'name' => 'Notable Course',
+      'bundle' => 'notable_course',
+      'label' => 'Notable Course',
+      'description' => '',
+      'locked' => '1',
+    ),
+    'point_of_pride' => array(
+      'name' => 'Point of Pride',
+      'bundle' => 'point_of_pride',
+      'label' => 'Point of Pride',
+      'description' => 'Includes icon, point of pride and supporting text',
+      'locked' => '1',
+    ),
     'section_featured' => array(
       'name' => 'Section Featured',
       'bundle' => 'section_featured',
@@ -144,6 +173,13 @@ function majors_mindsets_paragraphs_info() {
       'bundle' => 'section_secondary',
       'label' => 'Section Secondary',
       'description' => '',
+      'locked' => '1',
+    ),
+    'study_abroad' => array(
+      'name' => 'Study Abroad',
+      'bundle' => 'study_abroad',
+      'label' => 'Study Abroad',
+      'description' => 'Featured Study Abroad opportunities',
       'locked' => '1',
     ),
     'support_section' => array(
