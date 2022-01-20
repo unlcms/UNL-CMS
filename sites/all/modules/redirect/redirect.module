@@ -356,8 +356,14 @@ function redirect_init() {
   }
 
   // Get the request URI without the $base_path prefix.
-  if (isset($_REQUEST['q'])) {
-    $path = $_REQUEST['q'];
+  if (isset($_GET['q'])) {
+    $unsafe_path = $_GET['q'];
+    if (url_is_external($unsafe_path)) {
+      // We do not allow absolute URLs to be passed via $_GET, as this can be an attack vector.
+      return;
+    }
+    $destination = drupal_parse_url($unsafe_path);
+    $path = $destination['path'];
   }
   else {
     // This is a request using a clean URL. Extract the path from request_uri().
