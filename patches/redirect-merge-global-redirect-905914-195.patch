@@ -1,16 +1,10 @@
 diff --git a/redirect.admin.inc b/redirect.admin.inc
-index 176f105..a6610d5 100644
+old mode 100644
+new mode 100755
+index 900c098..fa0b44a
 --- a/redirect.admin.inc
 +++ b/redirect.admin.inc
-@@ -521,6 +521,7 @@ function redirect_edit_form_validate($form, &$form_state) {
- 
-   if (empty($form_state['values']['override'])) {
-     if ($existing = redirect_load_by_source($redirect->source, $redirect->language)) {
-+      $existing = $existing[1];
-       if ($redirect->rid != $existing->rid && $redirect->language == $existing->language) {
-         // The "from" path should not conflict with another redirect
-         $form_state['storage']['override_messages']['redirect-conflict'] = t('The base source path %source is already being redirected. Do you want to <a href="@edit-page">edit the existing redirect</a>?', array('%source' => $redirect->source, '@edit-page' => url('admin/config/search/redirect/edit/'. $existing->rid)));
-@@ -636,32 +637,46 @@ function redirect_settings_form($form, &$form_state) {
+@@ -640,40 +640,78 @@ function redirect_settings_form($form, &$form_state) {
    $form['globals'] = array(
      '#type' => 'fieldset',
      '#title' => t('Always enabled redirections'),
@@ -64,20 +58,40 @@ index 176f105..a6610d5 100644
    );
    $form['globals']['redirect_global_admin_paths'] = array(
      '#type' => 'checkbox',
-@@ -669,7 +684,11 @@ function redirect_settings_form($form, &$form_state) {
+     '#title' => t('Allow redirections on admin paths.'),
      '#default_value' => variable_get('redirect_global_admin_paths', 0),
    );
- 
--  $form['#submit'][] = 'redirect_settings_form_submit';
++  if (module_exists('locale')) {
++    $form['globals']['redirect_global_language_prefix'] = array(
++      '#type' => 'checkbox',
++      '#title' => t('Enforce Language Prefix'),
++      '#description' => t('Enforce language prefix in paths.'),
++      '#default_value' => variable_get('redirect_global_language_prefix', 0),
++    );
++
++    $form['globals']['redirect_global_language_prefix_paths'] = array(
++      '#type' => 'textarea',
++      '#title' => t('Language Prefix Exclude Paths'),
++      '#description' => t('Specify pages by using their paths. Enter one path per line. The '*' character is a wildcard. Example paths are blog for the blog page and blog/* for every personal blog. <front> is the front page.'),
++      '#default_value' => variable_get('redirect_global_language_prefix_paths', ''),
++      '#states' => array(
++        'visible' => array(
++          ':input[name="redirect_global_language_prefix"]' => array('checked' => TRUE),
++        ),
++      ),
++    );
++  }
++
 +  $form['submit'] = array(
 +    '#validate' => array('redirect_settings_form_validate'),
 +    '#submit' => array('redirect_settings_form_submit'),
 +  );
-+
+ 
+-  $form['#submit'][] = 'redirect_settings_form_submit';
    return system_settings_form($form);
  }
  
-@@ -682,6 +701,17 @@ function redirect_settings_form_submit($form, &$form_state) {
+@@ -686,6 +724,17 @@ function redirect_settings_form_submit($form, &$form_state) {
    redirect_page_cache_clear();
  }
  
@@ -96,19 +110,41 @@ index 176f105..a6610d5 100644
    $destination = drupal_get_destination();
  
 diff --git a/redirect.module b/redirect.module
-index c3c6329..18841a3 100644
+old mode 100644
+new mode 100755
+index f9f0530..9e0016f
 --- a/redirect.module
 +++ b/redirect.module
-@@ -244,21 +244,50 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
+@@ -204,6 +204,8 @@ function redirect_get_current_redirect() {
+  * Implements hook_url_inbound_alter().
+  */
+ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
++  global $language;
++
+   // If the current path global does not exist, then drupal_get_path_alias()
+   // will fail. This condition only happens when $path is the front page.
+   // @todo Remove when http://drupal.org/node/1329914 is fixed in core.
+@@ -226,23 +228,54 @@ function redirect_url_inbound_alter(&$path, $original_path, $path_language) {
      }
    }
  
 -  // Redirect to canonical URLs.
--  if ($path && variable_get('redirect_canonical', 1)) {
--    $alias = drupal_get_path_alias($path, $path_language);
--    if ($alias != $path && $alias != $original_path) {
+-  // Commented out per https://www.drupal.org/node/2048137.
+-  //if ($path && variable_get('redirect_canonical', 1)) {
+-    //$alias = drupal_get_path_alias($path, $path_language);
+-    //if ($alias != $path && $alias != $original_path) {
 -      //return redirect_redirect(array('redirect' => $alias, 'type' => 'global'));
--    }
+-    //}
+-
+-    // Redirect from default entity paths to the proper entity path.
+-    //if ($path_entity = redirect_load_entity_from_path($path)) {
+-    //  if ($uri = entity_uri($path_entity['entity_type'], $path_entity['entity'])) {
+-    //    if ($path != $uri['path']) {
+-    //      return redirect_redirect(array('redirect' => $uri['path'], 'redirect_options' => $uri['options'], 'type' => 'global'));
+-    //    }
+-    //  }
+-    //}
+-  //}
 +  // Check for empty path.
 +  if (empty($path)) {
 +    return;
@@ -128,30 +164,25 @@ index c3c6329..18841a3 100644
 +
 +  // Remove query string from request uri.
 +  $request_uri_parts = explode('?', request_uri());
-+  $request_path = $request_uri_parts[0];
++  $request_path = urldecode($request_uri_parts[0]);
 +
 +  // Redirect the front page to the root level.
 +  if ($is_front_page
-+      && variable_get('redirect_global_home', 0)
++      && variable_get('redirect_global_home', 1)
 +      && !variable_get('redirect_global_canonical_front', 0)
-+      && base_path() != $request_path) {
++      && base_path() != $request_path
++      && base_path() . $language->prefix != $request_path) {
 +    return redirect_redirect((object)array('redirect' => '', 'type' => 'global'));
 +  }
- 
--    // Redirect from default entity paths to the proper entity path.
--    //if ($path_entity = redirect_load_entity_from_path($path)) {
--    //  if ($uri = entity_uri($path_entity['entity_type'], $path_entity['entity'])) {
--    //    if ($path != $uri['path']) {
--    //      return redirect_redirect(array('redirect' => $uri['path'], 'redirect_options' => $uri['options'], 'type' => 'global'));
--    //    }
--    //  }
--    //}
++
 +  // Redirect to the canonical URL.
 +  $alias = drupal_get_path_alias($path, $path_language);
 +  if ((!$is_front_page && variable_get('redirect_global_canonical', 1)
 +        || $is_front_page && variable_get('redirect_global_canonical_front', 0))
 +      && $alias != $path
-+      && $alias != $original_path) {
++      && $alias != $original_path
++      && base_path() . $alias != $request_path
++      && base_path() . $language->prefix . '/' . $alias != $request_path) {
 +    return redirect_redirect((object)array('redirect' => $alias, 'type' => 'global'));
 +  }
 +
@@ -161,15 +192,12 @@ index c3c6329..18841a3 100644
 +    if ($path != $uri['path']) {
 +      return redirect_redirect((object)array('redirect' => $uri['path'], 'redirect_options' => $uri['options'], 'type' => 'global'));
 +    }
-   }
++  }
  }
  
-@@ -323,29 +352,55 @@ function redirect_init() {
- 
-   // Fetch the current redirect.
-   if ($redirect = redirect_get_current_redirect()) {
--    redirect_redirect($redirect);
-+    redirect_redirect((object) reset($redirect));
+ /**
+@@ -309,25 +342,59 @@ function redirect_init() {
+     redirect_redirect($redirect);
    }
  
 -  $redirect_global = FALSE;
@@ -213,9 +241,6 @@ index c3c6329..18841a3 100644
  
 -  //$request_uri = ltrim($request_uri, '/');
 -  //$parsed = parse_url($request_uri);
--
--  if ($redirect_global && $request_uri != $original_uri) {
--    redirect_redirect(array(/*'redirect' => $request_uri,*/ 'type' => 'global'));
 +  // Deslash (Remove trailing slashes from paths).
 +  $langcode = isset($options['language']->language) ? $options['language']->language : '';
 +  $alias = drupal_get_path_alias(current_path(), $langcode);
@@ -223,27 +248,27 @@ index c3c6329..18841a3 100644
 +      && substr($request_uri, -1) == '/'
 +      && $request_uri !== $alias) {
 +    redirect_redirect((object)array('redirect' => rtrim($request_uri, '/'), 'type' => 'global'));
-   }
++  }
 +  // Add slash (Add trailing slashes to paths).
 +  elseif (variable_get('redirect_global_add_slash', 0)
 +          && substr($request_uri, -1) !== '/'
 +          && !drupal_is_front_page()) {
 +    redirect_redirect((object)array('redirect' => $request_uri . '/', 'type' => 'global'));
 +  }
-+
+ 
+-  if ($redirect_global && $request_uri != $original_uri) {
+-    redirect_redirect(array(/*'redirect' => $request_uri,*/ 'type' => 'global'));
++  // Force language prefix.
++  if (variable_get('redirect_global_language_prefix', 0) && module_exists('locale')) {
++    require_once DRUPAL_ROOT . '/includes/language.inc';
++    list($language, $raw_path) = language_url_split_prefix($request_uri, language_list());
++    if (!$language && !drupal_match_path($raw_path, variable_get('redirect_global_language_prefix_paths', ''))) {
++      redirect_redirect((object)array('redirect' => $request_uri, 'type' => 'global'));
++    }
+   }
  }
  
- /**
-@@ -596,7 +651,7 @@ function redirect_load_by_source($source, $language = LANGUAGE_NONE, array $quer
-       $context = array('language' => $language, 'query' => $query);
-       drupal_alter('redirect_load_by_source', $redirects, $source, $context);
- 
--      return !empty($redirects) ? reset($redirects) : FALSE;
-+      return !empty($redirects) ? $redirects : FALSE;
-     }
-   }
- 
-@@ -711,7 +766,7 @@ function redirect_validate($redirect, $form, &$form_state) {
+@@ -698,7 +765,7 @@ function redirect_validate($redirect, $form, &$form_state) {
    }
  }
  
@@ -252,29 +277,30 @@ index c3c6329..18841a3 100644
    $defaults += array(
      'rid' => NULL,
      'type' => 'redirect',
-@@ -979,7 +1034,7 @@ function redirect_purge_inactive_redirects(array $types = array('redirect'), $in
-  *
-  * @ingroup redirect_api
-  */
--function redirect_redirect($redirect = NULL) {
-+function redirect_redirect(stdClass $redirect = NULL) {
-   // First check if we're in an infinite loop.
-   $session_id = session_id();
-   if (flood_is_allowed('redirection', 5, 15, $session_id ? $session_id : NULL)) {
-@@ -1031,6 +1086,12 @@ function redirect_redirect($redirect = NULL) {
+@@ -1005,7 +1072,21 @@ function redirect_redirect($redirect = NULL) {
   */
  function redirect_goto($redirect) {
    $redirect->redirect_options['absolute'] = TRUE;
+-  $url = url($redirect->redirect, $redirect->redirect_options);
 +  // Prevent a path like 'index.php?q=node/1' from redirecting to '?q=path-alias'
 +  // if canonical redirection is disabled. This will make url() treat 'node/1'
 +  // as if it is already an alias and prevent a drupal_get_path_alias() lookup.
 +  if (!variable_get('redirect_global_canonical', 0)) {
 +    $redirect->redirect_options['alias'] = TRUE;
 +  }
-   $url = url($redirect->redirect, $redirect->redirect_options);
++  if (module_exists('locale')) {
++    // Peel off language prefix if already there.
++    require_once DRUPAL_ROOT . '/includes/language.inc';
++    list($language, $raw_path) = language_url_split_prefix($redirect->redirect, language_list());
++    $url = ($language) ? url($raw_path, $redirect->redirect_options) : url($redirect->redirect, $redirect->redirect_options);
++  }
++  else {
++    $url = url($redirect->redirect, $redirect->redirect_options);
++  }
    drupal_add_http_header('Location', $url);
    drupal_add_http_header('Status', redirect_status_code_options($redirect->status_code));
-@@ -1313,8 +1374,12 @@ function redirect_variables() {
+ 
+@@ -1287,9 +1368,14 @@ function redirect_variables() {
      'redirect_page_cache' => 0,
      'redirect_purge_inactive' => 0,
      'redirect_global_home' => 1,
@@ -285,5 +311,7 @@ index c3c6329..18841a3 100644
 +    'redirect_global_deslash' => 1,
 +    'redirect_global_add_slash' => 0,
      'redirect_global_admin_paths' => 0,
++    'redirect_global_language_prefix' => 0,
    );
  }
+ 

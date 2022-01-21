@@ -189,7 +189,7 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
   *  redirect
 
      - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
-     - Patch #145 applied (along with interdiff addition from #242 https://www.drupal.org/project/redirect/issues/905914#comment-11985365)
+     - Patch #195 applied to rc-3 with added "Sanity check" to not redirect to external URLs.
 
   *  upload_replace.module
 

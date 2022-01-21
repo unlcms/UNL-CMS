@@ -658,78 +658,40 @@ function redirect_settings_form($form, &$form_state) {
   $form['globals'] = array(
     '#type' => 'fieldset',
     '#title' => t('Always enabled redirections'),
+    '#description' => t('(formerly Global Redirect features)'),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_home'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Redirect alternative front page URLs to the root directory.'),
+    '#title' => t('Redirect from paths like index.php and /node to the root directory.'),
     '#default_value' => variable_get('redirect_global_home', 1),
-    '#description' => t('Includes all aliases for the front page, %root, as well as %node if a default front page is not set.', array('%root' => '/index.php', '%node' => '/node')),
-  );
-  $form['globals']['redirect_global_index'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Remove index.php from all non-front page paths.'),
-    '#default_value' => variable_get('redirect_global_index', 0),
-    '#description' => t('Will remove index.php from paths such as %prepend and %append.', array('%prepend' => '/index.php?q=node/1', '%append' => '/page-alias/index.php')),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_clean'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect from non-clean URLs to clean URLs.'),
     '#default_value' => variable_get('redirect_global_clean', 1),
     '#disabled' => !variable_get('clean_url', 0),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_canonical'] = array(
     '#type' => 'checkbox',
     '#title' => t('Redirect from non-canonical URLs to the canonical URLs.'),
     '#default_value' => variable_get('redirect_global_canonical', 1),
   );
-  $form['globals']['redirect_global_canonical_front'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Redirect the front page to its canonical URL.'),
-    '#default_value' => variable_get('redirect_global_canonical_front', 0),
-    '#description' => t('Add a path to a request for the site root. For example, a request for %rootpath will redirect to %canonicalpath if the default front page is set to %defaultfrontpage.', array('%rootpath' => 'http://example.com/', '%canonicalpath' => 'http://example.com/node/1', '%defaultfrontpage' => 'node/1')),
-  );
   $form['globals']['redirect_global_deslash'] = array(
     '#type' => 'checkbox',
     '#title' => t('Remove trailing slashes from paths.'),
-    '#default_value' => variable_get('redirect_global_deslash', 1),
-  );
-  $form['globals']['redirect_global_add_slash'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Add trailing slashes to paths.'),
-    '#description' => t('For use with the Trailing Slash module instead of editing the .htaccess file.'),
-    '#default_value' => variable_get('redirect_global_add_slash', 0),
+    '#default_value' => variable_get('redirect_global_deslash', 0),
+    '#access' => FALSE,
   );
   $form['globals']['redirect_global_admin_paths'] = array(
     '#type' => 'checkbox',
     '#title' => t('Allow redirections on admin paths.'),
     '#default_value' => variable_get('redirect_global_admin_paths', 0),
   );
-  if (module_exists('locale')) {
-    $form['globals']['redirect_global_language_prefix'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Enforce Language Prefix'),
-      '#description' => t('Enforce language prefix in paths.'),
-      '#default_value' => variable_get('redirect_global_language_prefix', 0),
-    );
 
-    $form['globals']['redirect_global_language_prefix_paths'] = array(
-      '#type' => 'textarea',
-      '#title' => t('Language Prefix Exclude Paths'),
-      '#description' => t('Specify pages by using their paths. Enter one path per line. The '*' character is a wildcard. Example paths are blog for the blog page and blog/* for every personal blog. <front> is the front page.'),
-      '#default_value' => variable_get('redirect_global_language_prefix_paths', ''),
-      '#states' => array(
-        'visible' => array(
-          ':input[name="redirect_global_language_prefix"]' => array('checked' => TRUE),
-        ),
-      ),
-    );
-  }
-
-  $form['submit'] = array(
-    '#validate' => array('redirect_settings_form_validate'),
-    '#submit' => array('redirect_settings_form_submit'),
-  );
-
+  $form['#submit'][] = 'redirect_settings_form_submit';
   return system_settings_form($form);
 }
 
@@ -740,17 +702,6 @@ function redirect_settings_form($form, &$form_state) {
  */
 function redirect_settings_form_submit($form, &$form_state) {
   redirect_page_cache_clear();
-}
-
-/**
- * Form validator; makes sure conflicting settings aren't chosen.
- *
- * @see redirect_settings_form()
- */
-function redirect_settings_form_validate($form, &$form_state) {
-  if ($form_state['values']['redirect_global_deslash'] && $form_state['values']['redirect_global_add_slash']) {
-    form_set_error('info', t('You can not have both %deslash and %add_slash enabled.', array('%deslash' => rtrim($form['globals']['redirect_global_deslash']['#title'], '.'), '%add_slash' => rtrim($form['globals']['redirect_global_add_slash']['#title'], '.'))));
-  }
 }
 
 function redirect_404_list($form = NULL) {
