@@ -1429,6 +1429,46 @@ This should just be the URL to the mediahub file. Example: https://mediahub.unl.
     ),
   );
 
+  // Exported field_instance: 'node-major-n_major_res_aca_alt_title'.
+  $field_instances['node-major-n_major_res_aca_alt_title'] = array(
+    'bundle' => 'major',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => 'The title "Research and Academic Opportunities" will be displayed for this section, unless this title is filled in. Only change it if your major is highlighting different student opportunities.',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 41,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'n_major_res_aca_alt_title',
+    'label' => 'Research Academic Alt Title',
+    'required' => 0,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'size' => 60,
+      ),
+      'type' => 'text_textfield',
+      'weight' => 15,
+    ),
+  );
+
   // Exported field_instance: 'node-major-n_major_research_academic_link'.
   $field_instances['node-major-n_major_research_academic_link'] = array(
     'bundle' => 'major',
@@ -1479,7 +1519,7 @@ This should just be the URL to the mediahub file. Example: https://mediahub.unl.
       'module' => 'link',
       'settings' => array(),
       'type' => 'link_field',
-      'weight' => 14,
+      'weight' => 17,
     ),
   );
 
@@ -2139,7 +2179,7 @@ This should just be the URL to the mediahub file. Example: https://mediahub.unl.
       'module' => 'paragraphs',
       'settings' => array(),
       'type' => 'paragraphs_embed',
-      'weight' => 13,
+      'weight' => 16,
     ),
   );
 
@@ -3884,6 +3924,7 @@ Example: 402-472-1111');
   t('Notable Courses');
   t('Optional field for major specific information that may not fit anywhere else. All content should be contained within a dcf-bleed div. ');
   t('Point of Pride');
+  t('Research Academic Alt Title');
   t('Research Academic Link');
   t('Research Academic Opportunities');
   t('Research Grad Prep');
@@ -3921,6 +3962,7 @@ Example: 402-472-1111');
 <b>check</b> - generic positive to emphasize<br>
 <b>support</b> - faculty/student ratio, other support programs<br>
 <b>column</b> - generic program positive to emphasize<br>');
+  t('The title "Research and Academic Opportunities" will be displayed for this section, unless this title is filled in. Only change it if your major is highlighting different student opportunities.');
   t('These links will appear in footer along with "Apply" link.');
   t('This image should be 16x9 aspect ratio and optimized for the web, no larger than 1600 pixels wide.');
   t('This image should be 16x9 aspect ratio and optimized for the web, no larger than 2400 pixels wide.');

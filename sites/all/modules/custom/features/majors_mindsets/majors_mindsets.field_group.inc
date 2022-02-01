@@ -242,6 +242,7 @@ function majors_mindsets_field_group_info() {
     'children' => array(
       0 => 's_p_supsec_secondary',
       1 => 'n_major_research_academic_link',
+      2 => 'n_major_res_aca_alt_title',
     ),
     'format_type' => 'html-element',
     'format_settings' => array(
@@ -278,7 +279,6 @@ function majors_mindsets_field_group_info() {
       2 => 'n_major_student_org_title_2',
       3 => 'n_major_student_org_text_1',
       4 => 'n_major_student_org_text_2',
-      5 => '_add_new_field',
     ),
     'format_type' => 'fieldset',
     'format_settings' => array(
