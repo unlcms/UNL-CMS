@@ -672,6 +672,20 @@ function unl_menu_alter(&$items) {
     $items['admin/structure/types/manage/%node_type']['access callback'] = '_unl_content_type_access';
     $items['admin/structure/types/manage/%node_type']['access arguments'] = array(4);
   }
+
+  // Disable the ability of non-admin to set the affiliate theme to default.
+  $items['admin/appearance/default']['page callback'] = '_unl_system_theme_default';
+}
+
+/**
+ * Custom page callback.
+ */
+function _unl_system_theme_default() {
+  if (!unl_user_is_administrator() && isset($_REQUEST['theme']) && $_REQUEST['theme'] == 'unl_five_affiliate') {
+    return MENU_ACCESS_DENIED;
+  }
+  require_once DRUPAL_ROOT . '/modules/system/system.admin.inc';
+  system_theme_default();
 }
 
 /**
@@ -843,24 +857,40 @@ function unl_form_node_admin_content_alter(&$form, &$form_state, $form_id) {
  *   at setting $form['color']['#access'].
  */
 function unl_form_system_theme_settings_alter(&$form, &$form_state) {
-  global $user;
+  if (isset($form['advanced_settings']['unl_affiliate'])) {
+    global $user;
 
-  $form['advanced_settings']['unl_affiliate']['#access'] = unl_user_is_administrator();
+    $form['advanced_settings']['unl_affiliate']['#access'] = unl_user_is_administrator();
 
-  $is_affiliate = $form['advanced_settings']['unl_affiliate']['#default_value'];
+    $is_affiliate = $form['advanced_settings']['unl_affiliate']['#default_value'];
 
-  $form['color']['#access'] = $is_affiliate;
-  $form['logo']['#access'] = $is_affiliate;
-  $form['favicon']['#access'] = $is_affiliate;
+    $form['color']['#access'] = $is_affiliate;
+    $form['logo']['#access'] = $is_affiliate;
+    $form['favicon']['#access'] = $is_affiliate;
 
-  // These are settings manipulations that we want for UNL but don't necessarily belong in the theme
-  if (!$is_affiliate && !unl_user_is_administrator()) {
-    $form['theme_settings']['toggle_logo']['#access'] = false;
-    $form['theme_settings']['toggle_favicon']['#access'] = false;
-    $form['theme_settings']['toggle_name']['#access'] = false;
-    $form['theme_settings']['toggle_comment_user_verification']['#access'] = false;
-    $form['theme_settings']['toggle_main_menu']['#access'] = false;
-    $form['theme_settings']['toggle_secondary_menu']['#access'] = false;
+    // These are settings manipulations that we want for UNL but don't necessarily belong in the theme
+    if (!$is_affiliate && !unl_user_is_administrator()) {
+      $form['theme_settings']['toggle_logo']['#access'] = FALSE;
+      $form['theme_settings']['toggle_favicon']['#access'] = FALSE;
+      $form['theme_settings']['toggle_name']['#access'] = FALSE;
+      $form['theme_settings']['toggle_comment_user_verification']['#access'] = FALSE;
+      $form['theme_settings']['toggle_main_menu']['#access'] = FALSE;
+      $form['theme_settings']['toggle_secondary_menu']['#access'] = FALSE;
+    }
+  }
+  elseif (!unl_user_is_administrator()) {
+    $form['theme_settings']['toggle_logo']['#access'] = FALSE;
+    $form['theme_settings']['toggle_favicon']['#access'] = FALSE;
+    $form['theme_settings']['toggle_name']['#access'] = FALSE;
+    $form['theme_settings']['toggle_comment_user_verification']['#access'] = FALSE;
+    $form['theme_settings']['toggle_main_menu']['#access'] = FALSE;
+    $form['theme_settings']['toggle_secondary_menu']['#access'] = FALSE;
+    $form['logo']['#access'] = FALSE;
+
+    if (isset($form['affiliate'])) {
+      $form['theme_settings']['toggle_favicon']['#access'] = TRUE;
+      $form['favicon']['#access'] = TRUE;
+    }
   }
 }
 
@@ -1142,6 +1172,27 @@ function unl_system_settings_form_submit($form, &$form_state) {
   }
   else {
     variable_del('unl_primary_base_url');
+  }
+}
+
+/**
+ * Implements hook_system_themes_page_alter().
+ */
+function unl_system_themes_page_alter(&$theme_groups) {
+  // Don't show the "Enable" and "Set Default" links for the
+  // affiliate theme for non-administrators.
+  foreach ($theme_groups as $state => &$group) {
+    foreach ($theme_groups[$state] as &$theme) {
+      if ($theme->name == 'unl_five_affiliate') {
+        if (!unl_user_is_administrator()) {
+          foreach ($theme->operations as $key => $op) {
+            if ($op['title'] !== 'Settings') {
+              unset($theme->operations[$key]);
+            }
+          }
+        }
+      }
+    }
   }
 }
 
