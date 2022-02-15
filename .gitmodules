@@ -58,3 +58,6 @@
 [submodule "sites/all/modules/unl_hero"]
 	path = sites/all/modules/unl_hero
 	url = git@github.com:unlcms/unl_hero.git
+[submodule "sites/all/themes/unl_five_affiliate"]
+	path = sites/all/themes/unl_five_affiliate
+	url = git@github.com:unlcms/unl_five_affiliate.git
