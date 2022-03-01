@@ -41,6 +41,11 @@ Drupal.behaviors.unl = {
           //Skip cbox elements (changes to an absolute URL breaks cbox)
           return;
       }
+      
+      if ($(this).hasClass('dcf-tab')) {
+        //  Skip dcf-tab elements. (Changes to an absolute URL breaks dcf-tabs in Firefox.)
+        return;
+      }
 
       var newHash = '#'+this.href.split('#')[1];
       
