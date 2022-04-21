@@ -1,17 +1,17 @@
 <?php
 
 function unl_load_zend_framework() {
-  static $isLoaded = FALSE;
-
-  if ($isLoaded) {
-    return;
-  }
-
-  set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../../libraries');
-  require_once 'Zend/Loader/Autoloader.php';
-  $autoloader = Zend_Loader_Autoloader::getInstance();
-  $autoloader->registerNamespace('Unl_');
-  $isLoaded = TRUE;
+//  static $isLoaded = FALSE;
+//
+//  if ($isLoaded) {
+//    return;
+//  }
+//
+//  set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__) . '/../../../libraries');
+//  require_once 'Zend/Loader/Autoloader.php';
+//  $autoloader = Zend_Loader_Autoloader::getInstance();
+//  $autoloader->registerNamespace('Unl_');
+//  $isLoaded = TRUE;
 }
 
 /**
@@ -20,9 +20,9 @@ function unl_load_zend_framework() {
  */
 function unl_get_shared_db_settings() {
   if (file_exists(DRUPAL_ROOT . '/sites/all/settings.php')) {
-    require DRUPAL_ROOT . '/sites/all/settings.php';
+    @require DRUPAL_ROOT . '/sites/all/settings.php';
   }
-  require DRUPAL_ROOT . '/sites/default/settings.php';
+  @require DRUPAL_ROOT . '/sites/default/settings.php';
 
   return $databases;
 }

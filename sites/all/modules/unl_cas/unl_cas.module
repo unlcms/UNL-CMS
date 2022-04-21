@@ -1,7 +1,8 @@
 <?php
 
 require_once drupal_get_path('module', 'unl') . '/includes/common.php';
-require_once __DIR__ . '/unl_cas_smart_cache.php';
+require_once drupal_get_path('module', 'unl_cas') . '/includes/Ldap.php';
+
 
 /**
  * Implements hook_enable().
@@ -14,92 +15,47 @@ function unl_cas_enable() {
  * Implements hook_init().
  */
 function unl_cas_init() {
-  // In read only mode, we don't process login  requests.
+  // In read only mode, we don't process login requests.
   if (_unl_cas_is_read_only()) {
     $GLOBALS['user'] = drupal_anonymous_user();
     return;
   }
 
-  // If no one is claiming to be logged in while no one is actually logged in, we don't need CAS.
-  if (!array_key_exists('unl_sso', $_COOKIE) && user_is_anonymous()) {
-    return;
-  }
-
   // Don't do any logins on the my.unl.edu page.
-  if (request_path() == 'myunl') {
+  if (request_path() == 'myunl' ||
+      request_path() == 'cas' ||
+      request_path() == 'caslogout' ||
+      request_path() == 'user/logout'
+    ) {
     return;
   }
 
-  // The current request is to the validation URL, we don't want to redirect while a login is pending.
-  if (request_path() == 'user/cas') {
-    return;
+
+
+  // If unl_sso cookie is set, try to log the person in.
+  if (array_key_exists('unl_sso', $_COOKIE) && user_is_anonymous()) {
+    cas_login_check(FALSE);
   }
 
-  // If the user is logged in with shib_auth, don't do CAS.
-  if (!user_is_anonymous() && isset($_SESSION['shib_auth_username'])) {
-    return;
-  }
-
-  // If the user's CAS service ticket is expired, and their drupal session hasn't,
-  // redirect their next GET request to CAS to keep their CAS session active.
-  // However, if their drupal session expired (and they're now anonymous), redirect them regardless.
-  $cas = unl_cas_get_adapter();
-  if ($cas->isTicketExpired() && ($_SERVER['REQUEST_METHOD'] == 'GET' || user_is_anonymous())) {
-    $cas->setGateway();
-    unset($_GET['destination']);
-    drupal_goto($cas->getLoginUrl());
-  }
 }
 
 /**
- * Sets up an instance of Unl_Cas
- *
- * @return Unl_Cas
+ * Implements hook_cas_user_alter().
  */
-function unl_cas_get_adapter() {
-  unl_load_zend_framework();
+function unl_cas_cas_user_alter(&$cas_user) {
+  $cas_name = $cas_user['name'];
 
-  // Start the session because if drupal doesn't then Zend_Session will.
-  drupal_session_start();
-  static $adapter;
-  if (!$adapter) {
-    if (variable_get('https', FALSE)) {
-      $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination(), 'https' => TRUE));
-    } else {
-      $url = url('user/cas', array('absolute' => TRUE, 'query' => drupal_get_destination()));
-    }
-    $adapter = new Unl_Cas($url, 'https://shib.unl.edu/idp/profile/cas');
+  if (cas_user_load_by_name($cas_name) === FALSE) {
+    // No existing user could be found by CAS username.
 
-    $frontendOptions = array(
-      'lifetime' => 60*60,
-      'automatic_serialization' => TRUE,
-      'automatic_cleaning_factor' => 0,
-    );
-    if (is_array($GLOBALS['conf']['memcache_servers'])) {
-      $servers = array();
-      foreach (array_keys($GLOBALS['conf']['memcache_servers']) as $server) {
-        $server = parse_url($server);
-        $servers[] = $server;
-      }
-      $backendOptions = array(
-        'servers' => $servers,
-      );
-      $ticketCache = Zend_Cache::factory('Core', 'Libmemcached', $frontendOptions, $backendOptions);
-    } else {
-      $cache_dir = session_save_path();
-      if (!$cache_dir) {
-        $cache_dir = sys_get_temp_dir();
-      }
-      $backendOptions = array(
-        'cache_dir' => $cache_dir,
-        'file_locking' => FALSE
-      );
-      $ticketCache = Zend_Cache::factory('Core', 'File', $frontendOptions, $backendOptions);
+    $account = user_load_by_name($cas_name);
+    if ($account && $account->uid) {
+      // We found an existing user with the same username, add a CAS username.
+      cas_user_operations_create_username(array($account->uid));
     }
-    $adapter->setTicketCache($ticketCache);
   }
-  return $adapter;
 }
+
 
 /**
  * Implements hook_menu_site_status_alter().
@@ -115,12 +71,6 @@ function unl_cas_menu_site_status_alter(&$menu_site_status, $path) {
  * Implements hook_menu().
  */
 function unl_cas_menu() {
-  $items['user/cas'] = array(
-    'title'           => 'UNL CAS Validation',
-    'page callback'   => 'unl_cas_validate_ticket',
-    'access callback' => TRUE,
-  );
-
   $items['admin/people/import'] = array(
     'title'            => 'Import User from UNL Directory',
     'description'      => 'Import a user from the UNL Directory',
@@ -155,82 +105,8 @@ function unl_cas_menu_alter(&$items) {
 
 }
 
-/**
- * Validates CAS ticket
- */
-function unl_cas_validate_ticket() {
-  $cas = unl_cas_get_adapter();
 
-  if (array_key_exists('logoutRequest', $_POST)) {
-    $cas->handleLogoutRequest($_POST['logoutRequest']);
-  }
 
-  $auth = $cas->validateTicket();
-
-  if ($auth) {
-    $username = $cas->getUsername();
-    
-    //Do logic for checking if we need to force varnish for this user...
-    //This will set a cookie and redirect early if the user does not have an account... and won't make an account
-    //unl_cas_smart_cache_run_for_user($username);
-    
-    //Now load LDAP
-    $user = unl_cas_import_user($username);
-    if (!$user) {
-      drupal_set_message('An error occured importing the user.', 'error');
-    }
-
-    if ($GLOBALS['user']->uid != $user->uid) {
-      $GLOBALS['user'] = $user;
-      user_login_finalize();
-    }
-  }
-  else {
-    if (!user_is_anonymous()) {
-      $GLOBALS['user'] = drupal_anonymous_user();
-      user_login_finalize();
-    }
-    setcookie('unl_sso', 'fake', time() - 60 * 60 * 24, '/', '.unl.edu');
-  }
-
-  $destination = drupal_get_destination();
-  unset($_GET['destination']);
-  $url_parts = explode('?', $destination['destination']);
-  $options = array();
-  if (isset($url_parts[1])) {
-    parse_str($url_parts[1], $options);
-  }
-  drupal_goto($url_parts[0], array('query' => $options));
-}
-
-/**
- * Form pre-render handler used to redirect to a different page instead of rending the form.
- * @param $element
- */
-function unl_cas_redirect($element)
-{
-  drupal_goto($element['#unl_cas_destination']);
-  return $element;
-}
-
-/**
- * Implements form validation for the user_login form and attempts a UNL LDAP login.
- * @param $form
- * @param $form_state
- */
-function unl_cas_login_authenticate($form, &$form_state) {
-  $username = trim($form_state['values']['name']);
-  $password = trim($form_state['values']['pass']);
-
-  try {
-    $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
-    $ldap->bind('uid=' . $username . ',ou=people,dc=unl,dc=edu', $password);
-    $account = unl_cas_import_user($username);
-    $form_state['uid'] = $account->uid;
-  } catch (Exception $e) {
-    // Do nothing.  This is just a good faith effort.
-  }
-}
 
 /**
  * Implements hook_form_alter().
@@ -241,23 +117,7 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     echo 'Login has been temporarily disabled due to maintenance. Please try again later. Visit <a href="https://status.nebraska.edu/">status.nebraska.edu</a> for more information (if available).';
     exit;
   }
-  if ($form_id == 'user_login') {
-    $defaultValidatorIndex = array_search('user_login_final_validate', $form['#validate']);
-    if ($defaultValidatorIndex !== FALSE) {
-      // Insert the LDAP validator just before the "user_login_final_validate" validator
-      $form['#validate'] = array_merge(
-        array_slice($form['#validate'], 0, $defaultValidatorIndex),
-        array('unl_cas_login_authenticate'),
-        array_slice($form['#validate'], $defaultValidatorIndex)
-      );
-    } else {
-      $form['#validate'][] = 'unl_cas_login_authenticate';
-    }
-    $cas = unl_cas_get_adapter();
-    unset($_GET['destination']);
-    $form['#unl_cas_destination'] = $cas->getLoginUrl();
-    $form['#pre_render'][] = 'unl_cas_redirect';
-  }
+
 
   if ($form_id == 'user_profile_form') {
     if (isset($form['account']['name'])) {
@@ -276,48 +136,13 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     if ($validate_password_index = array_search('user_validate_current_pass', $form['#validate']) !== FALSE) {
       unset($form['#validate'][$validate_password_index]);
     }
-
-    $form['#validate'][] = 'unl_cas_user_profile_form_validate';
   }
 
-  if ($form_id == 'user_pass') {
-    $form['message'] = array(
-      '#prefix' => '<p>',
-      '#markup' => t('To reset your password, go somewhere else!'),
-      '#suffix' => '</p>'
-    );
-
-    unset($form['name']);
-    unset($form['mail']);
-    unset($form['actions']);
-    $form['#validate'] = array();
-    $form['#submit'] = array();
-
-    $form['#unl_cas_destination'] = 'https://id.unl.edu/user/userForgotPassword.jsp';
-    $form['#pre_render'][] = 'unl_cas_redirect';
-  }
 }
 
 /**
- * Implements hook_form_FORM_ID_alter().
- * Make sure there's no funny business with somebody trying to change a password when we're using CAS.
+ * Get user data from LDAP (or directory).
  */
-function unl_cas_user_profile_form_validate(&$form, &$form_state, $form_id = '') {
-  if ($form_state['values']['pass']) {
-    form_set_error('current_pass', t('Password changes are not allowed when CAS is enabled!'));
-  }
-}
-
-/**
- * Implements hook_user_logout().
- */
-function unl_cas_user_logout($account) {
-  session_destroy();
-  $cas = unl_cas_get_adapter();
-  unset($_GET['destination']);
-  drupal_goto($cas->getLogoutUrl(url('<front>', array('absolute' => TRUE))));
-}
-
 function unl_cas_get_user_record($username) {
   // First, try getting the info from LDAP.
   try {
@@ -333,16 +158,13 @@ function unl_cas_get_user_record($username) {
   }
 
   // Next, if LDAP didn't work, try PeopleFinder service...
-  $json = unl_url_get_contents('https://directory.unl.edu/service.php?format=json&uid=' . $username);
-  $json_decode = json_decode($json, TRUE);
-  if (!$result && $json) {
-    $result = $json_decode;
+  if (!$result) {
+    $json = unl_url_get_contents('http://directory.unl.edu/service.php?format=json&uid=' . $username);
+    if ($json) {
+      $result = json_decode($json, TRUE);
+    }
   }
-  // ...or, just use it to get NUID.
-  else {
-    $result['unluncwid'][0] = $json_decode['unluncwid'][0];
-  }
-  
+
   return $result;
 }
 
@@ -351,7 +173,6 @@ function unl_cas_get_user_record($username) {
  */
 function unl_cas_import_user($username) {
   $username = trim($username);
-  unl_load_zend_framework();
   $account = user_load_by_name($username);
 
   if (!$account) {
@@ -386,13 +207,13 @@ function unl_cas_import_user($username) {
     // If either LDAP or Directory found data, use it.
     if ($result) {
       $result = array_change_key_case($result, CASE_LOWER);
-      $userData['mail'] = $result['unlmail'][0];
+      $userData['mail'] = $result['mail'][0];
       $userData['data']['unl'] = array(
-        'NUID' => $result['unluncwid'][0],
-        'fullName' => $result['displayname'][0],
-        'affiliations' => $result['edupersonaffiliation'],
-        'primaryAffiliation' => $result['edupersonprimaryaffiliation'][0],
-        'department' => (isset($result['department']) ? $result['department'][0] : ''),
+        'NUID' => array_key_exists('employeeid', $result) ? $result['employeeid'][0] : $result['unluncwid'][0],
+        'fullName' => array_key_exists('displayname', $result) ? $result['displayname'][0] : $result['displayName'][0],
+        'affiliations' => array_key_exists('edupersonaffiliation', $result) ? $result['edupersonaffiliation'] : $result['eduPersonAffiliation'],
+        'primaryAffiliation' => array_key_exists('edupersonprimaryaffiliation', $result) ? $result['edupersonprimaryaffiliation'] : $result['eduPersonPrimaryAffiliation'],
+        'department' => (isset($result['departmentnumber']) ? $result['departmentnumber'][0] : (isset($result['unlHROrgUnitNumber']) ? $result['unlHROrgUnitNumber'][0] : '')),
         'lastDataFetch' => time(),
       );
     }
@@ -408,7 +229,7 @@ function unl_cas_import_user($username) {
  * to be administrators.  Also, automatically make users who are administrators
  * on the default site an administrator on non-default sites.
  */
-function unl_cas_user_presave(&$edit, $account, $category) {
+function unl_cas_user_presave(&$edit, $account, $category = NULL) {
   if (conf_path() == 'sites/default') {
     return;
   }

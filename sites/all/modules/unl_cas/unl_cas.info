@@ -1,9 +1,10 @@
 name = UNL CAS
-description = Enables CAS authentication/registration of users .
+description = UNL customizations for use with the CAS module.
 package = UNL
+dependencies[] = cas
 dependencies[] = unl
 core = 7.x
-version = "7.x-1.x"
+version = "7.x-2.x"
 configure = admin/config/people/unl_cas
 
 files[] = unl_cas.install
