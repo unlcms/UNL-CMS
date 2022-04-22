@@ -21,22 +21,23 @@ function unl_cas_init() {
     return;
   }
 
-  // Don't do any logins on the my.unl.edu page.
-  if (request_path() == 'myunl' ||
-      request_path() == 'cas' ||
+  // Don't force login on the my.unl.edu page.
+  if (request_path() == 'myunl') {
+    return;
+  }
+
+  // Don't try anything on cas paths.
+  if (request_path() == 'cas' ||
       request_path() == 'caslogout' ||
       request_path() == 'user/logout'
     ) {
     return;
   }
 
-
-
   // If unl_sso cookie is set, try to log the person in.
   if (array_key_exists('unl_sso', $_COOKIE) && user_is_anonymous()) {
     cas_login_check(FALSE);
   }
-
 }
 
 /**
