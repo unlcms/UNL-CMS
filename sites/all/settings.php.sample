@@ -61,3 +61,13 @@ $conf['reverse_proxy_addresses'] = array('127.0.0.1');
 // Honeypot settings to force on all sites.
 $conf['honeypot_form_webforms'] = TRUE;
 $conf['honeypot_log'] = TRUE;
+
+// CAS module settings.
+$conf['cas_version'] = '2.0';
+$conf['cas_server'] = 'https://shib.unl.edu/';
+$conf['cas_port'] = '443';
+$conf['cas_uri'] = '/idp/profile/cas';
+$conf['cas_user_register'] = 1;
+$conf['cas_login_form'] = 3;
+$conf['cas_domain'] = 'unl.edu';
+$conf['cas_hide_password'] = 1;

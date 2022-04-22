@@ -1,4 +1,5 @@
 <?php
+
 /**
  * LDAP Class
  *
@@ -10,16 +11,6 @@
  * @link       http://nmc.unl.edu/
  * @since      File available since Release 0.0.1
 */
-
-/**
- * LDAP Class
- *
- * @copyright  2006 New Media Center - University of Nebraska Lincoln
- * @license    http://www.gnu.org/gpl.txt GPL
- * @version    Release: 0.0.1
- * @link       http://nmc.unl.edu/
- * @since      Class available since Release 0.0.1
- */
 
 class Unl_Ldap {
 
@@ -135,4 +126,3 @@ class Unl_Ldap {
     }
 
 }
-
