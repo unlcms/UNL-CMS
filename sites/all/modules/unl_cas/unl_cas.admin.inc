@@ -30,8 +30,6 @@ function unl_cas_user_import($form, &$form_state) {
     $search = $form_state['values']['name'];
     // TODO Use directory for now, use LDAP query once this app is granted access
     try {
-      //unl_load_zend_framework();
-
       $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
       $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
 
@@ -63,7 +61,7 @@ function unl_cas_user_import($form, &$form_state) {
       }
     }
 
-    $ldap = new Unl_Ldap('ldap://unl.edu/');
+    $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
     foreach ($results as $result) {
       if (!$result['uid']) {
         continue;

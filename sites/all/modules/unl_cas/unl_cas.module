@@ -3,7 +3,6 @@
 require_once drupal_get_path('module', 'unl') . '/includes/common.php';
 require_once drupal_get_path('module', 'unl_cas') . '/includes/Ldap.php';
 
-
 /**
  * Implements hook_enable().
  */
@@ -57,15 +56,14 @@ function unl_cas_cas_user_alter(&$cas_user) {
   }
 }
 
-
 /**
  * Implements hook_menu_site_status_alter().
  */
 function unl_cas_menu_site_status_alter(&$menu_site_status, $path) {
-    // Allow access to user/cas even if site is in offline mode.
-    if ($menu_site_status == MENU_SITE_OFFLINE && user_is_anonymous() && $path == 'user/cas') {
-        $menu_site_status = MENU_SITE_ONLINE;
-    }
+  // Allow access to user/cas even if site is in offline mode.
+  if ($menu_site_status == MENU_SITE_OFFLINE && user_is_anonymous() && $path == 'user/cas') {
+    $menu_site_status = MENU_SITE_ONLINE;
+  }
 }
 
 /**
@@ -104,10 +102,10 @@ function unl_cas_menu_alter(&$items) {
   $items['admin/people/create']['title'] .= ' manually';
   $items['admin/people/create']['access arguments'] = array('administer permissions');
 
+  // Override user_logout() with the cas module's logout function.
+  // See https://www.drupal.org/project/cas/issues/1018904#comment-4273170
+  $items['user/logout']['page callback'] = 'cas_logout';
 }
-
-
-
 
 /**
  * Implements hook_form_alter().
@@ -118,7 +116,6 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     echo 'Login has been temporarily disabled due to maintenance. Please try again later. Visit <a href="https://status.nebraska.edu/">status.nebraska.edu</a> for more information (if available).';
     exit;
   }
-
 
   if ($form_id == 'user_profile_form') {
     if (isset($form['account']['name'])) {
@@ -138,7 +135,6 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
       unset($form['#validate'][$validate_password_index]);
     }
   }
-
 }
 
 /**
