@@ -15,7 +15,6 @@ function unl_cas_user_import($form, &$form_state) {
     '#type' => 'textfield',
     '#title' => 'Search String',
     '#description' => 'The name or username of the person to search for.',
-#    '#required' => TRUE,
   );
 
   $form['root']['submit'] = array(
@@ -41,8 +40,9 @@ function unl_cas_user_import($form, &$form_state) {
         foreach ($searchFields as $searchField) {
           $filter .= '(' . $searchField . '=*' . $searchTerm . '*)';
         }
-        $filter .= '))';
+        $filter .= ')';
       }
+      $filter .= ')';
 
       // Convert the uid to a string to match with peoplefinder results.
       $results = $ldap->search('ou=people,dc=unl,dc=edu', $filter);
@@ -61,7 +61,6 @@ function unl_cas_user_import($form, &$form_state) {
       }
     }
 
-    $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
     foreach ($results as $result) {
       if (!$result['uid']) {
         continue;
@@ -87,7 +86,6 @@ function unl_cas_user_import($form, &$form_state) {
     $form['root']['account']['username'] = array(
       '#type' => 'radios',
       '#title' => sizeof($matches).' Records Found',
-#      '#required' => TRUE,
       '#options' => $matches,
     );
 
@@ -124,7 +122,6 @@ function unl_cas_user_import_validate_add($form, &$form_state) {
 }
 
 function unl_cas_user_import_submit($form, &$form_state) {
-
   $user = unl_cas_import_user($form_state['values']['username']);
 
   if ($user) {
@@ -179,7 +176,6 @@ function unl_cas_config($form, &$form_state) {
     '#required' => TRUE,
     '#element_validate' => array('element_validate_number'),
   );
-
 
   $form['submit'] = array(
     '#type' => 'submit',
