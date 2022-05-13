@@ -260,6 +260,11 @@ function unl_cas_user_presave(&$edit, $account, $category = NULL) {
  * the role.
  */
 function unl_cas_user_login(&$edit, $account) {
+  $user = unl_cas_import_user($account->name);
+  if (!$user) {
+    drupal_set_message('An error occurred importing UNL data attributes for the user.', 'error');
+  }
+
   if (conf_path() == 'sites/default') {
     return;
   }
