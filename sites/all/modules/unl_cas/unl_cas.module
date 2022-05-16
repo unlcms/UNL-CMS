@@ -105,6 +105,10 @@ function unl_cas_menu_alter(&$items) {
   // Override user_logout() with the cas module's logout function.
   // See https://www.drupal.org/project/cas/issues/1018904#comment-4273170
   $items['user/logout']['page callback'] = 'cas_logout';
+
+  // Limit access to the cas module's username add & config pages to administrators.
+  $items['user/%user/cas']['access callback'] = 'unl_user_is_administrator';
+  $items['admin/people/cas/create']['access callback'] = 'unl_user_is_administrator';
 }
 
 /**
@@ -134,6 +138,10 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     if ($validate_password_index = array_search('user_validate_current_pass', $form['#validate']) !== FALSE) {
       unset($form['#validate'][$validate_password_index]);
     }
+
+    // Disable the CAS username edit field for non-administrators.
+    $form['account']['cas_name']['#disabled'] = !unl_user_is_administrator();
+    unset($form['account']['cas_name']['#description']);
   }
 }
 
