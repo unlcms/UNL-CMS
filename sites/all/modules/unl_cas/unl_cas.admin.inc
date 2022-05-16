@@ -15,7 +15,6 @@ function unl_cas_user_import($form, &$form_state) {
     '#type' => 'textfield',
     '#title' => 'Search String',
     '#description' => 'The name or username of the person to search for.',
-#    '#required' => TRUE,
   );
 
   $form['root']['submit'] = array(
@@ -32,7 +31,7 @@ function unl_cas_user_import($form, &$form_state) {
     try {
       $ldap = new Unl_Ldap(unl_cas_get_setting('ldap_uri'));
       $ldap->bind(unl_cas_get_setting('ldap_dn'), unl_cas_get_setting('ldap_password'));
-      
+
       $searchFields = array('sAMAccountName', 'mail', 'unlMail', 'cn', 'givenName', 'sn', 'eduPersonNickname');
       $filter = '(&';
       foreach (preg_split('/\s+/', $search) as $searchTerm) {
@@ -41,15 +40,17 @@ function unl_cas_user_import($form, &$form_state) {
         foreach ($searchFields as $searchField) {
           $filter .= '(' . $searchField . '=*' . $searchTerm . '*)';
         }
-        $filter .= '))';
+        $filter .= ')';
       }
-      
+      $filter .= ')';
+
       // Convert the uid to a string to match with peoplefinder results.
       $results = $ldap->search('ou=people,dc=unl,dc=edu', $filter);
       foreach ($results as $key => $result) {
         $results[$key]['uid'] = $result['samaccountname'][0];
       }
-    } catch (Exception $e) {
+    }
+    catch (Exception $e) {
       $results = json_decode(file_get_contents('https://directory.unl.edu/service.php?q='.urlencode($search).'&format=json&method=getLikeMatches'), TRUE);
 
       // Convert each key to lowercase to mimic the LDAP results.
@@ -59,9 +60,7 @@ function unl_cas_user_import($form, &$form_state) {
         }
       }
     }
-    
-    
-    $ldap = new Unl_Ldap('ldap://unl.edu/');
+
     foreach ($results as $result) {
       if (!$result['uid']) {
         continue;
@@ -87,7 +86,6 @@ function unl_cas_user_import($form, &$form_state) {
     $form['root']['account']['username'] = array(
       '#type' => 'radios',
       '#title' => sizeof($matches).' Records Found',
-#      '#required' => TRUE,
       '#options' => $matches,
     );
 
@@ -124,7 +122,6 @@ function unl_cas_user_import_validate_add($form, &$form_state) {
 }
 
 function unl_cas_user_import_submit($form, &$form_state) {
-
   $user = unl_cas_import_user($form_state['values']['username']);
 
   if ($user) {
@@ -180,13 +177,6 @@ function unl_cas_config($form, &$form_state) {
     '#element_validate' => array('element_validate_number'),
   );
 
-  $form['ldap']['disable_smart_cache'] = array(
-    '#title' => 'Do not use CAS smart cache',
-    '#description' => 'Default to standard Drupal behavior of bypassing varnish for authenticated users.',
-    '#type' => 'checkbox',
-    '#default_value' => (unl_cas_get_setting('disable_smart_cache') === 'disable' ? 1 : 0),
-  );
-
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => 'Update',
@@ -200,11 +190,4 @@ function unl_cas_config_submit($form, &$form_state) {
   unl_cas_set_setting('ldap_dn', $form_state['values']['ldap']['dn']);
   unl_cas_set_setting('ldap_password', $form_state['values']['ldap']['password']);
   unl_cas_set_setting('ldap_seconds', $form_state['values']['ldap']['seconds']);
-  
-  if ($form_state['values']['ldap']['disable_smart_cache']) {
-    unl_cas_set_setting('disable_smart_cache', 'disable');
-  }
-  else {
-    unl_cas_set_setting('disable_smart_cache', 'enable');
-  }
 }
