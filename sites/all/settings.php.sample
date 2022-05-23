@@ -67,6 +67,7 @@ $conf['cas_version'] = '2.0';
 $conf['cas_server'] = 'shib.unl.edu';
 $conf['cas_port'] = '443';
 $conf['cas_uri'] = '/idp/profile/cas';
+$conf['cas_cert'] = '/etc/pki/tls/cert.pem';
 $conf['cas_user_register'] = 1;
 $conf['cas_login_form'] = 3;
 $conf['cas_domain'] = 'unl.edu';
