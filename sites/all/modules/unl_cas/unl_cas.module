@@ -128,6 +128,21 @@ function unl_cas_form_alter(&$form, &$form_state, $form_id) {
     exit;
   }
 
+  // Setting "Redirect the login form to CAS" doesn't work. cas_form_alter() for
+  // user_login doesn't work for URLs with a destination parameter like
+  // /user/login?destination=example. The 'cas' parameter in drupal_goto('cas')
+  // just gets overwritten by $_GET['destination'] in drupal_goto().
+  // So we need to set the settings to "Make CAS login default on login forms"
+  // and just force a redirct to an "external" URL here.
+  if ($form_id == 'user_login') {
+    $url = url('cas', array(
+      'absolute' => TRUE,
+      'query' => array('destination' => $_GET['destination'])
+    ));
+    unset($_GET['destination']);
+    drupal_goto($url);
+  }
+
   if ($form_id == 'user_profile_form') {
     if (isset($form['account']['name'])) {
       $form['account']['name']['#type'] = 'hidden';
