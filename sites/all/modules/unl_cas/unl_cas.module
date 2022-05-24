@@ -40,6 +40,13 @@ function unl_cas_init() {
 }
 
 /**
+ * Implements hook_cas_phpcas_alter().
+ */
+function unl_cas_cas_phpcas_alter() {
+  phpCAS::setNoClearTicketsFromUrl();
+}
+
+/**
  * Implements hook_cas_user_alter().
  */
 function unl_cas_cas_user_alter(&$cas_user) {
