@@ -192,7 +192,7 @@ function cas_login_check($force_authentication = TRUE) {
     $user = user_save($account, $edit);
     user_login_finalize($edit);
 
-    drupal_set_message(t(variable_get('cas_login_message', 'Logged in via CAS as %cas_username.'), array('%cas_username' => format_username($user))));
+    //drupal_set_message(t(variable_get('cas_login_message', 'Logged in via CAS as %cas_username.'), array('%cas_username' => format_username($user))));
     if (!empty($edit['persistent_login'])) {
       drupal_set_message(t('You will remain logged in on this computer even after you close your browser.'));
     }
