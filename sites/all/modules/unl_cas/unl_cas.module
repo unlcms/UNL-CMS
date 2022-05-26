@@ -116,6 +116,11 @@ function unl_cas_menu_alter(&$items) {
   // Limit access to the cas module's username add & config pages to administrators.
   $items['user/%user/cas']['access callback'] = 'unl_user_is_administrator';
   $items['admin/people/cas/create']['access callback'] = 'unl_user_is_administrator';
+
+  // We seem to end up in situations where cas_init is not called and the
+  // default page callback for the /cas path is called which just redirects to
+  // the homepage. Explicitly force cas_init to be called instead of cas_login_page.
+  $items['cas']['page callback'] = 'cas_init';
 }
 
 /**
