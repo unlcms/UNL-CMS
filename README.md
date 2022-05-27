@@ -195,6 +195,11 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - Merge global redirect functions into Redirect module. See http://drupal.org/node/905914
      - Patch #195 applied to rc-3 with added "Sanity check" to not redirect to external URLs.
 
+  *  themekey
+
+     - Patch applied: themekey-PHPCompatibility-3128131-2.patch
+     - PHP 8.0+ fix: https://www.drupal.org/project/themekey/issues/3128131
+
   *  upload_replace.module
 
      - Drupal 7 bug fixes. See http://drupal.org/node/1115484#comment-5646558

@@ -1,0 +1,13 @@
+diff --git a/themekey_user_profile.module b/themekey_user_profile.module
+index ef127e6..34feef6 100644
+--- a/themekey_user_profile.module
++++ b/themekey_user_profile.module
+@@ -53,7 +53,7 @@ function themekey_user_profile_form_alter(&$form, $form_state, $form_id) {
+     case 'user_profile_form':
+       if (user_access('select different theme') && variable_get('themekey_ui_user_profile', 0)) {
+         module_load_include('inc', 'themekey_ui', 'themekey_ui_admin');
+-        $theme = !empty($form_state['input']['theme']) ? $form_state['input']['theme'] : !empty($form_state['user']->theme) ? $form_state['user']->theme : 'default';
++        $theme = !empty($form_state['input']['theme']) ? $form_state['input']['theme'] : (!empty($form_state['user']->theme) ? $form_state['user']->theme : 'default');
+         $tmp_form = array();
+         themekey_ui_theme_select_form($tmp_form, t('Theme configuration'), t('Selecting a different theme will change the look and feel of the site.'), $theme ? $theme : 'default', NULL, TRUE, 'theme');
+         $form['theme_select'] = $tmp_form['themekey_ui_themes'];
