@@ -44,13 +44,13 @@ class DateExampleMigration extends XMLMigration {
     );
 
     // Our test data is in an XML file.
-    $xml_folder = drupal_get_path('module', 'date_migrate_example');
-    $items_url = $xml_folder . '/date_migrate_example.xml';
+    $xml_folder = drupal_get_path('module', 'date_migrate_test');
+    $items_url = $xml_folder . '/example_data.xml';
     $item_xpath = '/source_data/item';
-    $item_ID_xpath = 'id';
-    $items_class = new MigrateItemsXML($items_url, $item_xpath, $item_ID_xpath);
+    $item_id_xpath = 'id';
+    $items_class = new MigrateItemsXML($items_url, $item_xpath, $item_id_xpath);
     $this->source = new MigrateSourceMultiItems($items_class, $fields);
-    $this->destination = new MigrateDestinationNode('date_migrate_example');
+    $this->destination = new MigrateDestinationNode('date_test');
 
     // Basic fields.
     $this->addFieldMapping('title', 'title')
@@ -78,7 +78,7 @@ class DateExampleMigration extends XMLMigration {
     $this->addFieldMapping('field_datestamp_range:to', 'datestamp_range_to');
 
     // You can specify a timezone to be applied to all values going into the
-    // field (Tokyo is UTC+9, no DST)
+    // field (Tokyo is UTC+9, no DST).
     $this->addFieldMapping('field_datetime', 'datetime')
       ->xpath('datetime');
     $this->addFieldMapping('field_datetime:timezone')
@@ -93,7 +93,8 @@ class DateExampleMigration extends XMLMigration {
 
     // Unmapped destination fields.
     $this->addUnmigratedDestinations(array('is_new', 'status', 'promote',
-      'revision', 'language', 'sticky', 'created', 'changed', 'revision_uid'));
+      'revision', 'language', 'sticky', 'created', 'changed', 'revision_uid',
+    ));
   }
 
   /**
@@ -107,25 +108,26 @@ class DateExampleMigration extends XMLMigration {
     // The date range field can have multiple values.
     $current_row->date_range_from = array();
     foreach ($current_row->xml->date_range as $range) {
-      $current_row->date_range_from[] = (string)$range->from[0];
-      $current_row->date_range_to[] = (string)$range->to[0];
+      $current_row->date_range_from[] = (string) $range->from[0];
+      $current_row->date_range_to[] = (string) $range->to[0];
     }
 
-    $current_row->datestamp_range_from =
-      (string) $current_row->xml->datestamp_range->from[0];
-    $current_row->datestamp_range_to =
-      (string) $current_row->xml->datestamp_range->to[0];
+    $current_row->datestamp_range_from
+      = (string) $current_row->xml->datestamp_range->from[0];
+    $current_row->datestamp_range_to
+      = (string) $current_row->xml->datestamp_range->to[0];
 
-    $current_row->datetime_range_from =
-      (string) $current_row->xml->datetime_range->from[0];
-    $current_row->datetime_range_to =
-      (string) $current_row->xml->datetime_range->to[0];
-    $current_row->datetime_range_timezone =
-      (string) $current_row->xml->datetime_range->timezone[0];
+    $current_row->datetime_range_from
+      = (string) $current_row->xml->datetime_range->from[0];
+    $current_row->datetime_range_to
+      = (string) $current_row->xml->datetime_range->to[0];
+    $current_row->datetime_range_timezone
+      = (string) $current_row->xml->datetime_range->timezone[0];
 
-    $current_row->date_repeat =
-      (string) $current_row->xml->date_repeat->date[0];
-    $current_row->date_repeat_rrule =
-      (string) $current_row->xml->date_repeat->rule[0];
+    $current_row->date_repeat
+      = (string) $current_row->xml->date_repeat->date[0];
+    $current_row->date_repeat_rrule
+      = (string) $current_row->xml->date_repeat->rule[0];
   }
+
 }
