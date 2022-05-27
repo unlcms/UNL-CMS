@@ -1,91 +1,120 @@
 <?php
 
-class FormBuilderWebformFormTest extends DrupalUnitTestCase {
-  protected $components = array(
-    1 => array(
-      'nid' => 1,
-      'cid' => '1',
-      'pid' => '0',
-      'form_key' => 'fieldset1',
-      'name' => 'fieldset1',
-      'type' => 'fieldset',
-      'value' => '',
-      'extra' => array(
-        'title_display' => 0,
-        'private' => 0,
-        'collapsible' => 0,
-        'collapsed' => 0,
-        'conditional_operator' => '=',
-        'description' => '',
-        'conditional_component' => '',
-        'conditional_values' => '',
-      ),
-      'mandatory' => '0',
-      'weight' => '0',
-      'page_num' => 1,
-    ),
-    3 => array(
-      'nid' => 1,
-      'cid' => '3',
-      'pid' => '1',
-      'form_key' => 'hour',
-      'name' => 'hour',
-      'type' => 'time',
-      'value' => '',
-      'extra' => array(
-        'timezone' => 'user',
-        'title_display' => 'before',
-        'private' => 0,
-        'hourformat' => '12-hour',
-        'minuteincrements' => '1',
-        'conditional_operator' => '=',
-        'description' => '',
-        'conditional_component' => '',
-        'conditional_values' => '',
-      ),
-      'mandatory' => '0',
-      'weight' => '2',
-      'page_num' => 1,
-    ),
-    2 => array(
-      'nid' => 1,
-      'cid' => '2',
-      'pid' => '0',
-      'form_key' => 'textfield1',
-      'name' => 'textfield1',
-      'type' => 'textfield',
-      'value' => 'textfield1',
-      'extra' => array(
-        'title_display' => 'before',
-        'private' => 0,
-        'disabled' => 1,
-        'unique' => 0,
-        'conditional_operator' => '=',
-        'width' => '4',
-        'maxlength' => '',
-        'field_prefix' => 'testprefix',
-        'field_suffix' => 'testpostfix',
-        'description' => '',
-        'attributes' => array(),
-        'conditional_component' => '',
-        'conditional_values' => '',
-      ),
-      'mandatory' => '0',
-      'weight' => '1',
-      'page_num' => 1,
-    ),
-  );
+namespace Drupal\form_builder_webform;
 
+use Drupal\form_builder\Loader;
+
+/**
+ * Integration test for the webform integration.
+ */
+class FormTest extends \DrupalUnitTestCase {
+
+  /**
+   * Provide example components for the tests.
+   */
+  protected function components() {
+    $components = array(
+      1 => array(
+        'nid' => 1,
+        'cid' => 1,
+        'form_key' => 'fieldset1',
+        'name' => 'fieldset1',
+        'type' => 'fieldset',
+        'value' => '',
+        'extra' => array(
+          'conditional_operator' => '=',
+          'conditional_component' => '',
+          'conditional_values' => '',
+        ),
+        'required' => 0,
+      ),
+      3 => array(
+        'nid' => 1,
+        'cid' => 3,
+        'pid' => 1,
+        'form_key' => 'hour',
+        'name' => 'hour',
+        'type' => 'time',
+        'extra' => array(
+          'title_display' => 'before',
+          'conditional_operator' => '=',
+          'conditional_component' => '',
+          'conditional_values' => '',
+        ),
+        'weight' => 2,
+      ),
+      2 => array(
+        'nid' => 1,
+        'cid' => 2,
+        'pid' => 0,
+        'form_key' => 'textfield1',
+        'name' => 'textfield1',
+        'type' => 'textfield',
+        'value' => 'textfield1',
+        'extra' => array(
+          'title_display' => 'before',
+          'disabled' => 1,
+          'unique' => 0,
+          'conditional_operator' => '=',
+          'width' => '4',
+          'maxlength' => '',
+          'field_prefix' => 'testprefix',
+          'field_suffix' => 'testpostfix',
+          'conditional_component' => '',
+          'conditional_values' => '',
+        ),
+        'weight' => 1,
+      ),
+      4 => [
+        'type' => 'grid',
+        'form_key' => 'grid',
+      ],
+      5 => [
+        'type' => 'select',
+        'form_key' => 'select',
+        'extra' => [
+          'items' => "1|one\n2|two\n3|three",
+        ],
+      ],
+    );
+    foreach ($components as $cid => &$component) {
+      webform_component_defaults($component);
+      $component += [
+        'cid' => $cid,
+        'pid' => 0,
+        'nid' => 1,
+      ];
+    }
+    return $components;
+  }
+
+  /**
+   * Remove the #webform_component sub-array from an element.
+   */
+  protected function deleteComponentInfo($element) {
+    unset($element['#webform_component']);
+    foreach (element_children($element, FALSE) as $key) {
+      $element[$key] = $this->deleteComponentInfo($element[$key]);
+    }
+    return $element;
+  }
+
+  /**
+   * Test the form builder preview.
+   */
   function testPreview() {
-    $form = new FormBuilderWebformForm('webform', 0, 'the-sid', array(), array());
-    $form->addComponents($this->components);
-    $this->assertEqual($form->preview(), array(
+    $form = new Form('webform', 0, 'the-sid', array(), array());
+    $form->addComponents($this->components());
+    $preview = $this->deleteComponentInfo($form->preview());
+    unset($preview['grid']);
+    unset($preview['select']);
+    $this->assertEqual(array(
       '#tree' => TRUE,
       'fieldset1' => array(
         '#type' => 'fieldset',
         '#title' => 'fieldset1',
         '#title_display' => NULL,
-        '#weight' => '0',
+        '#weight' => 0,
         '#description' => '',
         '#collapsible' => 0,
         '#collapsed' => 0,
@@ -103,34 +132,12 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
           0 => 'title',
           1 => 'description',
         ),
-        '#webform_component' => array(
-          'nid' => 1,
-          'cid' => '1',
-          'pid' => '0',
-          'form_key' => 'fieldset1',
-          'name' => 'fieldset1',
-          'type' => 'fieldset',
-          'value' => '',
-          'extra' => array(
-            'title_display' => 0,
-            'private' => 0,
-            'collapsible' => 0,
-            'collapsed' => 0,
-            'conditional_operator' => '=',
-            'description' => '',
-            'conditional_component' => '',
-            'conditional_values' => '',
-          ),
-          'mandatory' => '0',
-          'weight' => '0',
-          'page_num' => 1,
-        ),
         'hour' => array(
           '#type' => 'webform_time',
           '#title' => 'hour',
           '#title_display' => 'before',
-          '#required' => '0',
-          '#weight' => '2',
+          '#required' => 0,
+          '#weight' => 2,
           '#description' => '',
           '#element_validate' => array(
             0 => 'webform_validate_time',
@@ -150,29 +157,6 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
             0 => 'title',
             1 => 'description',
           ),
-          '#webform_component' => array(
-            'nid' => 1,
-            'cid' => '3',
-            'pid' => '1',
-            'form_key' => 'hour',
-            'name' => 'hour',
-            'type' => 'time',
-            'value' => '',
-            'extra' => array(
-              'timezone' => 'user',
-              'title_display' => 'before',
-              'private' => 0,
-              'hourformat' => '12-hour',
-              'minuteincrements' => '1',
-              'conditional_operator' => '=',
-              'description' => '',
-              'conditional_component' => '',
-              'conditional_values' => '',
-            ),
-            'mandatory' => '0',
-            'weight' => '2',
-            'page_num' => 1,
-          ),
           '#form_builder' => array(
             'element_id' => 'cid_3',
             'element_type' => 'time',
@@ -186,6 +170,8 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
             0 => 'form_builder_pre_render',
           ),
           '#key' => 'hour',
+          '#start_time' => '',
+          '#end_time' => '',
         ),
         '#form_builder' => array(
           'element_id' => 'cid_1',
@@ -220,33 +206,6 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
         ),
         '#disabled' => TRUE,
         '#size' => '4',
-        '#webform_component' => array(
-          'nid' => 1,
-          'cid' => '2',
-          'pid' => '0',
-          'form_key' => 'textfield1',
-          'name' => 'textfield1',
-          'type' => 'textfield',
-          'value' => 'textfield1',
-          'extra' => array(
-            'title_display' => 'before',
-            'private' => 0,
-            'disabled' => 1,
-            'unique' => 0,
-            'conditional_operator' => '=',
-            'width' => '4',
-            'maxlength' => '',
-            'field_prefix' => 'testprefix',
-            'field_suffix' => 'testpostfix',
-            'description' => '',
-            'attributes' => array(),
-            'conditional_component' => '',
-            'conditional_values' => '',
-          ),
-          'mandatory' => '0',
-          'weight' => '1',
-          'page_num' => 1,
-        ),
         '#form_builder' => array(
           'element_id' => 'cid_2',
           'element_type' => 'textfield',
@@ -267,61 +226,24 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
         'form_id' => 0,
         'sid' => 'the-sid',
       ),
-    ));
+    ), $preview);
   }
 
+  /**
+   * Test the element configuration form.
+   */
   function testConfigurationForm() {
     // We need a real node because webform_component_edit_form() uses it.
     $node = (object) array('type' => 'webform');
     node_object_prepare($node);
-    $node->webform['components'] = $this->components;
+    $node->webform['components'] = $this->components();
     node_save($node);
 
-    $form = FormBuilderWebformForm::loadFromStorage('webform', $node->nid, 'the-sid', array());
+    $form = Form::loadFromStorage('webform', $node->nid, 'the-sid', array());
     $form_state = array();
     $element = $form->getElement('cid_2');
     $a = $element->configurationForm(array(), $form_state);
     $this->assertEqual(array(
-      '#_edit_element' => array(
-        '#webform_component' => array(
-          'nid' => $node->nid,
-          'cid' => '2',
-          'pid' => '0',
-          'form_key' => 'textfield1',
-          'name' => 'textfield1',
-          'type' => 'textfield',
-          'value' => 'textfield1',
-          'extra' => array(
-            'title_display' => 'before',
-            'private' => 0,
-            'disabled' => 1,
-            'unique' => 0,
-            'conditional_operator' => '=',
-            'width' => '4',
-            'maxlength' => '',
-            'field_prefix' => 'testprefix',
-            'field_suffix' => 'testpostfix',
-            'description' => '',
-            'attributes' => array(),
-            'conditional_component' => '',
-            'conditional_values' => '',
-          ),
-          'mandatory' => '0',
-          'weight' => '1',
-          'page_num' => 1,
-        ),
-        '#weight' => '1',
-        '#key' => 'textfield1',
-        '#form_builder' => array(
-          'element_id' => 'cid_2',
-          'parent_id' => 0,
-          'element_type' => 'textfield',
-          'form_type' => 'webform',
-          'form_id' => $node->nid,
-          'configurable' => TRUE,
-          'removable' => TRUE,
-        ),
-      ),
       'size' => array(
         '#form_builder' => array(
           'property_group' => 'display',
@@ -386,6 +308,9 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
         '#description' => 'Check that all entered values for this field are unique. The same value is not allowed to be used twice.',
         '#type' => 'checkbox',
         '#default_value' => 0,
+        '#return_value' => 1,
+        '#weight' => 1,
+        '#parents' => ['extra', 'unique'],
       ),
       'title' => array(
         '#title' => 'Title',
@@ -398,18 +323,18 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
       'title_display' => array(
         '#type' => 'select',
         '#title' => 'Label display',
+        '#description' => "Determines the placement of the component's label.",
         '#default_value' => 'before',
         '#options' => array(
           'before' => 'Above',
           'inline' => 'Inline',
           'none' => 'None',
         ),
-        '#description' => 'Determines the placement of the component\'s label.',
-        '#weight' => 8,
-        '#tree' => TRUE,
+        '#weight' => -10,
         '#form_builder' => array(
           'property_group' => 'display',
         ),
+        '#tree' => TRUE,
       ),
       'default_value' => array(
         '#type' => 'textfield',
@@ -458,7 +383,7 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
         ),
         '#weight' => -9,
         '#element_validate' => array(
-          0 => 'form_builder_property_key_form_validate',
+          0 => 'form_builder_webform_property_key_form_validate',
         ),
       ),
       'weight' => array(
@@ -468,9 +393,50 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
         '#type' => 'textfield',
         '#size' => 6,
         '#title' => 'Weight',
-        '#default_value' => '1',
+        '#default_value' => 0,
+      ),
+      'placeholder' => array(
+        '#type' => 'textfield',
+        '#title' => 'Placeholder',
+        '#default_value' => '',
+        '#description' => 'The placeholder will be shown in the field until the user starts entering a value.',
+        '#weight' => 1,
+        '#tree' => true,
+        '#form_builder' => array('property_group' => 'display'),
+      ),
+      'css_classes' => array(
+        '#type' => 'textfield',
+        '#title' => 'CSS classes',
+        '#default_value' => '',
+        '#description' => 'Apply a class to the field. Separate multiple by spaces.',
+        '#weight' => 51,
+        '#tree' => true,
+        '#form_builder' => array('property_group' => 'display'),
+      ),
+      'wrapper_classes' => array(
+        '#type' => 'textfield',
+        '#title' => 'Wrapper CSS classes',
+        '#default_value' => '',
+        '#description' => 'Apply a class to the wrapper around both the field and its label. Separate multiple by spaces.',
+        '#weight' => 50,
+        '#tree' => true,
+        '#form_builder' => array('property_group' => 'display'),
       ),
     ), $a);
+
+    // Render the configuration form of a grid component.
+    $element = $form->getElement('cid_4');
+    $config_form = $element->configurationForm([], $form_state);
+    $this->assertEqual('Questions', $config_form['grid_questions']['#title']);
+
+    // Render the configuration form of a grid component.
+    $element = $form->getElement('cid_5');
+    $config_form = $element->configurationForm([], $form_state);
+    $this->assertEqual([
+      '1' => 'one',
+      '2' => 'two',
+      '3' => 'three',
+    ], $config_form['options']['#options']);
   }
 
   /**
@@ -478,7 +444,7 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
    */
   function testElementMappings() {
     $components = webform_webform_component_info();
-    $element_info = FormBuilderLoader::instance()->getElementTypeInfo('webform', NULL);
+    $element_info = Loader::instance()->getElementTypeInfo('webform', NULL);
     foreach (array_keys($components) as $type) {
       $map = _form_builder_webform_property_map($type);
       $this->assertTrue(!empty($map['form_builder_type']), "Unmapped component type '$type'.");
@@ -486,4 +452,5 @@ class FormBuilderWebformFormTest extends DrupalUnitTestCase {
       $this->assertTrue(!empty($element_info[$t]), "Component type '$type' maps to undefined element_type $t");
     }
   }
+
 }

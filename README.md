@@ -218,12 +218,6 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix label and settings var notices. See https://drupal.org/node/1790304#comment-7395496 Patch applied: https://drupal.org/files/viewreference-1790304-03-complex-entity-form.patch
 
-  *  webform/components/number.inc
-
-     - Use type='number' for number elements.
-
-     - https://www.drupal.org/node/2290029, override: https://git.drupalcode.org/project/webform/commit/92fa0fc
-
   *  workbench_moderation.module
 
      - Fix broken books in workbench_moderation_node_presave(). See http://drupal.org/node/1505060

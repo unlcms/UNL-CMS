@@ -17,8 +17,8 @@
  *   An associative array of form type definitions. Each definition is an
  *   associative array:
  *    - class: This has to be the fully qualified name of an autoloadable class
- *      implementing the FormBuilderFormInterface. If no class is passed it
- *      defaults to 'FormBuilderFormBase'.
+ *      implementing the \Drupal\form_builder\FormInterface. If no class is
+ *      passed it defaults to \Drupal\form_builder\FormBase.
  *    - element class: The default class used for elements.
  *    - property class: The default class used for properties.
  *   The full definition is passed to the constructor of the class, so other

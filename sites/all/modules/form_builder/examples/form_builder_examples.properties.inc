@@ -1,9 +1,11 @@
 <?php
 
 /**
- * @file form_builder.properties.inc
+ * @file form_builder_examples.properties.inc
  * Implementations of hook_form_builder_properties in separate functions.
  */
+
+use Drupal\form_builder\Loader;
 
 /**
  * Configuration form for the "key" property.
@@ -12,13 +14,13 @@
  * but instead the array key that is used to reference the element in the
  * Form API structure.
  */
-function form_builder_property_key_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_key_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['key'] = array(
     '#title' => t('Form key'),
     '#type' => 'machine_name',
-    '#default_value' => preg_match('/^new_[0-9]+$/', $element['#key']) ? '' : $element['#key'],
+    '#default_value' => $element['#key'],
     '#maxlength' => 128,
     '#description' => t('The form key is used in the field "name" attribute. Must be alphanumeric and underscore characters.'),
     '#machine_name' => array(
@@ -26,7 +28,7 @@ function form_builder_property_key_form(&$form_state, $form_type, $element, $pro
       'label' => t('Form key'),
     ),
     '#weight' => -9,
-    '#element_validate' => array('form_builder_property_key_form_validate'),
+    '#element_validate' => array('form_builder_examples_property_key_form_validate'),
   );
 
   return $form;
@@ -37,7 +39,7 @@ function form_builder_property_key_form(&$form_state, $form_type, $element, $pro
  *
  * @todo make part of this a form method.
  */
-function form_builder_property_key_form_validate($element, $form_state) {
+function form_builder_examples_property_key_form_validate($element, $form_state) {
   if (!preg_match('/^[a-z0-9_]+$/', $element['#value'])) {
     form_error($element, t('The form key may only contain lowercase alphanumeric characters and underscores.'));
   }
@@ -46,7 +48,7 @@ function form_builder_property_key_form_validate($element, $form_state) {
   if ($element['#value'] != $element['#default_value']) {
     // Assuming to be called from form_builder_field_configure().
     list($form_type, $form_id, $element_id) = $form_state['build_info']['args'];
-    $form_obj = FormBuilderLoader::instance()->fromCache($form_type, $form_id);
+    $form_obj = Loader::instance()->fromCache($form_type, $form_id);
     $parent = _form_builder_get_element_parent($form_obj, $element_id);
     $new_key = $form_state['values']['key'];
     if (isset($parent[$new_key])) {
@@ -67,7 +69,7 @@ function _form_builder_get_element_parent($form_obj, $element_id) {
 /**
  * Configuration form for the "title" property.
  */
-function form_builder_property_title_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_title_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['title'] = array(
@@ -85,7 +87,7 @@ function form_builder_property_title_form(&$form_state, $form_type, $element, $p
 /**
  * Configuration form for the "title_display" property.
  */
-function form_builder_property_title_display_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_title_display_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['title_display'] = array(
@@ -113,7 +115,7 @@ function form_builder_property_title_display_form(&$form_state, $form_type, $ele
  * This field is in the "hidden" builder group, meaning it's never shown in
  * the main editing interface. However, it's still there if editing without JS.
  */
-function form_builder_property_weight_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_weight_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   if (!isset($_REQUEST['js'])) {
@@ -132,7 +134,7 @@ function form_builder_property_weight_form(&$form_state, $form_type, $element, $
 /**
  * Configuration form for the "description" property.
  */
-function form_builder_property_description_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_description_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['description'] = array(
@@ -148,7 +150,7 @@ function form_builder_property_description_form(&$form_state, $form_type, $eleme
 /**
  * Configuration form for the "disabled" property.
  */
-function form_builder_property_disabled_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_disabled_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['disabled'] = array(
@@ -165,7 +167,7 @@ function form_builder_property_disabled_form(&$form_state, $form_type, $element,
 /**
  * Configuration form for the "required" property.
  */
-function form_builder_property_required_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_required_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['required'] = array(
@@ -182,7 +184,7 @@ function form_builder_property_required_form(&$form_state, $form_type, $element,
 /**
  * Configuration form for the "options" property.
  */
-function form_builder_property_options_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_options_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   // Checkboxes have an implied "multiple" property.
@@ -212,7 +214,7 @@ function form_builder_property_options_form(&$form_state, $form_type, $element, 
   return $form;
 }
 
-function form_builder_property_options_form_submit(&$form, &$form_state) {
+function form_builder_examples_property_options_form_submit(&$form, &$form_state) {
   $options = $form_state['values']['options']['options'];
   $default_value = $form_state['values']['options']['default_value'];
 
@@ -232,7 +234,7 @@ function form_builder_property_options_form_submit(&$form, &$form_state) {
 /**
  * Configuration form for the "default_value" property.
  */
-function form_builder_property_default_value_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_default_value_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['default_value'] = array(
@@ -251,7 +253,7 @@ function form_builder_property_default_value_form(&$form_state, $form_type, $ele
 /**
  * Configuration form for the "markup" property.
  */
-function form_builder_property_markup_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_markup_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   // TODO: This is a placeholder until "#markup" becomes available in D7.
@@ -270,7 +272,7 @@ function form_builder_property_markup_form(&$form_state, $form_type, $element, $
 /**
  * Submit handler for the "markup" property.
  */
-function form_builder_property_markup_form_submit(&$form, &$form_state) {
+function form_builder_examples_property_markup_form_submit(&$form, &$form_state) {
   // The submitted data from an element of type 'text_format' is an array that
   // contains the text and its format in separate keys. We want these to wind
   // up in #markup and #format, respectively.
@@ -282,7 +284,7 @@ function form_builder_property_markup_form_submit(&$form, &$form_state) {
 /**
  * Configuration form for the "maxlength" property.
  */
-function form_builder_property_maxlength_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_maxlength_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['maxlength'] = array(
@@ -303,7 +305,7 @@ function form_builder_property_maxlength_form(&$form_state, $form_type, $element
 /**
  * Configuration form for the "size" property.
  */
-function form_builder_property_size_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_size_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['size'] = array(
@@ -323,7 +325,7 @@ function form_builder_property_size_form(&$form_state, $form_type, $element, $pr
 /**
  * Configuration form for the "rows" property.
  */
-function form_builder_property_rows_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_rows_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['rows'] = array(
@@ -341,7 +343,7 @@ function form_builder_property_rows_form(&$form_state, $form_type, $element, $pr
 /**
  * Configuration form for the "cols" property.
  */
-function form_builder_property_cols_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_cols_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['cols'] = array(
@@ -361,7 +363,7 @@ function form_builder_property_cols_form(&$form_state, $form_type, $element, $pr
 /**
  * Configuration form for the "field_prefix" property.
  */
-function form_builder_property_field_prefix_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_field_prefix_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['field_prefix'] = array(
@@ -378,7 +380,7 @@ function form_builder_property_field_prefix_form(&$form_state, $form_type, $elem
 /**
  * Configuration form for the "field_suffix" property.
  */
-function form_builder_property_field_suffix_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_field_suffix_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['field_suffix'] = array(
@@ -395,7 +397,7 @@ function form_builder_property_field_suffix_form(&$form_state, $form_type, $elem
 /**
  * Configuration form for the "collapsible" property.
  */
-function form_builder_property_collapsible_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_collapsible_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['collapsible'] = array(
@@ -412,7 +414,7 @@ function form_builder_property_collapsible_form(&$form_state, $form_type, $eleme
 /**
  * Configuration form for the "collapsed" property.
  */
-function form_builder_property_collapsed_form(&$form_state, $form_type, $element, $property) {
+function form_builder_examples_property_collapsed_form(&$form_state, $form_type, $element, $property) {
   $form = array();
 
   $form['collapsed'] = array(

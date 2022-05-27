@@ -233,11 +233,18 @@ function webform_conditionals_form_validate($form, &$form_state) {
         }
       }
       foreach ($conditional['rules'] as $rule_key => $rule) {
+        if (!is_numeric($rule_key)) {
+          continue;
+        }
+        $source_cid = isset($rule['source']['#value']) ? $rule['source']['#value'] : NULL;
         // Validate component rules, but not conditional_start/end rules.
-        if (is_numeric($rule_key) && $rule['source_type']['#value'] == 'component' && isset($targets[$rule['source']['#value']])) {
+        if ($source_cid && $rule['source_type']['#value'] == 'component' && isset($targets[$source_cid])) {
           form_set_error('conditionals][' . $conditional_key . '][rules][' . $rule_key . '][source',
             t('The subject of the conditional cannot be the same as the component that is changed (%target).',
-            array('%target' => $components[$rule['source']['#value']]['name'])));
+            array('%target' => $components[$source_cid]['name'])));
+        }
+        if ($source_cid && $components[$source_cid]['type'] === 'date' && strtotime($rule['value']['#value']) === FALSE) {
+          form_set_error('conditionals][' . $conditional_key . '][rules][' . $rule_key . '][value', t('The conditional comparison value must be a valid date.'));
         }
       }
     }
@@ -253,6 +260,9 @@ function webform_conditionals_form_validate($form, &$form_state) {
  */
 function webform_conditionals_form_submit($form, &$form_state) {
   $node = $form['#node'];
+  // Get a fresh copy of the node so that we are only saving these changes.
+  // Otherwise, changes to the Webform on another tab will be overwritten.
+  $node = node_load($node->nid, NULL, TRUE);
 
   // Remove the new conditional placeholder.
   unset($form_state['values']['conditionals']['new']);
@@ -523,6 +533,7 @@ function _webform_conditional_rule_expand($element, $rid, $conditional, $level, 
       '#title' => t('Value'),
       '#size' => 20,
       '#default_value' => $conditional['value'],
+      '#maxlength' => 1024,
     ),
     'add_subconditional' => _webform_conditional_add_expand($element, $rid, TRUE),
     'add' => _webform_conditional_add_expand($element, $rid, FALSE),
@@ -758,7 +769,7 @@ function webform_conditional_element_add($form, &$form_state) {
                     );
 
   if (empty($button['#subconditional'])) {
-    $new[0] = $parent_values[$rid]['source_type'] == 'component' ? $parent_values[$rid] : $default_rule;
+    $new[0] = (isset($parent_values[$rid]['source_type']) && $parent_values[$rid]['source_type'] == 'component') ? $parent_values[$rid] : $default_rule;
   }
   else {
     // The default andor operator is opposite of current subconditional's
@@ -1275,7 +1286,7 @@ function webform_conditional_form_select($node) {
   webform_component_include('select');
   foreach ($node->webform['components'] as $cid => $component) {
     if (webform_component_property($component['type'], 'conditional_type') == 'select') {
-      // @todo: Use a pluggable mechanism for retrieving select list values.
+      // @todo Use a pluggable mechanism for retrieving select list values.
       $options = _webform_select_options($component);
       $element = array(
         '#type' => 'select',
@@ -1341,6 +1352,7 @@ function webform_conditional_load($rgid, $nid) {
  * Insert a conditional rule group into the database.
  */
 function webform_conditional_insert($conditional) {
+  $transaction = db_transaction();
   drupal_write_record('webform_conditional', $conditional);
   foreach ($conditional['rules'] as $rid => $rule) {
     $rule['nid'] = $conditional['nid'];
@@ -1360,6 +1372,7 @@ function webform_conditional_insert($conditional) {
  * Update a conditional setting in the database.
  */
 function webform_conditional_update($node, $conditional) {
+  $transaction = db_transaction();
   webform_conditional_delete($node, $conditional);
   webform_conditional_insert($conditional);
 }
@@ -1368,6 +1381,7 @@ function webform_conditional_update($node, $conditional) {
  * Delete a conditional rule group.
  */
 function webform_conditional_delete($node, $conditional) {
+  $transaction = db_transaction();
   db_delete('webform_conditional')
     ->condition('nid', $node->nid)
     ->condition('rgid', $conditional['rgid'])

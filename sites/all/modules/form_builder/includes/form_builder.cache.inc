@@ -5,35 +5,11 @@
  * Functions for temporary storage of form builder structures while editing.
  */
 
-/**
- * Load a form configuration cache.
- *
- * @deprecated Use FormBuilderLoader::fromCache() instead.
- *
- * @see FormBuilderLoader::fromCache()
- */
-function form_builder_cache_load($form_type, $form_id, $sid = NULL, $reset = FALSE) {
-  $form = FormBuilderLoader::instance()
-    ->fromCache($form_type, $form_id, $sid, $reset);
-  return $form ? $form->getFormArray() : FALSE;
-}
-
-/**
- * Save a form builder cache based on the form structure.
- *
- * @deprecated Use FormBuilderFormBase::save() instead.
- *
- * @see FormBuilderFormBase::save()
- */
-function form_builder_cache_save($form_type, $form_id, $form, $sid = NULL) {
-  $form = FormBuilderLoader::instance()->getForm($form_type, $form_id, $sid, $form);
-  return $form->save();
-}
+use Drupal\form_builder\FormBase;
+use Drupal\form_builder\Loader;
 
 function form_builder_cache_delete($form_type, $form_id, $sid = NULL) {
-  $form = FormBuilderLoader::instance()
-    ->fromCache($form_type, $form_id, $sid)
-    ->delete();
+  Loader::instance()->fromCache($form_type, $form_id, $sid)->delete();
 }
 
 /**
@@ -43,7 +19,7 @@ function form_builder_cache_delete($form_type, $form_id, $sid = NULL) {
  *   The maximum amount of time allowed for entries to be kept, in seconds.
  */
 function form_builder_cache_purge($expire_threshold = NULL) {
-  FormBuilderFormBase::purge($expire_threshold);
+  FormBase::purge($expire_threshold);
 }
 
 /**
@@ -56,7 +32,7 @@ function form_builder_cache_purge($expire_threshold = NULL) {
  * @todo Implement this as a form object method.
  */
 function form_builder_cache_difference($form_type, $form_id, $exclude_weight = TRUE) {
-  $loader = FormBuilderLoader::instance();
+  $loader = Loader::instance();
   $modified_form = $loader->fromCache($form_type, $form_id);
   if ($modified_form) {
     $original_form = $loader->fromStorage($form_type, $form_id);
@@ -98,8 +74,7 @@ function form_builder_cache_difference($form_type, $form_id, $exclude_weight = T
  * Retrieve a single field from a form cache.
  */
 function form_builder_cache_field_load($form_type, $form_id, $element_id, $sid = NULL, $reset = FALSE) {
-  $form = FormBuilderLoader::instance()
-    ->fromCache($form_type, $form_id, $sid, $reset);
+  $form = Loader::instance()->fromCache($form_type, $form_id, $sid, $reset);
   return $form ? $form->getElementArray($element_id) : FALSE;
 }
 
@@ -107,8 +82,7 @@ function form_builder_cache_field_load($form_type, $form_id, $element_id, $sid =
  * Add or update a single field in a form builder cache.
  */
 function form_builder_cache_field_save($form_type, $form_id, $element, $sid = NULL) {
-  $form = FormBuilderLoader::instance()
-    ->fromCache($form_type, $form_id, $sid);
+  $form = Loader::instance()->fromCache($form_type, $form_id, $sid);
   $form->setElementArray($element);
   $form->save();
 }
@@ -117,8 +91,7 @@ function form_builder_cache_field_save($form_type, $form_id, $element, $sid = NU
  * Remove a single field from a form builder cache.
  */
 function form_builder_cache_field_delete($form_type, $form_id, $element_id, $sid = NULL) {
-  $form = FormBuilderLoader::instance()
-    ->fromCache($form_type, $form_id, $sid);
+  $form = Loader::instance()->fromCache($form_type, $form_id, $sid);
   $form->unsetElement($element_id);
   $form->save();
 }

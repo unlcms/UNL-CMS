@@ -3,8 +3,8 @@ description = Form builder support for CCK, Webform, and Profile modules.
 core = 7.x
 dependencies[] = form_builder
 
-; Information added by Drupal.org packaging script on 2018-05-16
-version = "7.x-1.22"
+; Information added by Drupal.org packaging script on 2021-05-04
+version = "7.x-2.0-alpha8"
 core = "7.x"
 project = "form_builder"
-datestamp = "1526496484"
+datestamp = "1620139222"

@@ -1,10 +1,14 @@
 <?php
 
-class FormBuilderExamplesTest extends DrupalUnitTestCase {
+namespace Drupal\form_builder_examples;
+
+use Drupal\form_builder\Loader;
+
+class ExamplesTest extends \DrupalUnitTestCase {
 
   public static function getInfo() {
     return array(
-      'name' => 'FormBuilderExamples unit tests.',
+      'name' => 'form_builder_examples unit tests.',
       'description' => 'Tests form element handling in example forms.',
       'group' => 'Form builder',
     );
@@ -12,7 +16,7 @@ class FormBuilderExamplesTest extends DrupalUnitTestCase {
 
   public function testOptionsConfiguration() {
     module_load_include('inc', 'form_builder', 'includes/form_builder.admin');
-    $loader = FormBuilderLoader::instance();
+    $loader = Loader::instance();
     $form = $loader->getForm('example', 'test', 'testsid');
     $form->save();
     $data = _form_builder_add_element('example', 'test', 'select', NULL, 'testsid', TRUE);

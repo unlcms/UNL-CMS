@@ -216,8 +216,7 @@ Drupal.behaviors.formBuilderBlockScroll.attach = function(context) {
   var $list = $('ul.form-builder-fields', context);
 
   if ($list.length) {
-    var $block = $list.parents('div.block:first').css('position', 'relative');
-    var blockScrollStart = $block.offset().top;
+    var $block = $list.parents('div.block:first').css('position', 'relative').css('top', 0 + 'px');
 
     function blockScroll() {
       // Do not move the palette while dragging a field.
@@ -225,18 +224,28 @@ Drupal.behaviors.formBuilderBlockScroll.attach = function(context) {
         return;
       }
 
-      var toolbarHeight = parseInt($('body.toolbar').css('padding-top'));
-      var windowOffset = $(window).scrollTop() + (toolbarHeight ? toolbarHeight : 0);
-      var blockHeight = $block.height();
-      var formBuilderHeight = $('#form-builder').height();
-      if (windowOffset - blockScrollStart > 0) {
-        // Do not scroll beyond the bottom of the editing area.
-        var newTop = Math.min(windowOffset - blockScrollStart + 20, formBuilderHeight - blockHeight);
-        $block.animate({ top: (newTop + 'px') }, 'fast');
-      }
-      else {
-        $block.animate({ top: '0px' }, 'fast');
-      }
+      var blockScrollStart = $block.offset().top - parseInt($block.css('top'));
+      var scrollTop = $(window).scrollTop();
+      var windowHeight = $(window).height();
+
+      // Calculate height of all elements made sticky by jquery.sticky.
+      var stickyHeight = 0;
+      $('.is-sticky').each(function(i, e) {
+        var $e = $(e);
+        // Only take elements into account that are near the top.
+        if (scrollTop + windowHeight * 0.2 >= $e.offset().top) {
+          stickyHeight = Math.max(stickyHeight, $e.offset().top + $e.height());
+        }
+      });
+
+      var padding = 20;
+      var windowOffset = scrollTop + stickyHeight + padding;
+      // Do not scroll beyond the bottom of the editing area.
+      var maxTop = $('#form-builder').height() - $block.height();
+      var newTop = Math.min(windowOffset - blockScrollStart, maxTop);
+      // Do not scroll up beyond the original position.
+      newTop = Math.max(0, newTop);
+      $block.animate({ top: (newTop + 'px') }, 'fast');
     }
 
     var timeout = false;

@@ -1,13 +1,15 @@
 <?php
 
-class FormBuilderAdminTest extends \DrupalUnitTestCase {
+namespace Drupal\form_builder;
+
+class AdminTest extends \DrupalUnitTestCase {
 
   /**
    * Prepare test objects and load includes.
    */
   public function setUp() {
     parent::setUp();
-    $this->form = new FormBuilderFormBase('webform', 'test', NULL, array(), array(), NULL);
+    $this->form = new FormBase('webform', 'test', NULL, array(), array(), NULL);
     $this->form->save();
 
     module_load_include('inc', 'form_builder', 'includes/form_builder.admin');
@@ -18,15 +20,15 @@ class FormBuilderAdminTest extends \DrupalUnitTestCase {
    */
   public function tearDown() {
     parent::tearDown();
-    FormBuilderFormBase::purge(0);
-    FormBuilderLoader::instance()->fromCache(NULL, NULL, NULL, TRUE);
+    FormBase::purge(0);
+    Loader::instance()->fromCache(NULL, NULL, NULL, TRUE);
   }
 
   /**
    * Test: Elements can change the tabs displayed on their configure form.
    */
   public function testChangingGroupsInElement() {
-    $loader = FormBuilderLoader::instance();
+    $loader = Loader::instance();
     $fields = $loader->getElementTypeInfo('webform', 0);
     $a = $fields['textfield']['default'];
     $a['#form_builder']['element_id'] = 'A';

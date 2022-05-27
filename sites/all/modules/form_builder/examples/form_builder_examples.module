@@ -5,6 +5,10 @@
  * Sample implementations of form_builder.
  */
 
+use Drupal\form_builder\Loader;
+use Drupal\form_builder_examples\Element;
+use Drupal\form_builder_examples\Property;
+
 /**
  * Implementation of hook_menu().
  */
@@ -140,7 +144,11 @@ function form_builder_examples_form_builder_field_access($op, $form_type, $form_
  * Implements hook_form_builder_form_types().
  */
 function form_builder_examples_form_builder_form_types() {
-  return array('example' => array());
+  $types['example'] = [
+    'element class' => Element::class,
+    'property class' => Property::class,
+  ];
+  return $types;
 }
 
 /**
@@ -346,6 +354,76 @@ function form_builder_examples_form_builder_element_types($form_type, $form_id) 
 }
 
 /**
+ * Implementation of hook_form_builder_properties().
+ */
+function form_builder_examples_form_builder_properties($form_type) {
+  if ($form_type != 'example') {
+    return [];
+  }
+  module_load_include('properties.inc', 'form_builder_examples');
+
+  $properties = array(
+    'key' => array(
+      'form' => 'form_builder_examples_property_key_form',
+    ),
+    'title' => array(
+      'form' => 'form_builder_examples_property_title_form',
+    ),
+    'title_display' => array(
+      'form' => 'form_builder_examples_property_title_display_form',
+    ),
+    'description' => array(
+      'form' => 'form_builder_examples_property_description_form',
+    ),
+    'disabled' => array(
+      'form' => 'form_builder_examples_property_disabled_form',
+    ),
+    'weight' => array(
+      'form' => 'form_builder_examples_property_weight_form',
+    ),
+    'default_value' => array(
+      'form' => 'form_builder_examples_property_default_value_form',
+    ),
+    'markup' => array(
+      'form' => 'form_builder_examples_property_markup_form',
+      'submit' => array('form_builder_examples_property_markup_form_submit'),
+    ),
+    'maxlength' => array(
+      'form' => 'form_builder_examples_property_maxlength_form',
+    ),
+    'required' => array(
+      'form' => 'form_builder_examples_property_required_form',
+    ),
+    'options' => array(
+      'form' => 'form_builder_examples_property_options_form',
+      'submit' => array('form_builder_examples_property_options_form_submit'),
+    ),
+    'size' => array(
+      'form' => 'form_builder_examples_property_size_form',
+    ),
+    'rows' => array(
+      'form' => 'form_builder_examples_property_rows_form',
+    ),
+    'cols' => array(
+      'form' => 'form_builder_examples_property_cols_form',
+    ),
+    'field_prefix' => array(
+      'form' => 'form_builder_examples_property_field_prefix_form',
+    ),
+    'field_suffix' => array(
+      'form' => 'form_builder_examples_property_field_suffix_form',
+    ),
+    'collapsible' => array(
+      'form' => 'form_builder_examples_property_collapsible_form',
+    ),
+    'collapsed' => array(
+      'form' => 'form_builder_examples_property_collapsed_form',
+    ),
+  );
+  return $properties;
+}
+
+/**
  * Implementation of hook_form_builder_preview_alter().
  */
 function form_builder_examples_form_builder_preview_alter($element, $form_type, $form_id) {
@@ -407,7 +485,7 @@ function form_builder_examples_export_form() {
 
   $form = array();
 
-  $current = FormBuilderLoader::instance()
+  $current = Loader::instance()
     ->fromCache('example', 'sample')
     ->getFormArray();
 

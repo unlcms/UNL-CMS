@@ -1,41 +1,37 @@
 language: php
-sudo: false
+services:
+  - mysql
 
 php:
-  - 5.4
-  - 7.0
+  - 7.1
 
 mysql:
   database: drupal
   username: root
   encoding: utf8
 
-addons:
-  apt:
-    packages:
-      - php5-cgi
-      - php5-mysql
+cache:
+  directories:
+     - $HOME/.composer/cache
+     - $HOME/.drush/cache
 
 install:
   - export PATH="$HOME/.composer/vendor/bin:$PATH"
-  - composer global require drush/drush:6.*
+  - composer global require drush/drush:8.1.* torotil/upal:1.1.3 phpunit/phpunit:6.4.*
 
 before_script:
-  - form_builder=`pwd`
-  - cd ..
-  - git clone https://github.com/torotil/upal.git
-  - upal=`pwd`/upal
+  - repo=`pwd`
+  - root=$HOME/test-root
   - mysql -e 'create database drupal'
-  - php -d sendmail_path=`which true` ~/.composer/vendor/bin/drush.php --yes core-quick-drupal --profile=testing --no-server --db-url=mysql://root:@127.0.0.1/drupal --enable=simpletest form_builder_test
-  - ln -s $form_builder form_builder_test/drupal/sites/all/modules/form_builder
-  - cd form_builder_test/drupal
-  - root=`pwd`
-  - drush dl webform-7.x-3.x ctools options_element
+  - php -d include_path=`pwd` -d sendmail_path=`which true` ~/.composer/vendor/bin/drush.php --yes core-quick-drupal --core=drupal-7.x --profile=testing --no-server --db-url=mysql://root:@127.0.0.1/drupal --root=$root
+  - ln -s $repo $root/sites/all/modules/module_under_test
+  - cd $root
+  - drush dl webform ctools options_element psr0
   - drush --yes pm-enable form_builder_webform form_builder_examples
 
 script:
-  - cd $form_builder
-  - UPAL_ROOT=$root UPAL_DB_URL=mysql://root:@127.0.0.1/drupal UPAL_WEB_URL=http://127.0.0.1 phpunit -c phpunit.xml.dist --bootstrap $upal/bootstrap.php --coverage-clover=coverage.xml $form_builder/tests
+  - cd $repo
+  - UPAL_ROOT=$root UPAL_WEB_URL=http://127.0.0.1 phpunit --bootstrap=$HOME/.composer/vendor/torotil/upal/bootstrap.php --coverage-clover=coverage.xml .
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

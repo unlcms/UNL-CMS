@@ -5,6 +5,9 @@
  * Administrative interface for editing forms.
  */
 
+use Drupal\form_builder\FormBase;
+use Drupal\form_builder\Loader;
+
 /**
  * Main form building interface. Can be used as a menu callback.
  *
@@ -21,7 +24,7 @@ function form_builder_interface($form_type, $form_id) {
   form_builder_active_form($form_type, $form_id);
 
   // Create an internal state from the permanently stored form.
-  $loader = FormBuilderLoader::instance();
+  $loader = Loader::instance();
   $form_obj = $loader->fromStorage($form_type, $form_id);
   $form_obj->save();
 
@@ -57,7 +60,7 @@ function _form_builder_add_element($form_type, $form_id, $element_type, $element
   module_load_include('inc', 'form_builder', 'includes/form_builder.api');
   module_load_include('inc', 'form_builder', 'includes/form_builder.cache');
 
-  $loader = FormBuilderLoader::instance();
+  $loader = Loader::instance();
   $fields = $loader->getElementTypeInfo($form_type, $form_id);
   $form_obj = $loader->fromCache($form_type, $form_id, $sid);
   $element = NULL;
@@ -170,7 +173,7 @@ function form_builder_field_palette() {
   if (isset($active)) {
     $form_type = $active['form_type'];
     $form_id = $active['form_id'];
-    $loader = FormBuilderLoader::instance();
+    $loader = Loader::instance();
     $fields = $loader->getElementTypeInfo($form_type, $form_id);
     $groups = $loader->getPaletteGroupInfo($form_type, $form_id);
     // TODO: We shouldn't have to clear the cache here.
@@ -223,10 +226,9 @@ function form_builder_preview($f, &$form_state, $form_obj, $form_type, $form_id)
   $form['#attached']['js'][] = drupal_get_path('module', 'options_element') .'/options_element.js';
   // TODO: Use libraries if available. see http://drupal.org/node/954804
   $form['#attached']['js'][] = 'misc/tabledrag.js';
-  $form['#attached']['js'][] = 'misc/jquery.cookie.js';
-  $form['#attached']['library'][] = array('system', 'form');
-  $form['#attached']['js'][] = 'misc/form.js';
-  $form['#attached']['js'][] = 'misc/collapse.js';
+  $form['#attached']['library'][] = array('system', 'jquery.cookie');
+  $form['#attached']['library'][] = array('system', 'drupal.form');
+  $form['#attached']['library'][] = array('system', 'drupal.collapse');
 
   $form['#attached']['js'][] = drupal_get_path('module', 'filter') . '/filter.js';
   $form['#attached']['css'][] = drupal_get_path('module', 'filter') . '/filter.css';
@@ -310,7 +312,7 @@ function form_builder_positions_submit(&$form, &$form_state) {
 
   $form_type = $form['#form_builder']['form_type'];
   $form_id = $form['#form_builder']['form_id'];
-  $form_cache = FormBuilderLoader::instance()->fromCache($form_type, $form_id);
+  $form_cache = Loader::instance()->fromCache($form_type, $form_id);
 
   foreach (element_children($form) as $element_id) {
     // Skip items without weight value (like the form token, build_id, etc).
@@ -587,10 +589,10 @@ function form_builder_after_build($element) {
 /**
  * Form for editing a field.
  */
-function form_builder_field_configure($form, $form_state, $form_type, $form_id, $element_id) {
+function form_builder_field_configure($form, &$form_state, $form_type, $form_id, $element_id) {
   module_load_include('inc', 'form_builder', 'includes/form_builder.api');
   module_load_include('inc', 'form_builder', 'includes/form_builder.cache');
-  $form_obj = FormBuilderLoader::instance()->fromCache($form_type, $form_id);
+  $form_obj = Loader::instance()->fromCache($form_type, $form_id);
   $element_obj = $form_obj->getElement($element_id);
 
   $form['#attributes']['class'][] = 'form-builder-field-configure';
@@ -650,7 +652,7 @@ function form_builder_field_configure_pre_render($form) {
 
 function form_builder_field_configure_submit(&$form, &$form_state) {
   list($form_type, $form_id, $element_id) = $form_state['build_info']['args'];
-  $form_obj = FormBuilderLoader::instance()->fromCache($form_type, $form_id);
+  $form_obj = Loader::instance()->fromCache($form_type, $form_id);
   $element_obj = $form_obj->getElement($element_id);
 
   $element_obj->configurationSubmit($form, $form_state);
@@ -675,7 +677,7 @@ function form_builder_field_configure_submit(&$form, &$form_state) {
  * Form for removing a field.
  */
 function form_builder_field_remove($form, $form_state, $form_type, $form_id, $element_id) {
-  $form_obj = FormBuilderLoader::instance()->fromCache($form_type, $form_id);
+  $form_obj = Loader::instance()->fromCache($form_type, $form_id);
   $element_obj = $form_obj->getElement($element_id);
   $title = $element_obj->title();
 
@@ -718,7 +720,7 @@ function form_builder_field_render($form_type, $form_id, $element_id, $wrapper =
   module_load_include('inc', 'form_builder', 'includes/form_builder.cache');
 
   // Load the current state of the form and prepare it for rendering.
-  $loader = FormBuilderLoader::instance();
+  $loader = Loader::instance();
   $form_obj = $loader->fromCache($form_type, $form_id);
   if (!$form_obj) {
     $form_obj = $loader->fromStorage($form_type, $form_id);
@@ -731,7 +733,7 @@ function form_builder_field_render($form_type, $form_id, $element_id, $wrapper =
   $form = form_builder('form_builder_preview', $form, $form_state);
 
   // Get only the element wanted and render it.
-  $element = form_builder_get_element($form, $element_id);
+  $element = FormBase::fromArray($form)->getElementArray($element_id);
 
   if ($wrapper) {
     $element['#theme_wrappers'][] = 'form_builder_element_wrapper';

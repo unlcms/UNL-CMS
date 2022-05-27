@@ -1,0 +1,99 @@
+<?php
+/**
+ * @file
+ * Registers a simple PSR-4 autoloader.
+ */
+
+// This is needed for drupal_get_path().
+require_once DRUPAL_ROOT . '/includes/common.inc';
+
+spl_autoload_register('psr0_autoloader');
+
+/**
+ * Get the path to project $name.
+ *
+ * Guesses whether this project is a module or profile.
+ *
+ * @param string $name
+ *   Name of the project.
+ * @param bool $tests
+ *   Whether we are looking for the Tests sub-namespace.
+ *
+ * @return array
+ *   Array of possible path prefixes for this project name.
+ */
+function _psr0_paths_for_name($name, $tests) {
+  // Use the advanced drupal_static() pattern, since this is called very often.
+  $cname = $tests ? "main:$name" : "tests:$name";
+  static $paths;
+  if (!isset($paths)) {
+    $paths = &drupal_static(__FUNCTION__, array());
+  }
+  if (isset($paths[$cname])) {
+    return $paths[$cname];
+  }
+
+  $modules = system_list('module_enabled');
+  if (isset($modules[$name])) {
+    $paths[$cname] = array();
+    $module_path = DRUPAL_ROOT . '/' . dirname($modules[$name]->filename);
+    if ($tests) {
+      if (file_exists($module_path . '/lib/Tests/')) {
+        $paths[$cname][] = $module_path . '/lib/Tests/';
+      }
+      if (file_exists($module_path . '/src/Tests/')) {
+        $paths[$cname][] = $module_path . '/src/Tests/';
+      }
+      $module_path .= '/tests';
+    }
+    if (file_exists($module_path . '/lib/')) {
+      $paths[$cname][] = $module_path . '/lib/';
+    }
+    if (file_exists($module_path . '/src/')) {
+      $paths[$cname][] = $module_path . '/src/';
+    }
+    return $paths[$cname];
+  }
+  return array();
+}
+
+/**
+ * An spl class autoloader function implementing PSR-4.
+ *
+ * Includes the class definition of $fq_class if it can be found via PSR-4.
+ *
+ * @param string $fq_class
+ *   A fully qualified class name.
+ */
+function psr0_autoloader($fq_class) {
+  $parts = explode('\\', $fq_class, 4);
+  $cnt = count($parts);
+  // Do nothing if this doesn't look like a PSR-4 class name.
+  if ($cnt < 3 || $parts[0] != 'Drupal') {
+    return;
+  }
+  $project_name = $parts[1];
+  $tests = ($parts[2] == 'Tests' && $cnt == 4);
+  $class = $tests ? $parts[3] : implode('\\', array_slice($parts, 2));
+
+  $paths = _psr0_paths_for_name($project_name, $tests);
+  $file_part = strtr($class, '\\', '/') . '.php';
+
+  foreach ($paths as $p) {
+    $file = $p . $file_part;
+    if (file_exists($file)) {
+      require_once $file;
+      return;
+    }
+  }
+}
+
+/**
+ * Implements hook_boot().
+ *
+ * Intentionally left blank!
+ * This tells Drupal that it has to include this module even before invoking
+ * hook_boot().
+ */
+function psr0_boot() {
+}

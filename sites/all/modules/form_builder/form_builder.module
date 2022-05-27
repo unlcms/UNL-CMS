@@ -5,6 +5,9 @@
  * Generic form building framework and user interface.
  */
 
+use Drupal\form_builder\FormBase;
+use Drupal\form_builder\Loader;
+
 define('FORM_BUILDER_ROOT', 0);
 
 /**
@@ -45,6 +48,7 @@ function form_builder_menu() {
     'file' => 'form_builder.admin.inc',
     'file path' => drupal_get_path('module', 'form_builder') . '/includes',
     'delivery callback' => 'form_builder_deliver_ajax_or_html',
+    'theme callback' => 'ajax_base_page_theme',
   );
 
   $items['admin/structure/form-builder/remove'] = array(
@@ -57,6 +61,7 @@ function form_builder_menu() {
     'file' => 'form_builder.admin.inc',
     'file path' => drupal_get_path('module', 'form_builder') . '/includes',
     'delivery callback' => 'form_builder_deliver_ajax_or_html',
+    'theme callback' => 'ajax_base_page_theme',
   );
 
   $items['admin/structure/form-builder/json'] = array(
@@ -164,7 +169,7 @@ function form_builder_menu_field_access($op, $form_type, $form_id, $element_id) 
   if ($op == 'clone') {
     // Unique fields cannot be cloned (or otherwise they would not be unique).
     // Cloning fieldsets is also not currently supported.
-    $fields = FormBuilderLoader::instance()->getElementTypeInfo($form_type, $form_id);
+    $fields = Loader::instance()->getElementTypeInfo($form_type, $form_id);
     $access = !empty($element['#form_builder']['element_type']) && empty($fields[$element['#form_builder']['element_type']]['unique']) && $element['#form_builder']['element_type'] != 'fieldset';
   }
   if ($op == 'configure' && !empty($element['#form_builder']['configurable'])) {
@@ -183,76 +188,6 @@ function form_builder_menu_field_access($op, $form_type, $form_id, $element_id) 
 
 }
 
-/**
- * Implementation of hook_form_builder_properties().
- */
-function form_builder_form_builder_properties($form_type) {
-  module_load_include('inc', 'form_builder', 'includes/form_builder.properties');
-
-  $properties = array(
-    'key' => array(
-      'form' => 'form_builder_property_key_form',
-    ),
-    'title' => array(
-      'form' => 'form_builder_property_title_form',
-    ),
-    'title_display' => array(
-      'form' => 'form_builder_property_title_display_form',
-    ),
-    'description' => array(
-      'form' => 'form_builder_property_description_form',
-    ),
-    'disabled' => array(
-      'form' => 'form_builder_property_disabled_form',
-    ),
-    'weight' => array(
-      'form' => 'form_builder_property_weight_form',
-    ),
-    'default_value' => array(
-      'form' => 'form_builder_property_default_value_form',
-    ),
-    'markup' => array(
-      'form' => 'form_builder_property_markup_form',
-      'submit' => array('form_builder_property_markup_form_submit'),
-    ),
-    'maxlength' => array(
-      'form' => 'form_builder_property_maxlength_form',
-    ),
-    'required' => array(
-      'form' => 'form_builder_property_required_form',
-    ),
-    'options' => array(
-      'form' => 'form_builder_property_options_form',
-      'submit' => array('form_builder_property_options_form_submit'),
-    ),
-    'size' => array(
-      'form' => 'form_builder_property_size_form',
-    ),
-    'rows' => array(
-      'form' => 'form_builder_property_rows_form',
-    ),
-    'cols' => array(
-      'form' => 'form_builder_property_cols_form',
-    ),
-    'field_prefix' => array(
-      'form' => 'form_builder_property_field_prefix_form',
-    ),
-    'field_suffix' => array(
-      'form' => 'form_builder_property_field_suffix_form',
-    ),
-    'collapsible' => array(
-      'form' => 'form_builder_property_collapsible_form',
-    ),
-    'collapsed' => array(
-      'form' => 'form_builder_property_collapsed_form',
-    ),
-  );
-
-  if ($form_type == 'webform') {
-    $properties['options']['class'] = 'FormBuilderWebformPropertyOptions';
-  }
-  return $properties;
-}
 
 /**
  * Implementation of hook_form_builder_property_groups().
@@ -419,24 +354,10 @@ function form_validate_url(&$element, &$form_state) {
 }
 
 /**
- * Implementation of hook_registry_files_alter().
- *
- * Reassign formbuilder include files to their respective modules.
- * Required to make module_invoke() type of calls working.
- */
-function form_builder_registry_files_alter(&$files, $module_cache) {
-  $module_files = file_scan_directory(drupal_get_path('module', 'form_builder') . '/modules', '!^.*\.inc$!');
-  foreach ($module_files as $path => $file) {
-    $files[$file->uri]['module'] = $file->name;
-    $files[$file->uri]['weight'] = 0;
-  }
-}
-
-/**
  * Implement hook_cron().
  *
  * Remove stale form_builder_cache entries.
  */
 function form_builder_cron() {
-  FormBuilderFormBase::purge(variable_get('form_builder_timeout', 21600));
+  FormBase::purge(variable_get('form_builder_timeout', 21600));
 }
