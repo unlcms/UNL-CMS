@@ -17,8 +17,12 @@ class ViewsAjaxTest extends ViewsSqlTest {
     );
   }
 
-  public function setUp() {
-    parent::setUp('views', 'views_test');
+  /**
+   * {@inheritdoc}
+   */
+  public function setUp(array $modules = array()) {
+    parent::setUp($modules);
+
     // Create a second node.
     $this->drupalCreateNode(array('type' => 'article', 'status' => NODE_PUBLISHED));
   }
@@ -73,10 +77,10 @@ class ViewsAjaxTest extends ViewsSqlTest {
     $this->assertEqual($drupal_settings['views']['ajaxViews'][$view_entry]['view_name'], 'test_ajax_view', 'The view\'s ajaxViews array entry has the correct \'view_name\' key.');
     $this->assertEqual($drupal_settings['views']['ajaxViews'][$view_entry]['view_display_id'], 'page_1', 'The view\'s ajaxViews array entry has the correct \'view_display_id\' key.');
 
-    $post = [
+    $post = array(
       'view_name' => 'test_ajax_view',
       'view_display_id' => 'page_1',
-    ];
+    );
 
     $response = $this->simpleAjaxPost('views/ajax', 'application/json', $post);
     $data = drupal_json_decode($response);
@@ -91,10 +95,10 @@ class ViewsAjaxTest extends ViewsSqlTest {
     $result = $this->xpath('//div[contains(@class, "views-row")]');
     $this->assertEqual(count($result), 2, 'Ensure that two items are rendered in the HTML.');
 
-    $post = [
+    $post = array(
       'view_name' => 'test_noajax_view',
       'view_display_id' => 'default',
-    ];
+    );
 
     $response = $this->simpleAjaxPost('views/ajax', 'application/json', $post);
     $data = drupal_json_decode($response);
