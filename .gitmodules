@@ -7,9 +7,6 @@
 [submodule "sites/all/modules/tims"]
   path = sites/all/modules/tims
   url = https://github.com/unlcms/tims.git
-[submodule "vendor/Twig"]
-	path = vendor/Twig
-	url = https://github.com/fabpot/Twig.git
 [submodule "sites/all/libraries/codemirror"]
 	path = sites/all/libraries/codemirror
 	url = https://github.com/marijnh/CodeMirror.git
