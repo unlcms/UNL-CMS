@@ -1,0 +1,1070 @@
+diff --git a/googleanalytics.admin.inc b/googleanalytics.admin.inc
+index 2d8afa3..61dfc37 100644
+--- a/googleanalytics.admin.inc
++++ b/googleanalytics.admin.inc
+@@ -19,9 +19,8 @@ function googleanalytics_admin_settings_form($form_state) {
+     '#type' => 'textfield',
+     '#default_value' => variable_get('googleanalytics_account', 'UA-'),
+     '#size' => 20,
+-    '#maxlength' => 20,
+     '#required' => TRUE,
+-    '#description' => t('This ID is unique to each site you want to track separately, and is in the form of UA-xxxxxxx-yy. To get a Web Property ID, <a href="@analytics">register your site with Google Analytics</a>, or if you already have registered your site, go to your Google Analytics Settings page to see the ID next to every site profile. <a href="@webpropertyid">Find more information in the documentation</a>.', array('@analytics' => 'https://marketingplatform.google.com/about/analytics/', '@webpropertyid' => url('https://developers.google.com/analytics/resources/concepts/gaConceptsAccounts', array('fragment' => 'webProperty')))),
++    '#description' => t('This ID is unique to each site you want to track separately, and is in the form UA-xxxxxxx-yy, G-XXXXXXX, DC-XXXXXXX, or AW-XXXXXXX. To get a Web Property ID, <a href="@analytics">register your site with Google Analytics</a>, or if you already have registered your site, go to your Google Analytics Settings page to see the ID next to every site profile. <a href="@webpropertyid">Find more information in the documentation</a>. If you want to track with multiple IDs (for example, using both GA4 and UA for legacy tracking) seperate them with commas.', array('@analytics' => 'https://marketingplatform.google.com/about/analytics/', '@webpropertyid' => url('https://developers.google.com/analytics/resources/concepts/gaConceptsAccounts', array('fragment' => 'webProperty')))),
+   );
+ 
+   $form['account']['googleanalytics_premium'] = array(
+@@ -346,6 +345,14 @@ function googleanalytics_admin_settings_form($form_state) {
+       '#title_display' => 'invisible',
+       '#type' => 'textfield',
+     );
++    $form['googleanalytics_custom_dimension']['indexes'][$i]['name'] = array(
++      '#default_value' => isset($googleanalytics_custom_dimension[$i]['name']) ? $googleanalytics_custom_dimension[$i]['name'] : '',
++      '#description' => t('The custom dimension name.'),
++      '#maxlength' => 255,
++      '#title' => t('Custom dimension name #@index', array('@index' => $i)),
++      '#title_display' => 'invisible',
++      '#type' => 'textfield',
++    );
+     $form['googleanalytics_custom_dimension']['indexes'][$i]['value'] = array(
+       '#default_value' => isset($googleanalytics_custom_dimension[$i]['value']) ? $googleanalytics_custom_dimension[$i]['value'] : '',
+       '#description' => t('The custom dimension value.'),
+@@ -398,6 +405,14 @@ function googleanalytics_admin_settings_form($form_state) {
+       '#title_display' => 'invisible',
+       '#type' => 'textfield',
+     );
++    $form['googleanalytics_custom_metric']['indexes'][$i]['name'] = array(
++      '#default_value' => isset($googleanalytics_custom_metric[$i]['name']) ? $googleanalytics_custom_metric[$i]['name'] : '',
++      '#description' => t('The custom metric name.'),
++      '#maxlength' => 255,
++      '#title' => t('Custom metric name #@index', array('@index' => $i)),
++      '#title_display' => 'invisible',
++      '#type' => 'textfield',
++    );
+     $form['googleanalytics_custom_metric']['indexes'][$i]['value'] = array(
+       '#default_value' => isset($googleanalytics_custom_metric[$i]['value']) ? $googleanalytics_custom_metric[$i]['value'] : '',
+       '#description' => t('The custom metric value.'),
+@@ -464,7 +479,7 @@ function googleanalytics_admin_settings_form($form_state) {
+     '#title' => t('Create only fields'),
+     '#default_value' => _googleanalytics_get_name_value_string(variable_get('googleanalytics_codesnippet_create', array())),
+     '#rows' => 5,
+-    '#description' => t('Enter one value per line, in the format name|value. Settings in this textarea will be added to <code>ga("create", "UA-XXXX-Y", {"name":"value"});</code>. For more information, read <a href="@url">create only fields</a> documentation in the Analytics.js field reference.', array('@url' => 'https://developers.google.com/analytics/devguides/collection/analyticsjs/field-reference#create')),
++    '#description' => t('Enter one value per line, in the format name|value. Settings in this textarea will be added to <code>gtag("config", "UA-XXXX-Y", {"name":"value"});</code>. For more information, read <a href="@url">create only fields</a> documentation in the Analytics.js field reference.', array('@url' => 'https://developers.google.com/analytics/devguides/collection/analyticsjs/field-reference#create')),
+     '#element_validate' => array('googleanalytics_validate_create_field_values'),
+   );
+   $form['advanced']['codesnippet']['googleanalytics_codesnippet_before'] = array(
+@@ -473,7 +488,7 @@ function googleanalytics_admin_settings_form($form_state) {
+     '#default_value' => variable_get('googleanalytics_codesnippet_before', ''),
+     '#disabled' => $user_access_add_js_snippets,
+     '#rows' => 5,
+-    '#description' => t('Code in this textarea will be added <strong>before</strong> <code>ga("send", "pageview");</code>.') . $user_access_add_js_snippets_permission_warning,
++    '#description' => t('Code in this textarea will be added <strong>before</strong> <code>gtag("event", "page_view");</code>.') . $user_access_add_js_snippets_permission_warning,
+   );
+   $form['advanced']['codesnippet']['googleanalytics_codesnippet_after'] = array(
+     '#type' => 'textarea',
+@@ -481,7 +496,7 @@ function googleanalytics_admin_settings_form($form_state) {
+     '#default_value' => variable_get('googleanalytics_codesnippet_after', ''),
+     '#disabled' => $user_access_add_js_snippets,
+     '#rows' => 5,
+-    '#description' => t('Code in this textarea will be added <strong>after</strong> <code>ga("send", "pageview");</code>. This is useful if you\'d like to track a site in two accounts.') . $user_access_add_js_snippets_permission_warning,
++    '#description' => t('Code in this textarea will be added <strong>after</strong> <code>gtag("event", "page_view");</code>. This is useful if you\'d like to track a site in two accounts.') . $user_access_add_js_snippets_permission_warning,
+   );
+ 
+   $form['advanced']['googleanalytics_debug'] = array(
+@@ -500,6 +515,7 @@ function googleanalytics_admin_settings_form($form_state) {
+ function googleanalytics_admin_settings_form_validate($form, &$form_state) {
+   // Trim custom dimensions and metrics.
+   foreach ($form_state['values']['googleanalytics_custom_dimension']['indexes'] as $dimension) {
++    $form_state['values']['googleanalytics_custom_dimension']['indexes'][$dimension['index']]['name'] = trim($dimension['name']);
+     $form_state['values']['googleanalytics_custom_dimension']['indexes'][$dimension['index']]['value'] = trim($dimension['value']);
+     // Remove empty values from the array.
+     if (!drupal_strlen($form_state['values']['googleanalytics_custom_dimension']['indexes'][$dimension['index']]['value'])) {
+@@ -509,6 +525,7 @@ function googleanalytics_admin_settings_form_validate($form, &$form_state) {
+   $form_state['values']['googleanalytics_custom_dimension'] = $form_state['values']['googleanalytics_custom_dimension']['indexes'];
+ 
+   foreach ($form_state['values']['googleanalytics_custom_metric']['indexes'] as $metric) {
++    $form_state['values']['googleanalytics_custom_metric']['indexes'][$metric['index']]['name'] = trim($metric['name']);
+     $form_state['values']['googleanalytics_custom_metric']['indexes'][$metric['index']]['value'] = trim($metric['value']);
+     // Remove empty values from the array.
+     if (!drupal_strlen($form_state['values']['googleanalytics_custom_metric']['indexes'][$metric['index']]['value'])) {
+@@ -528,8 +545,11 @@ function googleanalytics_admin_settings_form_validate($form, &$form_state) {
+   // Replace all type of dashes (n-dash, m-dash, minus) with the normal dashes.
+   $form_state['values']['googleanalytics_account'] = str_replace(array('–', '—', '−'), '-', $form_state['values']['googleanalytics_account']);
+ 
+-  if (!preg_match('/^UA-\d+-\d+$/', $form_state['values']['googleanalytics_account'])) {
+-    form_set_error('googleanalytics_account', t('A valid Google Analytics Web Property ID is case sensitive and formatted like UA-xxxxxxx-yy.'));
++  $account_parts = array_filter(array_map("trim", explode(",", $form_state['values']['googleanalytics_account'])));
++  foreach ($account_parts as $account) {
++    if (!_google_analytics_valid_property_id($account)) {
++      form_set_error('googleanalytics_account', t('A valid Web Property ID is case sensitive and formatted like UA-xxxxxxx-yy, G-XXXXXXX, DC-XXXXXXX, or AW-XXXXXXX.'));
++    }
+   }
+ 
+   // If multiple top-level domains has been selected, a domain names list is required.
+@@ -579,6 +599,7 @@ function theme_googleanalytics_admin_custom_var_table($variables) {
+ 
+   $header = array(
+     array('data' => t('Index')),
++    array('data' => t('Name')),
+     array('data' => t('Value')),
+   );
+ 
+@@ -587,6 +608,7 @@ function theme_googleanalytics_admin_custom_var_table($variables) {
+     $rows[] = array(
+       'data' => array(
+         drupal_render($form['indexes'][$id]['index']),
++        drupal_render($form['indexes'][$id]['name']),
+         drupal_render($form['indexes'][$id]['value']),
+       ),
+     );
+diff --git a/googleanalytics.debug.js b/googleanalytics.debug.js
+index 7186230..e750267 100644
+--- a/googleanalytics.debug.js
++++ b/googleanalytics.debug.js
+@@ -25,21 +25,18 @@ $(document).ready(function() {
+         else if (Drupal.settings.googleanalytics.trackDownload && Drupal.googleanalytics.isDownload(this.href)) {
+           // Download link clicked.
+           console.info("Download url '%s' has been found. Tracked download as extension '%s'.", Drupal.googleanalytics.getPageUrl(this.href), Drupal.googleanalytics.getDownloadExtension(this.href).toUpperCase());
+-          ga("send", {
+-            "hitType": "event",
+-            "eventCategory": "Downloads",
+-            "eventAction": Drupal.googleanalytics.getDownloadExtension(this.href).toUpperCase(),
+-            "eventLabel": Drupal.googleanalytics.getPageUrl(this.href),
+-            "transport": "beacon"
++          gtag('event', Drupal.googleanalytics.getDownloadExtension(this.href).toUpperCase(), {
++            event_category: 'Downloads',
++            event_label: Drupal.googleanalytics.getPageUrl(this.href),
++            transport_type: 'beacon'
+           });
+         }
+         else if (Drupal.googleanalytics.isInternalSpecial(this.href)) {
+           // Keep the internal URL for Google Analytics website overlay intact.
+           console.info("Click on internal special link '%s' has been tracked.", Drupal.googleanalytics.getPageUrl(this.href));
+-          ga("send", {
+-            "hitType": "pageview",
+-            "page": Drupal.googleanalytics.getPageUrl(this.href),
+-            "transport": "beacon"
++          gtag('config', drupalSettings.google_analytics.account, {
++            page_path: Drupal.googleanalytics.getPageUrl(this.href),
++            transport_type: 'beacon'
+           });
+         }
+         else {
+@@ -51,24 +48,20 @@ $(document).ready(function() {
+         if (Drupal.settings.googleanalytics.trackMailto && $(this).is("a[href^='mailto:'],area[href^='mailto:']")) {
+           // Mailto link clicked.
+           console.info("Click on e-mail '%s' has been tracked.", this.href.substring(7));
+-          ga("send", {
+-            "hitType": "event",
+-            "eventCategory": "Mails",
+-            "eventAction": "Click",
+-            "eventLabel": this.href.substring(7),
+-            "transport": "beacon"
++          gtag('event', 'Click', {
++            event_category: 'Mails',
++            event_label: this.href.substring(7),
++            transport_type: 'beacon'
+           });
+         }
+         else if (Drupal.settings.googleanalytics.trackOutbound && this.href.match(/^\w+:\/\//i)) {
+           if (Drupal.settings.googleanalytics.trackDomainMode !== 2 || (Drupal.settings.googleanalytics.trackDomainMode === 2 && !Drupal.googleanalytics.isCrossDomain(this.hostname, Drupal.settings.googleanalytics.trackCrossDomains))) {
+             // External link clicked / No top-level cross domain clicked.
+             console.info("Outbound link '%s' has been tracked.", this.href);
+-            ga("send", {
+-              "hitType": "event",
+-              "eventCategory": "Outbound links",
+-              "eventAction": "Click",
+-              "eventLabel": this.href,
+-              "transport": "beacon"
++            gtag('event', 'Click', {
++              event_category: 'Outbound links',
++              event_label: this.href,
++              transport_type: 'beacon'
+             });
+           }
+           else {
+@@ -85,9 +78,8 @@ $(document).ready(function() {
+   if (Drupal.settings.googleanalytics.trackUrlFragments) {
+     window.onhashchange = function() {
+       console.info("Track URL '%s' as pageview. Hash '%s' has changed.", location.pathname + location.search + location.hash, location.hash);
+-      ga("send", {
+-        "hitType": "pageview",
+-        "page": location.pathname + location.search + location.hash
++      gtag('config', drupalSettings.google_analytics.account, {
++        page_path: location.pathname + location.search + location.hash
+       });
+     };
+   }
+@@ -99,9 +91,8 @@ $(document).ready(function() {
+       var href = $.colorbox.element().attr("href");
+       if (href) {
+         console.info("Colorbox transition to url '%s' has been tracked.", Drupal.googleanalytics.getPageUrl(href));
+-        ga("send", {
+-          "hitType": "pageview",
+-          "page": Drupal.googleanalytics.getPageUrl(href)
++        gtag('config', drupalSettings.google_analytics.account, {
++          page_path: Drupal.googleanalytics.getPageUrl(href)
+         });
+       }
+     });
+diff --git a/googleanalytics.install b/googleanalytics.install
+index 08b4e05..e726202 100644
+--- a/googleanalytics.install
++++ b/googleanalytics.install
+@@ -65,7 +65,7 @@ function googleanalytics_requirements($phase) {
+ 
+   if ($phase == 'runtime') {
+     // Raise warning if Google user account has not been set yet.
+-    if (!preg_match('/^UA-\d+-\d+$/', variable_get('googleanalytics_account', 'UA-'))) {
++    if (!_google_analytics_valid_property_id(variable_get('googleanalytics_account', 'UA-'))) {
+       $requirements['googleanalytics_account'] = array(
+         'title' => $t('Google Analytics module'),
+         'description' => $t('Google Analytics module has not been configured yet. Please configure its settings from the <a href="@url">Google Analytics settings page</a>.', array('@url' => url('admin/config/system/googleanalytics'))),
+diff --git a/googleanalytics.js b/googleanalytics.js
+index 5ba42ca..1c96cdb 100644
+--- a/googleanalytics.js
++++ b/googleanalytics.js
+@@ -21,43 +21,40 @@ $(document).ready(function() {
+         // Is download tracking activated and the file extension configured for download tracking?
+         else if (Drupal.settings.googleanalytics.trackDownload && Drupal.googleanalytics.isDownload(this.href)) {
+           // Download link clicked.
+-          ga("send", {
+-            "hitType": "event",
+-            "eventCategory": "Downloads",
+-            "eventAction": Drupal.googleanalytics.getDownloadExtension(this.href).toUpperCase(),
+-            "eventLabel": Drupal.googleanalytics.getPageUrl(this.href),
+-            "transport": "beacon"
++          gtag('event', Drupal.googleanalytics.getDownloadExtension(this.href).toUpperCase(), {
++            event_category: 'Downloads',
++            event_label: Drupal.googleanalytics.getPageUrl(this.href),
++            transport_type: 'beacon'
+           });
+         }
+         else if (Drupal.googleanalytics.isInternalSpecial(this.href)) {
+           // Keep the internal URL for Google Analytics website overlay intact.
+-          ga("send", {
+-            "hitType": "pageview",
+-            "page": Drupal.googleanalytics.getPageUrl(this.href),
+-            "transport": "beacon"
++          // @todo: May require tracking ID
++          var target = this;
++          $.each(drupalSettings.google_analytics.account, function () {
++            gtag('config', this, {
++              page_path: Drupal.googleanalytics.getPageUrl(target.href),
++              transport_type: 'beacon'
++            });
+           });
+         }
+       }
+       else {
+         if (Drupal.settings.googleanalytics.trackMailto && $(this).is("a[href^='mailto:'],area[href^='mailto:']")) {
+           // Mailto link clicked.
+-          ga("send", {
+-            "hitType": "event",
+-            "eventCategory": "Mails",
+-            "eventAction": "Click",
+-            "eventLabel": this.href.substring(7),
+-            "transport": "beacon"
++          gtag('event', 'Click', {
++            event_category: 'Mails',
++            event_label: this.href.substring(7),
++            transport_type: 'beacon'
+           });
+         }
+         else if (Drupal.settings.googleanalytics.trackOutbound && this.href.match(/^\w+:\/\//i)) {
+           if (Drupal.settings.googleanalytics.trackDomainMode !== 2 || (Drupal.settings.googleanalytics.trackDomainMode === 2 && !Drupal.googleanalytics.isCrossDomain(this.hostname, Drupal.settings.googleanalytics.trackCrossDomains))) {
+             // External link clicked / No top-level cross domain clicked.
+-            ga("send", {
+-              "hitType": "event",
+-              "eventCategory": "Outbound links",
+-              "eventAction": "Click",
+-              "eventLabel": this.href,
+-              "transport": "beacon"
++            gtag('event', 'Click', {
++              event_category: 'Outbound links',
++              event_label: this.href,
++              transport_type: 'beacon'
+             });
+           }
+         }
+@@ -68,9 +65,10 @@ $(document).ready(function() {
+   // Track hash changes as unique pageviews, if this option has been enabled.
+   if (Drupal.settings.googleanalytics.trackUrlFragments) {
+     window.onhashchange = function() {
+-      ga("send", {
+-        "hitType": "pageview",
+-        "page": location.pathname + location.search + location.hash
++      $.each(drupalSettings.google_analytics.account, function () {
++        gtag('config', this, {
++          page_path: location.pathname + location.search + location.hash
++        });
+       });
+     };
+   }
+@@ -81,9 +79,10 @@ $(document).ready(function() {
+     $(document).bind("cbox_complete", function () {
+       var href = $.colorbox.element().attr("href");
+       if (href) {
+-        ga("send", {
+-          "hitType": "pageview",
+-          "page": Drupal.googleanalytics.getPageUrl(href)
++        $.each(drupalSettings.google_analytics.account, function () {
++          gtag('config', this, {
++            page_path: Drupal.googleanalytics.getPageUrl(href)
++          });
+         });
+       }
+     });
+diff --git a/googleanalytics.module b/googleanalytics.module
+index 0026703..8aaa0d5 100644
+--- a/googleanalytics.module
++++ b/googleanalytics.module
+@@ -113,13 +113,15 @@ function googleanalytics_page_alter(&$page) {
+   // 2. Track page views based on visibility value.
+   // 3. Check if we should track the currently active user's role.
+   // 4. Ignore pages visibility filter for 404 or 403 status codes.
+-  if (preg_match('/^UA-\d+-\d+$/', $id) && (_googleanalytics_visibility_pages() || in_array($status, $trackable_status_codes)) && _googleanalytics_visibility_user($user)) {
++  if (_google_analytics_valid_property_id($id) && (_googleanalytics_visibility_pages() || in_array($status, $trackable_status_codes)) && _googleanalytics_visibility_user($user)) {
++
++    $id_list = array_filter(array_map("trim", explode(",", $id)));
+ 
+     $debug = variable_get('googleanalytics_debug', 0);
+     $url_custom = '';
+ 
+     // Add link tracking.
+-    $link_settings = array();
++    $link_settings = array('account' => $id_list);
+     if ($track_outbound = variable_get('googleanalytics_trackoutbound', 1)) {
+       $link_settings['trackOutbound'] = $track_outbound;
+     }
+@@ -173,7 +175,11 @@ function googleanalytics_page_alter(&$page) {
+         if (in_array($type, $message_types)) {
+           foreach ($messages as $message) {
+             // @todo: Track as exceptions?
+-            $message_events .= 'ga("send", "event", ' . drupal_json_encode(t('Messages')) . ', ' . drupal_json_encode($status_heading[$type]) . ', ' . drupal_json_encode(strip_tags($message)) . ');';
++            $event = array();
++            $event['event_category'] = t('Messages');
++            $event['event_label'] = strip_tags((string) $message);
++            $message_events .= 'gtag("event", ' . drupal_json_encode($status_heading[$type]) . ', ' . drupal_json_encode($event) . ');';
++            //$message_events .= 'ga("send", "event", ' . drupal_json_encode(t('Messages')) . ', ' . drupal_json_encode($status_heading[$type]) . ', ' . drupal_json_encode(strip_tags($message)) . ');';
+           }
+         }
+       }
+@@ -221,7 +227,8 @@ function googleanalytics_page_alter(&$page) {
+     }
+ 
+     // Add custom dimensions and metrics.
+-    $custom_var = '';
++    $custom_map = array();
++    $custom_vars = array();
+     foreach (array('dimension', 'metric') as $googleanalytics_custom_type) {
+       $googleanalytics_custom_vars = variable_get('googleanalytics_custom_' . $googleanalytics_custom_type, array());
+       // Are there dimensions or metrics configured?
+@@ -254,44 +261,35 @@ function googleanalytics_page_alter(&$page) {
+             settype($googleanalytics_custom_var['value'], 'float');
+           };
+ 
+-          // Add variables to tracker.
+-          $custom_var .= 'ga("set", ' . drupal_json_encode($googleanalytics_custom_type . $googleanalytics_custom_var['index']) . ', ' . drupal_json_encode($googleanalytics_custom_var['value']) . ');';
++          // Build the arrays of values.
++          $custom_map['custom_map'][$googleanalytics_custom_type . $googleanalytics_custom_var['index']] = $googleanalytics_custom_var['name'];
++          $custom_vars[$googleanalytics_custom_var['name']] = $googleanalytics_custom_var['value'];
+         }
+       }
+     }
+ 
+-    // Build tracker code.
+-    $script = '(function(i,s,o,g,r,a,m){';
+-    $script .= 'i["GoogleAnalyticsObject"]=r;i[r]=i[r]||function(){';
+-    $script .= '(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),';
+-    $script .= 'm=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)';
+-    $script .= '})(window,document,"script",';
+-
+-    // Which version of the tracking library should be used?
+-    $library_tracker_url = 'https://www.google-analytics.com/' . ($debug ? 'analytics_debug.js' : 'analytics.js');
+-
+-    // Should a local cached copy of analytics.js be used?
+-    if (variable_get('googleanalytics_cache', 0) && $url = _googleanalytics_cache($library_tracker_url)) {
+-      // A dummy query-string is added to filenames, to gain control over
+-      // browser-caching. The string changes on every update or full cache
+-      // flush, forcing browsers to load a new copy of the files, as the
+-      // URL changed.
+-      $query_string = '?' . variable_get('css_js_query_string', '0');
++    $custom_var = '';
++    if (!empty($custom_map)) {
++      // Add custom variables to tracker.
++      foreach ($id_list as $id) {
++        $custom_var .= 'gtag("config", ' . drupal_json_encode($id) . ', ' . drupal_json_encode($custom_map) . ');';
++      }
++      $custom_var .= 'gtag("event", "custom", ' . drupal_json_encode($custom_vars) . ');';
++    };
+ 
+-      $script .= '"' . $url . $query_string . '"';
+-    }
+-    else {
+-      $script .= '"' . $library_tracker_url . '"';
+-    }
+-    $script .= ',"ga");';
++    // Build tracker code.
++    $script = 'window.dataLayer = window.dataLayer || [];';
++    $script .= 'function gtag(){dataLayer.push(arguments)};';
++    $script .= 'gtag("js", new Date());';
+ 
+     // Add any custom code snippets if specified.
+     $codesnippet_create = variable_get('googleanalytics_codesnippet_create', array());
+     $codesnippet_before = variable_get('googleanalytics_codesnippet_before', '');
+     $codesnippet_after = variable_get('googleanalytics_codesnippet_after', '');
+ 
+-    // Build the create only fields list.
+-    $create_only_fields = array('cookieDomain' => 'auto');
++    // Build the arguments fields list.
++    // https://developers.google.com/analytics/devguides/collection/gtagjs/sending-data
++    $create_only_fields = array('groups' => 'default');
+     $create_only_fields = array_merge($create_only_fields, $codesnippet_create);
+ 
+     // Domain tracking type.
+@@ -302,61 +300,62 @@ function googleanalytics_page_alter(&$page) {
+     // Per RFC 2109, cookie domains must contain at least one dot other than the
+     // first. For hosts such as 'localhost' or IP Addresses we don't set a cookie domain.
+     if ($domain_mode == 1 && count(explode('.', $cookie_domain)) > 2 && !is_numeric(str_replace('.', '', $cookie_domain))) {
+-      $create_only_fields = array_merge($create_only_fields, array('cookieDomain' => $cookie_domain));
++      $create_only_fields = array_merge($create_only_fields, array('cookie_domain' => $cookie_domain));
+       $googleanalytics_adsense_script .= 'window.google_analytics_domain_name = ' . drupal_json_encode($cookie_domain) . ';';
+     }
+     elseif ($domain_mode == 2) {
+-      // Cross Domain tracking. 'autoLinker' need to be enabled in 'create'.
+-      $create_only_fields = array_merge($create_only_fields, array('allowLinker' => TRUE));
++      // Cross Domain tracking
++      // https://developers.google.com/analytics/devguides/collection/gtagjs/cross-domain
++      $create_only_fields['linker'] = array(
++        'domains' => $link_settings['trackCrossDomains'],
++      );
+       $googleanalytics_adsense_script .= 'window.google_analytics_domain_name = "none";';
+     }
+ 
+     // Track logged in users across all devices.
+     if (variable_get('googleanalytics_trackuserid', 0) && user_is_logged_in()) {
+-      $create_only_fields['userId'] = google_analytics_user_id_hash($user->uid);
++      $create_only_fields['user_id'] = google_analytics_user_id_hash($user->uid);
+     }
+ 
+-    // Create a tracker.
+-    $script .= 'ga("create", ' . drupal_json_encode($id) . ', ' . drupal_json_encode($create_only_fields) .');';
++    if (variable_get('googleanalytics_tracker_anonymizeip', 1)) {
++      $create_only_fields['anonymize_ip'] = TRUE;
++    }
+ 
+-    // Prepare Adsense tracking.
+-    $googleanalytics_adsense_script .= 'window.google_analytics_uacct = ' . drupal_json_encode($id) . ';';
++    if (!empty($url_custom)) {
++      $create_only_fields['page_path'] = 'PLACEHOLDER_URL_CUSTOM';
++    }
+ 
+     // Add enhanced link attribution after 'create', but before 'pageview' send.
+-    // @see https://support.google.com/analytics/answer/2558867
++    // @see https://developers.google.com/analytics/devguides/collection/gtagjs/enhanced-link-attribution
+     if (variable_get('googleanalytics_tracklinkid', 0)) {
+-      $script .= 'ga("require", "linkid", "linkid.js");';
++      $create_only_fields['link_attribution'] = TRUE;
+     }
+ 
+     // Add display features after 'create', but before 'pageview' send.
+-    // @see https://support.google.com/analytics/answer/2444872
++    // @see https://developers.google.com/analytics/devguides/collection/gtagjs/display-features
+     if (variable_get('googleanalytics_trackdoubleclick', 0)) {
+-      $script .= 'ga("require", "displayfeatures");';
++      $create_only_fields['allow_ad_personalization_signals'] = FALSE;
+     }
+ 
+-    // Domain tracking type.
+-    if ($domain_mode == 2) {
+-      // Cross Domain tracking
+-      // https://developers.google.com/analytics/devguides/collection/upgrade/reference/gajs-analyticsjs#cross-domain
+-      $script .= 'ga("require", "linker");';
+-      $script .= 'ga("linker:autoLink", ' . drupal_json_encode($link_settings['trackCrossDomains']) . ');';
+-    }
+-
+-    if (variable_get('googleanalytics_tracker_anonymizeip', 1)) {
+-      $script .= 'ga("set", "anonymizeIp", true);';
+-    }
++    // Convert array to JSON format.
++    $arguments_json = drupal_json_encode($create_only_fields);
++    // drupal_json_encode() cannot convert every data type properly.
++    $arguments_json = str_replace('"PLACEHOLDER_URL_CUSTOM"', $url_custom, $arguments_json);
+ 
+-    if (!empty($custom_var)) {
+-      $script .= $custom_var;
+-    }
++    // Create a tracker.
+     if (!empty($codesnippet_before)) {
+       $script .= $codesnippet_before;
+     }
+-    if (!empty($url_custom)) {
+-      $script .= 'ga("set", "page", ' . $url_custom . ');';
++    foreach ($id_list as $id) {
++      $script .= 'gtag("config", ' . drupal_json_encode($id) . ', ' . $arguments_json . ');';
+     }
+-    $script .= 'ga("send", "pageview");';
+ 
++    // Prepare Adsense tracking.
++    $googleanalytics_adsense_script .= 'window.google_analytics_uacct = ' . drupal_json_encode($id_list[0]) . ';';
++
++    if (!empty($custom_var)) {
++      $script .= $custom_var;
++    }
+     if (!empty($message_events)) {
+       $script .= $message_events;
+     }
+@@ -368,9 +367,30 @@ function googleanalytics_page_alter(&$page) {
+       // Custom tracking. Prepend before all other JavaScript.
+       // @TODO: https://support.google.com/adsense/answer/98142
+       // sounds like it could be appended to $script.
+-      drupal_add_js($googleanalytics_adsense_script, array('type' => 'inline', 'group' => JS_LIBRARY-1, 'requires_jquery' => FALSE));
++      $script = $googleanalytics_adsense_script . $script;
+     }
+ 
++    // Prepend tracking library directly before script code.
++    if ($debug) {
++      // Debug script has highest priority to load.
++      // @FIXME: Cannot find the debug URL!???
++      $library = 'https://www.googletagmanager.com/gtag/js?id=' . $id_list[0];
++    }
++    elseif (variable_get('googleanalytics_cache', 0) && $url = _googleanalytics_cache('https://www.googletagmanager.com/gtag/js')) {
++      // Should a local cached copy of gtag.js be used?
++      $query_string = '?' . variable_get('css_js_query_string', '0');
++      $library = $url . $query_string;
++    }
++    else {
++      // Fallback to default.
++      $library = 'https://www.googletagmanager.com/gtag/js?id=' . $id_list[0];
++    }
++
++    $options = array(
++      'type' => 'external',
++      'async' => TRUE,
++    );
++    drupal_add_js($library, $options);
+     drupal_add_js($script, array('scope' => 'header', 'type' => 'inline', 'requires_jquery' => FALSE));
+   }
+ }
+@@ -488,8 +508,8 @@ function googleanalytics_preprocess_search_results(&$variables) {
+     // There is no search result $variable available that hold the number of items
+     // found. But the pager item mumber can tell the number of search results.
+     global $pager_total_items;
+-
+-    drupal_add_js('window.googleanalytics_search_results = ' . intval($pager_total_items[0]) . ';', array('type' => 'inline', 'group' => JS_LIBRARY-1, 'requires_jquery' => FALSE));
++    $results = isset($pager_total_items[0]) ? $pager_total_items[0] : 0;
++    drupal_add_js('window.googleanalytics_search_results = ' . intval($results) . ';', array('type' => 'inline', 'group' => JS_LIBRARY-1, 'requires_jquery' => FALSE));
+   }
+ }
+ 
+@@ -709,3 +729,16 @@ function _googleanalytics_visibility_header($account) {
+ 
+   return TRUE;
+ }
++
++/**
++ * Validate Google Analytics property IDs.
++ *
++ * @param string $property_id
++ *   Property ID to validate.
++ * @return int|bool
++ *   Whether property ID is valid.
++ */
++function _google_analytics_valid_property_id($property_id) {
++  $regex = '/^(?:(UA|G|AW|DC)-[\w-]+)(?:,\s*(?:(UA|G|AW|DC)-[\w-]+))*$/';
++  return !empty($property_id) && preg_match($regex, $property_id);
++}
+diff --git a/googleanalytics.test b/googleanalytics.test
+index 52c3148..9f9eeb7 100644
+--- a/googleanalytics.test
++++ b/googleanalytics.test
+@@ -56,7 +56,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     // Check for account code validation.
+     $edit['googleanalytics_account'] = $this->randomName(2);
+     $this->drupalPost('admin/config/system/googleanalytics', $edit, t('Save configuration'));
+-    $this->assertRaw(t('A valid Google Analytics Web Property ID is case sensitive and formatted like UA-xxxxxxx-yy.'), '[testGoogleAnalyticsConfiguration]: Invalid Web Property ID number validated.');
++    $this->assertRaw(t('A valid Web Property ID is case sensitive and formatted like UA-xxxxxxx-yy, G-XXXXXXX, DC-XXXXXXX, or AW-XXXXXXX.'), '[testGoogleAnalyticsConfiguration]: Invalid Web Property ID number validated.');
+ 
+     // User should have access to code snippets.
+     $this->assertFieldByName('googleanalytics_codesnippet_create');
+@@ -83,7 +83,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     // Verify that no tracking code is embedded into the webpage; if there is
+     // only the module installed, but UA code not configured. See #2246991.
+     $this->drupalGet('');
+-    $this->assertNoRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsPageVisibility]: Tracking code is not displayed without UA code configured.');
++    $this->assertNoRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsPageVisibility]: Tracking code is not displayed without UA code configured.');
+ 
+     $ua_code = 'UA-123456-1';
+     variable_set('googleanalytics_account', $ua_code);
+@@ -104,7 +104,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     $this->assertNoRaw($ua_code, '[testGoogleAnalyticsPageVisibility]: Tracking code is not displayed on admin page.');
+     $this->drupalGet('admin/config/system/googleanalytics');
+     // Checking for tracking code URI here, as $ua_code is displayed in the form.
+-    $this->assertNoRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsPageVisibility]: Tracking code is not displayed on admin subpage.');
++    $this->assertNoRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsPageVisibility]: Tracking code is not displayed on admin subpage.');
+ 
+     // Test whether tracking code display is properly flipped.
+     variable_set('googleanalytics_visibility_pages', 1);
+@@ -112,7 +112,7 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     $this->assertRaw($ua_code, '[testGoogleAnalyticsPageVisibility]: Tracking code is displayed on admin page.');
+     $this->drupalGet('admin/config/system/googleanalytics');
+     // Checking for tracking code URI here, as $ua_code is displayed in the form.
+-    $this->assertRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsPageVisibility]: Tracking code is displayed on admin subpage.');
++    $this->assertRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsPageVisibility]: Tracking code is displayed on admin subpage.');
+     $this->drupalGet('');
+     $this->assertNoRaw($ua_code, '[testGoogleAnalyticsPageVisibility]: Tracking code is NOT displayed on front page.');
+ 
+@@ -141,18 +141,18 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     variable_set('cache', 1);
+     // Test whether DNT headers will fail to disable embedding of tracking code.
+     $this->drupalGet('', array(), array('DNT: 1'));
+-    $this->assertRaw('ga("send", "pageview");', '[testGoogleAnalyticsDNTVisibility]: DNT header send from client, but page caching is enabled and tracker cannot removed.');
++    $this->assertRaw('gtag("config", "' . $ua_code . '",', '[testGoogleAnalyticsDNTVisibility]: DNT header send from client, but page caching is enabled and tracker cannot removed.');
+     // DNT works only with system internal page cache for anonymous users disabled.
+     variable_set('cache', 0);
+     $this->drupalGet('');
+-    $this->assertRaw('ga("send", "pageview");', '[testGoogleAnalyticsDNTVisibility]: Tracking is enabled without DNT header.');
++    $this->assertRaw('gtag("config", "' . $ua_code . '",', '[testGoogleAnalyticsDNTVisibility]: Tracking is enabled without DNT header.');
+     // Test whether DNT header is able to remove the tracking code.
+     $this->drupalGet('', array(), array('DNT: 1'));
+-    $this->assertNoRaw('ga("send", "pageview");', '[testGoogleAnalyticsDNTVisibility]: DNT header received from client. Tracking has been disabled by browser.');
++    $this->assertNoRaw('gtag("config", "' . $ua_code . '",', '[testGoogleAnalyticsDNTVisibility]: DNT header received from client. Tracking has been disabled by browser.');
+     // Disable DNT feature and see if tracker is still embedded.
+     variable_set('googleanalytics_privacy_donottrack', 0);
+     $this->drupalGet('', array(), array('DNT: 1'));
+-    $this->assertRaw('ga("send", "pageview");', '[testGoogleAnalyticsDNTVisibility]: DNT feature is disabled, DNT header from browser has been ignored.');
++    $this->assertRaw('gtag("config", "' . $ua_code . '",', '[testGoogleAnalyticsDNTVisibility]: DNT feature is disabled, DNT header from browser has been ignored.');
+   }
+ 
+   function testGoogleAnalyticsTrackingCode() {
+@@ -165,76 +165,75 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     variable_set('googleanalytics_roles', array());
+ 
+     /* Sample JS code as added to page:
+-    <script type="text/javascript" src="/sites/all/modules/google_analytics/googleanalytics.js?w"></script>
++    <script type="text/javascript" src="/sites/all/modules/google_analytics/google_analytics.js?w"></script>
++    <!-- Global Site Tag (gtag.js) - Google Analytics -->
++    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-123456-7"></script>
+     <script>
+-    (function(q,u,i,c,k){window['GoogleAnalyticsObject']=q;
+-    window[q]=window[q]||function(){(window[q].q=window[q].q||[]).push(arguments)},
+-    window[q].l=1*new Date();c=i.createElement(u),k=i.getElementsByTagName(u)[0];
+-    c.async=true;c.src='https://www.google-analytics.com/analytics.js';
+-    k.parentNode.insertBefore(c,k)})('ga','script',document);
+-    ga('create', 'UA-123456-7');
+-    ga('send', 'pageview');
++    window.dataLayer = window.dataLayer || [];
++    function gtag(){dataLayer.push(arguments)};
++    gtag('js', new Date());
++    gtag('config', 'UA-123456-7');
+     </script>
+-    <!-- End Google Analytics -->
+     */
+ 
+     // Test whether tracking code uses latest JS.
+     variable_set('googleanalytics_cache', 0);
+     $this->drupalGet('');
+-    $this->assertRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsTrackingCode]: Latest tracking code used.');
++    $this->assertRaw('https://www.googletagmanager.com/gtag/js', '[testGoogleAnalyticsTrackingCode]: Latest tracking code used.');
+ 
+     // Test whether anonymize visitors IP address feature has been enabled.
+     variable_set('googleanalytics_tracker_anonymizeip', 0);
+     $this->drupalGet('');
+-    $this->assertNoRaw('ga("set", "anonymizeIp", true);', '[testGoogleAnalyticsTrackingCode]: Anonymize visitors IP address not found on frontpage.');
++    $this->assertNoRaw('"anonymize_ip":true', '[testGoogleAnalyticsTrackingCode]: Anonymize visitors IP address not found on frontpage.');
+     // Enable anonymizing of IP addresses.
+     variable_set('googleanalytics_tracker_anonymizeip', 1);
+     $this->drupalGet('');
+-    $this->assertRaw('ga("set", "anonymizeIp", true);', '[testGoogleAnalyticsTrackingCode]: Anonymize visitors IP address found on frontpage.');
++    $this->assertRaw('"anonymize_ip":true', '[testGoogleAnalyticsTrackingCode]: Anonymize visitors IP address found on frontpage.');
++    variable_set('googleanalytics_tracker_anonymizeip', 0);
+ 
+     // Test if track Enhanced Link Attribution is enabled.
+     variable_set('googleanalytics_tracklinkid', 1);
+     $this->drupalGet('');
+-    $this->assertRaw('ga("require", "linkid", "linkid.js");', '[testGoogleAnalyticsTrackingCode]: Tracking code for Enhanced Link Attribution is enabled.');
++    $this->assertRaw('"link_attribution":true', '[testGoogleAnalyticsTrackingCode]: Tracking code for Enhanced Link Attribution is enabled.');
+ 
+     // Test if track Enhanced Link Attribution is disabled.
+     variable_set('googleanalytics_tracklinkid', 0);
+     $this->drupalGet('');
+-    $this->assertNoRaw('ga("require", "linkid", "linkid.js");', '[testGoogleAnalyticsTrackingCode]: Tracking code for Enhanced Link Attribution is not enabled.');
++    $this->assertNoRaw('"link_attribution":true', '[testGoogleAnalyticsTrackingCode]: Tracking code for Enhanced Link Attribution is not enabled.');
+ 
+     // Test if tracking of User ID is enabled.
+     variable_set('googleanalytics_trackuserid', 1);
+     $this->drupalGet('');
+-    $this->assertRaw(', {"cookieDomain":"auto","userId":"', '[testGoogleAnalyticsTrackingCode]: Tracking code for User ID is enabled.');
++    $this->assertRaw('"user_id":"', '[testGoogleAnalyticsTrackingCode]: Tracking code for User ID is enabled.');
+ 
+     // Test if tracking of User ID is disabled.
+     variable_set('googleanalytics_trackuserid', 0);
+     $this->drupalGet('');
+-    $this->assertNoRaw(', {"cookieDomain":"auto","userId":"', '[testGoogleAnalyticsTrackingCode]: Tracking code for User ID is disabled.');
++    $this->assertNoRaw('"user_id":"', '[testGoogleAnalyticsTrackingCode]: Tracking code for User ID is disabled.');
+ 
+     // Test if tracking of url fragments is enabled.
+     variable_set('googleanalytics_trackurlfragments', 1);
+     $this->drupalGet('');
+-    $this->assertRaw('ga("set", "page", location.pathname + location.search + location.hash);', '[testGoogleAnalyticsTrackingCode]: Tracking code for url fragments is enabled.');
++    $this->assertRaw('"page_path":location.pathname + location.search + location.hash});', '[testGoogleAnalyticsTrackingCode]: Tracking code for url fragments is enabled.');
+ 
+     // Test if tracking of url fragments is disabled.
+     variable_set('googleanalytics_trackurlfragments', 0);
+     $this->drupalGet('');
+-    $this->assertNoRaw('ga("set", "page", location.pathname + location.search + location.hash);', '[testGoogleAnalyticsTrackingCode]: Tracking code for url fragments is not enabled.');
++    $this->assertNoRaw('"page_path":location.pathname + location.search + location.hash});', '[testGoogleAnalyticsTrackingCode]: Tracking code for url fragments is not enabled.');
+ 
+     // Test if track display features is enabled.
+     variable_set('googleanalytics_trackdoubleclick', 1);
+     $this->drupalGet('');
+-    $this->assertRaw('ga("require", "displayfeatures");', '[testGoogleAnalyticsTrackingCode]: Tracking code for display features is enabled.');
++    $this->assertRaw('"allow_ad_personalization_signals":false', '[testGoogleAnalyticsTrackingCode]: Tracking code for display features is enabled.');
+ 
+     // Test if track display features is disabled.
+     variable_set('googleanalytics_trackdoubleclick', 0);
+     $this->drupalGet('');
+-    $this->assertNoRaw('ga("require", "displayfeatures");', '[testGoogleAnalyticsTrackingCode]: Tracking code for display features is not enabled.');
++    $this->assertNoRaw('"allow_ad_personalization_signals":false', '[testGoogleAnalyticsTrackingCode]: Tracking code for display features is not enabled.');
+ 
+     // Test whether single domain tracking is active.
+     $this->drupalGet('');
+-    $this->assertRaw('{"cookieDomain":"auto"}', '[testGoogleAnalyticsTrackingCode]: Single domain tracking is active.');
++    $this->assertRaw('{"groups":"default"}', '[testGoogleAnalyticsTrackingCode]: Single domain tracking is active.');
+ 
+     // Enable "One domain with multiple subdomains".
+     variable_set('googleanalytics_domain_mode', 1);
+@@ -255,9 +254,8 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     variable_set('googleanalytics_domain_mode', 2);
+     variable_set('googleanalytics_cross_domains', "www.example.com\nwww.example.net");
+     $this->drupalGet('');
+-    $this->assertRaw('ga("create", "' . $ua_code . '", {"cookieDomain":"auto","allowLinker":true', '[testGoogleAnalyticsTrackingCode]: "allowLinker" has been found. Cross domain tracking is active.');
+-    $this->assertRaw('ga("require", "linker");', '[testGoogleAnalyticsTrackingCode]: Require linker has been found. Cross domain tracking is active.');
+-    $this->assertRaw('ga("linker:autoLink", ["www.example.com","www.example.net"]);', '[testGoogleAnalyticsTrackingCode]: "linker:autoLink" has been found. Cross domain tracking is active.');
++    $this->assertRaw('gtag("config", "' . $ua_code . '", {"groups":"default","linker":', '[testGoogleAnalyticsTrackingCode]: "allowLinker" has been found. Cross domain tracking is active.');
++    $this->assertRaw('gtag("config", "' . $ua_code . '", {"groups":"default","linker":{"domains":["www.example.com","www.example.net"]}});', '[testGoogleAnalyticsTrackingCode]: "linker:autoLink" has been found. Cross domain tracking is active.');
+     $this->assertRaw('"trackDomainMode":2,', '[testGoogleAnalyticsTrackingCode]: Domain mode value is of type integer.');
+     $this->assertRaw('"trackCrossDomains":["www.example.com","www.example.net"]', '[testGoogleAnalyticsTrackingCode]: Cross domain tracking with www.example.com and www.example.net is active.');
+     variable_set('googleanalytics_domain_mode', 0);
+@@ -265,7 +263,8 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     // Test whether debugging script has been enabled.
+     variable_set('googleanalytics_debug', 1);
+     $this->drupalGet('');
+-    $this->assertRaw('https://www.google-analytics.com/analytics_debug.js', '[testGoogleAnalyticsTrackingCode]: Google debugging script has been enabled.');
++    // @FIXME
++    //$this->assertRaw('https://www.google-analytics.com/analytics_debug.js');
+ 
+     // Check if text and link is shown on 'Status Reports' page.
+     // Requires 'administer site configuration' permission.
+@@ -275,23 +274,23 @@ class GoogleAnalyticsBasicTest extends DrupalWebTestCase {
+     // Test whether debugging script has been disabled.
+     variable_set('googleanalytics_debug', 0);
+     $this->drupalGet('');
+-    $this->assertRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsTrackingCode]: Google debugging script has been disabled.');
++    $this->assertRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsTrackingCode]: Google debugging script has been disabled.');
+ 
+     // Test whether the CREATE and BEFORE and AFTER code is added to the tracker.
+     $codesnippet_create = array(
+-      'cookieDomain' => 'foo.example.com',
+-      'cookieName' => 'myNewName',
+-      'cookieExpires' => 20000,
+-      'allowAnchor' => TRUE,
+-      'sampleRate' => 4.3,
++      'cookie_domain' => 'foo.example.com',
++      'cookie_name' => 'myNewName',
++      'cookie_expires' => 20000,
++      'sample_rate' => 4.3,
+     );
+     variable_set('googleanalytics_codesnippet_create', $codesnippet_create);
+-    variable_set('googleanalytics_codesnippet_before', 'ga("set", "forceSSL", true);');
+-    variable_set('googleanalytics_codesnippet_after', 'ga("create", "UA-123456-3", {"name": "newTracker"});ga("newTracker.send", "pageview");');
++    variable_set('googleanalytics_codesnippet_before', 'gtag("set", {"currency":"USD"});');
++    variable_set('googleanalytics_codesnippet_after', 'gtag("config", "UA-123456-3", {"groups":"default"});if(1 == 1 && 2 < 3 && 2 > 1){console.log("Google Analytics: Custom condition works.");}');
+     $this->drupalGet('');
+-    $this->assertRaw('ga("create", "' . $ua_code . '", {"cookieDomain":"foo.example.com","cookieName":"myNewName","cookieExpires":20000,"allowAnchor":true,"sampleRate":4.3});', '[testGoogleAnalyticsTrackingCode]: Create only fields have been found.');
+-    $this->assertRaw('ga("set", "forceSSL", true);', '[testGoogleAnalyticsTrackingCode]: Before codesnippet will force http pages to also send all beacons using https.');
+-    $this->assertRaw('ga("create", "UA-123456-3", {"name": "newTracker"});', '[testGoogleAnalyticsTrackingCode]: After codesnippet with "newTracker" tracker has been found.');
++    $this->assertRaw('gtag("config", "' . $ua_code . '", {"groups":"default","cookie_domain":"foo.example.com","cookie_name":"myNewName","cookie_expires":20000,"sample_rate":4.3});', '[testGoogleAnalyticsTrackingCode]: Create only fields have been found.');
++    $this->assertRaw('gtag("set", {"currency":"USD"});', '[testGoogleAnalyticsTrackingCode]: Before codesnippet will force http pages to also send all beacons using https.');
++    $this->assertRaw('gtag("config", "UA-123456-3", {"groups":"default"});', '[testGoogleAnalyticsTrackingCode]: After codesnippet with "newTracker" tracker has been found.');
++    $this->assertRaw('if(1 == 1 && 2 < 3 && 2 > 1){console.log("Google Analytics: Custom condition works.");}', '[testGoogleAnalyticsTrackingCode]: After codesnippet with "newTracker" tracker has been found.');
+   }
+ }
+ 
+@@ -327,31 +326,41 @@ class GoogleAnalyticsCustomDimensionsAndMetricsTest extends DrupalWebTestCase {
+     $googleanalytics_custom_dimension = array(
+       1 => array(
+         'index' => 1,
++        'name' => 'foo1',
+         'value' => 'Bar 1',
+       ),
+       2 => array(
+         'index' => 2,
++        'name' => 'foo2',
+         'value' => 'Bar 2',
+       ),
+       3 => array(
+         'index' => 3,
++        'name' => 'foo3',
+         'value' => 'Bar 3',
+       ),
+       4 => array(
+         'index' => 4,
++        'name' => 'foo4',
+         'value' => 'Bar 4',
+       ),
+       5 => array(
+         'index' => 5,
++        'name' => 'foo5',
+         'value' => 'Bar 5',
+       ),
+     );
+     variable_set('googleanalytics_custom_dimension', $googleanalytics_custom_dimension);
+     $this->drupalGet('');
+ 
++    $custom_map = array();
++    $custom_vars = array();
+     foreach ($googleanalytics_custom_dimension as $dimension) {
+-      $this->assertRaw('ga("set", ' . drupal_json_encode('dimension' . $dimension['index']) . ', ' . drupal_json_encode($dimension['value']) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Dimension #' . $dimension['index'] . ' is shown.');
++      $custom_map['custom_map']['dimension' . $dimension['index']] = $dimension['name'];
++      $custom_vars[$dimension['name']] = $dimension['value'];
+     }
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', ' . drupal_json_encode($custom_map) . ');');
++    $this->assertRaw('gtag("event", "custom", ' . drupal_json_encode($custom_vars) . ');');
+ 
+     // Test whether tokens are replaced in custom dimension values.
+     $site_slogan = $this->randomName(16);
+@@ -360,19 +369,23 @@ class GoogleAnalyticsCustomDimensionsAndMetricsTest extends DrupalWebTestCase {
+     $googleanalytics_custom_dimension = array(
+       1 => array(
+         'index' => 1,
++        'name' => 'site_slogan',
+         'value' => 'Value: [site:slogan]',
+       ),
+       2 => array(
+         'index' => 2,
++        'name' => 'machine_name',
+         'value' => $this->randomName(16),
+       ),
+       3 => array(
+         'index' => 3,
++        'name' => 'foo3',
+         'value' => '',
+       ),
+       // #2300701: Custom dimensions and custom metrics not outputed on zero value.
+       4 => array(
+         'index' => 4,
++        'name' => 'bar4',
+         'value' => '0',
+       ),
+     );
+@@ -380,10 +393,14 @@ class GoogleAnalyticsCustomDimensionsAndMetricsTest extends DrupalWebTestCase {
+     $this->verbose('<pre>' . print_r($googleanalytics_custom_dimension, TRUE) . '</pre>');
+ 
+     $this->drupalGet('');
+-    $this->assertRaw('ga("set", ' . drupal_json_encode('dimension1') . ', ' . drupal_json_encode("Value: $site_slogan") . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Tokens have been replaced in dimension value.');
+-    $this->assertRaw('ga("set", ' . drupal_json_encode('dimension2') . ', ' . drupal_json_encode($googleanalytics_custom_dimension['2']['value']) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Random value is shown.');
+-    $this->assertNoRaw('ga("set", ' . drupal_json_encode('dimension3') . ', ' . drupal_json_encode('') . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Empty value is not shown.');
+-    $this->assertRaw('ga("set", ' . drupal_json_encode('dimension4') . ', ' . drupal_json_encode('0') . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Value 0 is shown.');
++    $this->assertRaw(drupal_json_encode('dimension1') . ':' . drupal_json_encode($googleanalytics_custom_dimension['1']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Tokens have been replaced in dimension name.');
++    $this->assertRaw(drupal_json_encode($googleanalytics_custom_dimension['1']['name']) . ':' . drupal_json_encode("Value: $site_slogan"), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Tokens have been replaced in dimension value.');
++    $this->assertRaw(drupal_json_encode('dimension2') . ':' . drupal_json_encode($googleanalytics_custom_dimension['2']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Random machine_name is shown.');
++    $this->assertRaw(drupal_json_encode($googleanalytics_custom_dimension['2']['name']) . ':' . drupal_json_encode($googleanalytics_custom_dimension['2']['value']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Random machine_name value is shown.');
++    $this->assertNoRaw(drupal_json_encode('dimension3') . ':' . drupal_json_encode($googleanalytics_custom_dimension['3']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Empty value name is not shown.');
++    $this->assertNoRaw(drupal_json_encode($googleanalytics_custom_dimension['3']['name']) . ':' . drupal_json_encode(''), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Empty value is not shown.');
++    $this->assertRaw(drupal_json_encode('dimension4') . ':' . drupal_json_encode($googleanalytics_custom_dimension['4']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Value 0 name is shown.');
++    $this->assertRaw(drupal_json_encode($googleanalytics_custom_dimension['4']['name']) . ':' . drupal_json_encode('0'), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Value 0 is shown.');
+   }
+ 
+   function testGoogleAnalyticsCustomMetrics() {
+@@ -394,22 +411,27 @@ class GoogleAnalyticsCustomDimensionsAndMetricsTest extends DrupalWebTestCase {
+     $googleanalytics_custom_metric = array(
+       1 => array(
+         'index' => 1,
++        'name' => 'foo1',
+         'value' => '6',
+       ),
+       2 => array(
+         'index' => 2,
++        'name' => 'foo2',
+         'value' => '8000',
+       ),
+       3 => array(
+         'index' => 3,
++        'name' => 'foo3',
+         'value' => '7.8654',
+       ),
+       4 => array(
+         'index' => 4,
++        'name' => 'foo4',
+         'value' => '1123.4',
+       ),
+       5 => array(
+         'index' => 5,
++        'name' => 'foo5',
+         'value' => '5,67',
+       ),
+     );
+@@ -417,27 +439,36 @@ class GoogleAnalyticsCustomDimensionsAndMetricsTest extends DrupalWebTestCase {
+     variable_set('googleanalytics_custom_metric', $googleanalytics_custom_metric);
+     $this->drupalGet('');
+ 
++    $custom_map = array();
++    $custom_vars = array();
+     foreach ($googleanalytics_custom_metric as $metric) {
+-      $this->assertRaw('ga("set", ' . drupal_json_encode('metric' . $metric['index']) . ', ' . drupal_json_encode((float) $metric['value']) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Metric #' . $metric['index'] . ' is shown.');
++      $custom_map['custom_map']['metric' . $metric['index']] = $metric['name'];
++      $custom_vars[$metric['name']] = (float) $metric['value'];
+     }
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', ' . drupal_json_encode($custom_map) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Metric config is shown.');
++    $this->assertRaw('gtag("event", "custom", ' . drupal_json_encode($custom_vars) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Metric event is shown.');
+ 
+     // Test whether tokens are replaced in custom metric values.
+     $googleanalytics_custom_metric = array(
+       1 => array(
+         'index' => 1,
++        'name' => 'bar1',
+         'value' => '[current-user:roles:count]',
+       ),
+       2 => array(
+         'index' => 2,
++        'name' => 'bar2',
+         'value' => mt_rand(),
+       ),
+       3 => array(
+         'index' => 3,
++        'name' => 'bar3',
+         'value' => '',
+       ),
+       // #2300701: Custom dimensions and custom metrics not outputed on zero value.
+       4 => array(
+         'index' => 4,
++        'name' => 'bar4',
+         'value' => '0',
+       ),
+     );
+@@ -445,10 +476,14 @@ class GoogleAnalyticsCustomDimensionsAndMetricsTest extends DrupalWebTestCase {
+     $this->verbose('<pre>' . print_r($googleanalytics_custom_metric, TRUE) . '</pre>');
+ 
+     $this->drupalGet('');
+-    $this->assertRaw('ga("set", ' . drupal_json_encode('metric1') . ', ', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Tokens have been replaced in metric value.');
+-    $this->assertRaw('ga("set", ' . drupal_json_encode('metric2') . ', ' . drupal_json_encode($googleanalytics_custom_metric['2']['value']) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Random value is shown.');
+-    $this->assertNoRaw('ga("set", ' . drupal_json_encode('metric3') . ', ' . drupal_json_encode('') . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Empty value is not shown.');
+-    $this->assertRaw('ga("set", ' . drupal_json_encode('metric4') . ', ' . drupal_json_encode(0) . ');', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Value 0 is shown.');
++    $this->assertRaw(drupal_json_encode('metric1') . ':' . drupal_json_encode($googleanalytics_custom_metric['1']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Tokens have been replaced in metric value.');
++    $this->assertRaw(drupal_json_encode($googleanalytics_custom_metric['1']['name']) . ':', '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Tokens have been replaced in metric value.');
++    $this->assertRaw(drupal_json_encode('metric2') . ':' . drupal_json_encode($googleanalytics_custom_metric['2']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Random value is shown.');
++    $this->assertRaw(drupal_json_encode($googleanalytics_custom_metric['2']['name']) . ':' . drupal_json_encode($googleanalytics_custom_metric['2']['value']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Random value is shown.');
++    $this->assertNoRaw(drupal_json_encode('metric3') . ':' . drupal_json_encode($googleanalytics_custom_metric['3']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Empty value is not shown.');
++    $this->assertNoRaw(drupal_json_encode($googleanalytics_custom_metric['3']['name']) . ':' . drupal_json_encode(''), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Empty value is not shown.');
++    $this->assertRaw(drupal_json_encode('metric4') . ':' . drupal_json_encode($googleanalytics_custom_metric['4']['name']), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Value 0 is shown.');
++    $this->assertRaw(drupal_json_encode($googleanalytics_custom_metric['4']['name']) . ':' . drupal_json_encode(0), '[testGoogleAnalyticsCustomDimensionsAndMetrics]: Value 0 is shown.');
+   }
+ 
+   /**
+@@ -508,15 +543,16 @@ class GoogleAnalyticsCustomUrls extends DrupalWebTestCase {
+     $base_path = base_path();
+     $ua_code = 'UA-123456-4';
+     variable_set('googleanalytics_account', $ua_code);
++    variable_set('googleanalytics_tracker_anonymizeip', 0);
+ 
+     $this->drupalGet('user/password', array('query' => array('name' => 'foo')));
+-    $this->assertRaw('ga("set", "page", "' . $base_path . 'user/password"');
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', {"groups":"default","page_path":"' . $base_path . 'user/password"});');
+ 
+     $this->drupalGet('user/password', array('query' => array('name' => 'foo@example.com')));
+-    $this->assertRaw('ga("set", "page", "' . $base_path . 'user/password"');
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', {"groups":"default","page_path":"' . $base_path . 'user/password"});');
+ 
+     $this->drupalGet('user/password');
+-    $this->assertNoRaw('ga("set", "page",', '[testGoogleAnalyticsCustomUrls]: Custom url not set.');
++    $this->assertNoRaw('"page_path":"' . $base_path . 'user/password"});');
+   }
+ 
+ }
+@@ -551,8 +587,8 @@ class GoogleAnalyticsStatusMessagesTest extends DrupalWebTestCase {
+     variable_set('googleanalytics_trackmessages', array('error' => 'error'));
+ 
+     $this->drupalPost('user/login', array(), t('Log in'));
+-    $this->assertRaw('ga("send", "event", "Messages", "Error message", "Username field is required.");', '[testGoogleAnalyticsStatusMessages]: Event message "Username field is required." is shown.');
+-    $this->assertRaw('ga("send", "event", "Messages", "Error message", "Password field is required.");', '[testGoogleAnalyticsStatusMessages]: Event message "Password field is required." is shown.');
++    $this->assertRaw('gtag("event", "Error message", {"event_category":"Messages","event_label":"Username field is required."});', '[testGoogleAnalyticsStatusMessages]: Event message "Username field is required." is shown.');
++    $this->assertRaw('gtag("event", "Error message", {"event_category":"Messages","event_label":"Password field is required."});', '[testGoogleAnalyticsStatusMessages]: Event message "Password field is required." is shown.');
+ 
+     // @todo: investigate why drupal_set_message() fails.
+     //drupal_set_message('Example status message.', 'status');
+@@ -696,6 +732,7 @@ class GoogleAnalyticsSearchTest extends DrupalWebTestCase {
+ 
+     // Enable site search support.
+     variable_set('googleanalytics_site_search', 1);
++    variable_set('googleanalytics_tracker_anonymizeip', 0);
+ 
+     // Search for random string.
+     $search = array();
+@@ -709,7 +746,7 @@ class GoogleAnalyticsSearchTest extends DrupalWebTestCase {
+ 
+     // Fire a search, it's expected to get 0 results.
+     $this->drupalPost('search/node', $search, t('Search'));
+-    $this->assertRaw('ga("set", "page", (window.googleanalytics_search_results) ?', '[testGoogleAnalyticsSearch]: Search results tracker is displayed.');
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', {"groups":"default","page_path":(window.googleanalytics_search_results) ?', '[testGoogleAnalyticsSearch]: Search results tracker is displayed.');
+     $this->assertRaw('window.googleanalytics_search_results = 0;', '[testGoogleAnalyticsSearch]: Search yielded no results.');
+ 
+     // Save the node.
+@@ -720,7 +757,7 @@ class GoogleAnalyticsSearchTest extends DrupalWebTestCase {
+     $this->cronRun();
+ 
+     $this->drupalPost('search/node', $search, t('Search'));
+-    $this->assertRaw('ga("set", "page", (window.googleanalytics_search_results) ?', '[testGoogleAnalyticsSearch]: Search results tracker is displayed.');
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', {"groups":"default","page_path":(window.googleanalytics_search_results) ?', '[testGoogleAnalyticsSearch]: Search results tracker is displayed.');
+     $this->assertRaw('window.googleanalytics_search_results = 1;', '[testGoogleAnalyticsSearch]: One search result found.');
+ 
+     $this->drupalPost('node/add/page', $edit, t('Save'));
+@@ -730,7 +767,7 @@ class GoogleAnalyticsSearchTest extends DrupalWebTestCase {
+     $this->cronRun();
+ 
+     $this->drupalPost('search/node', $search, t('Search'));
+-    $this->assertRaw('ga("set", "page", (window.googleanalytics_search_results) ?', '[testGoogleAnalyticsSearch]: Search results tracker is displayed.');
++    $this->assertRaw('gtag("config", ' . drupal_json_encode($ua_code) . ', {"groups":"default","page_path":(window.googleanalytics_search_results) ?', '[testGoogleAnalyticsSearch]: Search results tracker is displayed.');
+     $this->assertRaw('window.googleanalytics_search_results = 2;', '[testGoogleAnalyticsSearch]: Two search results found.');
+   }
+ 
+@@ -782,13 +819,13 @@ class GoogleAnalyticsPhpFilterTest extends DrupalWebTestCase {
+     // Check tracking code visibility.
+     variable_set('googleanalytics_pages', '<?php return TRUE; ?>');
+     $this->drupalGet('');
+-    $this->assertRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsPhpFilter]: Tracking is displayed on frontpage page.');
++    $this->assertRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsPhpFilter]: Tracking is displayed on frontpage page.');
+     $this->drupalGet('admin');
+-    $this->assertRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsPhpFilter]: Tracking is displayed on admin page.');
++    $this->assertRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsPhpFilter]: Tracking is displayed on admin page.');
+ 
+     variable_set('googleanalytics_pages', '<?php return FALSE; ?>');
+     $this->drupalGet('');
+-    $this->assertNoRaw('https://www.google-analytics.com/analytics.js', '[testGoogleAnalyticsPhpFilter]: Tracking is not displayed on frontpage page.');
++    $this->assertNoRaw('https://www.googletagmanager.com/gtag/js?id=', '[testGoogleAnalyticsPhpFilter]: Tracking is not displayed on frontpage page.');
+ 
+     // Test administration form.
+     variable_set('googleanalytics_pages', '<?php return TRUE; ?>');
+diff --git a/googleanalytics.variable.inc b/googleanalytics.variable.inc
+index 5b88b1f..62a30e6 100644
+--- a/googleanalytics.variable.inc
++++ b/googleanalytics.variable.inc
+@@ -13,7 +13,7 @@ function googleanalytics_variable_info($options) {
+     'type' => 'string',
+     'title' => t('Web Property ID', array(), $options),
+     'default' => 'UA-',
+-    'description' => t('This ID is unique to each site you want to track separately, and is in the form of UA-xxxxxxx-yy. To get a Web Property ID, <a href="@analytics">register your site with Google Analytics</a>, or if you already have registered your site, go to your Google Analytics Settings page to see the ID next to every site profile. <a href="@webpropertyid">Find more information in the documentation</a>.', array('@analytics' => 'https://marketingplatform.google.com/about/analytics/', '@webpropertyid' => url('https://developers.google.com/analytics/resources/concepts/gaConceptsAccounts', array('fragment' => 'webProperty'))), $options),
++    'description' => t('This ID is unique to each site you want to track separately, and is in the form UA-xxxxxxx-yy, G-XXXXXXX, DC-XXXXXXX, or AW-XXXXXXX. To get a Web Property ID, <a href="@analytics">register your site with Google Analytics</a>, or if you already have registered your site, go to your Google Analytics Settings page to see the ID next to every site profile. <a href="@webpropertyid">Find more information in the documentation</a>.', array('@analytics' => 'https://marketingplatform.google.com/about/analytics/', '@webpropertyid' => url('https://developers.google.com/analytics/resources/concepts/gaConceptsAccounts', array('fragment' => 'webProperty'))), $options),
+     'required' => TRUE,
+     'group' => 'googleanalytics',
+     'localize' => TRUE,
+@@ -49,7 +49,7 @@ function googleanalytics_validate_googleanalytics_account($variable) {
+   // Replace all type of dashes (n-dash, m-dash, minus) with the normal dashes.
+   $variable['value'] = str_replace(array('–', '—', '−'), '-', $variable['value']);
+ 
+-  if (!preg_match('/^UA-\d+-\d+$/', $variable['value'])) {
+-    return t('A valid Google Analytics Web Property ID is case sensitive and formatted like UA-xxxxxxx-yy.');
++  if (!_google_analytics_valid_property_id($variable['value'])) {
++    return t('A valid Web Property ID is case sensitive and formatted like UA-xxxxxxx-yy, G-XXXXXXX, DC-XXXXXXX, or AW-XXXXXXX.');
+   }
+ }
