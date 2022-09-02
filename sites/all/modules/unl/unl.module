@@ -805,12 +805,19 @@ function unl_sharedcode($file = null) {
  * Fires when files are uploaded after Drupal Core sanitization but before saving to file system or db
  */
 function unl_file_validate($file) {
+  // Remove spaces from new file uploads.
+  if (!file_exists($file->destination)) {
+    $file->destination = str_replace(' ', '_', $file->destination);
+    $file->filename = str_replace(' ', '_', $file->filename);
+  }
+
   // For IMCE uploads only, check if file_save_upload() just altered a *.js upload to *.js_.txt and correct if permitted.
   if (isset($file->source) && $file->source == 'imce' && substr($file->filename, -8) == '.js_.txt' && user_access('unl imce javascript upload')) {
     // Chop off the _.txt extension that's been added.
     $file->destination = substr($file->destination, 0, -5);
     $file->filename = substr($file->filename, 0, -5);
   }
+
   return;
 }
 
