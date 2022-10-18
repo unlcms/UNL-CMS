@@ -1781,6 +1781,9 @@ function system_performance_settings() {
 function system_clear_cache_submit($form, &$form_state) {
   drupal_flush_all_caches();
   drupal_set_message(t('Caches cleared.'));
+
+  global $base_url;
+  error_log($base_url . ' logentityinfo caches cleared');
 }
 
 /**

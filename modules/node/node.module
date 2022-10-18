@@ -165,6 +165,10 @@ function node_cron() {
  * Implements hook_entity_info().
  */
 function node_entity_info() {
+
+  global $base_url;
+  error_log($base_url . ' logentityinfo inside node_entity_info ');
+
   $return = array(
     'node' => array(
       'label' => t('Node'),

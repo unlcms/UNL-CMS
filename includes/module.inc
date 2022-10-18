@@ -168,6 +168,7 @@ function system_list($type) {
         // Build a list of all enabled modules.
         if ($record->type == 'module') {
           $lists['module_enabled'][$record->name] = $record;
+          $names[] = $record->name;
         }
         // Build a list of themes.
         if ($record->type == 'theme') {
@@ -178,6 +179,11 @@ function system_list($type) {
           $lists['filepaths'][] = array('type' => $record->type, 'name' => $record->name, 'filepath' => $record->filename);
         }
       }
+
+      global $base_url;
+      error_log($base_url . ' logentityinfo modules enabled: '.
+        json_encode($names, TRUE));
+
       foreach ($lists['theme'] as $key => $theme) {
         if (!empty($theme->info['base theme'])) {
           // Make a list of the theme's base themes.
@@ -834,6 +840,12 @@ function module_implements($hook, $sort = FALSE, $reset = FALSE) {
     $verified[$hook] = TRUE;
   }
 
+  if ($hook == 'entity_info') {
+    global $base_url;
+    error_log($base_url . ' logentityinfo module_implements(entity_info): ' .
+      json_encode(array_keys($implementations[$hook]), TRUE));
+  }
+
   return array_keys($implementations[$hook]);
 }
 
@@ -969,6 +981,11 @@ function module_invoke_all($hook) {
       elseif (isset($result)) {
         $return[] = $result;
       }
+    }
+    else {
+      global $base_url;
+      error_log($base_url . ' logentityinfo FUNCTION DOES NOT EXIST: '  .
+        print_r($function, TRUE));
     }
   }
 

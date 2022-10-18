@@ -7996,7 +7996,17 @@ function entity_get_info($entity_type = NULL) {
         }
       }
       // Let other modules alter the entity info.
+
+      global $base_url;
+      error_log($base_url . ' logentityinfo before drupal_alter(entity_info): ' .
+        json_encode(array_keys($entity_info), TRUE));
+
       drupal_alter('entity_info', $entity_info);
+
+      global $base_url;
+      error_log($base_url . ' logentityinfo cache_set(entity_info): ' .
+        json_encode(array_keys($entity_info), TRUE));
+
       cache_set("entity_info:$langcode", $entity_info);
     }
   }
