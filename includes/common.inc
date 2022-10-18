@@ -7956,7 +7956,7 @@ function entity_get_info($entity_type = NULL) {
     if ($cache = cache_get("entity_info:$langcode")) {
       $entity_info = $cache->data;
 
-      if (!array_key_exists($entity_info, 'node') || !array_key_exists($entity_info, 'user')) {
+      if (!array_key_exists('node', $entity_info) || !array_key_exists('user', $entity_info)) {
         global $base_url;
         error_log($base_url . ' logentityinfo BROKEN CACHE: ' .
           json_encode(array_keys($entity_info), TRUE));
