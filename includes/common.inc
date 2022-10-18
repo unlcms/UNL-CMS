@@ -7955,6 +7955,12 @@ function entity_get_info($entity_type = NULL) {
   if (empty($entity_info)) {
     if ($cache = cache_get("entity_info:$langcode")) {
       $entity_info = $cache->data;
+
+      if (!array_key_exists($entity_info, 'node') || !array_key_exists($entity_info, 'user')) {
+        global $base_url;
+        error_log($base_url . ' logentityinfo BROKEN CACHE: ' .
+          json_encode(array_keys($entity_info), TRUE));
+      }
     }
     else {
       $entity_info = module_invoke_all('entity_info');
