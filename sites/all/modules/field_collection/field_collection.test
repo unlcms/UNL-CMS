@@ -2,7 +2,7 @@
 
 /**
  * @file
- * field_collections tests.
+ * Tests for field_collections.
  */
 
 /**
@@ -10,6 +10,9 @@
  */
 class FieldCollectionBasicTestCase extends DrupalWebTestCase {
 
+  /**
+   *
+   */
   public static function getInfo() {
     return array(
       'name' => 'Field collection',
@@ -18,12 +21,19 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
     );
   }
 
-  function setUp() {
+  /**
+   *
+   */
+  public function setUp() {
     parent::setUp('field_collection', 'entity_crud_hook_test');
 
     // Create a field_collection field to use for the tests.
     $this->field_name = 'field_test_collection';
-    $this->field = array('field_name' => $this->field_name, 'type' => 'field_collection', 'cardinality' => 4);
+    $this->field = array(
+      'field_name' => $this->field_name,
+      'type' => 'field_collection',
+      'cardinality' => 4,
+    );
     $this->field = field_create_field($this->field);
     $this->field_id = $this->field['id'];
 
@@ -31,9 +41,9 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
       'field_name' => $this->field_name,
       'entity_type' => 'node',
       'bundle' => 'article',
-      'label' => $this->randomName() . '_label',
-      'description' => $this->randomName() . '_description',
-      'weight' => mt_rand(0, 127),
+      'label' => self::randomName() . '_label',
+      'description' => self::randomName() . '_description',
+      'weight' => random_int(0, 127),
       'settings' => array(),
       'widget' => array(
         'type' => 'hidden',
@@ -59,6 +69,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
    *   Message to display.
    * @param $group
    *   The group this message belongs to, defaults to 'Other'.
+   *
    * @return
    *   TRUE on pass, FALSE on fail.
    */
@@ -66,7 +77,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
     if (!isset($message)) {
       $message = $text;
     }
-    return $this->assertTrue(array_search($text, $_SESSION['entity_crud_hook_test']) !== FALSE, $message, $group);
+    return $this->assertTrue(in_array($text, $_SESSION['entity_crud_hook_test']), $message, $group);
   }
 
   /**
@@ -83,14 +94,15 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
    *   Message to display.
    * @param $group
    *   The group this message belongs to, defaults to 'Other'.
-   * @return
+   *
+   * @return bool
    *   TRUE on pass, FALSE on fail.
    */
   protected function assertNoHookMessage($text, $message = NULL, $group = 'Other') {
     if (!isset($message)) {
       $message = $text;
     }
-    return $this->assertFalse(array_search($text, $_SESSION['entity_crud_hook_test']) !== FALSE, $message, $group);
+    return $this->assertFalse(in_array($text, $_SESSION['entity_crud_hook_test']), $message, $group);
   }
 
   /**
@@ -119,7 +131,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
   /**
    * Tests CRUD.
    */
-  function testCRUD() {
+  public function testCRUD() {
     list ($node, $entity) = $this->createNodeWithFieldCollection();
     $node = node_load($node->nid, NULL, TRUE);
     $this->assertEqual($entity->item_id, $node->{$this->field_name}[LANGUAGE_NONE][0]['value'], 'A field_collection has been successfully created and referenced.');
@@ -148,7 +160,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
     $this->clearHookMessages();
     node_delete($node->nid);
     $this->assertNoHookMessage('entity_crud_hook_test_entity_presave called for type node');
-    $this->assertTrue(entity_load('field_collection_item', FALSE) === array(), 'Field collections are deleted when the host is deleted.');
+    $this->assertTrue(entity_load('field_collection_item') === array(), 'Field collections are deleted when the host is deleted.');
 
     // Try deleting nodes with collections without any values.
     $node = $this->drupalCreateNode(array('type' => 'article'));
@@ -282,7 +294,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
     $this->assertTrue($item->archived, 'Removed field collection item is archived.');
 
     // Test removing an old node revision. Make sure that the field collection
-    // is not removed
+    // is not removed.
     list ($node, $item) = $this->createNodeWithFieldCollection();
     $node_vid = $node->vid;
     $node->revision = TRUE;
@@ -299,7 +311,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
   /**
    * Make sure the basic UI and access checks are working.
    */
-  function testBasicUI() {
+  public function testBasicUI() {
     // Add a field to the collection.
     $field = array(
       'field_name' => 'field_text',
@@ -335,19 +347,19 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
     $this->drupalGet($path);
     $this->assertText(t('Test text field'), 'Add form is shown.');
 
-    $edit['field_text[und][0][value]'] = $this->randomName();
+    $edit['field_text[und][0][value]'] = self::randomName();
     $this->drupalPost($path, $edit, t('Save'));
     $this->assertText(t('The changes have been saved.'), 'Field collection saved.');
 
-    $this->assertText($edit['field_text[und][0][value]'], "Added field value is shown.");
+    $this->assertText($edit['field_text[und][0][value]'], 'Added field value is shown.');
 
-    $edit['field_text[und][0][value]'] = $this->randomName();
+    $edit['field_text[und][0][value]'] = self::randomName();
     $this->drupalPost('field-collection/field-test-collection/1/edit', $edit, t('Save'));
     $this->assertText(t('The changes have been saved.'), 'Field collection saved.');
-    $this->assertText($edit['field_text[und][0][value]'], "Field collection has been edited.");
+    $this->assertText($edit['field_text[und][0][value]'], 'Field collection has been edited.');
 
     $this->drupalGet('field-collection/field-test-collection/1');
-    $this->assertText($edit['field_text[und][0][value]'], "Field collection can be viewed.");
+    $this->assertText($edit['field_text[und][0][value]'], 'Field collection can be viewed.');
 
     // Add further 3 items, so we have reached 4 == maxium cardinality.
     $this->drupalPost($path, $edit, t('Save'));
@@ -356,7 +368,7 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
     // Make sure adding doesn't work any more as we have restricted cardinality
     // to 1.
     $this->drupalGet($path);
-    $this->assertText(t('Too many items.'), 'Maxium cardinality has been reached.');
+    $this->assertResponse(403);
 
     $this->drupalPost('field-collection/field-test-collection/1/delete', array(), t('Delete'));
     $this->drupalGet($path);
@@ -427,6 +439,9 @@ class FieldCollectionBasicTestCase extends DrupalWebTestCase {
  */
 class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
 
+  /**
+   *
+   */
   public static function getInfo() {
     return array(
       'name' => 'Field collection Rules integration',
@@ -436,11 +451,17 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
     );
   }
 
-  function setUp() {
+  /**
+   *
+   */
+  public function setUp() {
     parent::setUp(array('field_collection', 'rules'));
     variable_set('rules_debug_log', 1);
   }
 
+  /**
+   *
+   */
   protected function createFields($cardinality = 4) {
     // Create a field_collection field to use for the tests.
     $this->field_name = 'field_test_collection';
@@ -452,9 +473,9 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
       'field_name' => $this->field_name,
       'entity_type' => 'node',
       'bundle' => 'article',
-      'label' => $this->randomName() . '_label',
-      'description' => $this->randomName() . '_description',
-      'weight' => mt_rand(0, 127),
+      'label' => self::randomName() . '_label',
+      'description' => self::randomName() . '_description',
+      'weight' => random_int(0, 127),
       'settings' => array(),
       'widget' => array(
         'type' => 'hidden',
@@ -486,7 +507,7 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
   /**
    * Test creation field collection items.
    */
-  function testCreation() {
+  public function testCreation() {
     $this->createFields();
 
     $node = $this->drupalCreateNode(array('type' => 'article'));
@@ -517,7 +538,7 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
   /**
    * Test using field collection items via the host while they are being created.
    */
-  function testUsageDuringCreation() {
+  public function testUsageDuringCreation() {
     // Test using a single-cardinality field collection.
     $this->createFields(1);
 
@@ -525,7 +546,6 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
     $entity = entity_create('field_collection_item', array('field_name' => $this->field_name));
     $entity->setHostEntity('node', $node);
     // Now the field collection is linked to the host, but not yet saved.
-
     // Test using the wrapper on it.
     $wrapper = entity_metadata_wrapper('node', $node);
     $wrapper->get($this->field_name)->field_text->set('foo');
@@ -539,6 +559,7 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
     $this->assertTrue(!empty($entity->item_id) && !empty($entity->revision_id), 'Field collection item has been saved by Rules and the host entity.');
     RulesLog::logger()->checkLog();
   }
+
 }
 
 /**
@@ -546,6 +567,9 @@ class FieldCollectionRulesIntegrationTestCase extends DrupalWebTestCase {
  */
 class FieldCollectionContentTranslationTestCase extends DrupalWebTestCase {
 
+  /**
+   *
+   */
   public static function getInfo() {
     return array(
       'name' => 'Field collection content translation',
@@ -555,6 +579,9 @@ class FieldCollectionContentTranslationTestCase extends DrupalWebTestCase {
     );
   }
 
+  /**
+   *
+   */
   public function setUp() {
     parent::setUp(array('field_collection', 'translation'));
     // Create a field_collection field to use for the tests.
@@ -567,9 +594,9 @@ class FieldCollectionContentTranslationTestCase extends DrupalWebTestCase {
       'field_name' => $this->field_name,
       'entity_type' => 'node',
       'bundle' => 'article',
-      'label' => $this->randomName() . '_label',
-      'description' => $this->randomName() . '_description',
-      'weight' => mt_rand(0, 127),
+      'label' => self::randomName() . '_label',
+      'description' => self::randomName() . '_description',
+      'weight' => random_int(0, 127),
       'settings' => array(),
       'widget' => array(
         'type' => 'field_collection_embed',
@@ -613,11 +640,11 @@ class FieldCollectionContentTranslationTestCase extends DrupalWebTestCase {
    */
   public function testContentTranslation() {
     // Create "Article" content.
-    $edit['title'] = $this->randomName();
-    $edit['body[' . LANGUAGE_NONE . '][0][value]'] = $this->randomName();
+    $edit['title'] = self::randomName();
+    $edit['body[' . LANGUAGE_NONE . '][0][value]'] = self::randomName();
     $edit['language'] = 'en';
     $field_collection_name = 'field_test_collection[' . LANGUAGE_NONE . '][0][field_text][' . LANGUAGE_NONE . '][0][value]';
-    $edit[$field_collection_name] = $this->randomName();
+    $edit[$field_collection_name] = self::randomName();
 
     $this->drupalPost('node/add/article', $edit, t('Save'));
     $this->assertRaw(t('Article %title has been created.', array('%title' => $edit['title'])), 'Article created.');
@@ -654,6 +681,9 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   const UNTRANS_FIELD_DE_MOD = 'Untranslatable DE Mod';
   const NUM_VALUES = 4;
 
+  /**
+   *
+   */
   public static function getInfo() {
     return array(
       'name' => 'Field collection entity translation',
@@ -666,7 +696,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   /**
    * Login the given user only if she has not changed.
    */
-  function login($user) {
+  public function login($user) {
     if (!isset($this->current_user) || $this->current_user->uid != $user->uid) {
       $this->current_user = $user;
       $this->drupalLogin($user);
@@ -679,7 +709,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
    * @param $permissions
    *   Additional permissions for administrative user.
    */
-  function getAdminUser(array $permissions = array()) {
+  public function getAdminUser(array $permissions = array()) {
     if (!isset($this->admin_user)) {
       $this->admin_user = $this->drupalCreateUser(array_merge(array(
         'bypass node access',
@@ -701,7 +731,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
    * @param $permissions
    *   Additional permissions for administrative user.
    */
-  function getTranslatorUser(array $permissions = array()) {
+  public function getTranslatorUser(array $permissions = array()) {
     if (!isset($this->translator_user)) {
       $this->translator_user = $this->drupalCreateUser(array_merge(array(
         'create page content',
@@ -714,12 +744,13 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   }
 
   /**
-   * Install a specified language if it has not been already, otherwise make sure that the language is enabled.
+   * Install a specified language if it has not been already, otherwise make
+   * sure that the language is enabled.
    *
-   * @param $langcode
+   * @param string $langcode
    *   The language code to check.
    */
-  function addLanguage($langcode) {
+  public function addLanguage($langcode) {
     // Check to make sure that language has not already been installed.
     $this->drupalGet('admin/config/regional/language');
 
@@ -731,7 +762,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
 
       // Make sure we are not using a stale list.
       drupal_static_reset('language_list');
-      $languages = language_list('language');
+      $languages = language_list();
       $this->assertTrue(array_key_exists($langcode, $languages), t('Language was installed successfully.'));
 
       if (array_key_exists($langcode, $languages)) {
@@ -750,6 +781,9 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
     }
   }
 
+  /**
+   *
+   */
   public function setUp() {
     parent::setUp(array('field_collection', 'entity_translation'));
     $language_none = LANGUAGE_NONE;
@@ -781,9 +815,9 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
       'field_name' => $this->field_name,
       'entity_type' => 'node',
       'bundle' => 'page',
-      'label' => $this->randomName() . '_label',
-      'description' => $this->randomName() . '_description',
-      'weight' => mt_rand(0, 127),
+      'label' => self::randomName() . '_label',
+      'description' => self::randomName() . '_description',
+      'weight' => random_int(0, 127),
       'settings' => array(),
       'widget' => array(
         'type' => 'field_collection_embed',
@@ -847,10 +881,10 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   /**
    * Creates a basic page with a value in the field collection.
    *
-   *  @param integer $num_values
-   *    The number of values to include in the field collection.
-   *  @param string $langcode
-   *    Language for the node.
+   * @param int $num_values
+   *   The number of values to include in the field collection.
+   * @param string $langcode
+   *   Language for the node.
    */
   protected function createPage($num_values, $langcode = 'en') {
     // Check if num_values is greater than the field cardinality.
@@ -858,7 +892,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
       $num_values = self::NUM_VALUES;
     }
 
-    $title = $this->randomName();
+    $title = self::randomName();
 
     $this->drupalGet('node/add/page');
 
@@ -887,18 +921,18 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   /**
    * Create a translation using the Entity Translation Form.
    *
-   * @param $node
+   * @param mixed $node
    *   Node of the basic page to create translation for.
-   * @param $langcode
+   * @param string $langcode
    *   The language code of the translation.
-   * @param $source_langcode
+   * @param string $source_langcode
    *   The original language code.
    */
   protected function createTranslationForm($node, $langcode, $source_langcode = 'en') {
     $language_none = LANGUAGE_NONE;
     $edit = array();
 
-    $this->drupalGet('node/' . $node->nid . '/edit/add/' . $source_langcode . '/' .$langcode);
+    $this->drupalGet('node/' . $node->nid . '/edit/add/' . $source_langcode . '/' . $langcode);
 
     // Get the field collection in the original language.
     $fc_values = $node->{$this->field_name}[$source_langcode];
@@ -947,9 +981,9 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
    *
    * @param mixed $node
    *   The node to remove the translation from.
-   * @param unknown $langcode
+   * @param string $langcode
    *   The language of the translation to remove.
-   * @param unknown $source_langcode
+   * @param string $source_langcode
    *   The source language of the node.
    */
   protected function removeTranslationForm($node, $langcode, $source_langcode) {
@@ -981,12 +1015,10 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   /**
    * Creates a translation programmatically using Entity Translation.
    *
-   * @param $node
+   * @param mixed $node
    *   Node of the basic page to create translation for.
-   * @param $langcode
+   * @param string $langcode
    *   The language code of the translation.
-   * @param $source_langcode
-   *   The source language code.
    */
   protected function createTranslation($node, $langcode) {
     $source_langcode = $node->language;
@@ -1009,12 +1041,11 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
       $field = field_info_field($field_name);
       $field_value = array();
       // Copy the value of the translated field if it's translatable.
-      if ($field['translatable']) {
-        if (isset($node->{$field_name}[$node->language])) {
-          $field_value = $node->{$field_name}[$source_langcode];
-          $values[$field_name][$langcode] = $field_value;
-          $node->{$field_name}[$langcode] = $field_value;
-        }
+      if ($field['translatable']
+        && isset($node->{$field_name}[$node->language])) {
+        $field_value = $node->{$field_name}[$source_langcode];
+        $values[$field_name][$langcode] = $field_value;
+        $node->{$field_name}[$langcode] = $field_value;
       }
     }
 
@@ -1023,7 +1054,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
     field_attach_update('node', $node);
 
     // Reload an return the node.
-    $node = node_load($node->nid, null, TRUE);
+    $node = node_load($node->nid, NULL, TRUE);
     return $node;
   }
 
@@ -1032,7 +1063,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
    *
    * @param mixed $node
    *   The node to remove the translation from.
-   * @param unknown $langcode
+   * @param string $langcode
    *   The language of the translation to remove.
    */
   protected function removeTranslation($node, $langcode) {
@@ -1044,7 +1075,7 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
     node_save($node);
 
     // Reload and return the node.
-    $node = node_load($node->nid, null, TRUE);
+    $node = node_load($node->nid, NULL, TRUE);
 
     return $node;
   }
@@ -1052,10 +1083,14 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
   /**
    * Creates a new revision of the node and checks the result.
    *
-   * @param $node
-   * @param $langcode
-   * @param $source_langcode
-   * @return
+   * @param mixed $node
+   *   The node to remove the translation from.
+   * @param string $langcode
+   *   The language of the translation to remove.
+   * @param string $source_langcode
+   *   The source language of the node.
+   *
+   * @return mixed
    *   The new revision of the node.
    */
   protected function createRevision($node, $langcode, $source_langcode) {
@@ -1089,11 +1124,12 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
    *   The language to check.
    */
   protected function checkFieldCollectionContent($node, $langcode) {
-    switch($langcode) {
+    switch ($langcode) {
       case 'en':
         $untrans_field = self::UNTRANS_FIELD_EN;
         $trans_field = self::TRANS_FIELD_EN;
         break;
+
       case 'de':
         $untrans_field = self::UNTRANS_FIELD_DE;
         $trans_field = self::TRANS_FIELD_DE;
@@ -1119,7 +1155,8 @@ class FieldCollectionEntityTranslationTestCase extends DrupalWebTestCase {
    *
    * @param mixed $node
    * @param string $langcode
-   * @param integer $delta
+   * @param int $delta
+   *
    * @return array
    */
   protected function getFieldValues($node, $langcode, $delta) {
