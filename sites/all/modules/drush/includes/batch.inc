@@ -12,7 +12,7 @@
  *
  * While the original API does offer a 'non progressive' mode which simply
  * calls each operation in sequence within the current process, in most
- * implementations (Drupal 5 and 6), it would still attempt to redirect
+ * implementations (D6), it would still attempt to redirect
  * unless very specific conditions were met.
  *
  * When operating in 'non progressive' mode, Drush would experience the problems
@@ -22,9 +22,31 @@
  * Each major release of Drupal has also had slightly different implementations
  * of the batch API, and this provides a uniform interface to all of these
  * implementations.
- *
  */
 
+use Drush\Log\LogLevel;
+
+/**
+ * Class extending ArrayObject to allow the batch API to perform logging when
+ * some keys of the array change.
+ *
+ * It is used to wrap batch's $context array and set log messages when values
+ * are assigned to keys 'message' or 'error_message'.
+ *
+ * @see _drush_batch_worker().
+ */
+class DrushBatchContext extends ArrayObject {
+  #[\ReturnTypeWillChange]
+  function offsetSet($name, $value) {
+    if ($name == 'message') {
+      drush_log(strip_tags($value), LogLevel::OK);
+    }
+    elseif ($name == 'error_message') {
+      drush_set_error('DRUSH_BATCH_ERROR', strip_tags($value));
+    }
+    parent::offsetSet($name, $value);
+  }
+}
 
 /**
  * Process a Drupal batch by spawning multiple Drush processes.
@@ -41,16 +63,22 @@
  * This function is a drop in replacement for the existing batch_process()
  * function of Drupal.
  *
- * @param command
- *   The command to call for the back end process. By default this will be
- *   the 'backend-process' command, but some commands such as updatedb will
+ * @param string $command
+ *   (optional) The command to call for the back end process. By default this will be
+ *   the 'batch-process' command, but some commands such as updatedb will
  *   have special initialization requirements, and will need to define and
  *   use their own command.
- *
+ * @param array $args
+ *   (optional)
+ * @param array $options
+ *   (optional)
  */
-function drush_backend_batch_process($command = 'batch-process') {
-  drush_include_engine('drupal', 'batch', drush_drupal_major_version());
-  _drush_backend_batch_process($command);
+function drush_backend_batch_process($command = 'batch-process', $args = array(), $options = array()) {
+  // Command line options to pass to the command.
+  $options['u'] = drush_user_get_class()->getCurrentUserAsSingle()->id();
+
+  drush_include_engine('drupal', 'batch');
+  _drush_backend_batch_process($command, $args, $options);
 }
 
 /**
@@ -61,9 +89,12 @@ function drush_backend_batch_process($command = 'batch-process') {
  *
  * The command called needs to call this function after it's special bootstrap
  * requirements have been taken care of.
+ *
+ * @param int $id
+ *   The batch ID of the batch being processed.
  */
 function drush_batch_command($id) {
-  include_once('includes/batch.inc');
-  drush_include_engine('drupal', 'batch', drush_drupal_major_version());
+  include_once(DRUSH_DRUPAL_CORE . '/includes/batch.inc');
+  drush_include_engine('drupal', 'batch');
   _drush_batch_command($id);
 }

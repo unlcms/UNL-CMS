@@ -4,6 +4,8 @@
  *   Drupal 6 engine for the Batch API
  */
 
+use Drush\Log\LogLevel;
+
 /**
  * Main loop for the Drush batch API.
  *
@@ -14,8 +16,7 @@
  *    The command to call to process the batch.
  *
  */
-function _drush_backend_batch_process($command = 'batch-process') {
-  global $user;
+function _drush_backend_batch_process($command = 'batch-process', $args, $options) {
   $batch =& batch_get();
 
   if (isset($batch)) {
@@ -28,6 +29,7 @@ function _drush_backend_batch_process($command = 'batch-process') {
     // at least an empty string for the (not null) 'token' column.
     db_query("INSERT INTO {batch} (token, timestamp) VALUES ('', %d)", time());
     $batch['id'] = db_last_insert_id('batch', 'bid');
+    $args[] = $batch['id'];
 
     // Actually store the batch data and the token generated form the batch id.
     db_query("UPDATE {batch} SET token = '%s', batch = '%s' WHERE bid = %d", drupal_get_token($batch['id']), serialize($batch), $batch['id']);
@@ -35,13 +37,7 @@ function _drush_backend_batch_process($command = 'batch-process') {
     $finished = FALSE;
 
     while (!$finished) {
-      if ($user->uid) {
-        $data = drush_backend_invoke($command, array($batch['id'], '-u', $user->uid));
-      }
-      else {
-        $data = drush_backend_invoke($command, array($batch['id']));
-      }
-
+      $data = drush_invoke_process('@self', $command, $args, $options);
       $finished = drush_get_error() || !$data || (isset($data['context']['drush_batch_process_finished']) && $data['context']['drush_batch_process_finished'] == TRUE);
     }
   }
@@ -105,11 +101,14 @@ function _drush_batch_worker() {
       // Build the 'context' array, execute the function call,
       // and retrieve the user message.
       $batch_context = array('sandbox' => &$current_set['sandbox'], 'results' => &$current_set['results'], 'finished' => &$finished, 'message' => &$task_message);
+      // Magic wrap to catch changes to 'message' key.
+      $batch_context = new DrushBatchContext($batch_context);
       // Process the current operation.
       call_user_func_array($function, array_merge($args, array(&$batch_context)));
+      $finished = $batch_context['finished'];
     }
 
-    if ($finished == 1) {
+    if ($finished >= 1) {
       // Make sure this step isn't counted double when computing $current.
       $finished = 0;
       // Remove the operation and clear the sandbox.
@@ -134,7 +133,7 @@ function _drush_batch_worker() {
     // TODO - replace with memory check!
     // If we're in progressive mode, stop after 1 second.
     if ((memory_get_usage() * 2) >= drush_memory_limit()) {
-      drush_log(dt("Batch process has consumed in excess of 50% of available memory. Starting new thread"), "batch");
+      drush_log(dt("Batch process has consumed in excess of 50% of available memory. Starting new thread"), LogLevel::BATCH);
       break;
     }
   }

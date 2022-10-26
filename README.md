@@ -144,17 +144,13 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Anonymous view displays an empty form with no submit button which fails webaudit.unl.edu testing. Applied draggableviews-add_hidden_submit_button_to_form-867.patch
 
-  *  drush/commands/core/drupal/site_install.inc
+  *  drush/commands/core/drupal/site_install_7.inc
 
      - function drush_core_site_install_version(). UNL change: Setting this to FALSE because we don't want them and they're hard coded.
 
   *  drush/commands/core/site_install.drush.inc
 
      - function drush_core_pre_site_install(). UNL change: Inserted a return before code that would otherwise drop the entire database.
-
-  *  drush/includes/environment.inc
-
-     - Fix so that drush pulls in the correct uri parameter. See http://drupal.org/node/1331106
 
   *  feeds/plugins/FeedsParser.inc
 

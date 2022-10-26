@@ -22,8 +22,9 @@ function topic_drush_command() {
       'drush topic docs-context' => 'Show documentation for the drush context API',
       'drush docs-context' => 'Show documentation for the drush context API',
     ),
-    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
-    'aliases' => array('topic'),
+    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'remote-tty' => TRUE,
+    'aliases' => array('topic', 'core:topic'),
     'topics' => array('docs-readme'),
   );
 
@@ -33,7 +34,7 @@ function topic_drush_command() {
 /**
  * Implement hook_drush_help_alter(). Show 'Topics' section on help detail.
  */
-function topic_drush_help_alter($command) {
+function topic_drush_help_alter(&$command) {
   $implemented = drush_get_commands();
   foreach ($command['topics'] as $topic_name) {
     // We have a related topic. Inject into the $command so the topic displays.
@@ -52,23 +53,42 @@ function topic_drush_help_alter($command) {
  */
 function drush_topic_core_topic($topic_name = NULL) {
   $commands = drush_get_commands();
-  if (is_null($topic_name)) {
-    // Show choice list.
+  $topics = drush_get_topics();
+  if (isset($topic_name)) {
     foreach (drush_get_topics() as $key => $topic) {
+      if (strstr($key, $topic_name) === FALSE) {
+        unset($topics[$key]);
+      }
+    }
+  }
+  if (empty($topics)) {
+    return drush_set_error('DRUSH_NO_SUCH_TOPIC', dt("No topics on !topic found.", array('!topic' => $topic_name)));
+  }
+  if (count($topics) > 1) {
+    // Show choice list.
+    foreach ($topics as $key => $topic) {
       $choices[$key] = $topic['description'];
     }
     natcasesort($choices);
-    if (!$topic_name = drush_choice($choices, dt('Choose a topic'), '!value (!key)')) {
-      return;
+    if (!$topic_name = drush_choice($choices, dt('Choose a topic'), '!value (!key)', array(5))) {
+      return drush_user_abort();
     }
   }
-  // If the topic name is not found, check for
-  // "docs-$topic_name".  This allows users to be
-  // just a bit lazy when selecting core topics by name.
-  if (!isset($commands[$topic_name]) && isset($commands["docs-$topic_name"])) {
-    $topic_name = "docs-$topic_name";
+  else {
+    $keys = array_keys($topics);
+    $topic_name = array_pop($keys);
   }
   return drush_dispatch($commands[$topic_name]);
+}
+
+/**
+ * A command argument complete callback.
+ *
+ * @return
+ *   Available topic keys.
+ */
+function topic_core_topic_complete() {
+  return array('values' => array_keys(drush_get_topics()));
 }
 
 /**
