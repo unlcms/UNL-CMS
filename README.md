@@ -178,6 +178,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - Applied patch: patches/masquerade-remove_masquerade_table_and_rely_on_session-d7-1926074-31.patch.txt
      - Removed login/logout hooks calls that were added in https://www.drupal.org/project/masquerade/issues/1364574 because they break SSO
 
+  *  memcache
+
+     - Fix _Deprecated function: strtolower(): Passing null to parameter #1 ($string) of type string is deprecated in dmemcache_serialize_extension() (line 736 of /var/www/htdocs/sites/all/modules/memcache/dmemcache.inc)_ by changing `NULL` to `''`
+
   *  menu_block
 
      - Added additional classes to menu_block_get_title() in menu_block.module

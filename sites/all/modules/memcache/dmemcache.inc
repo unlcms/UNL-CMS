@@ -733,7 +733,7 @@ function dmemcache_extension() {
 function dmemcache_serialize_extension() {
   static $extension = NULL;
   if ($extension === NULL) {
-    $preferred = strtolower(variable_get('memcache_serialize', NULL));
+    $preferred = strtolower(variable_get('memcache_serialize', ''));
     // Fastpath if we're forcing php's own serialize function.
     if ($preferred == 'serialize') {
       $extension = $preferred;
