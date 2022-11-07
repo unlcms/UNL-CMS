@@ -190,6 +190,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix permission problem for editor that is only the author of the page with no other permissions.
 
+  *  override_node_options
+
+     - Patch for PHP 8: https://www.drupal.org/project/override_node_options/issues/3274297
+
   *  picture
 
      - Remove height/width attributes for validity. See https://drupal.org/node/2115513
