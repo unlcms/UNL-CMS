@@ -398,10 +398,8 @@ function _form_options_from_text($text, $key_type, $flat = FALSE, &$duplicates =
   $options = array();
   $new_key = 1;
   foreach ($items as $item) {
-    $int_key = $item['key'] * 1;
-    if (is_int($int_key)) {
-      $new_key = max($int_key, $new_key);
-    }
+    $int_key = (int) $item['key'];
+    $new_key = max($int_key, $new_key);
   }
   foreach ($items as $item) {
     // Assign a key if needed.

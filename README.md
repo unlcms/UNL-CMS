@@ -190,6 +190,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix permission problem for editor that is only the author of the page with no other permissions.
 
+  *  options_element
+
+     - https://www.drupal.org/files/issues/2019-09-26/php71-non-well-formed-numeric-value-form-options-2920613-14.patch
+
   *  override_node_options
 
      - Patch for PHP 8: https://www.drupal.org/project/override_node_options/issues/3274297
