@@ -1,12 +1,21 @@
 <?php
-$imce =& $imce_ref['imce'];//keep this line.
+
+/**
+ * @file
+ * Content Template file.
+ */
+
+// Keep this line.
+$imce =& $imce_ref['imce'];
 
 /*
  * Although the file list table here is available for theming,
  * it is not recommended to change the table structure, because
- * it is read and manipulated by javascript assuming this is the deafult structure.
+ * it is read and manipulated by javascript assuming this is
+ * the deafult structure.
  * You can always change the data created by format functions
- * such as format_size or format_date, or you can do css theming which is the best practice here.
+ * such as format_size or format_date, or you can do css theming
+ * which is the best practice here.
  */
 ?>
 
@@ -14,7 +23,7 @@ $imce =& $imce_ref['imce'];//keep this line.
 if ($imce['perm']['browse'] && !empty($imce['files'])) {
   foreach ($imce['files'] as $name => $file) {?>
   <tr id="<?php print $raw = rawurlencode($file['name']); ?>">
-    <td class="name"><?php print $raw; ?></td>
+    <td class="name" title="<?php print $raw; ?>"><?php print $raw; ?></td>
     <td class="size" id="<?php print $file['size']; ?>"><?php print format_size($file['size']); ?></td>
     <td class="width"><?php print $file['width']; ?></td>
     <td class="height"><?php print $file['height']; ?></td>

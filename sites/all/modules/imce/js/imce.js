@@ -96,7 +96,7 @@ dirSubdirs: function(dir, subdirs) {
   var branch = imce.tree[dir];
   if (subdirs && subdirs.length) {
     var prefix = dir == '.' ? '' : dir +'/';
-    for (var i in subdirs) {//add subdirectories
+    for (var i = 0; i < subdirs.length; i++) {//add subdirectories
       imce.dirAdd(prefix + subdirs[i], branch, true);
     }
     $(branch.li).removeClass('leaf').addClass('expanded');
@@ -262,7 +262,7 @@ setUploadOp: function () {
     if (el = form.elements.html_response) {
       el.value = 0;
     }
-  } 
+  }
   imce.opAdd({name: 'upload', title: Drupal.t('Upload'), content: form});//add op
 },
 
@@ -278,7 +278,7 @@ setFileOps: function () {
     var func = function() {imce.fopSubmit(Op.name); return false;};
     $sbmt.click(func);
     Op.title = $(this).children('legend').remove().text() || $sbmt.val();
-    Op.name == 'delete' ? (Op.func = func) : (Op.content = this.childNodes);
+    Op.name == 'delete' || Op.name == 'download' ? (Op.func = func) : (Op.content = this.childNodes);
     imce.opAdd(Op);
   }).remove();
   imce.vars.opform = $(form).serialize();//serialize remaining parts.
@@ -304,15 +304,14 @@ opAdd: function (op) {
   }
   Op.a = imce.newEl('a');
   Op.li = imce.newEl('li');
-  $(Op.a).attr({href: '#', name: name, title: title}).html('<span>' + title +'</span>').click(imce.opClickEvent);
-  $(Op.li).attr('id', 'op-item-'+ name).append(Op.a).appendTo(oplist);
+  $(Op.a).attr({ href: '#', id: name, title: title }).html('<span>' + title + '</span>').click(imce.opClickEvent);  $(Op.li).attr('id', 'op-item-'+ name).append(Op.a).appendTo(oplist);
   Op.func = op.func || imce.opVoid;
   return Op;
 },
 
 //click event for file operations
 opClickEvent: function(e) {
-  imce.opClick(this.name);
+  imce.opClick(this.id);
   return false;
 },
 
@@ -470,12 +469,14 @@ uploadSettings: function () {
   };
 },
 
-//validate default ops(delete, thumb, resize)
+//validate default ops(delete, thumb, resize, download)
 fopValidate: function(fop) {
   if (!imce.validateSelCount(1, imce.conf.filenum)) return false;
   switch (fop) {
     case 'delete':
       return confirm(Drupal.t('Delete selected files?'));
+    case 'download':
+      return confirm(Drupal.t('Download selected files?'));
     case 'thumb':
       if (!$('input:checked', imce.ops['thumb'].div).length) {
         return imce.setMessage(Drupal.t('Please select a thumbnail.'), 'error');
@@ -499,10 +500,38 @@ fopValidate: function(fop) {
 //submit wrapper for default ops
 fopSubmit: function(fop) {
   switch (fop) {
-    case 'thumb': case 'delete': case 'resize':  return imce.commonSubmit(fop);
+    case 'thumb':
+    case 'delete':
+    case 'resize':
+      return imce.commonSubmit(fop);
+    case 'download':
+      imce.download(fop);
   }
   var func = fop +'OpSubmit';
   if (imce[func]) return imce[func](fop);
+},
+
+download: function (fop) {
+  var selectedItems = imce.serialNames().split(":");
+
+  // Create an invisible A element
+  const a = document.createElement("a");
+  a.style.display = "none";
+  document.body.appendChild(a);
+
+  // Set the HREF to a Blob representation of the data to be downloaded
+  selectedItems.forEach(element => {
+    a.href = imce.getURL(element)
+    // Use download attribute to set set desired file name
+    a.setAttribute("download", element);
+    // Trigger the download by simulating click
+    a.click();
+  });
+
+  // Cleanup
+  window.URL.revokeObjectURL(a.href);
+  document.body.removeChild(a);
+  return true;
 },
 
 //common submit function shared by default ops
@@ -535,9 +564,13 @@ setPreview: function (fid) {
   var row, html = '';
   imce.vars.prvfid = fid;
   if (fid && (row = imce.fids[fid])) {
-    var width = row.cells[2].innerHTML * 1;
-    html = imce.vars.previewImages && width ? imce.imgHtml(fid, width, row.cells[3].innerHTML) : imce.decodePlain(fid);
-    html = '<a href="#" onclick="imce.send(\''+ fid +'\'); return false;" title="'+ (imce.vars.prvtitle||'') +'">'+ html +'</a>';
+    if (row.cells[2].innerHTML == "-") {
+      html = imce.imgHtml(fid, row.cells[2].innerHTML, row.cells[3].innerHTML);
+    } else {
+      var width = row.cells[2].innerHTML * 1;
+      html = imce.vars.previewImages && width ? imce.imgHtml(fid, width, row.cells[3].innerHTML) : imce.decodePlain(fid);
+    }
+    html = '<a href="#" onclick="imce.send(\'' + fid + '\'); return false;" title="' + (imce.vars.prvtitle || '') + '">' + html + '</a>';
   }
   imce.el('file-preview').innerHTML = html;
 },
@@ -551,8 +584,9 @@ send: function (fid) {
 setSendTo: function (title, func) {
   imce.send = function (fid) { fid && func(imce.fileGet(fid), window);};
   var opFunc = function () {
-    if (imce.selcount != 1) return imce.setMessage(Drupal.t('Please select a file.'), 'error');
-    imce.send(imce.vars.prvfid);
+    if (imce.validateSelCount(1, 1)) {
+      imce.send(imce.vars.prvfid);
+    }
   };
   imce.vars.prvtitle = title;
   return imce.opAdd({name: 'sendto', title: title, func: opFunc});
@@ -634,11 +668,17 @@ resMsgs: function (msgs) {
 
 //return img markup
 imgHtml: function (fid, width, height) {
-  return '<img src="'+ imce.getURL(fid, true) +'" width="'+ width +'" height="'+ height +'" alt="'+ imce.decodePlain(fid) +'">';
+  if (width == "-")
+    return '<img src="'+ imce.getURL(fid, true) +'" alt="'+ imce.decodePlain(fid) +'">';
+  else
+    return '<img src="' + imce.getURL(fid, true) + '" width="' + width + '" height="' + height + '" alt="' + imce.decodePlain(fid) + '">';
 },
 
-//check if the file is an image
+//check if the file is an image and if the image metadata is disabled
 isImage: function (fid) {
+  if (imce.fids[fid].cells[2].innerHTML == "-") {
+    return true;
+  }
   return imce.fids[fid].cells[2].innerHTML * 1;
 },
 
@@ -696,7 +736,7 @@ getURL: function (fid, uncached) {
   return url;
 },
 
-//get encoded file path relative to root. 
+//get encoded file path relative to root.
 getRelpath: function (fid) {
   var dir = imce.conf.dir;
   return (dir === '.' ? '' : dir + '/') + fid;
@@ -732,7 +772,7 @@ highlight: function (fid) {
 
 //process a row
 processRow: function (row) {
-  row.cells[0].innerHTML = '<span>' + imce.decodePlain(row.id) + '</span>';
+  row.cells[0].innerHTML = '<a href="#" onclick="return false;">' + imce.decodePlain(row.id) + '</a>';
   row.onmousedown = function(e) {
     var e = e||window.event;
     imce.fileClick(this, e.ctrlKey, e.shiftKey);
@@ -801,12 +841,17 @@ updateUI: function() {
   if (furl.charAt(furl.length - 1) != '/') {
     furl = imce.conf.furl = furl + '/';
   }
-  imce.conf.modfix = imce.conf.clean && furl.indexOf(host + '/system/') > -1;
+  imce.conf.modfix = imce.conf.clean && furl.split('/')[3] === 'system';
   if (absurls && !isabs) {
     imce.conf.furl = baseurl + furl;
   }
   else if (!absurls && isabs && furl.indexOf(baseurl) == 0) {
-    imce.conf.furl = furl.substr(baseurl.length);
+    furl = furl.substr(baseurl.length);
+    // Server base url is defined with a port which is missing in current page url.
+    if (furl.charAt(0) === ':') {
+      furl = furl.replace(/^:\d*/, '');
+    }
+    imce.conf.furl = furl;
   }
   //convert button elements to input elements.
   imce.convertButtons(imce.FW);

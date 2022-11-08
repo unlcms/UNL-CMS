@@ -5,6 +5,7 @@ body.imce {
   background: none;
   text-align: left;
   height: auto;
+  min-width: auto;
 }
 
 /*Main container*/
@@ -91,6 +92,7 @@ body.imce {
 #preview-wrapper {
   height: 180px;
   overflow: auto;
+  background: url(preview-bg.png);
 }
 
 /*columns of browse-wrapper*/
@@ -201,23 +203,24 @@ body.imce {
   table-layout: fixed;
   width: 100%;
 }
-#file-header td {
+#file-header td a {
   padding: 4px;
   font-weight: bold;
   cursor: default;
+  display:block;
 }
-#file-header td.asc {
+#file-header td.asc a {
   color: #f60;
 }
-#file-header td.asc:after {
-  content: "\2193";
+#file-header td.asc a:after {
+  content: " \2193";
   font-weight: normal;
 }
-#file-header td.desc {
+#file-header td.desc a {
   color: #09f;
 }
-#file-header td.desc:after {
-  content: "\2191";
+#file-header td.desc a:after {
+  content: " \2191";
   font-weight: normal;
 }
 #file-list td {

@@ -10,6 +10,12 @@ imce.hooks.load.push(function () {
       isW = this.id == 'edit-width', val =  imce.el(isW ? 'edit-height' : 'edit-width').value*1;
       if (val && (w = imce.isImage(fid)) && (r = imce.fids[fid].cells[3].innerHTML*1 / w))
         this.value = Math.round(isW ? val/r : val*r);
+      else if (val && (w = imce.isImage(fid)) && imce.fids[fid].cells[3].innerHTML == '-') {
+        var img = $('#file-preview').find('img');
+        w = img[0].naturalWidth;
+        r = img[0].naturalHeight/w;
+        this.value = Math.round(isW ? val / r : val * r);
+      }
     }
   });
 });
@@ -111,7 +117,23 @@ imce.initiateSorting = function() {
 
 //sort the list for the first time
 imce.firstSort = function() {
-  imce.columnSort(imce.vars.cid, imce.vars.dsc);
+  switch (imce.conf.sort) {
+    case 'default':
+      imce.columnSort(imce.vars.cid, imce.vars.dsc);
+      break;
+    case 'by_name':
+      imce.columnSort(0, 0);
+      break;
+    case 'by_size':
+      imce.columnSort(1, 1);
+      break;
+    case 'by_date':
+      imce.columnSort(4, 1);
+      break;
+    default:
+      imce.columnSort(imce.vars.cid, imce.vars.dsc);
+      break;
+  }
 };
 
 //sort file list according to column index.

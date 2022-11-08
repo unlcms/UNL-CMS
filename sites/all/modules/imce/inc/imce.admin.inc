@@ -12,7 +12,10 @@ function imce_admin() {
 
   $profiles = variable_get('imce_profiles', array());
 
-  $header = array(t('Profile name'), array('data' => t('Operations'), 'colspan' => 2));
+  $header = array(
+    t('Profile name'),
+    array('data' => t('Operations'), 'colspan' => 2),
+  );
   $rows = array();
 
   foreach ($profiles as $pid => $profile) {
@@ -23,7 +26,13 @@ function imce_admin() {
     );
   }
 
-  $rows[] = array('', array('data' => l(t('Add new profile'), 'admin/config/media/imce/profile'), 'colspan' => 2));
+  $rows[] = array(
+    '', array(
+      'data' => l(t('Add new profile'),
+      'admin/config/media/imce/profile'),
+      'colspan' => 2,
+    ),
+  );
 
   $output['title'] = array(
     '#markup' => '<h2 class="title">' . t('Configuration profiles') . '</h2>',
@@ -36,7 +45,7 @@ function imce_admin() {
   );
   $output['form'] = drupal_get_form('imce_admin_form');
 
-  // Display security warnings
+  // Display security warnings.
   if (empty($_POST)) {
     $roles = variable_get('imce_roles_profiles', array());
     if (!empty($roles[DRUPAL_ANONYMOUS_RID]['public_pid']) || !empty($roles[DRUPAL_ANONYMOUS_RID]['private_pid'])) {
@@ -51,10 +60,26 @@ function imce_admin() {
 }
 
 /**
+ * Admin file browser.
+ */
+function imce_admin_file_browser() {
+  $output = [
+    'title' => [
+      '#markup' => '<h2 class="title">' . t('IMCE File Browser') . '</h2>',
+    ],
+    'content' => [
+      '#markup' => '<iframe width="100%" height="500" class="imce-modal-iframe" src="/imce"></iframe>',
+    ],
+  ];
+
+  return $output;
+}
+
+/**
  * Admin form.
  */
 function imce_admin_form($form, &$form_state) {
-  //roles profiles
+  // Roles profiles.
   $form['roles'] = array('#tree' => TRUE);
   $roles = imce_sorted_roles();
   $form['#weighted'] = count($roles) > 3;
@@ -64,7 +89,7 @@ function imce_admin_form($form, &$form_state) {
     $form['roles'][$rid] = imce_role_form($role, $form['#weighted'], $core);
   }
 
-  //common settings
+  // Common settings.
   $form['common'] = array(
     '#type' => 'fieldset',
     '#title' => t('Common settings'),
@@ -76,13 +101,19 @@ function imce_admin_form($form, &$form_state) {
     '#title' => t('Enable inline image/file insertion into plain textareas'),
     '#default_value' => variable_get('imce_settings_textarea', ''),
     '#maxlength' => NULL,
-    '#description' => t('If you don\'t use any WYSIWYG editor, this feature will allow you to add your images or files as <strong>html code into any plain textarea</strong>. Enter <strong>comma separated textarea IDs</strong> under which you want to enable a link to IMCE. The * character is a wildcard. Hint: ID of Body fields in most node types starts with edit-body*.'),
+    '#description' => t("If you don't use any WYSIWYG editor, this feature will allow you to add your images or files as <strong>html code into any plain textarea</strong>. Enter <strong>comma separated textarea IDs</strong> under which you want to enable a link to IMCE. The * character is a wildcard. Hint: ID of Body fields in most node types starts with edit-body*."),
   );
   $form['common']['absurls'] = array(
     '#type' => 'checkbox',
     '#title' => t('Absolute URLs'),
     '#default_value' => variable_get('imce_settings_absurls', 0),
     '#description' => t('Check if you want IMCE to return absolute file URLs.'),
+  );
+  $form['common']['image_metadata'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable image metada'),
+    '#default_value' => variable_get('imce_disable_image_info', 0),
+    '#description' => t('Disabling the metadata fetch may speed up IMCE on S3 or slow NFS sites with lots of files in the initial directory.'),
   );
   $form['common']['replace'] = array(
     '#type' => 'radios',
@@ -91,7 +122,19 @@ function imce_admin_form($form, &$form_state) {
     '#options' => array(
       FILE_EXISTS_RENAME => t('Keep the existing file renaming the new one'),
       FILE_EXISTS_ERROR => t('Keep the existing file rejecting the new one'),
-      FILE_EXISTS_REPLACE => t('Replace the existing file with the new one')
+      FILE_EXISTS_REPLACE => t('Replace the existing file with the new one'),
+      IMCE_RENAME_REPLACE => t('Let the user decide which option to choose'),
+    ),
+  );
+  $form['common']['sort'] = array(
+    '#type' => 'radios',
+    '#title' => t('Default file sort when IMCE is opened'),
+    '#default_value' => variable_get('imce_settings_sort', 'default'),
+    '#options' => array(
+      'default' => t('First sort by name and then will sort by the last option the user used'),
+      'by_name' => t('Sort by name'),
+      'by_size' => t('Sort by size'),
+      'by_date' => t('Sort by date'),
     ),
   );
   $form['common']['thumb_method'] = array(
@@ -100,7 +143,7 @@ function imce_admin_form($form, &$form_state) {
     '#default_value' => variable_get('imce_settings_thumb_method', 'scale_and_crop'),
     '#options' => array(
       'scale' => t('Scale the image with respect to the thumbnail dimensions.'),
-      'scale_and_crop' => t('First scale then crop the image to fit the thumbnail dimensions.')
+      'scale_and_crop' => t('First scale then crop the image to fit the thumbnail dimensions.'),
     ),
   );
   $form['common']['disable_private'] = array(
@@ -108,6 +151,18 @@ function imce_admin_form($form, &$form_state) {
     '#title' => t('Disable serving of private files'),
     '#default_value' => variable_get('imce_settings_disable_private', 1),
     '#description' => t('IMCE serves all files under private files directory without applying any access restrictions. This allows anonymous access to any file(/system/files/filename) unless there is a module restricting access to the files. Here you can disable this feature.'),
+  );
+  $form['common']['admin_theme'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use admin theme for IMCE paths'),
+    '#default_value' => variable_get('imce_settings_admin_theme', FALSE),
+    '#description' => t('If you have user interface issues with the active theme you may consider switching to admin theme.'),
+  );
+  $form['common']['imce_link'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Provide a menu link to IMCE'),
+    '#description' => t('Provide menu link so the user can just manager the files in admin/content/imce.'),
+    '#default_value' => variable_get('imce_settings_menu_link', 1),
   );
 
   $form['submit'] = array('#type' => 'submit', '#value' => t('Save configuration'));
@@ -125,7 +180,7 @@ function imce_admin_theme($variables) {
   $header = array(t('User role'));
   $rows = array(array(t('Site maintenance account')));
   $keys = array('name');
-  //add each stream wrapper as a column
+  // Add each stream wrapper as a column.
   $swrappers = file_get_stream_wrappers(STREAM_WRAPPERS_VISIBLE);
   foreach ($swrappers as $scheme => $info) {
     $header[] = l($info['name'], 'imce/' . $scheme);
@@ -133,7 +188,7 @@ function imce_admin_theme($variables) {
     $keys[] = $scheme . '_pid';
   }
 
-  //in case we need profile weights.
+  // In case we need profile weights.
   $weight_info = '';
   if ($form['#weighted']) {
     $header[] = t('Weight');
@@ -181,8 +236,12 @@ function imce_admin_submit($form, &$form_state) {
   variable_set('imce_settings_textarea', $form_state['values']['textarea']);
   variable_set('imce_settings_absurls', $form_state['values']['absurls']);
   variable_set('imce_settings_replace', $form_state['values']['replace']);
+  variable_set('imce_settings_sort', $form_state['values']['sort']);
   variable_set('imce_settings_thumb_method', $form_state['values']['thumb_method']);
   variable_set('imce_settings_disable_private', $form_state['values']['disable_private']);
+  variable_set('imce_settings_admin_theme', $form_state['values']['admin_theme']);
+  variable_set('imce_settings_menu_link', $form_state['values']['imce_link']);
+  variable_set('imce_disable_image_info', $form_state['values']['image_metadata']);
   drupal_set_message(t('Changes have been saved.'));
 }
 
@@ -190,12 +249,12 @@ function imce_admin_submit($form, &$form_state) {
  * Add-Edit-Delete profiles.
  */
 function imce_profile_operations($op = 'add', $pid = 0) {
-  //delete
+  // Delete.
   if ($op == 'delete') {
     drupal_set_title(t('Delete configuration profile'));
     return drupal_get_form('imce_profile_delete_form', $pid);
   }
-  //add-edit
+  // Add-edit.
   if ($op === 'add' || $op === 'edit') {
     return drupal_get_form('imce_profile_form', $pid);
   }
@@ -216,16 +275,17 @@ function imce_profile_form($form, &$form_state, $pid = 0) {
     $profile['name'] = '';
   }
 
-  //import profile
+  // Import profile.
   if (isset($_GET['import']) && $imported = imce_load_profile($_GET['import'])) {
     if (empty($form_state['post'])) {
       drupal_set_message(t('Settings were imported from the profile %name', array('%name' => $imported['name'])));
     }
-    $imported['name'] = $profile['name']; //preserve the original name.
+    // Preserve the original name.
+    $imported['name'] = $profile['name'];
     $profile = $imported;
   }
-
-  $form_state['profile'] = $profile;//store the original profile just in case.
+  // Store the original profile just in case.
+  $form_state['profile'] = $profile;
 
   $form = array('#tree' => TRUE);
   $form['name'] = array(
@@ -285,23 +345,23 @@ function imce_profile_form($form, &$form_state, $pid = 0) {
     '#description' => t('You can allow users to select multiple files for operations such as delete, resize, etc. Entire batch file operation is executed in a single drupal load, which may be good. However there will be an increase in script execution time, cpu load and memory consumption possibly exceeding the limits of your server, which is really bad. For unlimited number of file handling, set this to 0.'),
   );
 
-  //Directories
+  // Directories.
   $form['directories']['#theme'] = 'imce_directories';
   $form['directories']['#weight'] = 1;
   for ($i = 0; $i < count($profile['directories']); $i++) {
     $form['directories'][$i] = imce_directory_form($profile['directories'][$i]);
   }
   $form['directories'][$i] = imce_directory_form();
-  $form['directories'][$i+1] = imce_directory_form();
+  $form['directories'][$i + 1] = imce_directory_form();
 
-  //Thumbnails
+  // Thumbnails.
   $form['thumbnails']['#theme'] = 'imce_thumbnails';
   $form['thumbnails']['#weight'] = 2;
   for ($i = 0; $i < count($profile['thumbnails']); $i++) {
     $form['thumbnails'][$i] = imce_thumbnail_form($profile['thumbnails'][$i]);
   }
   $form['thumbnails'][$i] = imce_thumbnail_form();
-  $form['thumbnails'][$i+1] = imce_thumbnail_form();
+  $form['thumbnails'][$i + 1] = imce_thumbnail_form();
 
   $form = array('profile' => $form);
   $form['pid'] = array('#type' => 'hidden', '#value' => $pid);
@@ -318,11 +378,11 @@ function imce_profile_validate($form, &$form_state) {
   $profile = &$form_state['values']['profile'];
   $dim_re = '/^\d+x\d+$/';
   $dim_error = t('Dimensions must be specified in <kbd>WIDTHxHEIGHT</kbd> format.');
-  // Check max image dimensions
+  // Check max image dimensions.
   if ($profile['dimensions'] && !preg_match($dim_re, $profile['dimensions'])) {
     return form_set_error('profile][dimensions', $dim_error);
   }
-  // Check thumbnails dimensions
+  // Check thumbnails dimensions.
   foreach ($profile['thumbnails'] as $i => $thumb) {
     if (trim($thumb['name']) != '' && !preg_match($dim_re, $thumb['dimensions'])) {
       return form_set_error("profile][thumbnails][$i][dimensions", $dim_error);
@@ -338,10 +398,10 @@ function imce_profile_submit($form, &$form_state) {
   $pid = $form_state['values']['pid'];
   $message = $pid > 0 ? t('The changes have been saved.') : t('Profile has been added.');
 
-  //unset empty fields of directories and thumbnails.
+  // Unset empty fields of directories and thumbnails.
   imce_clean_profile_fields($profile);
 
-  //save profile.
+  // Save profile.
   $pid = imce_update_profiles($pid, $profile);
 
   drupal_set_message($message);
@@ -349,11 +409,19 @@ function imce_profile_submit($form, &$form_state) {
 }
 
 /**
- * directory settings form
+ * Directory settings form.
  */
 function imce_directory_form($directory = array()) {
   if (empty($directory)) {
-    $directory = array('name' => '', 'subnav' => 0, 'browse' => 0, 'upload' => 0, 'thumb' => 0, 'delete' => 0, 'resize' => 0);
+    $directory = array(
+      'name' => '',
+      'subnav' => 0,
+      'browse' => 0,
+      'upload' => 0,
+      'thumb' => 0,
+      'delete' => 0,
+      'resize' => 0,
+    );
   }
   $form['name'] = array(
     '#type' => 'textfield',
@@ -403,11 +471,11 @@ function imce_directories_theme($variables) {
   $root = t('root');
 
   foreach (element_children($form) as $key) {
-    //directory path
+    // Directory path.
     $row = array('<div class="container-inline">&lt;' . $root . '&gt;' . '/' . drupal_render($form[$key]['name']) . '</div>' . drupal_render($form[$key]['subnav']));
     unset($form[$key]['name'], $form[$key]['subnav']);
 
-    //permissions
+    // Permissions.
     $header = array();
     foreach (element_children($form[$key]) as $perm) {
       $header[] = $form[$key][$perm]['#title'];
@@ -440,11 +508,16 @@ function imce_directories_theme($variables) {
 }
 
 /**
- * thumbnail settings form
+ * Thumbnail settings form.
  */
 function imce_thumbnail_form($thumb = array()) {
   if (empty($thumb)) {
-    $thumb = array('name' => '', 'dimensions' => '', 'prefix' => '', 'suffix' => '');
+    $thumb = array(
+      'name' => '',
+      'dimensions' => '',
+      'prefix' => '',
+      'suffix' => '',
+    );
   }
   $form['name'] = array(
     '#type' => 'textfield',
@@ -502,7 +575,7 @@ function imce_thumbnails_theme($variables) {
 }
 
 /**
- * Role-profile form
+ * Role-profile form.
  */
 function imce_role_form($role, $weight = TRUE, $core = TRUE) {
   $form['name'] = array(
@@ -530,7 +603,7 @@ function imce_role_form($role, $weight = TRUE, $core = TRUE) {
 }
 
 /**
- * Profile delete form
+ * Profile delete form.
  */
 function imce_profile_delete_form($form, &$form_state, $pid) {
   if ($pid > 1 && $profile = imce_load_profile($pid)) {
@@ -549,7 +622,7 @@ function imce_profile_delete_form($form, &$form_state, $pid) {
 }
 
 /**
- * Profile delete form submit
+ * Profile delete form submit.
  */
 function imce_profile_delete_submit($form, &$form_state) {
   imce_update_profiles($form_state['values']['pid'], NULL);
@@ -582,7 +655,8 @@ function imce_profile_import_html($pid = 0) {
   }
 
   if (!empty($links)) {
-    $output = '<p><strong>' . t('Import settings from other profiles') . '</strong>: ';
+    $outputText = t('Import settings from other profiles');
+    $output = '<p><strong>' . $outputText . '</strong>: ';
     $output .= implode(', ', $links) . '</p>';
   }
 
@@ -615,17 +689,17 @@ function imce_update_roles($pid) {
 function imce_update_profiles($pid, $profile = NULL) {
   $profiles = variable_get('imce_profiles', array());
 
-  //add or update
+  // Add or update.
   if (isset($profile)) {
-    $pid = isset($profiles[$pid]) ? $pid : count($profiles)+1;
+    $pid = isset($profiles[$pid]) ? $pid : count($profiles) + 1;
     $profiles[$pid] = $profile;
   }
 
-  //delete
+  // Delete.
   elseif (isset($profiles[$pid]) && $pid > 1) {
     unset($profiles[$pid]);
-    for ($i = $pid+1; isset($profiles[$i]); $i++) {
-      $profiles[$i-1] = $profiles[$i];
+    for ($i = $pid + 1; isset($profiles[$i]); $i++) {
+      $profiles[$i - 1] = $profiles[$i];
       unset($profiles[$i]);
     }
     imce_update_roles($pid);
@@ -692,7 +766,7 @@ function imce_sorted_roles() {
     foreach ($roles as $rid => $name) {
       $sorted[$rid] = array(
         'name' => $name,
-        'weight' => isset($roles_profiles[$rid]['weight']) ? $roles_profiles[$rid]['weight'] : 0
+        'weight' => isset($roles_profiles[$rid]['weight']) ? $roles_profiles[$rid]['weight'] : 0,
       );
       foreach ($schemes as $scheme) {
         $key = $scheme . '_pid';
@@ -708,7 +782,7 @@ function imce_sorted_roles() {
  * Sorting function for roles.
  */
 function imce_rolesort($r1, $r2) {
-  return $r1['weight']-$r2['weight'];
+  return $r1['weight'] - $r2['weight'];
 }
 
 /**
@@ -736,5 +810,5 @@ function imce_admin_check_wildcard_upload($rid, $conf = NULL) {
   return FALSE;
 }
 
-//Include core profile functions.
+// Include core profile functions.
 include_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'imce') . '/inc/imce.core.profiles.inc';
