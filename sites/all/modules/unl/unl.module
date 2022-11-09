@@ -830,7 +830,10 @@ function unl_form_node_admin_content_alter(&$form, &$form_state, $form_id) {
   // "$nodes = node_load_multiple($nids);" has already been run on these
   // nids in node_admin_nodes(). The static cache will be used instead of
   // another db query being invoked
-  $nodes = node_load_multiple(array_keys($form['admin']['nodes']['#options']));
+  $options = is_array($form['admin']['nodes']['#options'])
+    ? array_keys($form['admin']['nodes']['#options'])
+    : array_keys($form['admin']['nodes']['#rows']);
+  $nodes = node_load_multiple($options);
 
   // Grab a list of all user ids that have been responsible for changing the node
   $uids = array();
