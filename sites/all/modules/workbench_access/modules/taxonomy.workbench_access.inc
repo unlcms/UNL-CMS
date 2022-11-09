@@ -170,29 +170,30 @@ function taxonomy_workbench_access_tree($info, $keys) {
     }
   }
   foreach ($items as $vid => $tid) {
-    $vocabulary = taxonomy_vocabulary_machine_name_load($vid);
-    if ($tid == 0) {
-      $tree[$vocabulary->machine_name] = array(
-        'access_id' => $vocabulary->machine_name,
-        'access_type_id' => $vocabulary->machine_name,
-        'name' => $vocabulary->name,
-        'description' => $vocabulary->description,
-        'weight' => 0,
-        'depth' => 0,
-        'parent' => $vocabulary->machine_name,
-      );
-    }
-    $children = taxonomy_get_tree($vocabulary->vid, $tid);
-    foreach ($children as $child) {
-      $tree[$child->tid] = array(
-        'access_id' => $child->tid,
-        'access_type_id' => $vocabulary->machine_name,
-        'name' => $child->name,
-        'description' => $child->description,
-        'weight' => $child->weight,
-        'depth' => $child->depth+1,
-        'parent' => !empty($child->parents[0]) ? $child->parents[0] : $vocabulary->machine_name,
-      );
+    if ($vocabulary = taxonomy_vocabulary_machine_name_load($vid)) {
+      if ($tid == 0) {
+        $tree[$vocabulary->machine_name] = array(
+          'access_id' => $vocabulary->machine_name,
+          'access_type_id' => $vocabulary->machine_name,
+          'name' => $vocabulary->name,
+          'description' => $vocabulary->description,
+          'weight' => 0,
+          'depth' => 0,
+          'parent' => $vocabulary->machine_name,
+        );
+      }
+      $children = taxonomy_get_tree($vocabulary->vid, $tid);
+      foreach ($children as $child) {
+        $tree[$child->tid] = array(
+          'access_id' => $child->tid,
+          'access_type_id' => $vocabulary->machine_name,
+          'name' => $child->name,
+          'description' => $child->description,
+          'weight' => $child->weight,
+          'depth' => $child->depth+1,
+          'parent' => !empty($child->parents[0]) ? $child->parents[0] : $vocabulary->machine_name,
+        );
+      }
     }
   }
   if ($keys) {
@@ -318,17 +319,26 @@ function workbench_access_taxonomy_autocomplete_validate($element, &$form_state)
 function workbench_access_query_term_access_alter(QueryAlterableInterface $query) {
   global $user;
   if (workbench_access_is_active_autocomplete()) {
+    // Iterate through the query tables to find the taxonomy_term_data table alias
+    $term_data_alias = 't';
+    $tables = $query->getTables();
+    foreach ($tables as $table_alias => $table_info) {
+      if ($table_info['table'] == 'taxonomy_term_data') {
+        $term_data_alias = $table_alias;
+        break;
+      }
+    }
     // Alter the query.
     if (!isset($user->workbench_access)) {
       workbench_access_user_load_data($user);
     }
     $tree = workbench_access_get_user_tree($user);
     if (!empty($tree)) {
-      $query->condition('t.tid', array_keys($tree), 'IN');
+      $query->condition($term_data_alias . '.tid', array_keys($tree), 'IN');
     }
     // Force a NULL return if the user has no section assignments.
     else {
-      $query->condition('t.tid', -10);
+      $query->condition($term_data_alias . '.tid', -10);
     }
   }
 }

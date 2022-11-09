@@ -243,10 +243,17 @@ function workbench_access_save_field_elements($types) {
     if ($settings == 'wa-no-access-field') {
       return;
     }
+    // Multiple options return an array. Single a string.
+    if (!is_array($settings)) {
+      $selection[] = $settings;
+    }
+    else {
+      $selection = $settings;
+    }
     $fields = workbench_access_get_available_fields($type);
     foreach ($fields as $field => $info) {
       $instance = $info['instance_info'];
-      $instance['workbench_access_field'] = (int) !empty($settings[$field]);
+      $instance['workbench_access_field'] = in_array($field, $selection);
       field_update_instance($instance);
     }
   }
@@ -305,9 +312,10 @@ function workbench_access_section_form($form, &$form_state) {
         '#tree' => TRUE,
       );
     }
+    $string = str_repeat('-', $section['depth']) . ' ' . check_plain($section['name']);
     $form['sections'][$parent][$section['access_id']] = array(
       '#type' => 'checkbox',
-      '#title' => ($section['depth'] == 0 ? t('All of') . ' ' : '') . str_repeat('-', $section['depth']) . ' ' . check_plain($section['name']),
+      '#title' => $section['depth'] == 0 ? t('All of @string', array('@string' => $string)): t('@string', array('@string' => $string)),
       '#default_value' => isset($active['active'][$section['access_id']]),
       '#disabled' => variable_get('workbench_access_auto_assign', 1),
     );
@@ -375,8 +383,8 @@ function workbench_access_user_form($form, &$form_state, $account) {
   $section_items = array_keys($sections);
   $parent = 0;
   $used = array();
-
   foreach ($active['tree'] as $section) {
+    $disabled = FALSE;
     if (in_array($section['access_id'], $used)) {
       continue;
     }
@@ -417,17 +425,28 @@ function workbench_access_user_form($form, &$form_state, $account) {
     // Do we show inactive sections here?
     if (isset($active['active'][$section['access_id']])) {
       if (user_access('assign workbench access') && !empty($active['active'][$section['access_id']])) {
+        $string = str_repeat('-', $section['depth']) . ' ' . check_plain($section['name']);
+        if (isset($account->workbench_access_by_role[$section['access_id']])) {
+          $string .= '*';
+          $show_message = TRUE;
+          $disabled = TRUE;
+        }
         $form['sections'][$parent][$section['access_id']] = array(
           '#type' => 'checkbox',
-          '#title' => ($section['depth'] == 0 ? t('All of') . ' ' : '') . str_repeat('-', $section['depth']) . ' ' . check_plain($section['name']),
+          '#title' => $section['depth'] == 0 ? t('All of @string', array('@string' => $string)): t('@string', array('@string' => $string)),
           '#default_value' => isset($sections[$section['access_id']]),
-          # '#disabled' => empty($sections[$section['access_id']]),
+          '#disabled' => !empty($disabled),
         );
       }
       elseif (isset($sections[$section['access_id']])) {
+        $string = str_repeat('-', $section['depth']) . ' ' . check_plain($section['name']);
+        if (isset($account->workbench_access_by_role[$section['access_id']])) {
+          $string .= '*';
+          $show_message = TRUE;
+        }
         $form['sections'][$parent][$section['access_id']] = array(
           '#type' => 'markup',
-          '#markup' => ($section['depth'] == 0 ? t('All of') . ' ' : '') . str_repeat('-', $section['depth']) . ' ' . check_plain($section['name']) . '<br />',
+          '#markup' => $section['depth'] == 0 ? t('All of @string', array('@string' => $string)): t('@string', array('@string' => $string)) . '<br />',
         );
       }
       /* Unused. Here for reference.
@@ -447,6 +466,12 @@ function workbench_access_user_form($form, &$form_state, $account) {
       );
     }
     $used[] = $section['access_id'];
+  }
+  if (!empty($show_message)) {
+    $form['sections'][$parent]['message'] = array(
+      '#type' => 'markup',
+      '#markup' => '<p>' . t('Items marked with an asterisk (*) are assigned by role.') . '</p>',
+    );
   }
   $form['submit'] = array(
     '#type' => 'submit',
@@ -551,7 +576,7 @@ function workbench_access_editors($access_type = NULL, $access_type_id = NULL, $
       }
       if ($type == 'editor') {
         if (!isset($roles[DRUPAL_AUTHENTICATED_RID])) {
-          $count = db_query("SELECT COUNT(wau.uid) FROM {workbench_access_user} wau
+          $count = db_query("SELECT COUNT(DISTINCT wau.uid) FROM {workbench_access_user} wau
             INNER JOIN {users_roles} ur ON wau.uid = ur.uid
             WHERE wau.access_scheme = :access_scheme AND wau.access_id = :access_id
             AND ur.rid IN (:rids)",
@@ -559,7 +584,7 @@ function workbench_access_editors($access_type = NULL, $access_type_id = NULL, $
           )->fetchField();
         }
         else {
-          $count = db_query("SELECT COUNT(wau.uid) FROM {workbench_access_user} wau
+          $count = db_query("SELECT COUNT(DISTINCT wau.uid) FROM {workbench_access_user} wau
             WHERE wau.access_scheme = :access_scheme AND wau.access_id = :access_id",
             array(':access_scheme' => $active['access_scheme']['access_type'], ':access_id' => $access_id)
           )->fetchField();
@@ -567,7 +592,7 @@ function workbench_access_editors($access_type = NULL, $access_type_id = NULL, $
         $row[] = l(format_plural($count, '1 editor', '@count editors'), 'admin/config/workbench/access/editors/' . $active['access_scheme']['access_type'] . '/' . $access_id);
       }
       else {
-        $count2 = db_query("SELECT COUNT(war.rid) FROM {workbench_access_role} war
+        $count2 = db_query("SELECT COUNT(DISTINCT war.rid) FROM {workbench_access_role} war
           WHERE war.access_scheme = :access_scheme AND war.access_id = :access_id
           AND war.rid IN (:rids)",
           array(':access_scheme' => $active['access_scheme']['access_type'], ':access_id' => $access_id, ':rids' => array_keys($roles))
@@ -627,7 +652,7 @@ function workbench_access_editor_form($form, &$form_state, $access_type, $access
   $rows = array();
   $form['users']['#tree'] = TRUE;
   foreach ($result as $account) {
-    $form['users'][$account->uid]['name'] = array('#markup' => l($account->name, 'user/' . $account->uid));
+    $form['users'][$account->uid]['name'] = array('#markup' => l(format_username($account), 'user/' . $account->uid));
     $form['users'][$account->uid]['remove'] = array(
       '#type' => 'checkbox',
       '#title' => t('Remove'),
@@ -675,6 +700,7 @@ function workbench_access_editor_form_submit($form, &$form_state) {
   if (!empty($values['add_user'])) {
     $account = user_load_by_name($values['add_user']);
     $sections = $account->workbench_access;
+    // If the user is assigned by role, ignore that and add anyway.
     if (!empty($account->workbench_access_by_role)) {
       foreach ($account->workbench_access_by_role as $key) {
         unset($sections[$key]);
@@ -788,7 +814,7 @@ function workbench_access_role_form($form, &$form_state, $access_type, $access_t
   }
   $users_by_role = array();
   foreach ($users as $data) {
-    $users_by_role[$data->uid]['name'] = $data->name;
+    $users_by_role[$data->uid]['name'] = format_username($data);
     if (is_array($data->roles)) {
       array_walk($data->roles, 'check_plain');
       $users_by_role[$data->uid]['roles'] = array_values($data->roles);

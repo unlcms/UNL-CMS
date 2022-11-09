@@ -230,6 +230,10 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
      - Fix label and settings var notices. See https://drupal.org/node/1790304#comment-7395496 Patch applied: https://drupal.org/files/viewreference-1790304-03-complex-entity-form.patch
 
+  *  workbench_access
+
+     - https://www.drupal.org/project/workbench_access/issues/2344173
+
   *  workbench_moderation.module
 
      - Fix broken books in workbench_moderation_node_presave(). See http://drupal.org/node/1505060
