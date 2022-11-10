@@ -161,6 +161,9 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
      - https://www.drupal.org/project/feeds_imagegrabber/issues/2244833
      - Applied patch: patches/feeds_imagegrabber-update_processor_callback-2244833-45.patch
 
+     - Fix _TypeError: mb_strrpos(): Argument #3 ($offset) must be of type int, string given in mb_strrpos() (line 126 of /var/www/htdocs/sites/all/modules/feeds_imagegrabber/libraries/url_to_absolute.inc)._
+     "Passing the encoding as the third argument instead of an offset has been removed."
+
   *  google_analytics
 
      - Apply patch to support GA4: https://www.drupal.org/project/google_analytics/issues/3174214#comment-14496809
