@@ -233,7 +233,10 @@ function unl_cas_import_user($username) {
   }
 
   // If a new account or enough time has passed since last login, do LDAP data lookup.
-  if (!$account || !array_key_exists('lastDataFetch', $account->data['unl']) || time() - $account->data['unl']['lastDataFetch'] > unl_cas_get_setting('ldap_seconds')) {
+  if (!$account
+    || !is_array($account->data['unl'])
+    || !array_key_exists('lastDataFetch', $account->data['unl'])
+    || time() - $account->data['unl']['lastDataFetch'] > unl_cas_get_setting('ldap_seconds')) {
     $result = unl_cas_get_user_record($username);
 
     // If either LDAP or Directory found data, use it.
