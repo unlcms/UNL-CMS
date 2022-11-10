@@ -71,7 +71,7 @@ abstract class FeedsParser extends FeedsPlugin {
    * @param $fetcher_result
    *   FeedsFetcherResult returned by fetcher.
    */
-  public abstract function parse(FeedsSource $source, FeedsFetcherResult $fetcher_result);
+  abstract public function parse(FeedsSource $source, FeedsFetcherResult $fetcher_result);
 
   /**
    * Clear all caches for results for given source.
@@ -195,8 +195,11 @@ abstract class FeedsParser extends FeedsPlugin {
  * @see FeedsEnclosure
  */
 class FeedsElement {
-  // The standard value of this element. This value can contain be a simple type,
-  // a FeedsElement or an array of either.
+
+  /**
+   * The standard value of this element. This value can contain be a simple
+   * type, a FeedsElement or an array of either.
+   */
   protected $value;
 
   /**
@@ -422,10 +425,10 @@ class FeedsEnclosure extends FeedsElement {
     }
 
     if (!$extension || !in_array($extension, explode(' ', $this->allowedExtensions), TRUE)) {
-//    throw new RuntimeException(t('The file @file has an invalid extension.', array('@file' => $filename)));
+//      throw new RuntimeException(t('The file @file has an invalid extension.', array('@file' => $filename)));
     }
 
-//  $this->safeFilename = file_munge_filename($filename, $this->allowedExtensions, FALSE);
+//    $this->safeFilename = file_munge_filename($filename, $this->allowedExtensions, FALSE);
 
     return $this->safeFilename;
   }
@@ -533,7 +536,9 @@ class FeedsEnclosure extends FeedsElement {
  */
 class FeedsDateTimeElement extends FeedsElement {
 
-  // Start date and end date.
+  /**
+   * Start date and end date.
+   */
   public $start;
   public $end;
 
@@ -772,6 +777,7 @@ class FeedsDateTime extends DateTime {
   /**
    * Upon unserializing, we must re-build ourselves using local variables.
    */
+  #[\ReturnTypeWillChange]
   public function __wakeup() {
     $this->__construct($this->_serialized_time, new DateTimeZone($this->_serialized_timezone));
   }
@@ -829,6 +835,7 @@ class FeedsDateTime extends DateTime {
    * In order to set a timezone for a datetime that doesn't have such
    * granularity, merge() it with one that does.
    */
+  #[\ReturnTypeWillChange]
   public function setTimezone($tz, $force = FALSE) {
     // PHP 5.2.6 has a fatal error when setting a date's timezone to itself.
     // http://bugs.php.net/bug.php?id=45038

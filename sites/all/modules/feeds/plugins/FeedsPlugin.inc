@@ -308,14 +308,14 @@ abstract class FeedsPlugin extends FeedsConfigurable implements FeedsSourceInter
 class FeedsMissingPlugin extends FeedsPlugin {
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function pluginType() {
     return 'missing';
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function save() {}
 
@@ -327,36 +327,36 @@ class FeedsMissingPlugin extends FeedsPlugin {
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function clear(FeedsSource $source) {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function request($feed_nid = 0) {
     drupal_access_denied();
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function menuItem() {
     return array();
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function subscribe(FeedsSource $source) {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function unsubscribe(FeedsSource $source) {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function importPeriod(FeedsSource $source) {}
 
@@ -368,7 +368,7 @@ class FeedsMissingPlugin extends FeedsPlugin {
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function getMappingSources() {
     return array();
@@ -380,57 +380,57 @@ class FeedsMissingPlugin extends FeedsPlugin {
   public function process(FeedsSource $source, FeedsParserResult $parser_result) {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function entityType() {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function bundle() {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function bundleOptions() {
     return array();
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function getLimit() {
     return 0;
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function getMappings() {
     return array();
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function getMappingTargets() {
     return array();
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function expire(FeedsSource $source, $time = NULL) {}
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function itemCount(FeedsSource $source) {
     return 0;
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function expiryTime() {
     return FEEDS_EXPIRE_NEVER;

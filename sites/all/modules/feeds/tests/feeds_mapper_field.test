@@ -10,6 +10,9 @@
  */
 class FeedsMapperFieldTestCase extends FeedsMapperTestCase {
 
+  /**
+   * {@inheritdoc}
+   */
   public static function getInfo() {
     return array(
       'name' => 'Mapper: Fields',
@@ -18,6 +21,9 @@ class FeedsMapperFieldTestCase extends FeedsMapperTestCase {
     );
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function setUp() {
     parent::setUp(array('number'));
   }
@@ -387,7 +393,7 @@ class FeedsMapperFieldTestCase extends FeedsMapperTestCase {
       'label' => 'alpha_text_label',
       'bundle' => 'addams',
       'widget' => array(
-        'type' => 'textfield',
+        'type' => 'text_textfield',
       ),
     ));
 
@@ -438,7 +444,7 @@ class FeedsMapperFieldTestCase extends FeedsMapperTestCase {
       'label' => 'alpha_text_label',
       'bundle' => 'user',
       'widget' => array(
-        'type' => 'textfield',
+        'type' => 'text_textfield',
       ),
     ));
 

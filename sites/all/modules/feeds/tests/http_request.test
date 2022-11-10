@@ -9,6 +9,10 @@
  * Tests for the http library.
  */
 class FeedsHTTPRequestTestCase extends FeedsUnitTestHelper {
+
+  /**
+   * {@inheritdoc}
+   */
   public static function getInfo() {
     return array(
       'name' => 'HTTP library',
@@ -17,6 +21,9 @@ class FeedsHTTPRequestTestCase extends FeedsUnitTestHelper {
     );
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function setUp() {
     parent::setUp();
     feeds_include_library('http_request.inc', 'http_request');

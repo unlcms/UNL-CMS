@@ -10,6 +10,9 @@
  */
 class FeedsRSStoNodesTest extends FeedsWebTestCase {
 
+  /**
+   * {@inheritdoc}
+   */
   public static function getInfo() {
     return array(
       'name' => 'Processor: Node',
@@ -212,7 +215,6 @@ class FeedsRSStoNodesTest extends FeedsWebTestCase {
 
     // Now create a second feed configuration that is not attached to a content
     // type and run tests on importing/purging.
-
     // Login with sufficient permissions.
     $this->drupalLogin($this->admin_user);
     // Remove all items again so that next test can check for them.

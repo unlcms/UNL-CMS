@@ -154,7 +154,7 @@ Once that is complete, open a Pull Request against develop in unlcms/UNL-CMS.
 
   *  feeds/plugins/FeedsParser.inc
 
-     - Remove the file extension check so that UNL Events images (like https://events.unl.edu/images/12345) that don't have extensions will work.
+     - Remove the file extension check in getSafeFilename() so that UNL Events images (like https://events.unl.edu/images/12345) that don't have extensions will work.
 
   *  feeds_imagegrabber
 

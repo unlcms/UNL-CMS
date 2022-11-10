@@ -568,7 +568,7 @@ function feeds_tests_feeds_after_parse(FeedsSource $source, FeedsParserResult $r
   // items in there with encoding issues. These items can not be processed
   // during tests without having a test failure because in < PHP 5.4 that would
   // produce the following warning:
-  // > htmlspecialchars(): Invalid multibyte sequence in argument
+  // > htmlspecialchars(): Invalid multibyte sequence in argument.
   // @see FeedsCSVParserTestCase::testMbstringExtensionDisabled()
   if (variable_get('feeds_tests_feeds_after_parse_empty_items', FALSE)) {
     // Remove all items. No items will be processed.

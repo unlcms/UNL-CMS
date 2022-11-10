@@ -284,7 +284,7 @@ class FeedsCSVParser extends FeedsParser {
   }
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function getTemplate() {
     $mappings = feeds_importer($this->id)->processor->config['mappings'];

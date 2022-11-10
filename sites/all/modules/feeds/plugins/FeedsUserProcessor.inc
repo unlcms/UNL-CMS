@@ -642,7 +642,7 @@ class FeedsUserProcessor extends FeedsProcessor {
    * Used by ::passSummaryCallback().
    *
    * @return array
-   *    An array of password encryption option titles.
+   *   An array of password encryption option titles.
    *
    * @see passSummaryCallback()
    */
@@ -674,7 +674,7 @@ class FeedsUserProcessor extends FeedsProcessor {
    * Used by ::passFormCallback().
    *
    * @return array
-   *    An array of password encryption option titles.
+   *   An array of password encryption option titles.
    *
    * @see passFormCallback()
    */

@@ -74,14 +74,20 @@ class FeedsHTTPFetcherResult extends FeedsFetcherResult {
   }
 
   /**
+   * Returns the configured value for the request timeout option.
    *
+   * @return int
+   *   Timeout in seconds to wait for an HTTP get request to finish.
    */
   public function getTimeout() {
     return $this->timeout;
   }
 
   /**
+   * Sets the request timeout option.
    *
+   * @param int $timeout
+   *   Timeout in seconds to wait for an HTTP get request to finish.
    */
   public function setTimeout($timeout) {
     $this->timeout = $timeout;
@@ -157,7 +163,8 @@ class FeedsHTTPFetcher extends FeedsFetcher {
         $source->existing()->import();
       }
       catch (Exception $e) {
-        // In case of an error, respond with a 503 Service (temporary) unavailable.
+        // In case of an error, respond with a 503 Service (temporary)
+        // unavailable.
         $source->log('import', 'An exception occurred: %exception', array('%exception' => $e->getMessage()), WATCHDOG_ERROR);
         header('HTTP/1.1 503 "Not Found"', NULL, 503);
         drupal_exit();
@@ -225,9 +232,10 @@ class FeedsHTTPFetcher extends FeedsFetcher {
     $form['advanced']['request_timeout'] = array(
       '#type' => 'textfield',
       '#title' => t('Request timeout'),
-      '#description' => t('Timeout in seconds to wait for an HTTP get request to finish.</br>' .
-                         '<b>Note:</b> this setting will override the global setting.</br>' .
-                         'When left empty, the global value is used.'),
+      '#description' => t('Timeout in seconds to wait for an HTTP get request to finish.') . '<br />' . t('<strong>Note:</strong> if left empty, the global timeout setting will be used, which is @timeout seconds. You can set the global timeout setting by setting the variable "@variable".', array(
+        '@timeout' => variable_get('http_request_timeout', 30),
+        '@variable' => 'http_request_timeout',
+      )),
       '#default_value' => $this->config['request_timeout'],
       '#element_validate' => array('element_validate_integer_positive'),
       '#maxlength' => 3,

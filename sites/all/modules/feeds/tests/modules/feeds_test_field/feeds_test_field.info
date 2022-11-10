@@ -4,8 +4,9 @@ package = Testing
 core = 7.x
 hidden = TRUE
 dependencies[] = text
-; Information added by Drupal.org packaging script on 2020-03-21
+
+; Information added by Drupal.org packaging script on 2021-12-29
 version = "7.x-2.x-dev"
 core = "7.x"
 project = "feeds"
-datestamp = "1584809218"
+datestamp = "1640771397"

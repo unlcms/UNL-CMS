@@ -10,6 +10,9 @@
  */
 class FeedsMapperTaxonomyTestCase extends FeedsMapperTestCase {
 
+  /**
+   * {@inheritdoc}
+   */
   public static function getInfo() {
     return array(
       'name' => 'Mapper: Taxonomy',
@@ -18,10 +21,13 @@ class FeedsMapperTaxonomyTestCase extends FeedsMapperTestCase {
     );
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public function setUp() {
     parent::setUp();
 
-    // Add Tags vocabulary
+    // Add Tags vocabulary.
     $edit = array(
       'name' => 'Tags',
       'machine_name' => 'tags',
@@ -29,8 +35,8 @@ class FeedsMapperTaxonomyTestCase extends FeedsMapperTestCase {
     $this->drupalPost('admin/structure/taxonomy/add', $edit, 'Save');
 
     $edit = array(
-        'name' => 'term1',
-      );
+      'name' => 'term1',
+    );
     $this->drupalPost('admin/structure/taxonomy/tags/add', $edit, t('Save'));
     $this->assertText('Created new term term1.');
 
@@ -119,7 +125,7 @@ class FeedsMapperTaxonomyTestCase extends FeedsMapperTestCase {
    * Tests inheriting taxonomy from the feed node.
    */
   public function testInheritTaxonomy() {
-    // Adjust importer settings
+    // Adjust importer settings.
     $this->setSettings('syndication', NULL, array('import_period' => FEEDS_SCHEDULE_NEVER));
     $this->setSettings('syndication', NULL, array('import_on_create' => FALSE));
     $this->assertText('Do not import on submission');
@@ -529,7 +535,7 @@ class FeedsMapperTaxonomyTestCase extends FeedsMapperTestCase {
   }
 
   /**
-   * Tests importing empty values
+   * Tests importing empty values.
    */
   public function testBlankSourceValues() {
     // Create a CSV importer configuration.
@@ -560,11 +566,11 @@ class FeedsMapperTaxonomyTestCase extends FeedsMapperTestCase {
     $this->importFile('node', $this->absolutePath() . '/tests/feeds/taxonomy_empty_terms.csv');
     $this->assertText('Created 5 nodes');
 
-    // Make sure only two terms were added
+    // Make sure only two terms were added.
     $names = db_query('SELECT name FROM {taxonomy_term_data}')->fetchCol();
     $this->assertEqual(count($names), 2, 'Found correct number of terms in the database.');
 
-    // Make sure the correct terms were created
+    // Make sure the correct terms were created.
     $terms = array(
       'term1',
       '0',

@@ -311,7 +311,7 @@ abstract class FeedsFetcher extends FeedsPlugin {
    * @return
    *   A FeedsFetcherResult object.
    */
-  public abstract function fetch(FeedsSource $source);
+  abstract public function fetch(FeedsSource $source);
 
   /**
    * Clear all caches for results for given source.

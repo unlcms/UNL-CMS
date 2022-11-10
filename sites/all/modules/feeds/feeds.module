@@ -269,7 +269,10 @@ function feeds_push_unsubscribe($job) {
  *
  * @see FeedsSource::startBatchAPIJob()
  */
-function feeds_batch($method, $importer_id, $feed_nid = 0, &$context) {
+function feeds_batch($method, $importer_id, $feed_nid, &$context) {
+  if (!isset($feed_nid)) {
+    $feed_nid = 0;
+  }
   $context['finished'] = FEEDS_BATCH_COMPLETE;
   try {
     $context['finished'] = feeds_source($importer_id, $feed_nid)->$method();
@@ -316,7 +319,7 @@ function feeds_reschedule($importer_id = NULL) {
 }
 
 /**
- * Implements feeds_permission().
+ * Implements hook_permission().
  */
 function feeds_permission() {
   $perms = array(
@@ -1030,7 +1033,6 @@ function feeds_menu_local_tasks_alter(&$data, $router_item, $root_path) {
   }
 }
 
-
 /**
  * @}
  */
@@ -1409,9 +1411,7 @@ function feeds_library_exists($file, $library) {
 function feeds_simplepie_exists() {
   return (
     feeds_library_exists('autoloader.php', 'simplepie') ||
-    feeds_library_exists('simplepie.compiled.php', 'simplepie') ||
-    feeds_library_exists('simplepie.mini.php', 'simplepie') ||
-    feeds_library_exists('simplepie.inc', 'simplepie')
+    feeds_library_exists('library/SimplePie.php', 'simplepie')
   );
 }
 
@@ -1421,9 +1421,7 @@ function feeds_simplepie_exists() {
 function feeds_include_simplepie() {
   $files = array(
     'autoloader.php',
-    'simplepie.mini.php',
-    'simplepie.compiled.php',
-    'simplepie.inc',
+    'library/SimplePie.php',
   );
 
   foreach ($files as $file) {
@@ -1433,32 +1431,6 @@ function feeds_include_simplepie() {
   }
 
   return FALSE;
-}
-
-/**
- * Simplified drupal_alter().
- *
- * - None of that 'multiple parameters by ref' crazyness.
- * - Don't use module_implements() to allow hot including on behalf
- *   implementations (see mappers/).
- *
- * @todo This needs to be removed and drupal_alter() used. This is crazy dumb.
- *
- * @deprecated in 7.x-2.0-alpha6 and will be removed before 7.x-2.0.
- */
-function feeds_alter($type, &$data) {
-  $args = array(&$data);
-  $additional_args = func_get_args();
-  array_shift($additional_args);
-  array_shift($additional_args);
-  $args = array_merge($args, $additional_args);
-
-  $hook = $type . '_alter';
-  foreach (module_list() as $module) {
-    if (module_hook($module, $hook)) {
-      call_user_func_array($module . '_' . $hook, $args);
-    }
-  }
 }
 
 /**

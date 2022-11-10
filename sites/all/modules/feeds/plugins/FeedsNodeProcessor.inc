@@ -114,8 +114,9 @@ class FeedsNodeProcessor extends FeedsProcessor {
       // If the uid was mapped directly, rather than by email or username, it
       // could be invalid.
       if (!$author) {
-        $message = 'User %uid is not a valid user.';
-        throw new FeedsAccessException(t($message, array('%uid' => $entity->uid)));
+        throw new FeedsAccessException(t('User %uid is not a valid user.', array(
+          '%uid' => $entity->uid,
+        )));
       }
 
       if (empty($entity->nid) || !empty($entity->is_new)) {
@@ -240,7 +241,20 @@ class FeedsNodeProcessor extends FeedsProcessor {
       '#description' => t('Check that the author has permission to create the node.'),
       '#default_value' => $this->config['authorize'],
     );
-    $period = drupal_map_assoc(array(FEEDS_EXPIRE_NEVER, 3600, 10800, 21600, 43200, 86400, 259200, 604800, 2592000, 2592000 * 3, 2592000 * 6, 31536000), 'feeds_format_expire');
+    $period = drupal_map_assoc(array(
+      FEEDS_EXPIRE_NEVER,
+      3600,
+      10800,
+      21600,
+      43200,
+      86400,
+      259200,
+      604800,
+      2592000,
+      2592000 * 3,
+      2592000 * 6,
+      31536000,
+    ), 'feeds_format_expire');
     $form['expire'] = array(
       '#type' => 'select',
       '#title' => t('Expire nodes'),
@@ -419,19 +433,28 @@ class FeedsNodeProcessor extends FeedsProcessor {
     foreach ($this->uniqueTargets($source, $result) as $target => $value) {
       switch ($target) {
         case 'nid':
-          $nid = db_query("SELECT nid FROM {node} WHERE nid = :nid", array(':nid' => $value))->fetchField();
+          $nid = db_query("SELECT nid FROM {node} WHERE nid = :nid", array(
+            ':nid' => $value,
+          ))->fetchField();
           break;
 
         case 'title':
-          $nid = db_query("SELECT nid FROM {node} WHERE title = :title AND type = :type", array(':title' => $value, ':type' => $this->bundle()))->fetchField();
+          $nid = db_query("SELECT nid FROM {node} WHERE title = :title AND type = :type", array(
+            ':title' => $value,
+            ':type' => $this->bundle(),
+          ))->fetchField();
           break;
 
         case 'feeds_source':
           if ($id = feeds_get_importer_id($this->bundle())) {
-            $nid = db_query("SELECT fs.feed_nid FROM {node} n JOIN {feeds_source} fs ON n.nid = fs.feed_nid WHERE fs.id = :id AND fs.source = :source", array(':id' => $id, ':source' => $value))->fetchField();
+            $nid = db_query("SELECT fs.feed_nid FROM {node} n JOIN {feeds_source} fs ON n.nid = fs.feed_nid WHERE fs.id = :id AND fs.source = :source", array(
+              ':id' => $id,
+              ':source' => $value,
+            ))->fetchField();
           }
           break;
       }
+
       if ($nid) {
         // Return with the first nid found.
         return $nid;

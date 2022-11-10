@@ -429,6 +429,7 @@ function http_request_use_curl() {
 
   // cURL below PHP 5.6.0 must not have open_basedir or safe_mode enabled.
   if (version_compare(PHP_VERSION, '5.6.0', '<')) {
+    // phpcs:ignore PHPCompatibility.IniDirectives.RemovedIniDirectives.safe_modeDeprecatedRemoved
     return !ini_get('safe_mode') && !ini_get('open_basedir');
   }
 

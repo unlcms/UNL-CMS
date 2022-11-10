@@ -11,7 +11,7 @@
 class feeds_views_handler_filter_severity extends views_handler_filter_in_operator {
 
   /**
-   *
+   * {@inheritdoc}
    */
   public function get_value_options() {
     $this->value_title = t('Severity');
