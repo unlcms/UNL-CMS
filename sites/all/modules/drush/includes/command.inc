@@ -402,16 +402,16 @@ function drush_parse_args() {
   for ($i = 1; $i < count($args); $i++) {
     $opt = $args[$i];
     // Is the arg an option (starting with '-')?
-    if ($opt{0} == "-" && strlen($opt) != 1) {
+    if ($opt[0] == "-" && strlen($opt) != 1) {
       // Do we have multiple options behind one '-'?
-      if (strlen($opt) > 2 && $opt{1} != "-") {
+      if (strlen($opt) > 2 && $opt[1] != "-") {
         // Each char becomes a key of its own.
         for ($j = 1; $j < strlen($opt); $j++) {
           $options[substr($opt, $j, 1)] = true;
         }
       }
       // Do we have a longopt (starting with '--')?
-      elseif ($opt{1} == "-") {
+      elseif ($opt[1] == "-") {
         if ($pos = strpos($opt, '=')) {
           $options[substr($opt, 2, $pos - 2)] = substr($opt, $pos + 1);
         }
@@ -423,7 +423,7 @@ function drush_parse_args() {
         $opt = substr($opt, 1);
         // Check if the current opt is in $arg_opts (= has to be followed by an argument).
         if ((in_array($opt, $arg_opts))) {
-          if (($args[$i+1] == NULL) || ($args[$i+1] == "") || ($args[$i + 1]{0} == "-")) {
+          if (($args[$i+1] == NULL) || ($args[$i+1] == "") || ($args[$i + 1][0] == "-")) {
             drush_set_error('DRUSH_INVALID_INPUT', "Invalid input: -$opt needs to be followed by an argument.");
           }
           $options[$opt] = $args[$i + 1];

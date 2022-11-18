@@ -387,7 +387,7 @@ function drush_bootstrap_error($code, $message = null) {
  * Log PHP errors to the Drush log. This is in effect until Drupal's error
  * handler takes over.
  */
-function drush_error_handler($errno, $message, $filename, $line, $context) {
+function drush_error_handler($errno, $message, $filename, $line) {
   // If the @ error suppression operator was used, error_reporting will have
   // been temporarily set to 0.
   if (error_reporting() == 0) {
