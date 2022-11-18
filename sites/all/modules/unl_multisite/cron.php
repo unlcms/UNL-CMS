@@ -283,7 +283,7 @@ function unl_add_site($site_path, $uri, $clean_url, $db_prefix, $site_id, $clone
   ;
   $db_prefix .= '_' . $database['prefix'];
 
-  $php_path = escapeshellarg($_SERVER['_']);
+  $php_path = escapeshellarg(PHP_BINDIR . '/php');
   $drupal_root = escapeshellarg(DRUPAL_ROOT);
   $uri = escapeshellarg($uri);
   $sites_subdir = escapeshellarg($sites_subdir);
