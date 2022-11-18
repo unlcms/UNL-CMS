@@ -7,28 +7,19 @@
  *   is called from.
  */
 
-function drush_user_load($uid) {
-  return user_load($uid);
-}
-
 /**
  * Get complete information for all available modules.
  *
  * We need to set the type for those modules that are not already in the system table.
  *
- * @param $include_hidden
- *   Boolean to indicate whether hidden modules should be excluded or not.
  * @return
  *   An array containing module info for all available modules.
  */
-function drush_get_modules($include_hidden = TRUE) {
+function drush_get_modules() {
   $modules = module_rebuild_cache();
-  foreach ($modules as $key => $module) {
+  foreach ($modules as $module) {
     if (!isset($module->type)) {
       $module->type = 'module';
-    }
-    if ((!$include_hidden) && isset($module->info['hidden']) && ($module->info['hidden'])) {
-      unset($modules[$key]);
     }
   }
 
@@ -71,10 +62,7 @@ function drush_check_module_dependencies($modules, $module_info) {
       );
     }
     $status[$key]['unmet-dependencies'] = $unmet_dependencies;
-    $status[$key]['dependencies'] = array();
-    foreach ($dependencies as $dependency) {
-      $status[$key]['dependencies'][$dependency] = array('name' => $dependency);
-    }
+    $status[$key]['dependencies'] = $dependencies;
   }
 
   return $status;
@@ -100,34 +88,6 @@ function drush_module_dependents($modules, $module_info) {
 }
 
 /**
- * Returns a list of enabled modules.
- *
- * This is a simplified version of module_list().
- */
-function drush_module_list() {
-  $enabled = array();
-  $rsc = drush_db_select('system', 'name', 'type=:type AND status=:status', array(':type' => 'module', ':status' => 1));
-  while ($row = drush_db_result($rsc)) {
-    $enabled[$row] = $row;
-  }
-
-  return $enabled;
-}
-
-/**
- * Return a list of extensions from a list of named extensions.
- * Both enabled and disabled/uninstalled extensions are returned.
- */
-function drush_get_named_extensions_list($extensions) {
-  $result = array();
-  $rsc = drush_db_select('system', array('name', 'status'), 'name IN (:extensions)', array(':extensions' => $extensions));
-  while ($row = drush_db_fetch_object($rsc)) {
-    $result[$row->name] = $row;
-  }
-  return $result;
-}
-
-/**
  * Enable a list of modules. It is assumed the list contains all the dependencies not already enabled.
  *
  * @param $modules
@@ -139,7 +99,6 @@ function drush_module_enable($modules) {
     _drupal_install_module($module);
   }
   module_enable($modules);
-  drush_system_modules_form_submit();
 }
 
 /**
@@ -150,7 +109,6 @@ function drush_module_enable($modules) {
  */
 function drush_module_disable($modules) {
   module_disable($modules, FALSE);
-  drush_system_modules_form_submit();
 }
 
 /**
@@ -160,46 +118,10 @@ function drush_module_disable($modules) {
  *   Array of module names
  */
 function drush_module_uninstall($modules) {
-  require_once DRUSH_DRUPAL_CORE . '/includes/install.inc';
+  require_once drush_get_context('DRUSH_DRUPAL_ROOT') . '/includes/install.inc';
   foreach ($modules as $module) {
     drupal_uninstall_module($module);
   }
-}
-
-/**
- * Checks that a given module exists and is enabled.
- *
- * @see module_exists().
- *
- */
-function drush_module_exists($module) {
-  return module_exists($module);
-}
-
-/**
- * Determines which modules are implementing a hook.
- *
- */
-function drush_module_implements($hook, $sort = FALSE, $reset = FALSE) {
-  return module_implements($hook, $sort, $reset);
-}
-
-/**
- * Invokes a hook in a particular module.
- *
- */
-function drush_module_invoke($module, $hook) {
-  $args = func_get_args();
-  return call_user_func_array('module_invoke', $args);
-}
-
-/**
- * Invokes a hook in all enabled modules that implement it.
- *
- */
-function drush_module_invoke_all($hook) {
-  $args = func_get_args();
-  return call_user_func_array('module_invoke_all', $args);
 }
 
 /**
@@ -209,33 +131,10 @@ function drush_module_invoke_all($hook) {
  * function. Calling this function just makes sure any activities triggered by
  * the form submit (such as admin_role) are completed.
  */
-function drush_system_modules_form_submit() {
-  $active_modules = array();
-  foreach (drush_get_modules(FALSE) as $key => $module) {
-    if ($module->status == 1) {
-      $active_modules[$key] = $key;
-    }
-  }
+function drush_system_modules_form_submit($active_modules) {
   module_load_include('inc', 'system', 'system.admin');
   $form_state = array('values' => array('status' => $active_modules));
   drupal_execute('system_modules', $form_state);
-}
-
-/**
- * Returns a list of enabled themes. Use drush_get_themes() if you need to rebuild
- * and include hidden/disabled as well.
- *
- * @return array
- *  A list of themes keyed by name.
- */
-function drush_theme_list() {
-  $enabled = array();
-  foreach (list_themes() as $key => $info) {
-    if ($info->status) {
-      $enabled[$key] = $info;
-    }
-  }
-  return $enabled;
 }
 
 /**
@@ -243,19 +142,14 @@ function drush_theme_list() {
  *
  * We need to set the type for those themes that are not already in the system table.
  *
- * @param $include_hidden
- *   Boolean to indicate whether hidden themes should be excluded or not.
  * @return
  *   An array containing theme info for all available themes.
  */
-function drush_get_themes($include_hidden = TRUE) {
+function drush_get_themes() {
   $themes = system_theme_data();
-  foreach ($themes as $key => $theme) {
+  foreach ($themes as $theme) {
     if (!isset($theme->type)) {
       $theme->type = 'theme';
-    }
-    if ((!$include_hidden) && isset($theme->info['hidden']) && ($theme->info['hidden'])) {
-      unset($themes[$key]);
     }
   }
 
@@ -310,7 +204,7 @@ function drush_theme_disable($themes) {
  * @return
  *   Array of watchdog severity levels.
  */
-function drush_watchdog_severity_levels() {
+function core_watchdog_severity_levels() {
   return array(
     WATCHDOG_EMERG    => 'emergency',
     WATCHDOG_ALERT    => 'alert',
@@ -321,100 +215,4 @@ function drush_watchdog_severity_levels() {
     WATCHDOG_INFO     => 'info',
     WATCHDOG_DEBUG    => 'debug',
   );
-}
-
-/**
- * Helper function to obtain the message types based on drupal version.
- *
- * @return
- *   Array of watchdog message types.
- */
-function drush_watchdog_message_types() {
-  return drupal_map_assoc(_dblog_get_message_types());
-}
-
-function _drush_theme_default() {
-  return variable_get('theme_default', 'garland');
-}
-
-function _drush_theme_admin() {
-  return variable_get('admin_theme', drush_theme_get_default());
-}
-
-function _drush_file_public_path() {
-  if (function_exists('file_directory_path')) {
-    return file_directory_path();
-  }
-}
-
-function _drush_file_private_path() {
-  // @todo
-}
-
-/**
- * Gets the extension name.
- *
- * @param $info
- *   The extension info.
- * @return string
- *   The extension name.
- */
-function _drush_extension_get_name($info) {
-  return $info->name;
-}
-
-/**
- * Gets the extension type.
- *
- * @param $info
- *   The extension info.
- * @return string
- *   The extension type.
- */
-function _drush_extension_get_type($info) {
-  return $info->type;
-}
-
-/**
- * Gets the extension path.
- *
- * @param $info
- *   The extension info.
- * @return string
- *   The extension path.
- */
-function _drush_extension_get_path($info) {
-  return dirname($info->filename);
-}
-
-/*
- * Wrapper for CSRF token generation.
- */
-function drush_get_token($value = NULL) {
-  return drupal_get_token($value);
-}
-
-/*
- * Wrapper for _url().
- */
-function drush_url($path = NULL, $options = array()) {
-  return url($path, $options);
-}
-
-/**
- * Output a Drupal render array, object or plain string as plain text.
- *
- * @param string $data
- *   Data to render.
- *
- * @return string
- *   The plain-text representation of the input.
- */
-function drush_render($data) {
-  if (is_array($data)) {
-    $data = drupal_render($data);
-  }
-
-  $data = drupal_html_to_text($data);
-  return $data;
 }

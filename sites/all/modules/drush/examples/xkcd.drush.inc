@@ -2,36 +2,39 @@
 
 /**
  * @file
- * Example XKCD Drush command.
+ *   Example drush command.
  *
- * To run this *fun* command, execute `drush --include=./examples xkcd` from
- * within your drush directory.
+ *   To run this *fun* command, execute `drush --include=./examples xkcd`
+ *   from within your drush directory.
  *
- * See `drush topic docs-commands` for more information about command authoring.
+ *   See `drush topic docs-commands` for more information about command authoring. 
  *
- * You can copy this file to any of the following
- *   1. A .drush folder in your HOME folder.
- *   2. Anywhere in a folder tree below an active module on your site.
- *   3. /usr/share/drush/commands (configurable)
- *   4. In an arbitrary folder specified with the --include option.
- *   5. Drupal's /drush or /sites/all/drush folders, or in the /drush
- *       folder in the directory above the Drupal root.
+ *   You can copy this file to any of the following
+ *     1. A .drush folder in your HOME folder.
+ *     2. Anywhere in a folder tree below an active module on your site.
+ *     3. /usr/share/drush/commands (configurable)
+ *     4. In an arbitrary folder specified with the --include option.
  */
 
 /**
- * Implements hook_drush_command().
+ * Implementation of hook_drush_command().
  *
- * In this hook, you specify which commands your drush module makes available,
- * what it does and description.
+ * In this hook, you specify which commands your
+ * drush module makes available, what it does and
+ * description.
  *
- * Notice how this structure closely resembles how you define menu hooks.
+ * Notice how this structure closely resembles how
+ * you define menu hooks.
  *
  * See `drush topic docs-commands` for a list of recognized keys.
+ *
+ * @return
+ *   An associative array describing your command(s).
  */
 function xkcd_drush_command() {
   $items = array();
 
-  // The 'xkcd' command.
+  // The 'xkcd' command
   $items['xkcd-fetch'] = array(
     'description' => "Retrieve and display xkcd cartoons.",
     'arguments' => array(
@@ -48,15 +51,14 @@ function xkcd_drush_command() {
       'drush xkcd random --image-viewer=firefox' => 'Retrieve and display a random cartoon in Firefox.',
     ),
     'aliases' => array('xkcd'),
-    // No bootstrap at all.
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH, // No bootstrap at all.
   );
 
   return $items;
 }
 
 /**
- * Implements hook_drush_help().
+ * Implementation of hook_drush_help().
  *
  * This function is called whenever a drush user calls
  * 'drush help <name-of-your-command>'. This hook is optional. If a command
@@ -64,6 +66,12 @@ function xkcd_drush_command() {
  *
  * This hook is also used to look up help metadata, such as help
  * category title and summary.  See the comments below for a description.
+ *
+ * @param
+ *   A string with the help section (prepend with 'drush:')
+ *
+ * @return
+ *   A string with the help text for your command.
  */
 function xkcd_drush_help($section) {
   switch ($section) {
@@ -80,15 +88,13 @@ access a web site (5) with awesome geek humor.\n
 }
 
 /**
- * Implements drush_hook_COMMAND().
- *
- * The command callback is where the action takes place.
+ * Example drush command callback. This is where the action takes place.
  *
  * The function name should be same as command name but with dashes turned to
  * underscores and 'drush_commandfile_' prepended, where 'commandfile' is
- * taken from the file 'commandfile.drush.inc', which in this case is
- * 'sandwich'. Note also that a simplification step is also done in instances
- * where the commandfile name is the same as the beginning of the command name,
+ * taken from the file 'commandfile.drush.inc', which in this case is 'sandwich'.
+ * Note also that a simplification step is also done in instances where
+ * the commandfile name is the same as the beginning of the command name,
  * "drush_example_example_foo" is simplified to just "drush_example_foo".
  * To also implement a hook that is called before your command, implement
  * "drush_hook_pre_example_foo".  For a list of all available hooks for a
@@ -97,7 +103,10 @@ access a web site (5) with awesome geek humor.\n
  * If for some reason you do not want your hook function to be named
  * after your command, you may define a 'callback' item in your command
  * object that specifies the exact name of the function that should be
- * called.
+ * called.  However, the specified callback function must still begin
+ * with "drush_commandfile_" (e.g. 'callback' => "drush_example_foo_execute")
+ * if you want that all hook functions are still called (e.g.
+ * drush_example_pre_foo_execute, and so on).
  *
  * In this function, all of Drupal's API is (usually) available, including
  * any functions you have added in your own modules/themes.
@@ -105,7 +114,7 @@ access a web site (5) with awesome geek humor.\n
  * @see drush_invoke()
  * @see drush.api.php
  *
- * @param string $search
+ * @param
  *   An optional string with search keyworks, cartoon ID or "random".
  */
 function drush_xkcd_fetch($search = '') {
@@ -122,7 +131,7 @@ function drush_xkcd_fetch($search = '') {
     }
   }
   else {
-    // This uses an API key with a limited number of searches per.
+    // This uses an API key with a limited number of searches per 
     $search_response = @json_decode(file_get_contents('https://www.googleapis.com/customsearch/v1?key=' . drush_get_option('google-custom-search-api-key', 'AIzaSyDpE01VDNNT73s6CEeJRdSg5jukoG244ek') . '&cx=012652707207066138651:zudjtuwe28q&q=' . $search));
     if (!empty($search_response->items)) {
       foreach ($search_response->items as $item) {
@@ -136,22 +145,20 @@ function drush_xkcd_fetch($search = '') {
 }
 
 /**
- * Display a given XKCD cartoon.
+ * Retrieve and display a table of metadata for an XKCD cartoon,
+ * then retrieve and display the cartoon using a specified image viewer.
  *
- * Retrieve and display a table of metadata for an XKCD cartoon, then retrieve
- * and display the cartoon using a specified image viewer.
- *
- * @param string $url
+ * @param
  *   A string with the URL of the cartoon to display.
  */
 function drush_xkcd_display($url) {
   $xkcd_response = @json_decode(file_get_contents($url . '/info.0.json'));
   if (!empty($xkcd_response->num)) {
-    $data = (array) $xkcd_response;
+    $data = (array)$xkcd_response;
     $data['date'] = $data['year'] . '/' . $data['month'] . '/' . $data['day'];
     unset($data['safe_title'], $data['news'], $data['link'], $data['year'], $data['month'], $data['day']);
     drush_print_table(drush_key_value_to_array_table($data));
-    $img = drush_download_file($data['img']);
+    $img = realpath(_drush_download_file($data['img']));
     drush_register_file_for_deletion($img);
     drush_shell_exec(drush_get_option('image-viewer', 'display') . ' ' . $img);
   }

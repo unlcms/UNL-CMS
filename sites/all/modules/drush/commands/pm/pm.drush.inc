@@ -12,116 +12,36 @@
  * - Release: a specific release of a project, with associated metadata (from the drupal.org update service).
  */
 
-use Drush\Log\LogLevel;
+/**
+ * Project is a user requested version update.
+ */
+define('DRUSH_PM_REQUESTED_UPDATE', 101);
 
 /**
- * @defgroup update_status_constants Update Status Constants
- * @{
- * Represents update status of projects.
- *
- * The first set is a mapping of some constants declared in update.module.
- * We only declare the ones we're interested in.
- * The rest of the constants are used by pm-updatestatus to represent
- * a status when the user asked for updates to specific versions or
- * other circumstances not managed by Drupal.
+ * User requested version already installed.
  */
+define('DRUSH_PM_REQUESTED_CURRENT', 102);
 
 /**
- * Project is missing security update(s).
- *
- * Maps UPDATE_NOT_SECURE.
+ * User requested project was not packaged by drupal.org.
  */
-const DRUSH_UPDATESTATUS_NOT_SECURE = 1;
+define('DRUSH_PM_REQUESTED_PROJECT_NOT_PACKAGED', 103);
 
 /**
- * Current release has been unpublished and is no longer available.
- *
- * Maps UPDATE_REVOKED.
+ * User requested version not found.
  */
-const DRUSH_UPDATESTATUS_REVOKED = 2;
+define('DRUSH_PM_REQUESTED_VERSION_NOT_FOUND', 104);
 
 /**
- * Current release is no longer supported by the project maintainer.
- *
- * Maps UPDATE_NOT_SUPPORTED.
+ * User requested project not found.
  */
-const DRUSH_UPDATESTATUS_NOT_SUPPORTED = 3;
+define('DRUSH_PM_REQUESTED_PROJECT_NOT_FOUND', 105);
 
 /**
- * Project has a new release available, but it is not a security release.
- *
- * Maps UPDATE_NOT_CURRENT.
+ * User requested project not updateable.
  */
-const DRUSH_UPDATESTATUS_NOT_CURRENT = 4;
+define('DRUSH_PM_REQUESTED_PROJECT_NOT_UPDATEABLE', 106);
 
-/**
- * Project is up to date.
- *
- * Maps UPDATE_CURRENT.
- */
-const DRUSH_UPDATESTATUS_CURRENT = 5;
-
-/**
- * Project's status cannot be checked.
- *
- * Maps UPDATE_NOT_CHECKED.
- */
-const DRUSH_UPDATESTATUS_NOT_CHECKED = -1;
-
-/**
- * No available update data was found for project.
- *
- * Maps UPDATE_UNKNOWN.
- */
-const DRUSH_UPDATESTATUS_UNKNOWN = -2;
-
-/**
- * There was a failure fetching available update data for this project.
- *
- * Maps UPDATE_NOT_FETCHED.
- */
-const DRUSH_UPDATESTATUS_NOT_FETCHED = -3;
-
-/**
- * We need to (re)fetch available update data for this project.
- *
- * Maps UPDATE_FETCH_PENDING.
- */
-const DRUSH_UPDATESTATUS_FETCH_PENDING = -4;
-
-/**
- * Project was not packaged by drupal.org.
- */
-const DRUSH_UPDATESTATUS_PROJECT_NOT_PACKAGED = 101;
-
-/**
- * Requested project is not updateable.
- */
-const DRUSH_UPDATESTATUS_REQUESTED_PROJECT_NOT_UPDATEABLE = 102;
-
-/**
- * Requested project not found.
- */
-const DRUSH_UPDATESTATUS_REQUESTED_PROJECT_NOT_FOUND = 103;
-
-/**
- * Requested version not found.
- */
-const DRUSH_UPDATESTATUS_REQUESTED_VERSION_NOT_FOUND = 104;
-
-/**
- * Requested version available.
- */
-const DRUSH_UPDATESTATUS_REQUESTED_VERSION_NOT_CURRENT = 105;
-
-/**
- * Requested version already installed.
- */
-const DRUSH_UPDATESTATUS_REQUESTED_VERSION_CURRENT = 106;
-
-/**
- * @} End of "defgroup update_status_constants".
- */
 
 /**
  * Implementation of hook_drush_help().
@@ -146,14 +66,16 @@ function pm_drush_help($section) {
       return $message;
     case 'drush:pm-updatecode-postupdate':
       return dt("This is a helper command needed by updatecode. It is used to check for db updates in a backend process after code updated have been performed. We need to run this task in a separate process to not conflict with old code already in memory.");
+      case 'drush:pm-releases':
+      return dt("View all releases for a given drupal.org project. Useful for deciding which version to install/update.");
     case 'drush:pm-download':
       return dt("Download Drupal core or projects from drupal.org (Drupal core, modules, themes or profiles) and other sources. It will automatically figure out which project version you want based on its recommended release, or you may specify a particular version.
 
 If no --destination is provided, then destination depends on the project type:
   - Profiles will be downloaded to profiles/ in your Drupal root.
-  - Modules and themes will be downloaded to the site specific directory (sites/example.com/modules|themes) if available, or to the site wide directory otherwise.
+  - Modules and themes will be downloaded to the site specific directory (sites/example.com/modules|themes) if available, or to sites/all/modules|themes.
   - If you're downloading drupal core or you are not running the command within a bootstrapped drupal site, the default location is the current directory.
-  - Drush commands will be relocated to @site_wide_location (if available) or ~/.drush. Relocation is determined once the project is downloaded by examining its content. Note you can provide your own function in a commandfile to determine the relocation of any project.", array('@site_wide_location' => drush_get_context('DRUSH_SITE_WIDE_COMMANDFILES')));
+  - Drush commands will be relocated to /usr/share/drush/commands (if available) or ~/.drush. Relocation is determined once the project is downloaded by examining its content. Note you can provide your own function in a commandfile to determine the relocation of any project.");
   }
 }
 
@@ -161,22 +83,24 @@ If no --destination is provided, then destination depends on the project type:
  * Implementation of hook_drush_command().
  */
 function pm_drush_command() {
-  $update_options = array(
-    'lock' => array(
-      'description' => 'Add a persistent lock to remove the specified projects from consideration during updates.  Locks may be removed with the --unlock parameter, or overridden by specifically naming the project as a parameter to pm-update or pm-updatecode.  The lock does not affect pm-download.  See also the update_advanced project for similar and improved functionality.',
-      'example-value' => 'foo,bar',
+  $update = 'update';
+  if (drush_drupal_major_version() == 5) {
+    $update = 'update_status';
+  }
+  $engines = array(
+    'engines' => array(
+      'version_control' => 'Integration with VCS in order to easily commit your changes to projects.',
+      'package_handler' => 'Determine how to download/checkout new projects and acquire updates to projects.',
     ),
+  );
+  $update_options = array(
+    'security-only' => 'Only update modules that have security updates available. However, if there were other releases of a module between the installed version the security update, other changes to features or functionality may occur.',
+    'lock' => 'Add a persistent lock to remove the specified projects from consideration during updates.  Locks may be removed with the --unlock parameter, or overridden by specifically naming the project as a parameter to pm-update or pm-updatecode.  The lock does not affect pm-download.  See also the update-advanced project for similar and improved functionality.',
   );
   $update_suboptions = array(
     'lock' => array(
-      'lock-message' => array(
-        'description' => 'A brief message explaining why a project is being locked; displayed during pm-updatecode.  Optional.',
-        'example-value' => 'message',
-      ),
-      'unlock' => array(
-        'description' => 'Remove the persistent lock from the specified projects so that they may be updated again.',
-        'example-value' => 'foo,bar',
-      ),
+      'lock-message' => 'A brief message explaining why a project is being locked; displayed during pm-updatecode.  Optional.',
+      'unlock' => 'Remove the persistent lock from the specified projects so that they may be updated again.',
     ),
   );
 
@@ -185,264 +109,119 @@ function pm_drush_command() {
     'arguments' => array(
       'extensions' => 'A list of modules or themes. You can use the * wildcard at the end of extension names to enable all matches.',
     ),
-    'options' => array(
-      'resolve-dependencies' => 'Attempt to download any missing dependencies. At the moment, only works when the module name is the same as the project name.',
-      'skip' => 'Skip automatic downloading of libraries (c.f. devel).',
-    ),
-    'aliases' => array('en', 'pm:enable'),
-    'engines' => array(
-      'release_info' => array(
-        'add-options-to-command' => FALSE,
-      ),
-    ),
+    'aliases' => array('en'),
+    'deprecated-aliases' => array('enable'),
   );
   $items['pm-disable'] = array(
     'description' => 'Disable one or more extensions (modules or themes).',
     'arguments' => array(
       'extensions' => 'A list of modules or themes. You can use the * wildcard at the end of extension names to disable multiple matches.',
     ),
-    'aliases' => array('dis', 'pm:disable'),
-    'engines' => array(
-      'version_control',
-      'package_handler',
-      'release_info' => array(
-        'add-options-to-command' => FALSE,
-      ),
-    ),
+    'aliases' => array('dis'),
+    'deprecated-aliases' => array('disable'),
   );
   $items['pm-info'] = array(
     'description' => 'Show detailed info for one or more extensions (modules or themes).',
     'arguments' => array(
       'extensions' => 'A list of modules or themes. You can use the * wildcard at the end of extension names to show info for multiple matches. If no argument is provided it will show info for all available extensions.',
     ),
-    'aliases' => array('pmi', 'pm:info'),
-    'outputformat' => array(
-      'default' => 'key-value-list',
-      'pipe-format' => 'json',
-      'formatted-filter' => '_drush_pm_info_format_table_data',
-      'field-labels' => array(
-        'extension' => 'Extension',
-        'project' => 'Project',
-        'type' => 'Type',
-        'title' => 'Title',
-        'description' => 'Description',
-        'version' => 'Version',
-        'date' => 'Date',
-        'package' => 'Package',
-        'core' => 'Core',
-        'php' => 'PHP',
-        'status' => 'Status',
-        'path' => 'Path',
-        'schema_version' => 'Schema version',
-        'files' => 'Files',
-        'requires' => 'Requires',
-        'required_by' => 'Required by',
-        'permissions' => 'Permissions',
-        'config' => 'Configure',
-        'engine' => 'Engine',
-        'base_theme' => 'Base theme',
-        'regions' => 'Regions',
-        'features' => 'Features',
-        'stylesheets' => 'Stylesheets',
-        // 'media_' . $media  => 'Media '. $media for each $info->info['stylesheets'] as $media => $files
-        'scripts' => 'Scripts',
-      ),
-      'output-data-type' => 'format-table',
-    ),
+    'aliases' => array('pmi'),
   );
-
-  $items['pm-projectinfo'] = array(
-    'description' => 'Show a report of available projects and their extensions.',
-    'arguments' => array(
-      'projects' => 'Optional. A list of installed projects to show.',
-    ),
-    'options' => array(
-      'drush' => 'Optional. Only incude projects that have one or more Drush commands.',
-      'status' => array(
-        'description' => 'Filter by project status. Choices: enabled, disabled. A project is considered enabled when at least one of its extensions is enabled.',
-        'example-value' => 'enabled',
-      ),
-    ),
-    'outputformat' => array(
-      'default' => 'key-value-list',
-      'pipe-format' => 'json',
-      'field-labels' => array(
-        'label'      => 'Name',
-        'type'       => 'Type',
-        'version'    => 'Version',
-        'status'     => 'Status',
-        'extensions' => 'Extensions',
-        'drush'      => 'Drush Commands',
-        'datestamp'  => 'Datestamp',
-        'path'       => 'Path',
-      ),
-      'fields-default' => array('label', 'type', 'version', 'status', 'extensions', 'drush', 'datestamp', 'path'),
-      'fields-pipe' => array('label'),
-      'output-data-type' => 'format-table',
-    ),
-    'aliases' => array('pmpi', 'pm:projectinfo'),
-  );
-
   // Install command is reserved for the download and enable of projects including dependencies.
   // @see http://drupal.org/node/112692 for more information.
   // $items['install'] = array(
   //     'description' => 'Download and enable one or more modules',
   //   );
   $items['pm-uninstall'] = array(
-    'description' => 'Uninstall one or more modules and their dependent modules.',
+    'description' => 'Uninstall one or more modules.',
     'arguments' => array(
       'modules' => 'A list of modules.',
     ),
-    'aliases' => array('pmu', 'pm:uninstall'),
+    'deprecated-aliases' => array('uninstall'),
   );
   $items['pm-list'] = array(
     'description' => 'Show a list of available extensions (modules and themes).',
     'callback arguments' => array(array(), FALSE),
     'options' => array(
-      'type' => array(
-        'description' => 'Filter by extension type. Choices: module, theme.',
-        'example-value' => 'module',
-      ),
-      'status' => array(
-        'description' => 'Filter by extension status. Choices: enabled, disabled and/or \'not installed\'. You can use multiple comma separated values. (i.e. --status="disabled,not installed").',
-        'example-value' => 'disabled',
-      ),
+      'type' => 'Filter by extension type. Choices: module, theme.',
+      'status' => 'Filter by extension status. Choices: enabled, disable and/or \'not installed\'. You can use multiple comma separated values. (i.e. --status="disabled,not installed").',
       'package' => 'Filter by project packages. You can use multiple comma separated values. (i.e. --package="Core - required,Other").',
       'core' => 'Filter out extensions that are not in drupal core.',
       'no-core' => 'Filter out extensions that are provided by drupal core.',
+      'pipe' => 'Returns a space delimited list of the names of the resulting extensions.',
     ),
-    'outputformat' => array(
-      'default' => 'table',
-      'pipe-format' => 'list',
-      'fields-default' => array('package', 'name', 'type', 'status', 'version'),
-      'field-labels' => array('package' => 'Package', 'project' => 'Project', 'name' => 'Name', 'display_name' => 'Display Name', 'type' => 'Type', 'status' => 'Status', 'version' => 'Version', 'path' => 'Path'),
-      'output-data-type' => 'format-table',
-    ),
-    'aliases' => array('pml', 'pm:list'),
+    'aliases' => array('pml'),
+    'deprecated-aliases' => array('sm'),
   );
   $items['pm-refresh'] = array(
     'description' => 'Refresh update status information.',
-    'engines' => array(
-      'update_status' => array(
-        'add-options-to-command' => FALSE,
-      ),
-    ),
-    'aliases' => array('rf', 'pm:refresh'),
-  );
-  $items['pm-updatestatus'] = array(
-    'description' => 'Show a report of available minor updates to Drupal core and contrib projects.',
-    'arguments' => array(
-      'projects' => 'Optional. A list of installed projects to show.',
-    ),
-    'options' => array(
-      'pipe' => 'Return a list of the projects with any extensions enabled that need updating, one project per line.',
-    ) + $update_options,
-    'sub-options' => $update_suboptions,
-    'engines' => array(
-      'update_status',
-    ),
-    'outputformat' => array(
-      'default' => 'table',
-      'pipe-format' => 'list',
-      'field-labels' => array('name' => 'Short Name', 'label' => 'Name', 'existing_version' => 'Installed Version', 'status' => 'Status', 'status_msg' => 'Message', 'candidate_version' => 'Proposed version'),
-      'fields-default' => array('label', 'existing_version', 'candidate_version', 'status_msg' ),
-      'fields-pipe' => array('name', 'existing_version', 'candidate_version', 'status_msg'),
-      'output-data-type' => 'format-table',
-    ),
-    'aliases' => array('ups', 'pm:updatestatus'),
+    'drupal dependencies' => array($update),
+    'aliases' => array('rf'),
+    'deprecated-aliases' => array('refresh'),
   );
   $items['pm-updatecode'] = array(
     'description' => 'Update Drupal core and contrib projects to latest recommended releases.',
-    'examples' => array(
-      'drush pm-updatecode --no-core' => 'Update contrib projects, but skip core.',
-      'drush pm-updatestatus --format=csv --list-separator=" " --fields="name,existing_version,candidate_version,status_msg"' => 'To show a list of projects with their update status, use pm-updatestatus instead of pm-updatecode.',
-    ),
+    'drupal dependencies' => array($update),
     'arguments' => array(
       'projects' => 'Optional. A list of installed projects to update.',
     ),
     'options' => array(
+      'pipe' => 'Returns a space delimited list of projects with any of its extensions enabled and their respective version and update information, one project per line. Order: project name, current version, recommended version, update status.',
       'notes' => 'Show release notes for each project to be updated.',
       'no-core' => 'Only update modules and skip the core update.',
-      'check-updatedb' => 'Check to see if an updatedb is needed after updating the code. Default is on; use --check-updatedb=0 to disable.',
+      'self-update' => 'Check for pending updates to drush itself. Set to 0 to avoid check.',
     ) + $update_options,
     'sub-options' => $update_suboptions,
-    'aliases' => array('upc', 'pm:updatecode'),
+    'aliases' => array('upc'),
+    'deprecated-aliases' => array('updatecode'),
     'topics' => array('docs-policy'),
-    'engines' => array(
-      'version_control',
-      'package_handler',
-      'release_info' => array(
-        'add-options-to-command' => FALSE,
-      ),
-      'update_status',
-    ),
-  );
+  ) + $engines;
   // Merge all items from above.
-  $items['pm-update'] = array(
+  $items['pm-update'] = array_merge($items['pm-updatecode'], array(
     'description' => 'Update Drupal core and contrib projects and apply any pending database updates (Same as pm-updatecode + updatedb).',
-    'aliases' => array('up', 'pm:update'),
-    'allow-additional-options' => array('pm-updatecode', 'updatedb'),
-  );
+    'aliases' => array('up'),
+    'deprecated-aliases' => array('update'),
+  ));
   $items['pm-updatecode-postupdate'] = array(
     'description' => 'Notify of pending db updates.',
-    'hidden' => TRUE,
-    'aliases' => array('pm:updatecode:postupdate'),
+    'hidden' => TRUE
   );
   $items['pm-releasenotes'] = array(
     'description' => 'Print release notes for given projects.',
     'arguments' => array(
-      'projects' => 'A list of project names, with optional version. Defaults to \'drupal\'',
+      'projects' => 'A list of drupal.org project names, with optional version. Defaults to \'drupal\'',
     ),
     'options' => array(
-      'html' => dt('Display release notes in HTML rather than plain text.'),
+      'html' => dt('Display releasenotes in HTML rather than plain text.'),
     ),
     'examples' => array(
       'drush rln cck' => 'Prints the release notes for the recommended version of CCK project.',
       'drush rln token-1.13' => 'View release notes of a specfic version of the Token project for my version of Drupal.',
       'drush rln pathauto zen' => 'View release notes for the recommended version of Pathauto and Zen projects.',
     ),
-    'aliases' => array('rln', 'pm:releasenotes'),
+    'aliases' => array('rln'),
     'bootstrap' => DRUSH_BOOTSTRAP_MAX,
-    'engines' => array(
-      'release_info',
-    ),
   );
   $items['pm-releases'] = array(
     'description' => 'Print release information for given projects.',
     'arguments' => array(
       'projects' => 'A list of drupal.org project names. Defaults to \'drupal\'',
     ),
+    'options' => array(
+      'dev' => "Show only development releases.",
+      'all' => "Shows all available releases instead of the default short list of recent releases.",
+    ),
     'examples' => array(
       'drush pm-releases cck zen' => 'View releases for cck and Zen projects for your Drupal version.',
     ),
-    'options' => array(
-      'default-major' => 'Show releases compatible with the specified major version of Drupal.',
-    ),
-    'aliases' => array('rl', 'pm:releases'),
+    'aliases' => array('rl'),
     'bootstrap' => DRUSH_BOOTSTRAP_MAX,
-    'outputformat' => array(
-      'default' => 'table',
-      'pipe-format' => 'csv',
-      'field-labels' => array(
-        'project' => 'Project',
-        'version' => 'Release',
-        'date' => 'Date',
-        'status' => 'Status',
-        'release_link' => 'Release link',
-        'download_link' => 'Download link',
-      ),
-      'fields-default' => array('project', 'version', 'date', 'status'),
-      'fields-pipe' => array('project', 'version', 'date', 'status'),
-      'output-data-type' => 'format-table',
-    ),
-    'engines' => array(
-      'release_info',
-    ),
   );
   $items['pm-download'] = array(
     'description' => 'Download projects from drupal.org or other sources.',
     'examples' => array(
-      'drush dl drupal' => 'Download latest recommended release of Drupal core.',
+      'drush dl' => 'Download latest recommended release of Drupal core.',
+      'drush dl drupal' => 'Same as `drush dl`.',
       'drush dl drupal-7.x' => 'Download latest 7.x development version of Drupal core.',
       'drush dl drupal-6' => 'Download latest recommended release of Drupal 6.x.',
       'drush dl cck zen' => 'Download latest versions of CCK and Zen projects.',
@@ -450,39 +229,27 @@ function pm_drush_command() {
       'drush dl diff-6.x-2.x' => 'Download a specific development branch of diff module for a specific Drupal version.',
       'drush dl views --select' => 'Show a list of recent releases of the views project, prompt for which one to download.',
       'drush dl webform --dev' => 'Download the latest dev release of webform.',
-      'drush dl webform --cache' => 'Download webform. Fetch and populate the download cache as needed.',
     ),
     'arguments' => array(
       'projects' => 'A comma delimited list of drupal.org project names, with optional version. Defaults to \'drupal\'',
     ),
     'options' => array(
-      'destination' => array(
-        'description' => 'Path to which the project will be copied. If you\'re providing a relative path, note it is relative to the drupal root (if bootstrapped).',
-        'example-value' => 'path',
-      ),
+      'destination' => 'Path to which the project will be copied. If you\'re providing a relative path, note it is relative to the drupal root (if bootstrapped).',
       'use-site-dir' => 'Force to use the site specific directory. It will create the directory if it doesn\'t exist. If --destination is also present this option will be ignored.',
+      'source' => 'The base URL which provides project release history in XML. Defaults to http://updates.drupal.org/release-history.',
       'notes' => 'Show release notes after each project is downloaded.',
-      'variant' => array(
-        'description' => "Only useful for install profiles. Possible values: 'full', 'projects', 'profile-only'.",
-        'example-value' => 'full',
-      ),
+      'variant' => "Only useful for install profiles. Possible values: 'full', 'projects', 'profile-only'.",
+      'dev' => "Download a development release.",
       'select' => "Select the version to download interactively from a list of available releases.",
+      'all' => "Useful only with --select; shows all available releases instead of a short list of recent releases.",
       'drupal-project-rename' => 'Alternate name for "drupal-x.y" directory when downloading Drupal project. Defaults to "drupal".',
-      'default-major' => array(
-        'description' => 'Specify the default major version of modules to download when there is no bootstrapped Drupal site.  Defaults to "8".',
-        'example-value' => '7',
-      ),
-      'skip' => 'Skip automatic downloading of libraries (c.f. devel).',
+      'default-major' => 'Specify the default major version of modules to download when there is no bootstrapped Drupal site.  Defaults to "7".',
       'pipe' => 'Returns a list of the names of the extensions (modules and themes) contained in the downloaded projects.',
     ),
     'bootstrap' => DRUSH_BOOTSTRAP_MAX,
-    'aliases' => array('dl', 'pm:download'),
-    'engines' => array(
-      'version_control',
-      'package_handler',
-      'release_info',
-    ),
-  );
+    'aliases' => array('dl'),
+    'deprecated-aliases' => array('download'),
+  ) + $engines;
   return $items;
 }
 
@@ -493,98 +260,15 @@ function pm_drush_command() {
  */
 
 /**
- * Command argument complete callback.
- */
-function pm_pm_enable_complete() {
-  return pm_complete_extensions();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_disable_complete() {
-  return pm_complete_extensions();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_uninstall_complete() {
-  return pm_complete_extensions();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_info_complete() {
-  return pm_complete_extensions();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_releasenotes_complete() {
-  return pm_complete_projects();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_releases_complete() {
-  return pm_complete_projects();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_updatecode_complete() {
-  return pm_complete_projects();
-}
-
-/**
- * Command argument complete callback.
- */
-function pm_pm_update_complete() {
-  return pm_complete_projects();
-}
-
-/**
- * List extensions for completion.
- *
- * @return
- *  Array of available extensions.
- */
-function pm_complete_extensions() {
-  if (drush_bootstrap_max(DRUSH_BOOTSTRAP_DRUPAL_FULL)) {
-    $extension_info = drush_get_extensions(FALSE);
-    return array('values' => array_keys($extension_info));
-  }
-}
-
-/**
- * List projects for completion.
- *
- * @return
- *  Array of installed projects.
- */
-function pm_complete_projects() {
-  if (drush_bootstrap_max(DRUSH_BOOTSTRAP_DRUPAL_FULL)) {
-    return array('values' => array_keys(drush_get_projects()));
-  }
-}
-
-/**
  * Sort callback function for sorting extensions.
  *
  * It will sort first by type, second by package and third by name.
  */
 function _drush_pm_sort_extensions($a, $b) {
-  $a_type = drush_extension_get_type($a);
-  $b_type = drush_extension_get_type($b);
-  if ($a_type == 'module' && $b_type == 'theme') {
+  if ($a->type == 'module' && $b->type == 'theme') {
     return -1;
   }
-  if ($a_type == 'theme' && $b_type == 'module') {
+  if ($a->type == 'theme' && $b->type == 'module') {
     return 1;
   }
   $cmp = strcasecmp($a->info['package'], $b->info['package']);
@@ -595,7 +279,7 @@ function _drush_pm_sort_extensions($a, $b) {
 }
 
 /**
- * Calculate an extension status based on current status and schema version.
+ * Calculate a extension status based on current status and schema version.
  *
  * @param $extension
  *   Object of a single extension info.
@@ -604,7 +288,7 @@ function _drush_pm_sort_extensions($a, $b) {
  *   String describing extension status. Values: enabled|disabled|not installed
  */
 function drush_get_extension_status($extension) {
-  if ((drush_extension_get_type($extension) == 'module') && ($extension->schema_version == -1)) {
+  if (($extension->type == 'module')&&($extension->schema_version == -1)) {
     $status = "not installed";
   }
   else {
@@ -612,6 +296,23 @@ function drush_get_extension_status($extension) {
   }
 
   return $status;
+}
+
+/**
+ * Wrapper of drupal_get_extensions() with additional information used by
+ * pm- commands.
+ *
+ * @return
+ *   An array containing info for all available extensions w/additional info.
+ */
+function drush_pm_get_extensions() {
+  $extensions = drush_get_extensions();
+  foreach ($extensions as $key => $extension) {
+    if (empty($extension->info['package'])) {
+      $extensions[$key]->info['package'] = dt('Other');
+    }
+  }
+  return $extensions;
 }
 
 /**
@@ -630,11 +331,10 @@ function drush_pm_classify_extensions(&$extensions, &$modules, &$themes, $extens
     if (!isset($extension_info[$extension])) {
       continue;
     }
-    $type = drush_extension_get_type($extension_info[$extension]);
-    if ($type == 'module') {
+    if ($extension_info[$extension]->type == 'module') {
       $modules[$extension] = $extension;
     }
-    else if ($type == 'theme') {
+    else if ($extension_info[$extension]->type == 'theme') {
       $themes[$extension] = $extension;
     }
   }
@@ -650,199 +350,76 @@ function drush_pm_classify_extensions(&$extensions, &$modules, &$themes, $extens
  * 'vcs' attribute will be set on the extension. Example:
  *   $extensions[name]->vcs = 'cvs';
  *
- * @param array $extensions
+ * @param array $extensions.
  *   Array of extensions as returned by drush_get_extensions().
- *
  * @return
  *   Array of installed projects with info of version, status and provided
- * extensions.
+* extensions.
  */
 function drush_get_projects(&$extensions = NULL) {
-  if (!isset($extensions)) {
+  if (is_null($extensions)) {
     $extensions = drush_get_extensions();
   }
-  $projects = array(
-    'drupal' => array(
-      'label'      => 'Drupal',
-      'version'    => drush_drupal_version(),
-      'type'       => 'core',
-      'extensions' => array(),
-    )
-  );
-  if (isset($extensions['system']->info['datestamp'])) {
-    $projects['drupal']['datestamp'] = $extensions['system']->info['datestamp'];
-  }
+  $projects = array('drupal' => array('version' => VERSION));
   foreach ($extensions as $extension) {
-    $extension_name = drush_extension_get_name($extension);
-    $extension_path = drush_extension_get_path($extension);
-
-    // Obtain the project name. It is not available in this cases:
-    //   1. the extension is part of drupal core.
-    //   2. the project was checked out from CVS/git and cvs_deploy/git_deploy
-    //      is not installed.
-    //   3. it is not a project hosted in drupal.org.
+    // The project name is not available in this cases:
+    // 1. the extension is part of drupal core.
+    // 2. the project was checked out from CVS/git and cvs_deploy/git_deploy
+    // is not installed.
+    // 3. it is not a project hosted in drupal.org.
     if (empty($extension->info['project'])) {
-      if (isset($extension->info['version']) && ($extension->info['version'] == drush_drupal_version())) {
+      if (isset($extension->info['version']) && ($extension->info['version'] == VERSION)) {
         $project = 'drupal';
       }
       else {
-        if (is_dir($extension_path . '/CVS') && (!drush_module_exists('cvs_deploy'))) {
+        if (is_dir(dirname($extension->filename) . '/CVS') && (!module_exists('cvs_deploy'))) {
           $extension->vcs = 'cvs';
-          drush_log(dt('Extension !extension is fetched from cvs. Ignoring.', array('!extension' => $extension_name)), LogLevel::DEBUG);
+          drush_log(dt('Extension !extension is fetched from cvs. Ignoring.', array('!extension' => $extension->name)), 'debug');
         }
-        elseif (is_dir($extension_path . '/.git') && (!drush_module_exists('git_deploy'))) {
+        elseif (is_dir(dirname($extension->filename) . '/.git') && (!module_exists('git_deploy'))) {
           $extension->vcs = 'git';
-          drush_log(dt('Extension !extension is fetched from git. Ignoring.', array('!extension' => $extension_name)), LogLevel::DEBUG);
+          drush_log(dt('Extension !extension is fetched from git. Ignoring.', array('!extension' => $extension->name)), 'debug');
         }
         continue;
       }
     }
     else {
-      $project = $extension->info['project'];
+        $project = $extension->info['project'];
     }
-
     // Create/update the project in $projects with the project data.
     if (!isset($projects[$project])) {
       $projects[$project] = array(
-        // If there's an extension with matching name, pick its label.
-        // Otherwise use just the project name. We avoid $extension->label
-        // for the project label because the extension's label may have
-        // no direct relation with the project name. For example,
-        // "Text (text)" or "Number (number)" for the CCK project.
-        'label'      => isset($extensions[$project]) ? $extensions[$project]->label : $project,
-        'type'       => drush_extension_get_type($extension),
-        'version'    => $extension->info['version'],
-        'status'     => $extension->status,
+        'type' => $extension->type,
+        'version' => $extension->info['version'],
+        'status' => $extension->status,
         'extensions' => array(),
       );
-      if (isset($extension->info['datestamp'])) {
-        $projects[$project]['datestamp'] = $extension->info['datestamp'];
-      }
       if (isset($extension->info['project status url'])) {
         $projects[$project]['status url'] = $extension->info['project status url'];
       }
     }
-    else {
-      // If any of the extensions is enabled, consider the project is enabled.
-      if ($extension->status != 0) {
-        $projects[$project]['status'] = $extension->status;
-      }
+    elseif ($extension->status != 0) {
+      $projects[$project]['status'] = $extension->status;
     }
-    $projects[$project]['extensions'][] = drush_extension_get_name($extension);
-  }
-
-  // Obtain each project's path and try to provide a better label for ones
-  // with machine name.
-  $reserved = array('modules', 'sites', 'themes');
-  foreach ($projects as $name => $project) {
-    if ($name == 'drupal') {
-      continue;
-    }
-
-    // If this project has no human label, see if we can find
-    // one "main" extension whose label we could use.
-    if ($project['label'] == $name)  {
-      // If there is only one extension, construct a label based on
-      // the extension name.
-      if (count($project['extensions']) == 1) {
-        $extension = $extensions[$project['extensions'][0]];
-        $projects[$name]['label'] = $extension->info['name'] .  ' (' . $name . ')';
-      }
-      else {
-        // Make a list of all of the extensions in this project
-        // that do not depend on any other extension in this
-        // project.
-        $candidates = array();
-        foreach ($project['extensions'] as $e) {
-          $has_project_dependency = FALSE;
-          if (isset($extensions[$e]->info['dependencies']) && is_array($extensions[$e]->info['dependencies'])) {
-            foreach ($extensions[$e]->info['dependencies'] as $dependent) {
-              if (in_array($dependent, $project['extensions'])) {
-                $has_project_dependency = TRUE;
-              }
-            }
-          }
-          if ($has_project_dependency === FALSE) {
-            $candidates[] = $extensions[$e]->info['name'];
-          }
-        }
-        // If only one of the modules is a candidate, use its name in the label
-        if (count($candidates) == 1) {
-          $projects[$name]['label'] = reset($candidates) .  ' (' . $name . ')';
-        }
-      }
-    }
-
-    drush_log(dt('Obtaining !project project path.', array('!project' => $name)), LogLevel::DEBUG);
-    $path = _drush_pm_find_common_path($project['type'], $project['extensions']);
-    // Prevent from setting a reserved path. For example it may happen in a case
-    // where a module and a theme are declared as part of a same project.
-    // There's a special case, a project called "sites", this is the reason for
-    // the second condition here.
-    if ($path == '.' || (in_array(basename($path), $reserved) && !in_array($name, $reserved))) {
-      drush_log(dt('Error while trying to find the common path for enabled extensions of project !project. Extensions are: !extensions.', array('!project' => $name, '!extensions' => implode(', ', $project['extensions']))), LogLevel::ERROR);
-    }
-    else {
-      $projects[$name]['path'] = $path;
-    }
+    $projects[$project]['extensions'][] = $extension->name;
   }
 
   return $projects;
 }
 
 /**
- * Helper function to find the common path for a list of extensions in the aim to obtain the project name.
+ * Returns a list of enabled modules.
  *
- * @param $project_type
- *  Type of project we're trying to find. Valid values: module, theme.
- * @param $extensions
- *  Array of extension names.
+ * This is a simplified version of module_list().
  */
-function _drush_pm_find_common_path($project_type, $extensions) {
-  // Select the first path as the candidate to be the common prefix.
-  $extension = array_pop($extensions);
-  while (!($path = drupal_get_path($project_type, $extension))) {
-    drush_log(dt('Unknown path for !extension !type.', array('!extension' => $extension, '!type' => $project_type)), LogLevel::WARNING);
-    $extension = array_pop($extensions);
+function pm_module_list() {
+  $enabled = array();
+  $rsc = drush_db_select('system', 'name', 'type=:type AND status=:status', array(':type' => 'module', ':status' => 1));
+  while ($row = drush_db_result($rsc)) {
+    $enabled[$row] = $row;
   }
 
-  // If there's only one extension we are done. Otherwise, we need to find
-  // the common prefix for all of them.
-  if (count($extensions) > 0) {
-    // Iterate over the other projects.
-    while($extension = array_pop($extensions)) {
-      $path2 = drupal_get_path($project_type, $extension);
-      if (!$path2) {
-        drush_log(dt('Unknown path for !extension !type.', array('!extension' => $extension, '!type' => $project_type)), LogLevel::DEBUG);
-        continue;
-      }
-      // Option 1: same path.
-      if ($path == $path2) {
-        continue;
-      }
-      // Option 2: $path is a prefix of $path2.
-      if (strpos($path2, $path) === 0) {
-        continue;
-      }
-      // Option 3: $path2 is a prefix of $path.
-      if (strpos($path, $path2) === 0) {
-        $path = $path2;
-        continue;
-      }
-      // Option 4: no one is a prefix of the other. Find the common
-      // prefix by iteratively strip the rigthtmost piece of $path.
-      // We will iterate until a prefix is found or path = '.', that on the
-      // other hand is a condition theorically impossible to reach.
-      do {
-        $path = dirname($path);
-        if (strpos($path2, $path) === 0) {
-          break;
-        }
-      } while ($path != '.');
-    }
-  }
-
-  return $path;
+  return $enabled;
 }
 
 /**
@@ -853,20 +430,17 @@ function _drush_pm_find_common_path($project_type, $extensions) {
  * Command callback. Show a list of extensions with type and status.
  */
 function drush_pm_list() {
-  // Rebuild the cache if needed (Drupal 9 requirement)
-  if (drush_drupal_major_version() >= 9) {
-    drupal_flush_all_caches();
-  }
-
   //--package
   $package_filter = array();
   $package = strtolower(drush_get_option('package'));
   if (!empty($package)) {
     $package_filter = explode(',', $package);
   }
-  if (!empty($package_filter) && (count($package_filter) == 1)) {
-    drush_hide_output_fields('package');
+  if (empty($package_filter) || count($package_filter) > 1) {
+    $header[] = dt('Package');
   }
+
+  $header[] = dt('Name');
 
   //--type
   $all_types = array('module', 'theme');
@@ -878,11 +452,11 @@ function drush_pm_list() {
     $type_filter = $all_types;
   }
 
-  if (count($type_filter) == 1) {
-    drush_hide_output_fields('type');
+  if (count($type_filter) > 1) {
+    $header[] = dt('Type');
   }
   foreach ($type_filter as $type) {
-    if (!in_array($type, $all_types)) { //TODO: this kind of check can be implemented drush-wide
+    if (!in_array($type, $all_types)) { //TODO: this kind of chck can be implemented drush-wide
       return drush_set_error('DRUSH_PM_INVALID_PROJECT_TYPE', dt('!type is not a valid project type.', array('!type' => $type)));
     }
   }
@@ -896,23 +470,25 @@ function drush_pm_list() {
   else {
     $status_filter = $all_status;
   }
-  if (count($status_filter) == 1) {
-    drush_hide_output_fields('status');
+  if (count($status_filter) > 1) {
+    $header[] = dt('Status');
   }
 
   foreach ($status_filter as $status) {
-    if (!in_array($status, $all_status)) { //TODO: this kind of check can be implemented drush-wide
-      return drush_set_error('DRUSH_PM_INVALID_PROJECT_STATUS', dt('!status is not a valid project status.', array('!status' => $status)));
+    if (!in_array($status, $status_filter)) { //TODO: this kind of chck can be implemented drush-wide
+      return drush_set_error('DRUSH_PM_INVALID_PROJECT_TYPE', dt('!status is not a valid project status.', array('!status' => $status)));
   }
   }
 
-  $result = array();
-  $extension_info = drush_get_extensions(FALSE);
+  $header[] = dt('Version');
+  $rows[] = $header;
+
+  $extension_info = drush_pm_get_extensions();
   uasort($extension_info, '_drush_pm_sort_extensions');
 
   $major_version = drush_drupal_major_version();
   foreach ($extension_info as $key => $extension) {
-    if (!in_array(drush_extension_get_type($extension), $type_filter)) {
+    if (!in_array($extension->type, $type_filter)) {
       unset($extension_info[$key]);
       continue;
     }
@@ -921,24 +497,28 @@ function drush_pm_list() {
       unset($extension_info[$key]);
       continue;
     }
+    if (($major_version >= 6) and (isset($extension->info['hidden']))) {
+      unset($extension_info[$key]);
+      continue;
+    }
 
-    // Filter out core if --no-core specified.
+    // filter out core if --no-core specified
     if (drush_get_option('no-core', FALSE)) {
-      if ((($major_version >= 8) && ($extension->origin == 'core')) || (($major_version <= 7) && (strpos($extension->info['package'], 'Core') === 0))) {
+      if ($extension->info['version'] == VERSION) {
         unset($extension_info[$key]);
         continue;
       }
     }
 
-    // Filter out non-core if --core specified.
+    // filter out non-core if --core specified
     if (drush_get_option('core', FALSE)) {
-      if ((($major_version >= 8) && ($extension->origin != 'core')) || (($major_version <= 7) && (strpos($extension->info['package'], 'Core') !== 0))) {
+      if ($extension->info['version'] != VERSION) {
         unset($extension_info[$key]);
         continue;
       }
     }
 
-    // Filter by package.
+    // filter by package
     if (!empty($package_filter)) {
       if (!in_array(strtolower($extension->info['package']), $package_filter)) {
         unset($extension_info[$key]);
@@ -946,36 +526,49 @@ function drush_pm_list() {
       }
     }
 
-    $row['package'] = $extension->info['package'];
-    $row['project'] = isset($extension->info['project']) ? $extension->info['project'] : '';
-    $row['display_name'] = $extension->label;
-    $row['name'] = $extension->label;
-    $row['type'] = ucfirst(drush_extension_get_type($extension));
-    $row['status'] = ucfirst($status);
-    $row['path'] = drush_extension_get_path($extension);
-    // Suppress notice when version is not present.
-    $row['version'] = @$extension->info['version'];
+    if (empty($package_filter) || count($package_filter) > 1) {
+      $row[] = $extension->info['package'];
+    }
 
-    $result[$key] = $row;
+    if (($major_version >= 6)||($extension->type == 'module')) {
+      $row[] = $extension->info['name'].' ('.$extension->name.')';
+    }
+    else {
+      $row[] = $extension->name;
+    }
+    if (count($type_filter) > 1) {
+      $row[] = ucfirst($extension->type);
+    }
+    if (count($status_filter) > 1) {
+      $row[] = ucfirst($status);
+    }
+    if (($major_version >= 6)||($extension->type == 'module')) {
+      // Suppress notice when version is not present.
+      $row[] = @$extension->info['version'];
+    }
+
+    $rows[] = $row;
+    $pipe[] = $extension->name;
     unset($row);
   }
-  // In Drush-5, we used to return $extension_info here.
-  return $result;
+  drush_print_table($rows, TRUE);
+
+  if (isset($pipe)) {
+    // Newline-delimited list for use by other scripts. Set the --pipe option.
+    drush_print_pipe($pipe);
+  }
+  // Set the result for backend invoke
+  drush_backend_set_result($extension_info);
 }
 
-/**
- * Helper function for pm-enable.
- */
-function drush_pm_enable_find_project_from_extension($extension) {
+function drush_pm_find_project_from_extension($extension) {
   $result =  drush_pm_lookup_extension_in_cache($extension);
 
   if (!isset($result)) {
-    $release_info = drush_get_engine('release_info');
-
     // If we can find info on a project that has the same name
     // as the requested extension, then we'll call that a match.
-    $request = pm_parse_request($extension);
-    if ($release_info->checkProject($request)) {
+    $info = _drush_pm_get_releases(array($extension));
+    if (!empty($info)) {
       $result = $extension;
     }
   }
@@ -984,67 +577,40 @@ function drush_pm_enable_find_project_from_extension($extension) {
 }
 
 /**
- * Validate callback. Determine the modules and themes that the user would like enabled.
+ * Command callback. Enable one or more extensions from downloaded projects.
  */
-function drush_pm_enable_validate() {
-  // Rebuild the cache if needed (Drupal 9 requirement)
-  if (drush_drupal_major_version() >= 9) {
-    drupal_flush_all_caches();
-  }
-
-  $args = pm_parse_arguments(func_get_args());
+function drush_pm_enable() {
+  // Include update engine so we can use update_check_incompatibility().
+  drush_include_engine('drupal', 'update');
+  $args = _convert_csv_to_array(func_get_args());
 
   $extension_info = drush_get_extensions();
 
   $recheck = TRUE;
-  $last_download = NULL;
   while ($recheck) {
     $recheck = FALSE;
 
     // Classify $args in themes, modules or unknown.
     $modules = array();
     $themes = array();
-    $download = array();
     drush_pm_classify_extensions($args, $modules, $themes, $extension_info);
     $extensions = array_merge($modules, $themes);
     $unknown = array_diff($args, $extensions);
 
-    // If there're unknown extensions, try and download projects
-    // with matching names.
-    if (!empty($unknown)) {
-      $found = array();
-      foreach ($unknown as $name) {
-        drush_log(dt('!extension was not found.', array('!extension' => $name)), LogLevel::WARNING);
-        $project = drush_pm_enable_find_project_from_extension($name);
-        if (!empty($project)) {
-          $found[] = $project;
-        }
-      }
-      if (!empty($found)) {
-        // Prevent from looping if last download failed.
-        if ($found === $last_download) {
-          drush_log(dt("Unable to download some or all of the extensions."), LogLevel::WARNING);
-          break;
-        }
-        drush_log(dt("The following projects provide some or all of the extensions not found:\n@list", array('@list' => implode("\n", $found))), LogLevel::OK);
-        if (drush_get_option('resolve-dependencies')) {
-          drush_log(dt("They are being downloaded."), LogLevel::OK);
-        }
-        if ((drush_get_option('resolve-dependencies')) || (drush_confirm("Would you like to download them?"))) {
-          $download = $found;
-        }
-      }
+    // Discard and set an error for each unknown extension.
+    foreach ($unknown as $name) {
+      drush_log(dt('!extension was not found and will not be enabled.', array('!extension' => $name)), 'warning');
     }
 
     // Discard already enabled and incompatible extensions.
     foreach ($extensions as $name) {
       if ($extension_info[$name]->status) {
-        drush_log(dt('!extension is already enabled.', array('!extension' => $name)), LogLevel::OK);
+        drush_log(dt('!extension is already enabled.', array('!extension' => $name)), 'ok');
       }
-      // Check if the extension is compatible with Drupal core and php version.
-      if ($component = drush_extension_check_incompatibility($extension_info[$name])) {
-        drush_set_error('DRUSH_PM_ENABLE_MODULE_INCOMPATIBLE', dt('!name is incompatible with the !component version.', array('!name' => $name, '!component' => $component)));
-        if (drush_extension_get_type($extension_info[$name]) == 'module') {
+      // Check if is compatible with Drupal core.
+      if (update_check_incompatibility($name, $extension_info[$name]->type)) {
+        drush_set_error('DRUSH_PM_ENABLE_MODULE_INCOMPATIBLE', dt('!name is incompatible with the Drupal version.', array('!name' => $name)));
+        if ($extension_info[$name]->type == 'module') {
           unset($modules[$name]);
         }
         else {
@@ -1059,8 +625,8 @@ function drush_pm_enable_validate() {
       $unmet_dependencies = array();
       foreach ($dependencies as $module => $info) {
         if (!empty($info['unmet-dependencies'])) {
-          foreach ($info['unmet-dependencies'] as $unmet) {
-            $unmet_project = (!empty($info['dependencies'][$unmet]['project'])) ? $info['dependencies'][$unmet]['project'] : drush_pm_enable_find_project_from_extension($unmet);
+          foreach ($info['unmet-dependencies'] as $unmet_module) {
+            $unmet_project = drush_pm_find_project_from_extension($unmet_module);
             if (!empty($unmet_project)) {
               $unmet_dependencies[$module][$unmet_project] = $unmet_project;
             }
@@ -1074,38 +640,17 @@ function drush_pm_enable_validate() {
           $unmet_project_list = array_merge($unmet_project_list, $unmet_projects);
           $msgs[] = dt("!module requires !unmet-projects", array('!unmet-projects' => implode(', ', $unmet_projects), '!module' => $module));
         }
-        $found = array_merge($download, $unmet_project_list);
-        // Prevent from looping if last download failed.
-        if ($found === $last_download) {
-          drush_log(dt("Unable to download some or all of the extensions."), LogLevel::WARNING);
-          break;
-        }
-        drush_log(dt("The following projects have unmet dependencies:\n!list", array('!list' => implode("\n", $msgs))), LogLevel::OK);
-        if (drush_get_option('resolve-dependencies')) {
-          drush_log(dt("They are being downloaded."), LogLevel::OK);
-        }
-        if (drush_get_option('resolve-dependencies') || drush_confirm(dt("Would you like to download them?"))) {
-          $download = $found;
+        if (drush_get_option('resolve-dependencies') || drush_confirm(dt("The following projects have unmet dependencies:\n!list\nWould you like to download them?", array('!list' => implode("\n", $msgs))))) {
+          // If we did not already print a log message via drush_confirm, then print one now.
+          if (drush_get_option('resolve-dependencies')) {
+            drush_log(dt("The following projects have unmet dependencies:\n@list\nThey are being downloaded.", array('@list' => implode("\n", $msgs))));
+          }
+          $result = drush_invoke_process_args('pm-download', $unmet_project_list, array('y' => TRUE));
+          // Refresh module cache after downloading the new modules.
+          $extension_info = drush_get_extensions();
+          $recheck = TRUE;
         }
       }
-    }
-
-    if (!empty($download)) {
-      // Disable DRUSH_AFFIRMATIVE context temporarily.
-      $drush_affirmative = drush_get_context('DRUSH_AFFIRMATIVE');
-      drush_set_context('DRUSH_AFFIRMATIVE', FALSE);
-      // Invoke a new process to download dependencies.
-      $result = drush_invoke_process('@self', 'pm-download', $download, array(), array('interactive' => TRUE));
-      // Restore DRUSH_AFFIRMATIVE context.
-      drush_set_context('DRUSH_AFFIRMATIVE', $drush_affirmative);
-      // Refresh module cache after downloading the new modules.
-      if (drush_drupal_major_version() >= 8) {
-        \Drush\Drupal\ExtensionDiscovery::reset();
-        system_list_reset();
-      }
-      $extension_info = drush_get_extensions();
-      $last_download = $download;
-      $recheck = TRUE;
     }
   }
 
@@ -1119,17 +664,16 @@ function drush_pm_enable_validate() {
       }
       elseif (!empty($info['dependencies'])) {
         // Make sure we have an assoc array.
-        $dependencies_list = array_keys($info['dependencies']);
-        $assoc = array_combine($dependencies_list, $dependencies_list);
+        $assoc = drupal_map_assoc($info['dependencies']);
         $all_dependencies = array_merge($all_dependencies, $assoc);
       }
     }
     if (!$dependencies_ok) {
       return FALSE;
     }
-    $modules = array_diff(array_merge($modules, $all_dependencies), drush_module_list());
+    $modules = array_diff(array_merge($modules, $all_dependencies), pm_module_list());
     // Discard modules which doesn't meet requirements.
-    require_once DRUSH_DRUPAL_CORE . '/includes/install.inc';
+    require_once drush_get_context('DRUSH_DRUPAL_ROOT') . '/includes/install.inc';
     foreach ($modules as $key => $module) {
       // Check to see if the module can be installed/enabled (hook_requirements).
       // See @system_modules_submit
@@ -1142,40 +686,10 @@ function drush_pm_enable_validate() {
     }
   }
 
-  $searchpath = array();
-  foreach (array_merge($modules, $themes) as $name) {
-    $searchpath[] = drush_extension_get_path($extension_info[$name]);
-  }
-  // Add all modules that passed validation to the drush
-  // list of commandfiles (if they have any).  This
-  // will allow these newly-enabled modules to participate
-  // in the pre-pm_enable and post-pm_enable hooks.
-  if (!empty($searchpath)) {
-    _drush_add_commandfiles($searchpath);
-  }
-
-  drush_set_context('PM_ENABLE_EXTENSION_INFO', $extension_info);
-  drush_set_context('PM_ENABLE_MODULES', $modules);
-  drush_set_context('PM_ENABLE_THEMES', $themes);
-
-  return TRUE;
-}
-
-/**
- * Command callback. Enable one or more extensions from downloaded projects.
- * Note that the modules and themes to be enabled were evaluated during the
- * pm-enable validate hook, above.
- */
-function drush_pm_enable() {
-  // Get the data built during the validate phase
-  $extension_info = drush_get_context('PM_ENABLE_EXTENSION_INFO');
-  $modules = drush_get_context('PM_ENABLE_MODULES');
-  $themes = drush_get_context('PM_ENABLE_THEMES');
-
   // Inform the user which extensions will finally be enabled.
   $extensions = array_merge($modules, $themes);
   if (empty($extensions)) {
-    return drush_log(dt('There were no extensions that could be enabled.'), LogLevel::OK);
+    return drush_log(dt('There were no extensions that could be enabled.'), 'ok');
   }
   else {
     drush_print(dt('The following extensions will be enabled: !extensions', array('!extensions' => implode(', ', $extensions))));
@@ -1191,40 +705,274 @@ function drush_pm_enable() {
 
   // Enable modules and pass dependency validation in form submit.
   if (!empty($modules)) {
-    drush_include_engine('drupal', 'environment');
     drush_module_enable($modules);
+    drush_system_modules_form_submit(pm_module_list());
   }
 
   // Inform the user of final status.
-  $result_extensions = drush_get_named_extensions_list($extensions);
+  $rsc = drush_db_select('system', array('name', 'status'), 'name IN (:extensions)', array(':extensions' => $extensions));
   $problem_extensions = array();
-  $role = drush_role_get_class();
-  foreach ($result_extensions as $name => $extension) {
+  $searchpath = array();
+  while ($extension = drush_db_fetch_object($rsc)) {
     if ($extension->status) {
-      drush_log(dt('!extension was enabled successfully.', array('!extension' => $name)), LogLevel::OK);
-      $perms = $role->getModulePerms($name);
-      if (!empty($perms)) {
-        drush_print(dt('!extension defines the following permissions: !perms', array('!extension' => $name, '!perms' => implode(', ', $perms))));
-      }
+      drush_log(dt('!extension was enabled successfully.', array('!extension' => $extension->name)), 'ok');
+      $searchpath[] = dirname($extension_info[$extension->name]->filename);
     }
     else {
-      $problem_extensions[] = $name;
+      $problem_extensions[] = $extension->name;
     }
+  }
+  // Add all modules that were enabled to the drush
+  // list of commandfiles (if they have any).  This
+  // will allow these newly-enabled modules to participate
+  // in the post_pm_enable hook.
+  if (!empty($searchpath)) {
+    _drush_add_commandfiles($searchpath);
   }
   if (!empty($problem_extensions)) {
     return drush_set_error('DRUSH_PM_ENABLE_EXTENSION_ISSUE', dt('There was a problem enabling !extension.', array('!extension' => implode(',', $problem_extensions))));
   }
-  // Return the list of extensions enabled
-  return $extensions;
 }
 
 /**
  * Command callback. Disable one or more extensions.
  */
 function drush_pm_disable() {
-  $args = pm_parse_arguments(func_get_args());
-  drush_include_engine('drupal', 'pm');
-  _drush_pm_disable($args);
+  $args = _convert_csv_to_array(func_get_args());
+
+  $extension_info = drush_get_extensions();
+
+  // classify $args in themes, modules or unknown.
+  $modules = array();
+  $themes = array();
+  drush_pm_classify_extensions($args, $modules, $themes, $extension_info);
+  $extensions = array_merge($modules, $themes);
+  $unknown = array_diff($args, $extensions);
+
+  // Discard and set an error for each unknown extension.
+  foreach ($unknown as $name) {
+    drush_log('DRUSH_PM_ENABLE_EXTENSION_NOT_FOUND', dt('!extension was not found and will not be disabled.', array('!extension' => $name)), 'warning');
+  }
+
+  // Discard already disabled extensions.
+  foreach ($extensions as $name) {
+    if (!$extension_info[$name]->status) {
+      if ($extension_info[$name]->type == 'module') {
+        unset($modules[$name]);
+      }
+      else {
+        unset($themes[$name]);
+      }
+      drush_log(dt('!extension is already disabled.', array('!extension' => $name)), 'ok');
+    }
+  }
+
+  // Discard default theme.
+  if (!empty($themes)) {
+    $default_theme = drush_theme_get_default();
+    if (in_array($default_theme, $themes)) {
+      unset($themes[$default_theme]);
+      drush_log(dt('!theme is the default theme and can\'t be disabled.', array('!theme' => $default_theme)), 'ok');
+    }
+  }
+
+  if (!empty($modules)) {
+    // Add enabled dependents to the list of modules to disable.
+    $dependents = drush_module_dependents($modules, $extension_info);
+    $dependents = array_intersect($dependents, pm_module_list());
+    $modules = array_merge($modules, $dependents);
+
+    // Discard required modules.
+    $required = drush_drupal_required_modules($extension_info);
+    foreach ($required as $module) {
+      if (isset($modules[$module])) {
+        unset($modules[$module]);
+        // No message for hidden modules.
+        if (!isset($extension_info[$module]->info['hidden'])) {
+          drush_log(dt('!module is a required module and can\'t be disabled.', array('!module' => $module)), 'ok');
+        }
+      }
+    }
+  }
+
+  // Inform the user which extensions will finally be disabled.
+  $extensions = array_merge($modules, $themes);
+  if (empty($extensions)) {
+    return drush_log(dt('There were no extensions that could be disabled.'), 'ok');
+  }
+  else {
+    drush_print(dt('The following extensions will be disabled: !extensions', array('!extensions' => implode(', ', $extensions))));
+    if(!drush_confirm(dt('Do you really want to continue?'))) {
+      return drush_user_abort();
+    }
+  }
+
+  // Disable themes.
+  if (!empty($themes)) {
+    drush_theme_disable($themes);
+  }
+
+  // Disable modules and pass dependency validation in form submit.
+  if (!empty($modules)) {
+    drush_module_disable($modules);
+    drush_system_modules_form_submit(pm_module_list());
+  }
+
+  // Inform the user of final status.
+  $rsc = drush_db_select('system', array('name', 'status'), 'name IN (:extensions)', array(':extensions' => $extensions));
+  $problem_extensions = array();
+  while ($extension = drush_db_fetch_object($rsc)) {
+    if (!$extension->status) {
+      drush_log(dt('!extension was disabled successfully.', array('!extension' => $extension->name)), 'ok');
+    }
+    else {
+      $problem_extensions[] = $extension->name;
+    }
+  }
+  if (!empty($problem_extensions)) {
+    return drush_set_error('DRUSH_PM_DISABLE_EXTENSION_ISSUE', dt('There was a problem disabling !extension.', array('!extension' => implode(',', $problem_extensions))));
+  }
+}
+  
+/**
+ * Command callback. Show detailed info for one or more extension.
+ */
+function drush_pm_info() {
+  $args = _convert_csv_to_array(func_get_args());
+
+  $extension_info = drush_pm_get_extensions();
+  _drush_pm_expand_extensions($args, $extension_info);
+  // If no extensions are provided, select all but the hidden ones.
+  if (count($args) == 0) {
+    foreach ($extension_info as $key => $extension) {
+      if (isset($extension->info['hidden'])) {
+        unset($extension_info[$key]);
+      }
+    }
+    $args = array_keys($extension_info);
+  }
+
+  foreach ($args as $project) {
+    if (isset($extension_info[$project])) {
+      $info = $extension_info[$project];
+    }
+    else {
+      drush_log(dt('!project was not found.', array('!project' => $project)), 'warning');
+      continue;
+    }
+    if ($info->type == 'module') {
+      $data = _drush_pm_info_module($info);
+    }
+    else {
+      $data = _drush_pm_info_theme($info);
+    }
+    drush_print_table(drush_key_value_to_array_table($data));
+    print "\n";
+  }
+}
+
+/**
+ * Return a string with general info of a extension.
+ */
+function _drush_pm_info_extension($info) {
+  $major_version = drush_drupal_major_version();
+
+  $data['Project'] = $info->name;
+  $data['Type'] = $info->type;
+  if (($info->type == 'module')||($major_version >= 6)) {
+    $data['Title'] = $info->info['name'];
+    $data['Description'] = $info->info['description'];
+    $data['Version'] = $info->info['version'];
+  }
+  $data['Package'] = $info->info['package'];
+  if ($major_version >= 6) {
+    $data['Core'] = $info->info['core'];
+  }
+  if ($major_version == 6) {
+    $data['PHP'] = $info->info['php'];
+  }
+  $data['Status'] = drush_get_extension_status($info);
+  $path = (($info->type == 'module')&&($major_version == 7))?$info->uri:$info->filename;
+  $path = substr($path, 0, strrpos($path, '/'));
+  $data['Path'] = $path;
+
+  return $data;
+}
+
+/**
+ * Return a string with info of a module.
+ */
+function _drush_pm_info_module($info) {
+  $major_version = drush_drupal_major_version();
+
+  $data = _drush_pm_info_extension($info);
+  if ($info->schema_version > 0) {
+    $schema_version = $info->schema_version;
+  }
+  elseif ($info->schema_version == -1) {
+    $schema_version = "no schema installed";
+  }
+  else {
+    $schema_version = "module has no schema";
+  }
+  $data['Schema version'] = $schema_version;
+  if ($major_version == 7) {
+    $data['Files'] = implode(', ', $info->info['files']);
+  }
+  if (count($info->info['dependencies']) > 0) {
+    $requires = implode(', ', $info->info['dependencies']);
+  }
+  else {
+    $requires = "none";
+  }
+  $data['Requires'] = $requires;
+
+  if ($major_version == 6) {
+    if (count($info->info['dependents']) > 0) {
+      $requiredby = implode(', ', $info->info['dependents']);
+    }
+    else {
+      $requiredby = "none";
+    }
+    $data['Required by'] = $requiredby;
+  }
+
+  return $data;
+}
+
+/**
+ * Return a string with info of a theme.
+ */
+function _drush_pm_info_theme($info) {
+  $major_version = drush_drupal_major_version();
+
+  $data = _drush_pm_info_extension($info);
+  if ($major_version == 5) {
+    $data['Engine'] = $info->description;
+  }
+  else {
+    $data['Core'] = $info->info['core'];
+    $data['PHP'] = $info->info['php'];
+    $data['Engine'] = $info->info['engine'];
+    $data['Base theme'] = isset($info->base_themes) ? implode($info->base_themes, ', ') : '';
+    $regions = implode(', ', $info->info['regions']);
+    $data['Regions'] = $regions;
+    $features = implode(', ', $info->info['features']);
+    $data['Features'] = $features;
+    if (count($info->info['stylesheets']) > 0) {
+      $data['Stylesheets'] = '';
+      foreach ($info->info['stylesheets'] as $media => $files) {
+        $files = implode(', ', array_keys($files));
+        $data['Media '.$media] = $files;
+      }
+    }
+    if (count($info->info['scripts']) > 0) {
+      $scripts = implode(', ', array_keys($info->info['scripts']));
+      $data['Scripts'] = $scripts;
+    }
+  }
+
+  return $data;
 }
 
 /**
@@ -1258,112 +1006,537 @@ function _drush_pm_expand_extensions(&$extensions, $extension_info = array()) {
 
 /**
  * Command callback. Uninstall one or more modules.
+ * // TODO: Use drupal_execute on system_modules_uninstall_confirm_form so that input is validated.
  */
 function drush_pm_uninstall() {
-  $args = pm_parse_arguments(func_get_args());
-  drush_include_engine('drupal', 'pm');
-  _drush_pm_uninstall($args);
+  $modules = _convert_csv_to_array(func_get_args());
+
+  drush_include_engine('drupal', 'environment');
+  $module_info = drush_get_modules();
+  $required = drupal_required_modules();
+
+  // Discards modules which are enabled, not found or already uninstalled.
+  foreach ($modules as $key => $module) {
+    if (!isset($module_info[$module])) {
+      // The module does not exist in the system.
+      unset($modules[$key]);
+      drush_log(dt('Module !module was not found and will not be uninstalled.', array('!module' => $module)), 'warning');
+    }
+    else if ($module_info[$module]->status) {
+      // The module is enabled.
+      unset($modules[$key]);
+      drush_log(dt('!module is not disabled. Use `pm-disable` command before `pm-uninstall`.', array('!module' => $module)), 'warning');
+    }
+    else if ($module_info[$module]->schema_version == -1) { // SCHEMA_UNINSTALLED
+      // The module is uninstalled.
+      unset($modules[$key]);
+      drush_log(dt('!module is already uninstalled.', array('!module' => $module)), 'ok');
+    }
+    else {
+      $required_by = array();
+      foreach (array_keys($module_info[$module]->required_by) as $dependent) {
+        if (!in_array($dependent, $required) && ($module_info[$dependent]->schema_version != -1)) {
+          $required_by[] = $dependent;
+        }
+      }
+      if (count($required_by)) {
+        drush_log(dt('To uninstall !module, the following modules must be uninstalled first: !required', array('!module' => $module, '!required' => implode(', ', $required_by))), 'error');
+        unset($modules[$key]);
+      }
+    }
+  }
+
+  // Inform the user which modules will finally be uninstalled.
+  if (empty($modules)) {
+    return drush_log(dt('There were no modules that could be uninstalled.'), 'ok');
+  }
+  else {
+    drush_print(dt('The following modules will be uninstalled: !modules', array('!modules' => implode(', ', $modules))));
+    if(!drush_confirm(dt('Do you really want to continue?'))) {
+      return drush_user_abort();
+    }
+  }
+
+  // Disable the modules.
+  drush_module_uninstall($modules);
+
+  // Inform the user of final status.
+  foreach ($modules as $module) {
+    drush_log(dt('!module was successfully uninstalled.', array('!module' => $module)), 'ok');
+  }
+}
+
+/**
+ * Completes projects' update data with the path to install location on disk.
+ *
+ * Given an array of release info for available projects, find the path to the install location.
+ */
+function _pm_get_project_path($data, $lookup) {
+  foreach ($data as $name => $release) {
+    if ($name == 'drupal') {
+      continue;
+    }
+    // Array of extensions (modules/themes) within the project.
+    $extensions = array_keys($release[$lookup]);
+    $path = _pm_find_common_path($release['project_type'], $extensions);
+    $reserved = array('modules', 'sites', 'themes');
+    if ((in_array(basename($path), $reserved)) && (!in_array($name, $reserved))) {
+      drush_log(dt('Error while trying to find the common path for enabled extensions of project !project. Extensions are: !extensions.', array('!project' => $name, '!extensions' => implode(', ', $extensions))), 'error');
+      unset($data[$name]);
+    }
+    else {
+      $data[$name]['path'] = $path;
+    }
+  }
+
+  return $data;
+}
+
+/**
+ * Helper function to find the common path for a list of extensions in the aim to obtain the project name.
+ *
+ * @param $project_type
+ *  Type of project we're trying to find. Valid values: module, theme.
+ * @param $extensions
+ *  Array of extension names.
+ */
+function _pm_find_common_path($project_type, $extensions) {
+  // Select the first path as the candidate to be the common prefix.
+  $path = drupal_get_path($project_type, array_pop($extensions));
+  // If there's only one extension we are done. Otherwise, we need to find
+  // the common prefix for all of them.
+  if (count($extensions) > 0) {
+    // Iterate over the other projects.
+    while($project = array_pop($extensions)) {
+      $path2 = drupal_get_path($project_type, $project);
+      // Option 1: same path.
+      if ($path == $path2) {
+        continue;
+      }
+      // Option 2: $path is a prefix of $path2.
+      if (strpos($path2, $path) === 0) {
+        continue;
+      }
+      // Option 3: $path2 is a prefix of $path.
+      if (strpos($path, $path2) === 0) {
+        $path = $path2;
+        continue;
+      }
+      // Option 4: no one is a prefix of the other. Find the common
+      // prefix by iteratively strip the rigthtmost piece of $path.
+      // We will iterate until a prefix is found or path = '.', that on the
+      // other hand is a condition theorically impossible to reach.
+      do {
+        $path = dirname($path);
+        if (strpos($path2, $path) === 0) {
+          break;
+        }
+      } while ($path != '.');
+    }
+  }
+
+  return $path;
 }
 
 /**
  * Command callback. Show available releases for given project(s).
  */
 function drush_pm_releases() {
-  $release_info = drush_get_engine('release_info');
-
-  // Obtain requests.
-  $requests = pm_parse_arguments(func_get_args(), FALSE);
-  if (!$requests) {
+  if (!$requests = _convert_csv_to_array(func_get_args())) {
     $requests = array('drupal');
   }
 
-  // Get installed projects.
-  if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_FULL) {
-    $projects = drush_get_projects();
-  }
-  else {
-    $projects = array();
+  $info = _drush_pm_get_releases($requests);
+  if (!$info) {
+    return drush_log(dt('No valid projects given.'), 'ok');
   }
 
-  // Select the filter to apply based on cli options.
-  if (drush_get_option('dev', FALSE)) {
-    $filter = 'dev';
-  }
-  elseif (drush_get_option('all', FALSE)) {
-    $filter = 'all';
-  }
-  else {
-    $filter = '';
+  foreach ($info as $name => $project) {
+    $header = dt('------- RELEASES FOR \'!name\' PROJECT -------', array('!name' => strtoupper($name)));
+    $rows = array();
+    $rows[] = array(dt('Release'), dt('Date'), dt('Status'));
+    $releases = _drush_pm_filter_releases($project['releases'], drush_get_option('all', FALSE), drush_get_option('dev', FALSE));
+    foreach ($releases as $release) {
+      $rows[] = array(
+        $release['version'],
+        gmdate('Y-M-d', $release['date']),
+        implode(', ', $release['release_status'])
+      );
+    }
+    drush_print($header);
+    drush_print_table($rows, TRUE, array(0 => 14));
   }
 
-  $status_url = drush_get_option('source');
+  return $info;
+}
 
-  $output = array();
-  foreach ($requests as $request) {
-    $request = pm_parse_request($request, $status_url, $projects);
-    $project_name = $request['name'];
-    $project_release_info = $release_info->get($request);
-    if ($project_release_info) {
-      $version = isset($projects[$project_name]) ? $projects[$project_name]['version'] : NULL;
-      $releases = $project_release_info->filterReleases($filter, $version);
-      foreach ($releases as $key => $release) {
-        $output["${project_name}-${key}"] = array(
-          'project' => $project_name,
-          'version' => $release['version'],
-          'date' => gmdate('Y-M-d', $release['date']),
-          'status' => implode(', ', $release['release_status']),
-        ) + $release;
+/**
+ * Obtain releases for a project's xml as returned by the update service.
+ */
+function _drush_pm_get_releases_from_xml($xml, $project) {
+  // If bootstraped, we can obtain which is the installed release of a project.
+  static $installed_projects = FALSE;
+  if (!$installed_projects) {
+    if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_FULL) {
+      $installed_projects = drush_get_projects();
+    }
+    else {
+      $installed_projects = array();
+    }
+  }
+
+  foreach (array('title', 'short_name', 'dc:creator', 'api_version', 'recommended_major', 'supported_majors', 'default_major', 'project_status', 'link') as $item) {
+    if (array_key_exists($item, $xml)) {
+      $value = $xml->xpath($item);
+      $project_info[$item] = (string)$value[0];
+    }
+  }
+
+  $recommended_major = @$xml->xpath("/project/recommended_major");
+  $recommended_major = empty($recommended_major)?"":(string)$recommended_major[0];
+  $supported_majors = @$xml->xpath("/project/supported_majors");
+  $supported_majors = empty($supported_majors)?array():array_flip(explode(',', (string)$supported_majors[0]));
+  $releases_xml = @$xml->xpath("/project/releases/release[status='published']");
+  $recommended_version = NULL;
+  $latest_version = NULL;
+  foreach ($releases_xml as $release) {
+    $release_info = array();
+    foreach (array('name', 'version', 'tag', 'version_major', 'version_extra', 'status', 'release_link', 'download_link', 'date', 'mdhash', 'filesize') as $item) {
+      if (array_key_exists($item, $release)) {
+        $value = $release->xpath($item);
+        $release_info[$item] = (string)$value[0];
+      }
+    }
+    $statuses = array();
+    if (array_key_exists($release_info['version_major'], $supported_majors)) {
+      $statuses[] = "Supported";
+      unset($supported_majors[$release_info['version_major']]);
+    }
+    if ($release_info['version_major'] == $recommended_major) {
+      if (!isset($latest_version)) {
+        $latest_version = $release_info['version'];
+      }
+      // The first stable version (no 'version extra') in the recommended major
+      // is the recommended release
+      if (empty($release_info['version_extra']) && (!isset($recommended_version))) {
+        $statuses[] = "Recommended";
+        $recommended_version = $release_info['version'];
+      }
+    }
+    if (!empty($release_info['version_extra']) && ($release_info['version_extra'] == "dev")) {
+      $statuses[] = "Development";
+    }
+    foreach ($release->xpath('terms/term/value') as $release_type) {
+      // There are three kinds of release types that we recognize:
+      // "Bug fixes", "New features" and "Security update".
+      // We will add "Security" for security updates, and nothing
+      // for the other kinds.
+      if (strpos($release_type, "Security") !== FALSE) {
+        $statuses[] = "Security";
+      }
+    }
+    // Add to status whether the project is installed.
+    if (isset($installed_projects[$project])) {
+      if ($installed_projects[$project]['version'] == $release_info['version']) {
+         $statuses[] = dt('Installed');
+         $project_info['installed'] = $release_info['version'];
+       }
+    }
+    $release_info['release_status'] = $statuses;
+    $releases[$release_info['version']] = $release_info;
+  }
+  // If there is no -stable- release in the recommended major,
+  // then take the latest verion in the recommended major to be
+  // the recommended release.
+  if (!isset($recommended_version) && isset($latest_version)) {
+    $recommended_version = $latest_version;
+    $releases[$recommended_version]['release_status'][] = "Recommended";
+  }
+
+  $project_info['releases'] = $releases;
+  $project_info['recommended'] = $recommended_version;
+
+  return $project_info;
+}
+
+/**
+ * Helper function for _drush_pm_filter_releases().
+ */
+function _drush_pm_compare_date($a, $b) {
+    if ($a['date'] == $b['date']) {
+        return 0;
+    }
+    if ($a['version_major'] == $b['version_major']) {
+      return ($a['date'] > $b['date']) ? -1 : 1;
+    }
+    return ($a['version_major'] > $b['version_major']) ? -1 : 1;
+}
+
+/**
+ * Filter a list of releases.
+ *
+ * @param $releases
+ *   Array of release information
+ * @param $all
+ *   Show all releases. If FALSE, shows only the first release that is
+ *   Recommended or Supported or Security or Installed.
+ * @param $dev
+ *   Show only development release.
+ * @param $show_all_until_installed
+ *   If TRUE, then all releases will be shown until the INSTALLED release is found,
+ *   at which point the algorithm will stop.
+ */
+function _drush_pm_filter_releases($releases, $all = FALSE, $dev = FALSE, $show_all_until_installed = TRUE) {
+  // Start off by sorting releases by release date.
+  uasort($releases, '_drush_pm_compare_date');
+  // Find version_major for the installed release
+  $installed_version_major = FALSE;
+  foreach ($releases as $version => $release_info) {
+    if (in_array("Installed", $release_info['release_status'])) {
+      $installed_version_major = $release_info['version_major'];
+    }
+  }
+  // Now iterate through and filter out the releases we're
+  // interested in.
+  $options = array();
+  $limits_list = array();
+  foreach ($releases as $version => $release_info) {
+    if (!$dev || ((array_key_exists('version_extra', $release_info)) && ($release_info['version_extra'] == 'dev'))) {
+      $saw_unique_status = FALSE;
+      foreach ($release_info['release_status'] as $one_status) {
+        // We will show the first release of a given kind;
+        // after we show the first security release, we show
+        // no other.  We do this on a per-major-version basis,
+        // though, so if a project has three major versions, then
+        // we will show the first security release from each.
+        // This rule is overridden by $all and $show_all_until_installed.
+        $test_key = $release_info['version_major'] . $one_status;
+        if (!array_key_exists($test_key, $limits_list)) {
+          $limits_list[$test_key] = TRUE;
+          $saw_unique_status = TRUE;
+          // Once we see the "Installed" release we will stop
+          // showing all releases
+          if ($one_status == "Installed") {
+            $show_all_until_installed = FALSE;
+            $installed_release_date = $release_info['date'];
+          }
+        }
+      }
+      if ($all || ($show_all_until_installed && ($installed_version_major == $release_info['version_major'])) || $saw_unique_status) {
+        $options[$release_info['version']] = $release_info;
       }
     }
   }
-  if (empty($output)) {
-    return drush_log(dt('No valid projects given.'), LogLevel::OK);
+  // If "show all until installed" is still true, that means that
+  // we never encountered the installed release anywhere in releases,
+  // and therefore we did not filter out any releases at all.  If this
+  // is the case, then call ourselves again, this time with
+  // $show_all_until_installed set to FALSE from the beginning.
+  // The other situation we might encounter is when we do not encounter
+  // the installed release, and $options is still empty.  This means
+  // that there were no supported or recommented or security or development
+  // releases found.  If this is the case, then we will force ALL to TRUE
+  // and show everything on the second iteration.
+  if (($all === FALSE) && ($show_all_until_installed === TRUE)) {
+    $options = _drush_pm_filter_releases($releases, empty($options), $dev, FALSE);
   }
+  return $options;
+}
 
-  return $output;
+/**
+ * Return an array of available releases for given project(s).
+ *
+ * Helper function for pm-download.
+ */
+function _drush_pm_download_releases_choice($xml, $project, $all = FALSE, $dev = FALSE) {
+  $project_info = _drush_pm_get_releases_from_xml($xml, $project);
+  $releases = _drush_pm_filter_releases($project_info['releases'], $all, $dev);
+
+  $options = array();
+  foreach($releases as $version => $release) {
+    $options[$version] = array($version, '-', gmdate('Y-M-d', $release['date']), '-', implode(', ', $release['release_status']));
+  }
+  return $options;
+}
+
+/**
+ * Obtain releases info for given projects and fill in status information.
+ *
+ * It does connect directly to the update service and does not depend on
+ * a bootstraped site.
+ *
+ * @param $requests
+ *   An array of drupal.org project names optionally with a version.
+ *
+ * @see drush_pm_releases()
+ * @see _drush_pm_releasenotes()
+ */
+function _drush_pm_get_releases($requests) {
+  $info = array();
+
+  // Parse out project name and version.
+  $requests = pm_parse_project_version($requests);
+
+  // Get release history for each request.
+  foreach ($requests as $name => $request) {
+    $xml = _drush_pm_get_release_history_xml($request);
+    if (!$xml) {
+      continue;
+    }
+
+    $project_info = _drush_pm_get_releases_from_xml($xml, $name);
+    $info[$name] = $project_info;
+  }
+  return $info;
 }
 
 /**
  * Command callback. Show release notes for given project(s).
  */
 function drush_pm_releasenotes() {
-  $release_info = drush_get_engine('release_info');
-
-  // Obtain requests.
-  if (!$requests = pm_parse_arguments(func_get_args(), FALSE)) {
+  if (!$requests = _convert_csv_to_array(func_get_args())) {
     $requests = array('drupal');
   }
 
-  // Get installed projects.
-  if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_FULL) {
-    $projects = drush_get_projects();
+  return _drush_pm_releasenotes($requests);
+}
+
+/**
+ * Internal function: prints release notes for given drupal projects.
+ *
+ * @param $requests
+ *   An array of drupal.org project names optionally with a version.
+ * @param $print_status
+ *   Boolean. Used by pm-download to not print a informative note.
+ * @param $tmpfile
+ *   If provided, a file that contains contents to show before the
+ *   release notes.
+ *
+ * @see drush_pm_releasenotes()
+ */
+function _drush_pm_releasenotes($requests, $print_status = TRUE, $tmpfile = NULL) {
+  if ($tmpfile == NULL) {
+    $tmpfile = drush_tempnam('rln-' . implode('-', $requests) . '.');
   }
-  else {
-    $projects = array();
+  // Parse requests to strip versions.
+  $requests = pm_parse_project_version($requests);
+  // Get the releases.
+  $info = _drush_pm_get_releases(array_keys($requests));
+  if (!$info) {
+    return drush_log(dt('No valid projects given.'), 'ok');
   }
 
-  $status_url = drush_get_option('source');
+  foreach ($info as $key => $project) {
+    $selected_versions = array();
+    // If the request included version, only show its release notes.
+    if (isset($requests[$key]['version'])) {
+      $selected_versions[] = $requests[$key]['version'];
+    }
+    else {
+      // Special handling if the project is installed.
+      if (isset($project['recommended'], $project['installed'])) {
+        $releases = array_reverse($project['releases']);
+        foreach($releases as $version => $release) {
+          if ($release['date'] >= $project['releases'][$project['installed']]['date']) {
+            $release += array('version_extra' => '');
+            $project['releases'][$project['installed']] += array('version_extra' => '');
+            if ($release['version_extra'] == 'dev' && $project['releases'][$project['installed']]['version_extra'] != 'dev') {
+              continue;
+            }
+            $selected_versions[] = $version;
+          }
+        }
+      }
+      else {
+        // Project is not installed so we will show the release notes
+        // for the recommended version, as the user did not specify one.
+        $selected_versions[] = $project['recommended'];
+      }
+    }
 
-  $output = '';
-  foreach($requests as $request) {
-    $request = pm_parse_request($request, $status_url, $projects);
-    $project_release_info = $release_info->get($request);
-    if ($project_release_info) {
-      $version = empty($request['version']) ? NULL : $request['version'];
-      $output .= $project_release_info->getReleaseNotes($version);
+    foreach ($selected_versions as $version) {
+      // Stage of parsing.
+      if (!isset($project['releases'][$version]['release_link'])) {
+        // We avoid the cases where the URL of the release notes does not exist.
+        drush_log(dt("Project !project does not have release notes for version !version.", array('!project' => $key, '!version' => $version)), 'warning');
+        continue;
+      }
+      else {
+        $release_page_url = $project['releases'][$version]['release_link'];
+      }
+      $release_page_url_parsed = parse_url($release_page_url);
+      $release_url_path = $release_page_url_parsed['path'];
+      if (!empty($release_url_path)) {
+        if ($release_page_url_parsed['host'] == 'drupal.org') {
+          $release_page_id = substr($release_url_path, strlen('/node/'));
+          drush_log(dt("Release link for !project (!version) project was found.", array('!project' => $key, '!version' => $version)), 'notice');
+        }
+        else {
+          drush_log(dt("Release notes' page for !project project is not hosted on drupal.org. See !url.", array('!project' => $key, '!url' => $release_page_url)), 'warning');
+          continue;
+        }
+      }
+      // We'll use drupal_http_request if available; it provides better error reporting.
+      if (function_exists('drupal_http_request')) {
+        $data = drupal_http_request($release_page_url);
+        if (isset($data->error)) {
+          drush_log(dt("Error (!error) while requesting the release notes page for !project project.", array('!error' => $data->error, '!project' => $key)), 'error');
+          continue;
+        }
+        @$dom = DOMDocument::loadHTML($data->data);
+      }
+      else {
+        $filename = _drush_download_file($release_page_url);
+        @$dom = DOMDocument::loadHTMLFile($filename);
+        @unlink($filename);
+        if ($dom === FALSE) {
+          drush_log(dt("Error while requesting the release notes page for !project project.", array('!project' => $key)), 'error');
+          continue;
+        }
+      }
+      if ($dom) {
+        drush_log(dt("Successfully parsed and loaded the HTML contained in the release notes' page for !project (!version) project.", array('!project' => $key, '!version' => $version)), 'notice');
+      }
+      $xml = simplexml_import_dom($dom);
+      $xpath_expression = '//*[@id="node-' . $release_page_id .  '"]/div[@class="node-content"]';
+      $node_content = $xml->xpath($xpath_expression);
+
+      // We create the print format.
+      $notes_last_update = $node_content[0]->div[1]->div[0]->asXML();
+      unset($node_content[0]->div);
+      $project_notes = $node_content[0]->asXML();
+
+      // Build the status message from the info from _drush_pm_get_releases
+      $status_msg = '> ' . implode(', ', $project['releases'][$version]['release_status']);
+      $break = '<br>';
+      $notes_header = dt("<hr>
+ > RELEASE NOTES FOR '!name' PROJECT, VERSION !version:!break
+ > !time.!break
+ !status
+<hr>
+", array('!status' => $print_status ? $status_msg : '', '!name' => strtoupper($key), '!break' => $break, '!version' => $version, '!time' => $notes_last_update));
+      // Finally we print the release notes for the requested project.
+      if (drush_get_option('html', FALSE)) {
+        $print = $notes_header . $project_notes;
+      }
+      else {
+        $print = drush_html_to_text($notes_header . $project_notes . "\n", array('br', 'p', 'ul', 'ol', 'li', 'hr'));
+        if (drush_drupal_major_version() < 7) { $print .= "\n"; }
+      }
+      file_put_contents($tmpfile, $print, FILE_APPEND);
     }
   }
-  return $output;
+  drush_print_file($tmpfile);
 }
 
 /**
  * Command callback. Refresh update status information.
  */
 function drush_pm_refresh() {
-  $update_status = drush_get_engine('update_status');
-  drush_print(dt("Refreshing update status information ..."));
-  $update_status->refresh();
-  drush_print(dt("Done."));
+  // We don't provide for other options here, so we supply an explicit path.
+  drush_include_engine('update_info', 'drupal', NULL, DRUSH_BASE_PATH . '/commands/pm/update_info');
+
+  _pm_refresh();
 }
 
 /**
@@ -1371,9 +1544,9 @@ function drush_pm_refresh() {
  */
 function drush_pm_update() {
   // Call pm-updatecode.  updatedb will be called in the post-update process.
-  $args = pm_parse_arguments(func_get_args(), FALSE);
-  drush_set_option('check-updatedb', FALSE);
-  return drush_invoke('pm-updatecode', $args);
+  $args = _convert_csv_to_array(func_get_args());
+  array_unshift($args, 'pm-updatecode');
+  return call_user_func_array('drush_invoke', $args);
 }
 
 /**
@@ -1381,9 +1554,9 @@ function drush_pm_update() {
  * Execute updatedb command after an updatecode - user requested `update`.
  */
 function drush_pm_post_pm_update() {
-  // Use drush_invoke_process to start a subprocess. Cleaner that way.
+  // Use drush_backend_invoke to start a subprocess. Cleaner that way.
   if (drush_get_context('DRUSH_PM_UPDATED', FALSE) !== FALSE) {
-    drush_invoke_process('@self', 'updatedb');
+    drush_backend_invoke('updatedb');
   }
 }
 
@@ -1395,6 +1568,11 @@ function drush_pm_updatecode_validate() {
   if (is_dir($path) && (realpath(drush_get_option('backup-dir', FALSE)) != $path)) {
     return drush_set_error('', dt('Backup directory !path found. It\'s a security risk to store backups inside the Drupal tree. Drush now uses by default ~/drush-backups. You need to move !path out of the Drupal tree to proceed. Note: if you know what you\'re doing you can explicitly set --backup-dir to !path and continue.', array('!path' => $path)));
   }
+
+  // Validate package-handler.
+  $package_handler = drush_get_option('package-handler', 'wget');
+  drush_include_engine('package_handler', $package_handler);
+  return package_handler_validate();
 }
 
 /**
@@ -1406,9 +1584,10 @@ function drush_pm_updatecode_validate() {
 function drush_pm_post_pm_updatecode() {
   // Skip if updatecode was invoked by pm-update.
   // This way we avoid being noisy, as updatedb is to be executed.
-  if (drush_get_option('check-updatedb', TRUE)) {
-    if (drush_get_context('DRUSH_PM_UPDATED', FALSE)) {
-      drush_invoke_process('@self', 'pm-updatecode-postupdate');
+  $command = drush_get_command();
+  if ($command['command'] != 'pm-update') {
+    if (drush_get_context('DRUSH_PM_UPDATED', FALSE) !== FALSE) {
+      drush_backend_invoke('pm-updatecode-postupdate');
     }
   }
 }
@@ -1422,18 +1601,18 @@ function drush_pm_updatecode_postupdate() {
 
   // Notify of pending database updates.
   // Make sure the installation API is available
-  require_once DRUSH_DRUPAL_CORE . '/includes/install.inc';
+  require_once drush_get_context('DRUSH_DRUPAL_ROOT') . '/includes/install.inc';
 
   // Load all .install files.
   drupal_load_updates();
 
   // @see system_requirements().
-  foreach (drush_module_list() as $module) {
+  foreach (pm_module_list() as $module) {
     $updates = drupal_get_schema_versions($module);
     if ($updates !== FALSE) {
       $default = drupal_get_installed_schema_version($module);
       if (max($updates) > $default) {
-        drush_log(dt("You have pending database updates. Run `drush updatedb` or visit update.php in your browser."), LogLevel::WARNING);
+        drush_log(dt("You have pending database updates. Run `drush updatedb` or visit update.php in your browser."), 'warning');
         break;
       }
     }
@@ -1441,359 +1620,285 @@ function drush_pm_updatecode_postupdate() {
 }
 
 /**
- * Sanitize user provided arguments to several pm commands.
- *
- * Return an array of arguments off a space and/or comma separated values.
+ * Determine a candidate destination directory for a particular site path and
+ * return it if it exists, optionally attempting to create the directory.
  */
-function pm_parse_arguments($args, $dashes_to_underscores = TRUE) {
-  $arguments = _convert_csv_to_array($args);
-  foreach ($arguments as $key => $argument) {
-    $argument = ($dashes_to_underscores) ? strtr($argument, '-', '_') : $argument;
+function pm_dl_destination_lookup($type, $drupal_root, $sitepath, $create = FALSE) {
+  switch ($type) {
+    case 'module':
+      // Prefer sites/all/modules/contrib if it exists.
+      $destination = $sitepath . '/modules';
+      $contrib = $destination . '/contrib';
+      if (is_dir($contrib)) {
+        $destination = $contrib;
+      }
+      break;
+    case 'theme':
+      $destination = $sitepath . '/themes';
+      break;
+    case 'theme engine':
+      $destination = $sitepath . '/themes/engines';
+      break;
+    case 'profile':
+      $destination = $drupal_root . '/profiles';
+      break;
   }
-  return $arguments;
+  if ($create) {
+    drush_log(dt('Attempting to create destination directory at !dir', array('!dir' => $destination)));
+    drush_mkdir($destination);
+  }
+  if (is_dir($destination)) {
+    drush_log(dt('Using destination directory !dir', array('!dir' => $destination)));
+    return $destination;
+  }
+  drush_log(dt('Could not find destination directory at !dir', array('!dir' => $destination)));
+  return FALSE;
 }
 
 /**
- * Decompound a version string and returns major, minor, patch and extra parts.
+ * Returns the best destination for a particular download type we can find.
  *
- * @see _pm_parse_version_compound()
- * @see pm_parse_version()
- *
- * @param string $version
- *    A version string like X.Y-Z, X.Y.Z-W or a subset.
- *
- * @return array
- *   Array with major, patch and extra keys.
+ * It is based on the project type and drupal and site contexts.
  */
-function _pm_parse_version_decompound($version) {
-  $pattern = '/^(\d+)(?:.(\d+))?(?:\.(x|\d+))?(?:-([a-z0-9\.-]*))?(?:\+(\d+)-dev)?$/';
+function pm_dl_destination($type) {
+  $drupal_root = drush_get_context('DRUSH_DRUPAL_ROOT');
+  $site_root = drush_get_context('DRUSH_DRUPAL_SITE_ROOT', FALSE);
+  $full_site_root = $drupal_root .'/'. $site_root;
+  $sites_all = $drupal_root . '/sites/all';
 
-  $matches = array();
-  preg_match($pattern, $version, $matches);
-
-  $parts = array(
-    'major'  => '',
-    'minor'  => '',
-    'patch'  => '',
-    'extra'  => '',
-    'offset' => '',
-  );
-  if (isset($matches[1])) {
-    $parts['major'] = $matches[1];
-    if (isset($matches[2])) {
-      if (isset($matches[3]) && $matches[3] != '') {
-        $parts['minor'] = $matches[2];
-        $parts['patch'] = $matches[3];
-      }
-      else {
-        $parts['patch'] = $matches[2];
-      }
-    }
-    if (!empty($matches[4])) {
-      $parts['extra'] = $matches[4];
-    }
-    if (!empty($matches[5])) {
-      $parts['offset'] = $matches[5];
-    }
+  $in_site_directory = FALSE;
+  // Check if we are running within the site directory.
+  if ($full_site_root == substr(drush_cwd(), 0, strlen($full_site_root)) || (drush_get_option('use-site-dir', FALSE))) {
+    $in_site_directory = TRUE;
   }
 
-  return $parts;
+  $destination = '';
+  if ($type != 'core') {
+    // Attempt 1: If we are in a specific site directory, and the destination
+    // directory already exists, then we use that.
+    if (empty($destination) && $site_root && $in_site_directory) {
+      $create_dir = drush_get_option('use-site-dir', FALSE);
+      $destination = pm_dl_destination_lookup($type, $drupal_root, $full_site_root, $create_dir);
+    }
+    // Attempt 2: If the destination directory already exists for sites/all,
+    // then we use that.
+    if (empty($destination) && $drupal_root) {
+      $destination = pm_dl_destination_lookup($type, $drupal_root, $sites_all);
+    }
+    // Attempt 3: If a specific (non default) site directory exists and
+    // sites/all does not exist, then we create destination in the site
+    // specific directory.
+    if (empty($destination) && $site_root && $site_root !== 'sites/default' && is_dir($full_site_root) && !is_dir($sites_all)) {
+      $destination = pm_dl_destination_lookup($type, $drupal_root, $full_site_root, TRUE);
+    }
+    // Attempt 4: If sites/all exists, then we create destination in the
+    // sites/all directory.
+    if (empty($destination) && is_dir($sites_all)) {
+      $destination = pm_dl_destination_lookup($type, $drupal_root, $sites_all, TRUE);
+    }
+    // Attempt 5: If site directory exists (even default), then we create
+    // destination in the this directory.
+    if (empty($destination) && $site_root && is_dir($full_site_root)) {
+      $destination = pm_dl_destination_lookup($type, $drupal_root, $full_site_root, TRUE);
+    }
+  }
+  // Attempt 6: If we didn't find a valid directory yet (or we somehow found
+  // one that doesn't exist) we always fall back to the current directory.
+  if (empty($destination) || !is_dir($destination)) {
+    $destination = drush_cwd();
+  }
+
+  return $destination;
 }
 
-/**
- * Build a version string from an array of major, minor and extra parts.
+/*
+ * Pick most appropriate release from XML list.
  *
- * @see _pm_parse_version_decompound()
- * @see pm_parse_version()
- *
- * @param array $parts
- *    Array of parts.
- *
- * @return string
- *   A Version string.
+ * @param array $request
+ *   An array of version specifications as returned by pm_parse_project_version().
+ * @param resource $xml
+ *   A handle to the XML document.
  */
-function _pm_parse_version_compound($parts) {
-  $project_version = '';
-  if ($parts['patch'] != '') {
-    $project_version = $parts['major'];
-    if ($parts['minor'] != '') {
-      $project_version = $project_version . '.' . $parts['minor'];
+function pm_parse_release($request, $xml) {
+  if (!empty($request['version'])) {
+    $releases = $xml->xpath("/project/releases/release[status='published'][version='" . $request['version'] . "']");
+    if (empty($releases)) {
+      drush_log(dt("Could not locate specified project version, downloading latest stable version"), 'warning');
     }
-    if ($parts['patch'] == 'x') {
-      $project_version = $project_version . '.x-dev';
+  }
+  // If that did not work, we will get the first published release for the
+  // recommended major version.
+  if (empty($releases)) {
+    if ($recommended_major = $xml->xpath("/project/recommended_major")) {
+      $xpath_releases = "/project/releases/release[status='published'][version_major=" . (string)$recommended_major[0] . "]";
+      $releases = @$xml->xpath($xpath_releases);
+    }
+  }
+  // If there are recommended releases (no 'version_extra' elements), then use
+  // only recommended releases.  Otherwise, use all; in this case, the
+  // recommended release defaults to the latest published release with the
+  // right recommended major version number.
+  $recommended_releases = array();
+  if (!empty($releases)) {
+    foreach ($releases as $one_release) {
+      if (!array_key_exists('version_extra', $one_release)) {
+        $recommended_releases[] = $one_release;
+      }
+    }
+  }
+  if (!empty($recommended_releases)) {
+    $releases = $recommended_releases;
+  }
+  $release_type = 'recommended';
+  if (drush_get_option('dev', FALSE)) {
+    $releases = @$xml->xpath("/project/releases/release[status='published'][version_extra='dev']");
+    $release_type = 'development';
+  }
+  if (drush_get_option('select', FALSE) || empty($releases)) {
+    if (empty($releases)) {
+      drush_print(dt('There is no !type release for project !project.', array('!type' => $release_type, '!project' => $request['name'])));
+    }
+    $options = _drush_pm_download_releases_choice($xml, $request['name'], drush_get_option('all', FALSE), drush_get_option('dev', FALSE));
+    $choice = drush_choice($options, dt('Choose one of the available releases:'));
+    if ($choice) {
+      $releases = $xml->xpath("/project/releases/release[status='published'][version='" . $choice . "']");
     }
     else {
-      $project_version = $project_version . '.' . $parts['patch'];
-      if ($parts['extra'] != '') {
-        $project_version = $project_version . '-' . $parts['extra'];
-      }
-    }
-    if ($parts['offset'] != '') {
-      $project_version = $project_version . '+' . $parts['offset'] . '-dev';
+      return FALSE;
     }
   }
 
-  return $project_version;
+  // First published release for the recommended major version is just the
+  // first value in $releases.
+  return (array)$releases[0];
 }
 
 /**
- * Parses a version string and returns its components.
+ * Parse out the project name and version and return as a structured array
  *
- * It parses both core and contrib version strings.
- *
- * Core (semantic versioning):
- *   - 8.0.0-beta3+252-dev
- *   - 8.0.0-beta2
- *   - 8.0.x-dev
- *   - 8.1.x
- *   - 8.0.1
- *   - 8
- *
- * Core (classic drupal scheme):
- *   - 7.x-dev
- *   - 7.x
- *   - 7.33
- *   - 7.34+3-dev
- *   - 7
- *
- * Contrib:
- *   - 7.x-1.0-beta1+30-dev
- *   - 7.x-1.0-beta1
- *   - 7.x-1.0+30-dev
- *   - 7.x-1.0
- *   - 1.0-beta1
- *   - 1.0
- *   - 7.x-1.x
- *   - 7.x-1.x-dev
- *   - 1.x
- *
- * TODO: Currently does not support specific version releases of
- *       contrib modules that use SEMVER release versions, e.g. devel-4.0.0.
- *
- * @see pm_parse_request()
- *
- * @param string $version
- *   A core or project version string.
- *
- * @param bool $is_core
- *   Whether this is a core version or a project version.
- *
- * @return array
- *   Version string in parts.
- *   Example for a contrib version (ex: 7.x-3.2-beta1):
- *     - version         : Fully qualified version string.
- *     - drupal_version  : Core compatibility version (ex: 7.x).
- *     - version_major   : Major version (ex: 3).
- *     - version_minor   : Minor version. Not applicable. Always empty.
- *     - version_patch   : Patch version (ex: 2).
- *     - version_extra   : Extra version (ex: beta1).
- *     - project_version : Project specific part of the version (ex: 3.2-beta1).
- *
- *   Example for a core version (ex: 8.1.2-beta2 or 7.0-beta2):
- *     - version         : Fully qualified version string.
- *     - drupal_version  : Core compatibility version (ex: 8.x).
- *     - version_major   : Major version (ex: 8).
- *     - version_minor   : Minor version (ex: 1). Empty if not a semver.
- *     - version_patch   : Patch version (ex: 2).
- *     - version_extra   : Extra version (ex: beta2).
- *     - project_version : Same as 'version'.
+ * @param $requests an array of project names
  */
-function pm_parse_version($version, $is_core = FALSE) {
-  $core_parts = _pm_parse_version_decompound($version);
+function pm_parse_project_version($requests) {
+  $requestdata = array();
+  $drupal_version_default = drush_get_context('DRUSH_DRUPAL_MAJOR_VERSION', drush_get_option('default-major',7)) . '.x';
+  $drupal_bootstrap = drush_get_context('DRUSH_BOOTSTRAP_PHASE') > 0;
+  foreach($requests as $request) {
+    $drupal_version = $drupal_version_default;
+    $project_version = NULL;
+    $version = NULL;
+    $project = $request;
+    // project-HEAD or project-5.x-1.0-beta
+    // '5.x-' is optional, as is '-beta'
+    preg_match('/-+(HEAD|(?:(\d+\.x)-+)?(\d+\.[\dx]+.*))$/', $request, $matches);
+    if (isset($matches[1])) {
+      // The project is whatever we have prior to the version part of the request.
+      $project = trim(substr($request, 0, strlen($request) - strlen($matches[0])), ' -');
 
-  // If no major version, we have no version at all. Pick a default.
-  $drupal_version_default = drush_drupal_major_version();
-  // Make 9 act like 8, because release_xml is weird.
-  if ($drupal_version_default == 9) {
-    $drupal_version_default = 8;
-  }
-  if ($core_parts['major'] == '') {
-    $core_parts['major'] = ($drupal_version_default) ? $drupal_version_default : drush_get_option('default-major', 7);
-  }
-
-  if ($is_core) {
-    $project_version = _pm_parse_version_compound($core_parts);
-    $version_parts = array(
-      'version' => $project_version,
-      'drupal_version'  => $core_parts['major'] . '.x',
+      if ($matches[1] == 'HEAD' || $matches[2] == 'HEAD') {
+        drush_log('DRUSH_PM_HEAD', 'Can\'t download HEAD releases because Drupal.org project information only provides for numbered release nodes.', 'warning');
+        continue;
+      }
+      if (!empty($matches[2])) {
+        // We have a specified Drupal core version.
+        $drupal_version = trim($matches[2], '-.');
+      }
+      if (!empty($matches[3])) {
+        if (!$drupal_bootstrap && empty($matches[2]) && $project != 'drupal') {
+          // We are not working on a bootstrapped site, and the project is not Drupal itself,
+          // so we assume this value is the Drupal core version and we want the stable project.
+          $drupal_version = trim($matches[3], '-.');
+        }
+        else {
+          // We are working on a bootstrapped site, or the user specified a Drupal version,
+          // so this value must be a specified project version.
+          $project_version = trim($matches[3], '-.');
+          if (substr($project_version, -1, 1) == 'x') {
+            // If a dev branch was requested, we add a -dev suffix.
+            $project_version .= '-dev';
+          }
+        }
+      }
+    }
+    // special checking for 'drupal-VERSION', == drupal latest stable release
+    elseif ((substr($request,0,7) == 'drupal-') && (is_numeric(substr($request,7)))) {
+      $project = 'drupal';
+      $drupal_version = substr($request,7) . '.x';
+      $project_version = $version;
+    }
+    if ($project_version) {
+      if ($project == 'drupal') {
+        // For project Drupal, ensure the major version branch is correct, so
+        // we can locate the requested or stable release for that branch.
+        $project_version_array = explode('.', $project_version);
+        $drupal_version = $project_version_array[0] . '.x';
+        // We use the project version only, since it is core.
+        $version = $project_version;
+      }
+      else {
+        // For regular projects the version string includes the Drupal core version.
+        $version = $drupal_version . '-' . $project_version;
+      }
+    }
+    $requestdata[$project] = array(
+      'name' => $project,
+      'version' => $version,
+      'drupal_version' => $drupal_version,
       'project_version' => $project_version,
-      'version_major'   => $core_parts['major'],
-      'version_minor'   => $core_parts['minor'],
-      'version_patch'   => ($core_parts['patch'] == 'x') ? '' : $core_parts['patch'],
-      'version_extra'   => ($core_parts['patch'] == 'x') ? 'dev' : $core_parts['extra'],
-      'version_offset'  => $core_parts['offset'],
     );
   }
-  else {
-    // If something as 7.x-1.0-beta1, the project specific version is
-    // in $version['extra'] and we need to parse it.
-    if (strpbrk($core_parts['extra'], '.-')) {
-      $nocore_parts = _pm_parse_version_decompound($core_parts['extra']);
-      $nocore_parts['offset'] = $core_parts['offset'];
-      $project_version = _pm_parse_version_compound($nocore_parts);
-      $version_parts = array(
-        'version' => $core_parts['major'] . '.x-' . $project_version,
-        'drupal_version'  => $core_parts['major'] . '.x',
-        'project_version' => $project_version,
-        'version_major'   => $nocore_parts['major'],
-        'version_minor'   => $core_parts['minor'],
-        'version_patch'   => ($nocore_parts['patch'] == 'x') ? '' : $nocore_parts['patch'],
-        'version_extra'   => ($nocore_parts['patch'] == 'x') ? 'dev' : $nocore_parts['extra'],
-        'version_offset'  => $core_parts['offset'],
-      );
-    }
-    // At this point we have half a version and must decide if this is a drupal major or a project.
-    else {
-      // If working on a bootstrapped site, core_parts has the project version.
-      if ($drupal_version_default) {
-        $project_version = _pm_parse_version_compound($core_parts);
-        $version = ($project_version) ? $drupal_version_default . '.x-' . $project_version : '';
-        $version_parts = array(
-          'version'         => $version,
-          'drupal_version'  => $drupal_version_default . '.x',
-          'project_version' => $project_version,
-          'version_major'   => $core_parts['major'],
-          'version_minor'   => $core_parts['minor'],
-          'version_patch'   => ($core_parts['patch'] == 'x') ? '' : $core_parts['patch'],
-          'version_extra'   => ($core_parts['patch'] == 'x') ? 'dev' : $core_parts['extra'],
-          'version_offset'  => $core_parts['offset'],
-        );
-      }
-      // Not working on a bootstrapped site, core_parts is core version.
-      else {
-        $version_parts = array(
-          'version' => '',
-          'drupal_version'  => $core_parts['major'] . '.x',
-          'project_version' => '',
-          'version_major'   => '',
-          'version_minor'   => '',
-          'version_patch'   => '',
-          'version_extra'   => '',
-          'version_offset'  => '',
-        );
-      }
-    }
-  }
-
-  return $version_parts;
+  return $requestdata;
 }
 
-/**
- * Parse out the project name and version and return as a structured array.
- *
- * @see pm_parse_version()
- *
- * @param string $request_string
- *   Project name with optional version. Examples: 'ctools-7.x-1.0-beta1'
- *
- * @return array
- *   Array with all parts of the request info.
- */
-function pm_parse_request($request_string, $status_url = NULL, &$projects = array()) {
-  // Split $request_string in project name and version. Note that hyphens (-)
-  // are permitted in project names (ex: field-conditional-state).
-  // We use a regex to split the string. The pattern used matches a string
-  // starting with hyphen, followed by one or more numbers, any of the valid
-  // symbols in version strings (.x-) and a catchall for the rest of the
-  // version string.
-  $parts = preg_split('/-(?:([\d+\.x].*))?$/', $request_string, NULL, PREG_SPLIT_DELIM_CAPTURE);
-
-  if (count($parts) == 1) {
-    // No version in the request string.
-    $project = $request_string;
-    $version = '';
-  }
-  else {
-    $project = $parts[0];
-    $version = $parts[1];
-  }
-
-  $is_core = ($project == 'drupal');
-  $request = array(
-    'name' => $project,
-  ) + pm_parse_version($version, $is_core);
-
-  // Set the status url if provided or available in project's info file.
-  if ($status_url) {
-    $request['status url'] = $status_url;
-  }
-  elseif (!empty($projects[$project]['status url'])) {
-    $request['status url'] = $projects[$project]['status url'];
-  }
-
-  return $request;
-}
-
-/**
- * @defgroup engines Engine types
- * @{
- */
-
-/**
- * Implementation of hook_drush_engine_type_info().
- */
-function pm_drush_engine_type_info() {
-  return array(
-    'package_handler' => array(
-      'option' => 'package-handler',
-      'description' => 'Determine how to fetch projects from update service.',
-      'default' => 'wget',
-      'options' => array(
-        'cache' => 'Cache release XML and tarballs or git clones. Git clones use git\'s --reference option. Defaults to 1 for downloads, and 0 for git.',
-      ),
-    ),
-    'release_info' => array(
-      'add-options-to-command' => TRUE,
-    ),
-    'update_status' => array(
-      'option' => 'update-backend',
-      'description' => 'Determine how to fetch update status information.',
-      'default' => 'drush',
-      'add-options-to-command' => TRUE,
-      'options' => array(
-        'update-backend' => 'Backend to obtain available updates.',
-        'check-disabled' => 'Check for updates of disabled modules and themes.',
-        'security-only'  => 'Only update modules that have security updates available.',
-      ),
-      'combine-help' => TRUE,
-    ),
-    'version_control' => array(
-      'option' => 'version-control',
-      'default' => 'backup',
-      'description' => 'Integrate with version control systems.',
-    ),
+function pm_project_types() {
+  // Lookup the 'Project type' vocabulary to some standard strings.
+  $types = array(
+    'core' => 'Drupal core',
+    'profile' => 'Installation profiles',
+    'module' => 'Modules',
+    'theme' => 'Themes',
+    'theme engine' => 'Theme engines',
+    'translation' => 'Translations'
   );
+  return $types;
 }
 
 /**
- * Implements hook_drush_engine_ENGINE_TYPE().
- *
- * Package handler engine is used by pm-download and
- * pm-updatecode commands to determine how to download/checkout
- * new projects and acquire updates to projects.
+ * Used by dl and updatecode commands to determine how to download/checkout new projects and acquire updates to projects.
  */
 function pm_drush_engine_package_handler() {
   return array(
-    'wget' => array(
-      'description' => 'Download project packages using wget or curl.',
+    'wget' => array(),
+    'cvs' => array(
       'options' => array(
-        'no-md5' => 'Skip md5 validation of downloads.',
+        'package-handler=cvs' => 'Use CVS to checkout and update projects.',
+      ),
+      'sub-options' => array(
+        'package-handler=cvs' => array(
+          'cvsparams' => 'Add options to the `cvs` program',
+          'cvsmethod' => 'Force cvs updates or checkouts (checkout is default unless the directory is managed by a supported version control system).',
+          'cvscredentials' => 'A username and password that is sent for cvs checkout command. Defaults to anonymous:anonymous',
+        ),
+      ),
+      'examples' => array(
+          'drush [command] cck --cvscredentials=\"name:password\"' =>  'Checkout should use these credentials.',
+          'drush [command] cck --cvsparams=\"-C\"' =>  'Overwrite all local changes (Quotes are required).',
+          'drush [command] cck --cvsmethod=update' =>  'Will update the project, and try to merge changes, rather than overwriting them. Any conflicts will need to be resolved manually.',
       ),
     ),
     'git_drupalorg' => array(
-      'description' => 'Use git.drupalcode.org to checkout and update projects.',
       'options' => array(
-        'gitusername' => 'Your git username as shown on user/[uid]/edit/git. Typically, this is set this in drushrc.php. Omitting this prevents users from pushing changes back to git.drupalcode.org.',
-        'gitsubmodule' => 'Use git submodules for checking out new projects. Existing git checkouts are unaffected, and will continue to (not) use submodules regardless of this setting.',
-        'gitcheckoutparams' => 'Add options to the `git checkout` command.',
-        'gitcloneparams' => 'Add options to the `git clone` command.',
-        'gitfetchparams' => 'Add options to the `git fetch` command.',
-        'gitpullparams' => 'Add options to the `git pull` command.',
-        'gitinfofile' => 'Inject version info into each .info file.',
+        'package-handler=git_drupalorg' => 'Use git.drupal.org to checkout and update projects.',
       ),
       'sub-options' => array(
-        'gitsubmodule' => array(
+        'package-handler=git_drupalorg' => array(
+          'gitusername' => 'Your git username as shown on user/[uid]/edit/git. Typically, this is set this in drushrc.php. Omitting this prevents users from pushing changes back to git.drupal.org.',
+          'gitsubmodule' => 'Use git submodules for checking out new projects. Existing git checkouts are unaffected, and will continue to (not) use submodules regardless of this setting.',
+          'gitcheckoutparams' => 'Add options to the `git checkout` command.',
+          'gitcloneparams' => 'Add options to the `git clone` command.',
+          'gitfetchparams' => 'Add options to the `git fetch` command.',
+          'gitpullparams' => 'Add options to the `git pull` command.',
           'gitsubmoduleaddparams' => 'Add options to the `git submodule add` command.',
+          'cache' => 'Use a local git cache and clone projects using --reference.',
         ),
       ),
     ),
@@ -1801,77 +1906,34 @@ function pm_drush_engine_package_handler() {
 }
 
 /**
- * Implements hook_drush_engine_ENGINE_TYPE().
- *
- * Release info engine is used by several pm commands to obtain
- * releases info from Drupal's update service or external sources.
- */
-function pm_drush_engine_release_info() {
-  return array(
-    'updatexml' => array(
-      'description' => 'Drush release info engine for update.drupal.org and compatible services.',
-      'options' => array(
-        'source' => 'The base URL which provides project release history in XML. Defaults to http://updates.drupal.org/release-history.',
-        'dev' => 'Work with development releases solely.',
-      ),
-      'sub-options' => array(
-        'cache' => array(
-          'cache-duration-releasexml' => 'Expire duration (in seconds) for release XML. Defaults to 86400 (24 hours).',
-        ),
-        'select' => array(
-          'all' => 'Shows all available releases instead of a short list of recent releases.',
-        ),
-      ),
-      'class' => 'Drush\UpdateService\ReleaseInfo',
-    ),
-  );
-}
-
-/**
- * Implements hook_drush_engine_ENGINE_TYPE().
- *
- * Update status engine is used to check available updates for
- * the projects in a Drupal site.
- */
-function pm_drush_engine_update_status() {
-  return array(
-    'drupal' => array(
-      'description' => 'Check available updates with update.module.',
-      'drupal dependencies' => array('update'),
-      'class' => 'Drush\UpdateService\StatusInfoDrupal',
-    ),
-    'drush' => array(
-      'description' => 'Check available updates without update.module.',
-      'class' => 'Drush\UpdateService\StatusInfoDrush',
-    ),
-  );
-}
-
-/**
- * Implements hook_drush_engine_ENGINE_TYPE().
- *
  * Integration with VCS in order to easily commit your changes to projects.
  */
 function pm_drush_engine_version_control() {
   return array(
     'backup' => array(
-      'description' => 'Backup all project files before updates.',
       'options' => array(
-        'no-backup' => 'Do not perform backups. WARNING: Will result in non-core files/dirs being deleted (e.g. .git)',
-        'backup-dir' => 'Specify a directory to backup projects into. Defaults to drush-backups within the home directory of the user running the command. It is forbidden to specify a directory inside your drupal root.',
+        'version-control=backup' => 'Default engine. Backup all project files before updates.',
+      ),
+      'sub-options' => array(
+        'version-control=backup' => array(
+          'no-backup' => 'Do not perform backups.',
+          'backup-dir' => 'Specify a directory to backup projects into. Defaults to drush-backups within the home directory of the user running the command. It is forbidden to specify a directory inside your drupal root.',
+        ),
       ),
     ),
     'bzr' => array(
       'signature' => 'bzr root %s',
-      'description' => 'Quickly add/remove/commit your project changes to Bazaar.',
       'options' => array(
-        'bzrsync' => 'Automatically add new files to the Bazaar repository and remove deleted files. Caution.',
-        'bzrcommit' => 'Automatically commit changes to Bazaar repository. You must also use the --bzrsync option.',
+        'version-control=bzr' => 'Quickly add/remove/commit your project changes to Bazaar.',
       ),
       'sub-options' => array(
+        'version-control=bzr' => array(
+          'bzrsync' => 'Automatically add new files to the Bazaar repository and remove deleted files. Caution.',
+          'bzrcommit' => 'Automatically commit changes to Bazaar repository. You must also usw the --bzrsync option.',
+        ),
         'bzrcommit' => array(
           'bzrmessage' => 'Override default commit message which is: Drush automatic commit. Project <name> <type> Command: <the drush command line used>',
-        ),
+        )
       ),
       'examples' => array(
         'drush dl cck --version-control=bzr --bzrsync --bzrcommit' =>  'Download the cck project and then add it and commit it to Bazaar.'
@@ -1879,20 +1941,22 @@ function pm_drush_engine_version_control() {
     ),
     'svn' => array(
       'signature' => 'svn info %s',
-      'description' => 'Quickly add/remove/commit your project changes to Subversion.',
       'options' => array(
-        'svnsync' => 'Automatically add new files to the SVN repository and remove deleted files. Caution.',
-        'svncommit' => 'Automatically commit changes to SVN repository. You must also using the --svnsync option.',
-        'svnstatusparams' => "Add options to the 'svn status' command",
-        'svnaddparams' => 'Add options to the `svn add` command',
-        'svnremoveparams' => 'Add options to the `svn remove` command',
-        'svnrevertparams' => 'Add options to the `svn revert` command',
-        'svncommitparams' => 'Add options to the `svn commit` command',
+        'version-control=svn' => 'Quickly add/remove/commit your project changes to Subversion.',
       ),
       'sub-options' => array(
-        'svncommit' => array(
-         'svnmessage' => 'Override default commit message which is: Drush automatic commit: <the drush command line used>',
+        'version-control=svn' => array(
+          'svnsync' => 'Automatically add new files to the SVN repository and remove deleted files. Caution.',
+          'svncommit' => 'Automatically commit changes to SVN repository. You must also using the --svnsync option.',
+          'svnstatusparams' => "Add options to the 'svn status' command",
+          'svnaddparams' => 'Add options to the `svn add` command',
+          'svnremoveparams' => 'Add options to the `svn remove` command',
+          'svnrevertparams' => 'Add options to the `svn revert` command',
+          'svncommitparams' => 'Add options to the `svn commit` command',
         ),
+        'svncommit' => array(
+          'svnmessage' => 'Override default commit message which is: Drush automatic commit: <the drush command line used>',
+        )
       ),
       'examples' => array(
         'drush [command] cck --svncommitparams=\"--username joe\"' =>  'Commit changes as the user \'joe\' (Quotes are required).'
@@ -1902,15 +1966,11 @@ function pm_drush_engine_version_control() {
 }
 
 /**
- * @} End of "Engine types".
- */
-
-/**
  * Interface for version control systems.
  * We use a simple object layer because we conceivably need more than one
  * loaded at a time.
  */
-interface drush_version_control {
+interface drush_pm_version_control {
   function pre_update(&$project);
   function rollback($project);
   function post_update($project);
@@ -1920,16 +1980,16 @@ interface drush_version_control {
 
 /**
  * A simple factory function that tests for version control systems, in a user
- * specified order, and returns the one that appears to be appropriate for a
+ * specified order, and return the one that appears to be appropriate for a
  * specific directory.
  */
 function drush_pm_include_version_control($directory = '.') {
-  $engine_info = drush_get_engines('version_control');
+  $version_control_engines = drush_get_engines('version_control');
   $version_controls = drush_get_option('version-control', FALSE);
   // If no version control was given, use a list of defaults.
   if (!$version_controls) {
     // Backup engine is the last option.
-    $version_controls = array_reverse(array_keys($engine_info['engines']));
+    $version_controls = array_reverse(array_keys($version_control_engines));
   }
   else {
     $version_controls = array($version_controls);
@@ -1939,10 +1999,10 @@ function drush_pm_include_version_control($directory = '.') {
   $engine = FALSE;
   while (!$engine && count($version_controls)) {
     $version_control = array_shift($version_controls);
-    if (isset($engine_info['engines'][$version_control])) {
-      if (!empty($engine_info['engines'][$version_control]['signature'])) {
-        drush_log(dt('Verifying signature for !vcs version control engine.', array('!vcs' => $version_control)), LogLevel::DEBUG);
-        if (drush_shell_exec($engine_info['engines'][$version_control]['signature'], $directory)) {
+    if (isset($version_control_engines[$version_control])) {
+      if (!empty($version_control_engines[$version_control]['signature'])) {
+        drush_log(dt('Verifying signature for !vcs version control engine.', array('!vcs' => $version_control)), 'debug');
+        if (drush_shell_exec($version_control_engines[$version_control]['signature'], $directory)) {
           $engine = $version_control;
         }
       }
@@ -1955,8 +2015,318 @@ function drush_pm_include_version_control($directory = '.') {
     return drush_set_error('DRUSH_PM_NO_VERSION_CONTROL', dt('No valid version control or backup engine found (the --version-control option was set to "!version-control").', array('!version-control' => $version_control)));
   }
 
-  $instance = drush_include_engine('version_control', $engine);
+  drush_include_engine('version_control', $version_control);
+  $class = 'drush_pm_version_control_' . $engine;
+  $instance = new $class();
+  $instance->engine = $engine;
   return $instance;
+}
+
+/**
+ * Implementation of drush_COMMAND_validate().
+ */
+function drush_pm_download_validate() {
+  // Validate the user specified destination directory.
+  $destination = drush_get_option('destination');
+  if (!empty($destination)) {
+    $destination = rtrim($destination, DIRECTORY_SEPARATOR);
+    if (!is_dir($destination)) {
+      drush_print(dt("The directory !destination does not exist.", array('!destination' => $destination)));
+      if (!drush_get_context('DRUSH_SIMULATE')) {
+        if (drush_confirm(dt('Would you like to create it?'))) {
+          drush_mkdir($destination);
+        }
+        if (!is_dir($destination)) {
+          return drush_set_error('DRUSH_PM_NO_DESTINATION', dt('Unable to create destination directory !destination.', array('!destination' => $destination)));
+        }
+      }
+    }
+    if (!is_writable($destination)) {
+      return drush_set_error('DRUSH_PM_NO_DESTINATION', dt('Destination directory !destination is not writable.', array('!destination' => $destination)));
+    }
+    // Ignore --use-site-dir, if given.
+    if (drush_get_option('use-site-dir', FALSE)) {
+      drush_set_option('use-site-dir', FALSE);
+    }
+  }
+
+  // Validate --variant or enforce a sane default.
+  $variant = drush_get_option('variant', FALSE);
+  if ($variant) {
+    if (!in_array($variant, array('full', 'projects', 'profile-only'))) {
+      drush_log(dt('Unknown variant !variant. Valid values: !variations', array('!variant' => $variant, '!variations' => implode(', ', $variations))), 'error');
+    }
+  }
+  // full and projects variants are only valid for wget package handler.
+  $package_handler = drush_get_option('package-handler', 'wget');
+  if (($package_handler != 'wget') && ($variant != 'profile-only')) {
+    $new_variant = 'profile-only';
+    if ($variant) {
+      drush_log(dt('Variant !variant is incompatible with !ph package-handler.', array('!variant' => $variant, '!ph' => $package_handler)), 'warning');
+    }
+  }
+  // If we are working on a drupal root, full variant is not an option.
+  else if (drush_get_context('DRUSH_BOOTSTRAP_PHASE') >= DRUSH_BOOTSTRAP_DRUPAL_ROOT) {
+    if ((!$variant) || (($variant == 'full') && (!isset($new_variant)))) {
+      $new_variant = 'projects';
+    }
+    if ($variant == 'full') {
+      drush_log(dt('Variant full is not a valid option within a Drupal root.'), 'warning');
+    }
+  }
+
+  if (isset($new_variant)) {
+    drush_set_option('variant', $new_variant);
+    if ($variant) {
+      drush_log(dt('Switching to --variant=!variant.', array('!variant' => $new_variant)), 'ok');
+    }
+  }
+
+  // Validate package-handler.
+  $package_handler = drush_get_option('package-handler', 'wget');
+  drush_include_engine('package_handler', $package_handler);
+  // Return value not currently used.
+  return package_handler_validate();
+}
+
+/**
+ * Download the release history xml for the specified request.
+ */
+function _drush_pm_get_release_history_xml($request) {
+  // Don't rely on UPDATE_DEFAULT_URL since perhaps we are not fully
+  // bootstrapped.
+  $url = drush_get_option('source', 'http://updates.drupal.org/release-history') . '/' . $request['name'] . '/' . $request['drupal_version'];
+  drush_log('Downloading release history from ' . $url);
+  // Some hosts have allow_url_fopen disabled.
+  if (!$xml = @simplexml_load_file($url)) {
+    $filename = _drush_download_file($url);
+    $xml = simplexml_load_file($filename);
+    drush_op('unlink', $filename);
+  }
+  if (!$xml) {
+    // We are not getting here since drupal.org always serves an XML response.
+    return drush_set_error('DRUSH_PM_DOWNLOAD_FAILED', dt('Could not download project status information from !url', array('!url' => $url)));
+  }
+  if ($error = $xml->xpath('/error')) {
+    // Don't set an error here since it stops processing during site-upgrade.
+    drush_log($error[0], 'warning'); // 'DRUSH_PM_COULD_NOT_LOAD_UPDATE_FILE',
+    return FALSE;
+  }
+  // Unpublished project?
+  $project_status = $xml->xpath('/project/project_status');
+  if ($project_status[0][0] == 'unpublished') {
+    return drush_set_error('DRUSH_PM_PROJECT_UNPUBLISHED', dt("Project !project is unpublished and has no releases available.", array('!project' => $request['name'])), 'warning');
+  }
+
+  return $xml;
+}
+
+/**
+ * Command callback. Download Drupal core or any project.
+ */
+function drush_pm_download() {
+  $package_handler = drush_get_option('package-handler', 'wget');
+  drush_include_engine('package_handler', $package_handler);
+
+  if (!$requests = _convert_csv_to_array(func_get_args())) {
+    $requests = array('drupal');
+  }
+
+  // Parse out project name and version.
+  $requests = pm_parse_project_version($requests);
+
+  // Get release history for each request and download the project.
+  $project_types = pm_project_types();
+  $project_types_xpath = '(value="' . implode('" or value="', $project_types) . '")';
+  foreach ($requests as $name => $request) {
+    $xml = _drush_pm_get_release_history_xml($request);
+    if (!$xml) {
+      continue;
+    }
+
+    // Identify the most appropriate release.
+    $release = pm_parse_release($request, $xml);
+
+    if (!$release) {
+      continue;
+    }
+
+    // Determine what type of project we are to download.
+    $request['project_type'] = 'module';
+    if ($types = $xml->xpath('/project/terms/term[name="Projects" and ' . $project_types_xpath . ']')) {
+      $request['project_type'] = array_search($types[0]->value, $project_types);
+    }
+
+    if ($request['project_type'] == 'translation') {
+      drush_set_error('DRUSH_PM_DOWNLOAD_TRANSLATIONS_FORBIDDEN', dt('Drush has dropped support for downloading translation projects. See l10n_update and l10n_install projects.'));
+      continue;
+    }
+
+    // Determine the name of the directory that will contain the project.
+    // We face here all the asymetries to make it smooth for package handlers.
+    // For Drupal core: --drupal-project-rename or drupal-x.y
+    if ($request['project_type'] == 'core') {
+      if ($rename = drush_get_option('drupal-project-rename', FALSE)) {
+        if ($rename === TRUE) {
+          $request['project_dir'] = 'drupal';
+        }
+        else {
+          $request['project_dir'] = $rename;
+        }
+      }
+      else {
+        // Set to drupal-x.y, the expected name for .tar.gz contents.
+        // Explicitly needed for cvs package handler.
+        $request['project_dir'] = strtolower(strtr($release['name'], ' ', '-'));
+      }
+    }
+    // For the other project types we want the project name. Including core
+    // variant for profiles.  Note those come with drupal-x.y in the .tar.gz.
+    else {
+      $request['project_dir'] = $request['name'];
+    }
+
+    // Download the project to a temporary location.
+    $request['base_project_path'] = drush_tempdir();
+    $request['full_project_path'] = $request['base_project_path'] .'/'. $request['project_dir'];
+    drush_log(dt('Downloading project !name to !dir ...', array('!name' => $request['name'], '!dir' => $request['base_project_path'])));
+    if (!package_handler_download_project($request, $release)) {
+      drush_log('Error downloading '.$request['name']);
+      continue;
+    }
+
+    // Determine the install location for the project.  User provided
+    // --destination has preference.
+    $destination = drush_get_option('destination');
+    if (!empty($destination)) {
+      $request['project_install_location'] = $destination;
+    }
+    else {
+      $request['project_install_location'] = pm_dl_destination($request['project_type']);
+    }
+
+    // If user did not provide --destination, then call the
+    // download-destination-alter hook to give the chance to any commandfiles
+    // to adjust the install location or abort it.
+    if (empty($destination)) {
+      $result = drush_command_invoke_all_ref('drush_pm_download_destination_alter', $request, $release);
+      if (array_search(FALSE, $result, TRUE) !== FALSE) {
+        return FALSE;
+      }
+    }
+
+    // Load version control engine and detect if (the parent directory of) the
+    // project install location is under a vcs.
+    if (!$version_control = drush_pm_include_version_control($request['project_install_location'])) {
+      continue;
+    }
+
+    // Check for drush self update
+    if ($request['project_install_location'] == DRUSH_BASE_PATH && $request['name'] == 'drush') {
+      if (($backup_dir = drush_prepare_backup_dir()) === FALSE) {
+        return FALSE;
+      }
+      // Move the running drush out of the way
+      $drush_backup = $backup_dir . "/drush";
+      if (drush_move_dir(DRUSH_BASE_PATH, $drush_backup, TRUE) == FALSE) {
+        return drush_set_error('DRUSH_PM_BACKUP_FAILED', dt('Failed to move drush directory !drush to !backup_target', array('!drush' => DRUSH_BASE_PATH, '!backup_target' => $drush_backup)));
+      }
+      else {
+        drush_log(dt("drush backed up to !targetdir", array('!targetdir' => $drush_backup)), "ok");
+      }
+    }
+    else {
+      // For all other projects, the final project install location will go in the project_dir.
+      $request['project_install_location'] .= '/' . $request['project_dir'];
+    }
+
+    // Check if install location already exists.
+    if (is_dir($request['project_install_location'])) {
+      if (!drush_confirm(dt('Install location !location already exists. Do you want to overwrite it?', array('!location' => $request['project_install_location'])))) {
+        drush_log(dt("Skip installation of !project to !dest.", array('!project' => $request['name'], '!dest' => $request['project_install_location'])), 'warning');
+        continue;
+      }
+    }
+
+    // Move the project to the install location.
+    if (drush_move_dir($request['full_project_path'], $request['project_install_location'], TRUE)) {
+      drush_log(dt("Project !project (!version) downloaded to !dest.", array('!project' => $request['name'], '!version' => $release['version'], '!dest' => $request['project_install_location'])), 'success');
+      $request['base_project_path'] = basename($request['project_install_location']);
+      $request['full_project_path'] = $request['project_install_location'];
+      if ($request['project_install_location'] == DRUSH_BASE_PATH) {
+        drush_log(dt("Drush successfully updated to version !version.", array('!version' => $release['version'])), 'success');
+      }
+    }
+    else {
+      drush_log(dt("Project !project (!version) could not be downloaded to !dest.", array('!project' => $request['name'], '!version' => $release['version'], '!dest' => $request['project_install_location'])), 'error');
+      continue;
+    }
+
+    // Post download actions.
+    package_handler_post_download($request);
+    drush_command_invoke_all('drush_pm_post_download', $request, $release);
+    $version_control->post_download($request);
+
+    // Print release notes if --notes option is set.
+    if (drush_get_option('notes') && !drush_get_context('DRUSH_PIPE')) {
+      _drush_pm_releasenotes(array($name . '-' . $release['version']), FALSE);
+    }
+
+    // Inform the user about available modules a/o themes in the downloaded project.
+    drush_pm_extensions_in_project($request);
+  }
+}
+
+/**
+ * Implementation of hook_drush_pm_download_destination_alter().
+ *
+ * Built-in download-destination-alter hook. This particular version of
+ * the hook will move modules that contain only drush commands to
+ * /usr/share/drush/commands if it exists, or $HOME/.drush if the
+ * site-wide location does not exist.
+ */
+function pm_drush_pm_download_destination_alter(&$project, $release) {
+  // A module is a pure drush command if it has no .module and contain
+  // .drush.inc files.
+  if ($project['project_type'] == 'module') {
+    $module_files = drush_scan_directory($project['full_project_path'], '/.*\.module/');
+    if (empty($module_files)) {
+      if ($project['name'] == 'drush') {
+        // $project['version'] is empty here, so compose the version from the $release structure.
+        $drush_release_version = $release['version_major'] . "." . $release['version_patch'] . (empty($release['version_extra']) ? '' : ('-' . $release['version_extra']));
+        if(($project['project_install_location'] != DRUSH_BASE_PATH) && ($release['version_major'] >= '4')) {
+          $backup_dir = drush_preflight_backup_dir();
+          if (drush_confirm(dt('Would you like to back up your current drush version !currentversion to !backup and replace it with drush !version?', array('!version' => $drush_release_version, '!backup' => $backup_dir, '!currentversion' => DRUSH_VERSION)))) {
+            $project['project_install_location'] = DRUSH_BASE_PATH;
+          }
+          else {
+            // If we are called via 'drush self-update', then "no" means "do nothing".
+            // If we are called via 'drush dl drush', then "no" means "download to cwd".
+            if (drush_get_option('self-update', FALSE)) {
+              return drush_user_cancel();
+            }
+          }
+        }
+      }
+      else {
+        $drush_command_files = drush_scan_directory($project['full_project_path'], '/.*\.drush.inc/');
+        if (!empty($drush_command_files)) {
+          $install_dir = drush_get_context('SHARE_PREFIX', '/usr') . '/share/drush/commands';
+          if (!is_dir($install_dir)) {
+            $install_dir = drush_server_home() . '/.drush';
+          }
+          // Make the .drush dir if it does not already exist.
+          if (!is_dir($install_dir)) {
+            drush_mkdir($install_dir);
+          }
+          // Change the location if the mkdir worked.
+          if (is_dir($install_dir)) {
+            $project['project_install_location'] = $install_dir;
+          }
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -1983,51 +2353,47 @@ function drush_pm_update_lock(&$projects, $projects_to_lock, $projects_to_unlock
   // Warn about ambiguous lock / unlock values
   if ($projects_to_lock == array('1')) {
     $projects_to_lock = array();
-    drush_log(dt('Ignoring --lock with no value.'), LogLevel::WARNING);
+    drush_log(dt('Ignoring --lock with no value.'), 'warning');
   }
   if ($projects_to_unlock == array('1')) {
     $projects_to_unlock = array();
-    drush_log(dt('Ignoring --unlock with no value.'), LogLevel::WARNING);
+    drush_log(dt('Ignoring --unlock with no value.'), 'warning');
   }
 
   // Log if we are going to lock or unlock anything
   if (!empty($projects_to_unlock)) {
-    drush_log(dt('Unlocking !projects', array('!projects' => implode(',', $projects_to_unlock))), LogLevel::OK);
+    drush_log(dt('Unlocking !projects', array('!projects' => implode(',', $projects_to_unlock))), 'ok');
   }
   if (!empty($projects_to_lock)) {
-    drush_log(dt('Locking !projects', array('!projects' => implode(',', $projects_to_lock))), LogLevel::OK);
+    drush_log(dt('Locking !projects', array('!projects' => implode(',', $projects_to_lock))), 'ok');
   }
 
   $drupal_root = drush_get_context('DRUSH_DRUPAL_ROOT');
   foreach ($projects as $name => $project) {
+    if ($name == 'drupal') {
+      continue;
+    }
     $message = NULL;
-    if (isset($project['path'])) {
-      if ($name == 'drupal') {
-        $lockfile = $drupal_root . '/.drush-lock-update';
-      }
-      else {
-        $lockfile = $drupal_root . '/' . $project['path'] . '/.drush-lock-update';
-      }
+    $lockfile = $drupal_root . '/' . $project['path'] . '/.drush-lock-update';
 
-      // Remove the lock file if the --unlock option was specified
-      if (((in_array($name, $projects_to_unlock)) || (in_array('all', $projects_to_unlock))) && (file_exists($lockfile))) {
-        drush_op('unlink', $lockfile);
-      }
+    // Remove the lock file if the --unlock option was specified
+    if (((in_array($name, $projects_to_unlock)) || (in_array('all', $projects_to_unlock))) && (file_exists($lockfile))) {
+      drush_op('unlink', $lockfile);
+    }
 
-      // Create the lock file if the --lock option was specified
-      if ((in_array($name, $projects_to_lock)) || (in_array('all', $projects_to_lock))) {
-        drush_op('file_put_contents', $lockfile, $lock_message != NULL ? $lock_message : "Locked via drush.");
-        // Note that the project is locked.  This will work even if we are simulated,
-        // or if we get permission denied from the file_put_contents.
-        // If the lock is -not- simulated or transient, then the lock message will be
-        // read from the lock file below.
-        $message = drush_get_context('DRUSH_SIMULATE') ? 'Simulated lock.' : 'Transient lock.';
-      }
+    // Create the lock file if the --lock option was specified
+    if ((in_array($name, $projects_to_lock)) || (in_array('all', $projects_to_lock))) {
+      drush_op('file_put_contents', $lockfile, $lock_message != NULL ? $lock_message : "Locked via drush.");
+      // Note that the project is locked.  This will work even if we are simulated,
+      // or if we get permission denied from the file_put_contents.
+      // If the lock is -not- simulated or transient, then the lock message will be
+      // read from the lock file below.
+      $message = drush_get_context('DRUSH_SIMULATE') ? 'Simulated lock.' : 'Transient lock.';
+    }
 
-      // If the persistent lock file exists, then mark the project as locked.
-      if (file_exists($lockfile)) {
-        $message = trim(file_get_contents($lockfile));
-      }
+    // If the persistent lock file exists, then mark the project as locked.
+    if (file_exists($lockfile)) {
+      $message = trim(file_get_contents($lockfile));
     }
 
     // If there is a message set, then mark the project as locked.
@@ -2040,16 +2406,10 @@ function drush_pm_update_lock(&$projects, $projects_to_lock, $projects_to_unlock
   return $locked_result;
 }
 
-/**
- * Returns the path to the extensions cache file.
- */
 function _drush_pm_extension_cache_file() {
-  return drush_get_context('DRUSH_PER_USER_CONFIGURATION') . "/drush-extension-cache.inc";
+  return drush_server_home() . "/.drush/drush-extension-cache.inc";
 }
 
-/**
- * Load the extensions cache.
- */
 function _drush_pm_get_extension_cache() {
   $extension_cache = array();
   $cache_file = _drush_pm_extension_cache_file();
@@ -2063,9 +2423,6 @@ function _drush_pm_get_extension_cache() {
   return $extension_cache;
 }
 
-/**
- * Lookup an extension in the extensions cache.
- */
 function drush_pm_lookup_extension_in_cache($extension) {
   $result = NULL;
   $extension_cache = _drush_pm_get_extension_cache();
@@ -2075,17 +2432,9 @@ function drush_pm_lookup_extension_in_cache($extension) {
   return $result;
 }
 
-/**
- * Persists extensions cache.
- *
- * #TODO# not implemented.
- */
 function drush_pm_put_extension_cache($extension_cache) {
 }
 
-/**
- * Store extensions founds within a project in extensions cache.
- */
 function drush_pm_cache_project_extensions($project, $found) {
   $extension_cache = _drush_pm_get_extension_cache();
   foreach($found as $extension) {
@@ -2100,44 +2449,36 @@ function drush_pm_cache_project_extensions($project, $found) {
 /**
  * Print out all extensions (modules/themes/profiles) found in specified project.
  *
- * Find .info.yml files in the project path and identify modules, themes and
+ * Find .info files in the project path and identify modules, themes and
  * profiles. It handles two kind of projects: drupal core/profiles and
  * modules/themes.
  * It does nothing with theme engine projects.
  */
 function drush_pm_extensions_in_project($project) {
-  // Mask for drush_scan_directory, to match .info.yml files.
-  $mask = $project['drupal_version'][0] >= 8 ? '/(.*)\.info\.yml$/' : '/(.*)\.info$/';
-
-  // Mask for drush_scan_directory, to avoid tests directories.
+  // Mask for drush_scan_directory, to  avoid tests directories.
   $nomask = array('.', '..', 'CVS', 'tests');
 
   // Drupal core and profiles can contain modules, themes and profiles.
   if (in_array($project['project_type'], array('core', 'profile'))) {
     $found = array('profile' => array(), 'theme' => array(), 'module' => array());
     // Find all of the .info files
-    foreach (drush_scan_directory($project['full_project_path'], $mask, $nomask) as $filename => $info) {
-      // Extract extension name from filename.
-      $matches = array();
-      preg_match($mask, $info->basename, $matches);
-      $name = $matches[1];
-
+    foreach (drush_scan_directory($project['project_install_location'], "/.*\.info$/", $nomask) as $filename => $info) {
       // Find the project type corresponding the .info file.
      // (Only drupal >=7.x has .info for .profile)
-      $base = dirname($filename) . '/' . $name;
+      $base = dirname($filename) . '/' . $info->name;
       if (is_file($base . '.module')) {
-        $found['module'][] = $name;
+        $found['module'][] = $info->name;
       }
       else if (is_file($base . '.profile')) {
-        $found['profile'][] = $name;
+        $found['profile'][] = $info->name;
       }
       else {
-        $found['theme'][] = $name;
+        $found['theme'][] = $info->name;
       }
     }
     // Special case: find profiles for drupal < 7.x (no .info)
     if ($project['drupal_version'][0] < 7) {
-      foreach (drush_find_profiles($project['full_project_path']) as $filename => $info) {
+      foreach (drush_scan_directory($project['project_install_location'], "/.*\.profile$/", $nomask) as $filename => $info) {
         $found['profile'][] = $info->name;
       }
     }
@@ -2153,18 +2494,17 @@ function drush_pm_extensions_in_project($project) {
         }
       }
     }
-    drush_log(dt($msg, $args), LogLevel::SUCCESS);
+    drush_log(dt($msg, $args), 'success');
     drush_print_pipe(call_user_func_array('array_merge', array_values($found)));
   }
   // Modules and themes can only contain other extensions of the same type.
   elseif (in_array($project['project_type'], array('module', 'theme'))) {
+    // Find all of the .info files
     $found = array();
-    foreach (drush_scan_directory($project['full_project_path'], $mask, $nomask) as $filename => $info) {
-      // Extract extension name from filename.
-      $matches = array();
-      preg_match($mask, $info->basename, $matches);
-      $found[] = $matches[1];
+    foreach (drush_scan_directory($project['project_install_location'], "/.*\.info$/", $nomask) as $filename => $info) {
+      $found[] = $info->name;
     }
+    // Log results.
     // If there is only one module / theme in the project, only print out
     // the message if is different than the project name.
     if (count($found) == 1) {
@@ -2197,122 +2537,44 @@ function drush_pm_extensions_in_project($project) {
  *   Path to the directory to work in.
  * @param array $exclude
  *   Array of files or directory to exclude in the check.
- *
- * @return array
- *   A list of directory paths that are empty. A directory is deemed to be empty
- *   if it only contains excluded files or directories.
  */
 function drush_find_empty_directories($dir, $exclude = array()) {
-  // Skip files.
-  if (!is_dir($dir)) {
-    return array();
-  }
   $to_exclude = array_merge(array('.', '..'), $exclude);
-  $empty_dirs = array();
+  $empty = array();
   $dir_is_empty = TRUE;
-  foreach (scandir($dir) as $file) {
-    // Skip excluded directories.
-    if (in_array($file, $to_exclude)) {
-      continue;
-    }
-    // Recurse into sub-directories to find potentially empty ones.
-    $subdir = $dir . '/' . $file;
-    $empty_dirs += drush_find_empty_directories($subdir, $exclude);
-    // $empty_dir will not contain $subdir, if it is a file or if the
-    // sub-directory is not empty. $subdir is only set if it is empty.
-    if (!isset($empty_dirs[$subdir])) {
+  if ($dh = opendir($dir)) {
+    while (($file = readdir($dh)) !== FALSE) {
+      if (in_array($file, $to_exclude)) {
+        continue;
+      }
+      if (is_dir($dir .'/'. $file)) {
+        $subdir = $dir .'/'. $file;
+        $subdir_is_empty = TRUE;
+        if ($dh2 = opendir($subdir)) {
+          while (($file2 = readdir($dh2)) !== FALSE) {
+            if (in_array($file2, $to_exclude)) {
+              continue;
+            }
+            $subdir_is_empty = FALSE;
+            if (is_dir($subdir . '/'. $file2)) {
+              $empty2 = drush_find_empty_directories($subdir . '/'. $file2, $exclude);
+              $empty = array_merge($empty, $empty2);
+            }
+          }
+          if ($subdir_is_empty) {
+            $empty[] = $subdir . '/'. $file2;
+          }
+        }
+        closedir($dh2);
+      }
       $dir_is_empty = FALSE;
     }
   }
+  closedir($dh);
 
   if ($dir_is_empty) {
-    $empty_dirs[$dir] = $dir;
+    return array($dir);
   }
-  return $empty_dirs;
-}
 
-/**
- * Inject metadata into all .info files for a given project.
- *
- * @param string $project_dir
- *   The full path to the root directory of the project to operate on.
- * @param string $project_name
- *   The project machine name (AKA shortname).
- * @param string $version
- *   The version string to inject into the .info file(s).
- * @param int $datestamp
- *   The datestamp of the last commit.
- *
- * @return boolean
- *   TRUE on success, FALSE on any failures appending data to .info files.
- */
-function drush_pm_inject_info_file_metadata($project_dir, $project_name, $version, $datestamp) {
-  // `drush_drupal_major_version()` cannot be used here because this may be running
-  // outside of a Drupal context.
-  $regex = '/((\d*)\.\d*\.[\dx]*-?.*)|([89]\.x-\d*\.[\dx]*.*)/';
-  $yaml_format = preg_match($regex, $version);
-  $pattern = preg_quote($yaml_format ? '.info.yml' : '.info');
-  $info_files = drush_scan_directory($project_dir, '/.*' . $pattern . '$/');
-  if (!empty($info_files)) {
-    // Construct the string of metadata to append to all the .info files.
-    if ($yaml_format) {
-      $info = _drush_pm_generate_info_yaml_metadata($version, $project_name, $datestamp);
-    }
-    else {
-      $info = _drush_pm_generate_info_ini_metadata($version, $project_name, $datestamp);
-    }
-    foreach ($info_files as $info_file) {
-      if (!drush_file_append_data($info_file->filename, $info)) {
-        return FALSE;
-      }
-    }
-  }
-  return TRUE;
-}
-
-/**
- * Generate version information for `.info` files in ini format.
- *
- * Taken with some modifications from:
- * http://drupalcode.org/project/drupalorg.git/blob/refs/heads/6.x-3.x:/drupalorg_project/plugins/release_packager/DrupalorgProjectPackageRelease.class.php#l192
- */
-function _drush_pm_generate_info_ini_metadata($version, $project_name, $datestamp) {
-  $matches = array();
-  $extra = '';
-  if (preg_match('/^((\d+)\.x)-.*/', $version, $matches) && $matches[2] >= 6) {
-    $extra .= "\ncore = \"$matches[1]\"";
-  }
-  if (!drush_get_option('no-gitprojectinfo', FALSE)) {
-    $extra = "\nproject = \"$project_name\"";
-  }
-  $date = date('Y-m-d', $datestamp);
-  $info = <<<METADATA
-
-; Information added by drush on {$date}
-version = "{$version}"{$extra}
-datestamp = "{$datestamp}"
-METADATA;
-  return $info;
-}
-
-/**
- * Generate version information for `.info` files in YAML format.
- */
-function _drush_pm_generate_info_yaml_metadata($version, $project_name, $datestamp) {
-  $matches = array();
-  $extra = '';
-  if (preg_match('/^((\d+)\.x)-.*/', $version, $matches) && $matches[2] >= 6) {
-    $extra .= "\ncore: '$matches[1]'";
-  }
-  if (!drush_get_option('no-gitprojectinfo', FALSE)) {
-    $extra = "\nproject: '$project_name'";
-  }
-  $date = date('Y-m-d', $datestamp);
-  $info = <<<METADATA
-
-# Information added by drush on {$date}
-version: '{$version}'{$extra}
-datestamp: {$datestamp}
-METADATA;
-  return $info;
+  return $empty;
 }

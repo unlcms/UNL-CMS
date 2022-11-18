@@ -1,23 +1,16 @@
 <?php
 
 /**
- * @file
- * Drush pm directory copy backup extension
+ * @file Drush pm directory copy backup extension
  */
 
-use Drush\Log\LogLevel;
-
-class drush_version_control_backup implements drush_version_control {
+class drush_pm_version_control_backup implements drush_pm_version_control {
 
   /**
    * Implementation of pre_update().
    */
   public function pre_update(&$project, $items_to_test = array()) {
     if (drush_get_option('no-backup', FALSE)) {
-      // Delete the project path to clean up files that should be removed
-      if (!drush_delete_dir($project['full_project_path'])) {
-        return FALSE;
-      }
       return TRUE;
     }
     if ($backup_target = $this->prepare_backup_dir()) {
@@ -51,7 +44,7 @@ class drush_version_control_backup implements drush_version_control {
       return;
     }
     if (drush_move_dir($project['backup_target'], $project['full_project_path'], TRUE)) {
-      return drush_log(dt("Backups were restored successfully."), LogLevel::OK);
+      return drush_log(dt("Backups were restored successfully."), 'ok');
     }
     return drush_set_error('DRUSH_PM_BACKUP_ROLLBACK_FAILED', dt('Could not restore backup and rollback from failed upgrade. You will need to resolve manually.'));
   }
@@ -64,7 +57,7 @@ class drush_version_control_backup implements drush_version_control {
       return;
     }
     if ($project['backup_target']) {
-      drush_log(dt("Backups were saved into the directory !backup_target.", array('!backup_target' => $project['backup_target'])), LogLevel::OK);
+      drush_log(dt("Backups were saved into the directory !backup_target.", array('!backup_target' => $project['backup_target'])), 'ok');
     }
   }
 

@@ -1,18 +1,10 @@
 <?php
 
-use Drush\Log\LogLevel;
-use Drupal\Component\Utility\Unicode;
-use Drupal\Component\Utility\Html;
-
 /**
  * Implementation of hook_drush_help().
  */
 function watchdog_drush_help($section) {
   switch ($section)  {
-    case 'meta:watchdog:title':
-      return dt('Watchdog commands');
-    case 'meta:watchdog:summary':
-      return dt('Interact with Drupal\'s db logging system.');
     case 'drush:watchdog-list':
       return dt('Show available message types and severity levels. A prompt will ask for a choice to show watchdog messages.');
     case 'drush:watchdog-show':
@@ -28,20 +20,12 @@ function watchdog_drush_help($section) {
 function watchdog_drush_command() {
   $items['watchdog-list'] = array(
     'description' => 'Show available message types and severity levels. A prompt will ask for a choice to show watchdog messages.',
-    'drupal dependencies' => array('dblog'),
-    'outputformat' => array(
-      'default' => 'table',
-      'pipe-format' => 'var_export',
-      'field-labels' => array('wid' => 'ID', 'type' => 'Type', 'message' => 'Message', 'severity' => 'Severity', 'location' => 'Location', 'hostname' => 'Hostname', 'date' => 'Date', 'username' => 'Username'),
-      'fields-default' => array('wid', 'date', 'type', 'severity', 'message'),
-      'column-widths' => array('type' => 8, 'severity' => 8),
-      'output-data-type' => 'format-table',
-    ),
-    'aliases' => array('wd-list', 'watchdog:list'),
+    'drupal dependencies' => drush_drupal_major_version() >= 6 ? array('dblog') : array('watchdog'),
+    'aliases' => array('wd-list'),
   );
   $items['watchdog-show'] = array(
     'description' => 'Show watchdog messages.',
-    'drupal dependencies' => array('dblog'),
+    'drupal dependencies' => drush_drupal_major_version() >= 6 ? array('dblog') : array('watchdog'),
     'arguments' => array(
       'wid' => 'Optional id of a watchdog message to show in detail. If not provided, a listing of most recent 10 messages will be displayed. Alternatively if a string is provided, watchdog messages will be filtered by it.',
     ),
@@ -50,8 +34,7 @@ function watchdog_drush_command() {
       'severity' => 'Restrict to messages of a given severity level.',
       'type' => 'Restrict to messages of a given type.',
       'tail' => 'Continuously show new watchdog messages until interrupted.',
-      'sleep-delay' => 'To be used in conjunction with --tail. This is the number of seconds to wait between each poll to the database. Delay is 1 second by default.',
-      'extended' => 'Return extended information about each message.',
+      'sleep-delay' => 'To be used in conjunction with --tail. This is the number of seconds to wait between each poll to the database. Delay is 1 second by default.'
     ),
     'examples' => array(
       'drush watchdog-show' => 'Show a listing of most recent 10 messages.',
@@ -60,23 +43,15 @@ function watchdog_drush_command() {
       'drush watchdog-show --count=46' => 'Show a listing of most recent 46 messages.',
       'drush watchdog-show --severity=notice' => 'Show a listing of most recent 10 messages with a severity of notice.',
       'drush watchdog-show --type=php' => 'Show a listing of most recent 10 messages of type php.',
-      'drush watchdog-show --tail --extended' => 'Show a listing of most recent 10 messages with extended information about each one and continue showing messages as they are registered in the watchdog.',
+      'drush watchdog-show --tail' => 'Show a listing of most recent 10 messages and continue showing messages as they are registered in the watchdog.',
       'drush watchdog-show --tail --sleep-delay=2' => 'Do a tail of the watchdog with a delay of two seconds between each poll to the database.',
     ),
-    'outputformat' => array(
-      'default' => 'table',
-      'pipe-format' => 'var_export',
-      'field-labels' => array('wid' => 'ID', 'type' => 'Type', 'message' => 'Message', 'severity' => 'Severity', 'location' => 'Location', 'hostname' => 'Hostname', 'date' => 'Date', 'username' => 'Username'),
-      'fields-default' => array('wid', 'date', 'type', 'severity', 'message'),
-      'column-widths' => array('type' => 8, 'severity' => 8),
-      'output-data-type' => 'format-table',
-    ),
-    'aliases' => array('wd-show', 'ws', 'watchdog:show'),
+    'aliases' => array('wd-show', 'ws'),
   );
   $items['watchdog-delete'] = array(
     'description' => 'Delete watchdog messages.',
-    'drupal dependencies' => array('dblog'),
-    'options' => array(
+    'drupal dependencies' => drush_drupal_major_version() >= 6 ? array('dblog') : array('watchdog'),
+    'arguments' => array(
       'severity' => 'Delete messages of a given severity level.',
       'type' => 'Delete messages of a given type.',
     ),
@@ -87,7 +62,8 @@ function watchdog_drush_command() {
       'drush watchdog-delete --severity=notice' => 'Delete all messages with a severity of notice.',
       'drush watchdog-delete --type=cron' => 'Delete all messages of type cron.',
     ),
-    'aliases' => array('wd-del', 'wd-delete', 'watchdog:delete'),
+    'aliases' => array('wd-del', 'wd-delete'),
+    'deprecated-aliases' => array('wd'),
   );
   return $items;
 }
@@ -96,42 +72,40 @@ function watchdog_drush_command() {
  * Command callback.
  */
 function drush_core_watchdog_list() {
-  drush_include_engine('drupal', 'environment');
-
   $options['-- types --'] = dt('== message types ==');
-  $types = drush_watchdog_message_types();
-  foreach ($types as $key => $type) {
-    $options[$key] = $type;
+  $types = core_watchdog_message_types();
+  foreach ($types as $type) {
+    $options[] = $type;
   }
   $options['-- levels --'] = dt('== severity levels ==');
-  $severities = drush_watchdog_severity_levels();
+  drush_include_engine('drupal', 'environment');
+  $severities = core_watchdog_severity_levels();
   foreach ($severities as $key => $value) {
-    $options[$key] = "$value($key)";
+    $options[] = "$value($key)";
   }
   $option = drush_choice($options, dt('Select a message type or severity level.'));
   if ($option === FALSE) {
     return drush_user_abort();
   }
-  if (isset($types[$option])) {
+  $ntypes = count($types);
+  if ($option < $ntypes) {
     drush_set_option('type', $types[$option]);
   }
   else {
     drush_set_option('severity', $option - $ntypes);
   }
-  return drush_core_watchdog_show_many();
+  drush_core_watchdog_show_many();
 }
 
 /**
  * Command callback.
  */
 function drush_core_watchdog_show($arg = NULL) {
-  drush_include_engine('drupal', 'environment');
-
   if (is_numeric($arg)) {
-    return drush_core_watchdog_show_one($arg);
+    drush_core_watchdog_show_one($arg);
   }
   else {
-    return drush_core_watchdog_show_many($arg);
+    drush_core_watchdog_show_many($arg);
   }
 }
 
@@ -142,14 +116,18 @@ function drush_core_watchdog_show($arg = NULL) {
  *    The id of the message to show.
  */
 function drush_core_watchdog_show_one($wid) {
-  drush_set_default_outputformat('key-value-list', array('fields-default' => array('wid', 'type', 'message', 'severity', 'date'),));
   $rsc = drush_db_select('watchdog', '*', 'wid = :wid', array(':wid' => $wid), 0, 1);
   $result = drush_db_fetch_object($rsc);
   if (!$result) {
     return drush_set_error(dt('Watchdog message #!wid not found.', array('!wid' => $wid)));
   }
   $result = core_watchdog_format_result($result, TRUE);
-  return array($result->wid => (array)$result);
+  foreach ($result as $key => $value) {
+    $uc = ucfirst($key);
+    $upper->$uc = $value;
+  }
+  drush_print_table(drush_key_value_to_array_table($upper));
+  print "\n";
 }
 
 /**
@@ -163,7 +141,6 @@ function drush_core_watchdog_show_many($filter = NULL) {
   $type = drush_get_option('type');
   $severity = drush_get_option('severity');
   $tail = drush_get_option('tail', FALSE);
-  $extended = drush_get_option('extended', FALSE);
 
   $where = core_watchdog_query($type, $severity, $filter);
   if ($where === FALSE) {
@@ -173,35 +150,30 @@ function drush_core_watchdog_show_many($filter = NULL) {
   if ($rsc === FALSE) {
     return drush_log(dt('Aborting.'));
   }
-  $table = array();
+  $header = array(dt('Id'), dt('Date'), dt('Severity'), dt('Type'), dt('Message'));
   while ($result = drush_db_fetch_object($rsc)) {
-    $row = core_watchdog_format_result($result, $extended);
-    $table[$row->wid] = (array)$row;
+    $row = core_watchdog_format_result($result);
+    $table[] = array($row->wid, $row->date, $row->severity, $row->type, $row->message);
   }
-  if (empty($table) && !$tail) {
-    drush_log(dt('No log messages available.'), LogLevel::OK);
-    return array();
+  if (empty($table)) {
+    return drush_log(dt('No log messages available.'), 'ok');
   }
   else {
     drush_log(dt('Most recent !count watchdog log messages:', array('!count' => $count)));
+    if ($tail) {
+      $table = array_reverse($table);
+    }
+    array_unshift($table, $header);
+    $tbl = drush_print_table($table, TRUE);
   }
+
   if ($tail) {
-    $field_list = array('wid' => 'ID', 'date' => 'Date', 'severity' => 'Severity', 'type' => 'Type', 'message' => 'Message');
-    $table = array_reverse($table);
-    $table_rows = drush_rows_of_key_value_to_array_table($table, $field_list, array());
-    $tbl = drush_print_table($table_rows, TRUE);
-    // Reuse the table object to display each line generated while in tail mode.
-    // To make it possible some hacking is done on the object:
-    // remove the header and reset the rows on each iteration.
+    // We will reuse the table object to display each line generated while in tail mode.
+    // To make it possible some hacking is done on the object: remove the header and reset the rows on each iteration.
     $tbl->_headers = NULL;
-    // Obtain the last wid. If the table has no rows, start at 0.
-    if (count($table_rows) > 1) {
-      $last = array_pop($table_rows);
-      $last_wid = $last[0];
-    }
-    else {
-      $last_wid = 0;
-    }
+    // Obtain the last wid.
+    $last = array_pop($table);
+    $last_wid = $last[0];
     // Adapt the where snippet.
     if ($where['where'] != '') {
       $where['where'] .= ' AND ';
@@ -216,7 +188,7 @@ function drush_core_watchdog_show_many($filter = NULL) {
       $tbl->_data = array();
       $rsc = drush_db_select('watchdog', '*', $where['where'], $where['args'], NULL, NULL, 'wid', 'ASC');
       while ($result = drush_db_fetch_object($rsc)) {
-        $row = core_watchdog_format_result($result, $extended);
+        $row = core_watchdog_format_result($result);
         $table[] = array($row->wid, $row->date, $row->severity, $row->type, $row->message);
         #$tbl->addRow(array($row->wid, $row->date, $row->severity, $row->type, $row->message));
         $last_wid = $row->wid;
@@ -226,7 +198,9 @@ function drush_core_watchdog_show_many($filter = NULL) {
       sleep($sleep_delay);
     }
   }
-  return $table;
+  else {
+    print "\n";
+  }
 }
 
 /**
@@ -234,33 +208,31 @@ function drush_core_watchdog_show_many($filter = NULL) {
  *
  * @param $result
  *   Array. A database result object.
- * @param $extended
- *   Boolean. Return extended message details.
  * @return
  *   Array. The result object with some attributes themed.
  */
-function core_watchdog_format_result($result, $extended = FALSE) {
+function core_watchdog_format_result($result, $full = FALSE) {
   // Severity.
-  $severities = drush_watchdog_severity_levels();
+  drush_include_engine('drupal', 'environment');
+  $severities = core_watchdog_severity_levels();
   $result->severity = $severities[$result->severity];
 
   // Date.
-  $result->date = drush_format_date($result->timestamp, 'custom', 'd/M H:i');
+  $result->date = format_date($result->timestamp, 'custom', 'd/M H:i');
   unset($result->timestamp);
 
   // Message.
-  $variables = $result->variables;
-  if (is_string($variables)) {
-    $variables = unserialize($variables);
+  if (drush_drupal_major_version() > 5) {
+    $variables = unserialize($result->variables);
+    if (is_array($variables)) {
+      $result->message = strtr($result->message, $variables);
+    }
+    unset($result->variables);
   }
-  if (is_array($variables)) {
-    $result->message = strtr($result->message, $variables);
-  }
-  unset($result->variables);
-  $message_length = 188;
+  $result->message = truncate_utf8(strip_tags(decode_entities($result->message)), 188, FALSE, FALSE);
 
-  // Print all the data available
-  if ($extended) {
+  // This data is only used in a detailed view.
+  if ($full) {
     // Possible empty values.
     if (empty($result->link)) {
       unset($result->link);
@@ -269,21 +241,13 @@ function core_watchdog_format_result($result, $extended = FALSE) {
       unset($result->referer);
     }
     // Username.
-    if ($account = drush_user_load($result->uid)) {
+    if ($account = user_load($result->uid)) {
       $result->username = $account->name;
     }
     else {
       $result->username = dt('Anonymous');
     }
     unset($result->uid);
-    $message_length = PHP_INT_MAX;
-  }
-
-  if (drush_drupal_major_version() >= 8) {
-    $result->message = Unicode::truncate(strip_tags(Html::decodeEntities($result->message)), $message_length, FALSE, FALSE);
-  }
-  else {
-    $result->message = truncate_utf8(strip_tags(decode_entities($result->message)), $message_length, FALSE, FALSE);
   }
 
   return $result;
@@ -296,15 +260,13 @@ function core_watchdog_format_result($result, $extended = FALSE) {
  *   The id of the message to delete or 'all'.
  */
 function drush_core_watchdog_delete($arg = NULL) {
-  drush_include_engine('drupal', 'environment');
-
   if ($arg == 'all') {
     drush_print(dt('All watchdog messages will be deleted.'));
     if (!drush_confirm(dt('Do you really want to continue?'))) {
       return drush_user_abort();
     }
     drush_db_delete('watchdog');
-    drush_log(dt('All watchdog messages have been deleted.'), LogLevel::OK);
+    drush_log(dt('All watchdog messages have been deleted.'), 'ok');
   }
   else if (is_numeric($arg)) {
     drush_print(dt('Watchdog message #!wid will be deleted.', array('!wid' => $arg)));
@@ -313,7 +275,7 @@ function drush_core_watchdog_delete($arg = NULL) {
     }
     $affected_rows = drush_db_delete('watchdog', 'wid=:wid', array(':wid' => $arg));
     if ($affected_rows == 1) {
-      drush_log(dt('Watchdog message #!wid has been deleted.', array('!wid' => $arg)), LogLevel::OK);
+      drush_log(dt('Watchdog message #!wid has been deleted.', array('!wid' => $arg)), 'ok');
     }
     else {
       return drush_set_error(dt('Watchdog message #!wid does not exist.', array('!wid' => $arg)));
@@ -322,7 +284,7 @@ function drush_core_watchdog_delete($arg = NULL) {
   else {
     $type = drush_get_option('type');
     $severity = drush_get_option('severity');
-    if ((!isset($arg))&&(!isset($type))&&(!isset($severity))) {
+    if ((is_null($arg))&&(is_null($type))&&(is_null($severity))) {
       return drush_set_error(dt('No options provided.'));
     }
     $where = core_watchdog_query($type, $severity, $arg, 'OR');
@@ -335,7 +297,7 @@ function drush_core_watchdog_delete($arg = NULL) {
       return drush_user_abort();
     }
     $affected_rows = drush_db_delete('watchdog', $where['where'], $where['args']);
-    drush_log(dt('!affected_rows watchdog messages have been deleted.', array('!affected_rows' => $affected_rows)), LogLevel::OK);
+    drush_log(dt('!affected_rows watchdog messages have been deleted.', array('!affected_rows' => $affected_rows)), 'ok');
   }
 }
 
@@ -357,7 +319,7 @@ function core_watchdog_query($type = NULL, $severity = NULL, $filter = NULL, $cr
   $args = array();
   $conditions = array();
   if ($type) {
-    $types = drush_watchdog_message_types();
+    $types = core_watchdog_message_types();
     if (array_search($type, $types) === FALSE) {
       $msg = "Unrecognized message type: !type.\nRecognized types are: !types.";
       return drush_set_error('WATCHDOG_UNRECOGNIZED_TYPE', dt($msg, array('!type' => $type, '!types' => implode(', ', $types))));
@@ -365,13 +327,14 @@ function core_watchdog_query($type = NULL, $severity = NULL, $filter = NULL, $cr
     $conditions[] = "type = :type";
     $args[':type'] = $type;
   }
-  if (isset($severity)) {
-    $severities = drush_watchdog_severity_levels();
+  if (!is_null($severity)) {
+    drush_include_engine('drupal', 'environment');
+    $severities = core_watchdog_severity_levels();
     if (isset($severities[$severity])) {
       $level = $severity;
     }
     elseif (($key = array_search($severity, $severities)) !== FALSE) {
-      $level = $key;
+        $level = $key;
     }
     else {
       $level = FALSE;
@@ -394,4 +357,19 @@ function core_watchdog_query($type = NULL, $severity = NULL, $filter = NULL, $cr
   $where = implode(" $criteria ", $conditions);
 
   return array('where' => $where, 'args' => $args);
+}
+
+/**
+ * Helper function to obtain the message types based on drupal version.
+ *
+ * @return
+ *   Array of watchdog message types.
+ */
+function core_watchdog_message_types() {
+  if (drush_drupal_major_version() == 5) {
+    return _watchdog_get_message_types();
+  }
+  else {
+    return _dblog_get_message_types();
+  }
 }

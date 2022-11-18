@@ -1,13 +1,10 @@
 <?php
 
 /**
- * @file
- * Drush pm Bazaar extension
+ * @file Drush pm Bazaar extension
  */
 
-use Drush\Log\LogLevel;
-
-class drush_version_control_bzr implements drush_version_control {
+class drush_pm_version_control_bzr implements drush_pm_version_control {
 
   /**
    * Implementation of pre_update().
@@ -120,7 +117,7 @@ class drush_version_control_bzr implements drush_version_control {
         $message = dt("Drush automatic commit.\nProject: @name @type\nCommand: @arguments", array('@name' => $project['name'], '@type' => $project['project_type'], '@arguments' => implode(' ', $_SERVER['argv'])));
       }
       if (drush_shell_exec('bzr commit --message=%s %s', $message, $project['full_project_path'])) {
-        drush_log(dt('Project committed to Bazaar successfully'), LogLevel::OK);
+        drush_log(dt('Project committed to Bazaar successfully'), 'ok');
       }
       else {
         drush_set_error('DRUSH_PM_BZR_COMMIT_PROBLEMS', dt("Problems were encountered committing your changes to Bazaar.\nThe specific errors are below:\n!errors", array('!errors' => implode("\n", drush_shell_exec_output()))));

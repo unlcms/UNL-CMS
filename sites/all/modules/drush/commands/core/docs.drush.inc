@@ -34,206 +34,120 @@ function docs_drush_command() {
   // any other command).
   //
   $items['docs-readme'] = array(
-    'description' => 'README.md',
+    'description' => 'README.txt',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/README.md'),
-    'aliases' => array('docs:readme'),
-  );
-  $items['docs-bisect'] = array(
-    'description' => 'git bisect and Drush may be used together to find the commit an error was introduced in.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/examples/git-bisect.example.sh'),
-    'aliases' => array('docs:bisect'),
-  );
-  $items['docs-bashrc'] = array(
-    'description' => 'Bashrc customization examples for Drush.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/examples/example.bashrc'),
-    'aliases' => array('docs:bashrc'),
+    'callback arguments' => array($docs_dir . '/README.txt'),
   );
   $items['docs-configuration'] = array(
-    'description' => 'Configuration overview with examples from example.drushrc.php.',
+    'description' => 'Drush configuration overview with examples',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
     'callback arguments' => array($docs_dir . '/examples/example.drushrc.php'),
-    'aliases' => array('docs:configuration'),
-  );
-  $items['docs-config-exporting'] = array(
-    'description' => 'Drupal configuration export instructions, including customizing configuration by environment.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/config-exporting.md'),
-    'aliases' => array('docs:config:exporting'),
   );
   $items['docs-aliases'] = array(
-    'description' => 'Site aliases overview on creating your own aliases for commonly used Drupal sites with examples from example.aliases.drushrc.php.',
+    'description' => 'Site aliases overview with examples',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
     'callback arguments' => array($docs_dir . '/examples/example.aliases.drushrc.php'),
-    'aliases' => array('docs:aliases'),
   );
   $items['docs-ini-files'] = array(
-    'description' => 'php.ini or drush.ini configuration to set PHP values for use with Drush.',
+    'description' => 'Configuring php.ini or drush.ini for use with drush.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
     'callback arguments' => array($docs_dir . '/examples/example.drush.ini'),
-    'aliases' => array('docs:ini-files'),
-  );
-  $items['docs-bastion'] = array(
-    'description' => 'Bastion server configuration: remotely operate on a Drupal sites behind a firewall.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/bastion.md'),
-    'aliases' => array('docs:bastion'),
   );
   $items['docs-bootstrap'] = array(
-    'description' => 'Bootstrap explanation: how Drush starts up and prepares the Drupal environment for use with the command.',
+    'description' => 'Information about the drush bootstrap process.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/bootstrap.md'),
-    'aliases' => array('docs:bootstrap'),
-  );
-  $items['docs-cron'] = array(
-    'description' => 'Crontab instructions for running your Drupal cron tasks via `drush cron`.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/cron.md'),
-    'aliases' => array('docs:cron'),
+    'callback arguments' => array($docs_dir . '/docs/bootstrap.html'),
   );
   $items['docs-scripts'] = array(
-    'description' => 'Shell script overview on writing simple sequences of Drush statements.',
+    'description' => 'Overview on how to write drush shell scripts.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/shellscripts.md'),
-    'aliases' => array('docs:scripts'),
-  );
-  $items['docs-shell-aliases'] = array(
-    'description' => 'Shell alias overview on creating your own aliases for commonly used Drush commands.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/shellaliases.md'),
-    'aliases' => array('docs:shell-aliases'),
+    'callback arguments' => array($docs_dir . '/docs/shellscripts.html'),
   );
   $items['docs-commands'] = array(
-    'description' => 'Drush command instructions on creating your own Drush commands.',
+    'description' => 'Overview on how to write drush commands.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/commands.md'),
-    'aliases' => array('docs:commands'),
+    'callback arguments' => array($docs_dir . '/docs/commands.html'),
   );
   $items['docs-errorcodes'] = array(
-    'description' => 'Error code list containing all identifiers used with drush_set_error.',
+    'description' => 'Summary of drush error codes.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'aliases' => array('docs:errorcodes'),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
   $items['docs-api'] = array(
     'description' => 'Drush API',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/drush.api.php'),
-    'aliases' => array('docs:api'),
+    'callback arguments' => array($docs_dir . '/docs/drush.api.php'),
   );
   $items['docs-context'] = array(
-    'description' => 'Contexts overview explaining how Drush manages command line options and configuration file settings.',
+    'description' => 'Drush contexts',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/context.md'),
-    'aliases' => array('docs:context'),
+    'callback arguments' => array($docs_dir . '/docs/context.html'),
   );
   $items['docs-examplescript'] = array(
-    'description' => 'Example Drush script.',
+    'description' => 'Example drush script',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
     'callback arguments' => array($docs_dir . '/examples/helloworld.script'),
-    'aliases' => array('docs:examplescript'),
   );
   $items['docs-examplecommand'] = array(
-    'description' => 'Example Drush command file.',
+    'description' => 'Example drush command file.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
     'callback arguments' => array($docs_dir . '/examples/sandwich.drush.inc'),
-    'aliases' => array('docs:examplecommand'),
-  );
-  $items['docs-example-sync-extension'] = array(
-    'description' => 'Example Drush commandfile that extends sql-sync to enable development modules in the post-sync hook.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/examples/sync_enable.drush.inc'),
-    'aliases' => array('docs:example-sync-extension'),
-  );
-  $items['docs-example-sync-via-http'] = array(
-    'description' => 'Example Drush commandfile that extends sql-sync to allow transfer of the sql dump file via http rather than ssh and rsync.',
-    'hidden' => TRUE,
-    'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
-    'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/examples/sync_via_http.drush.inc'),
-    'aliases' => array('docs:example-sync-via-http'),
   );
   $items['docs-policy'] = array(
     'description' => 'Example policy file.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
     'callback arguments' => array($docs_dir . '/examples/policy.drush.inc'),
-    'aliases' => array('docs:policy'),
   );
-  $items['docs-strict-options'] = array(
-    'description' => 'Strict option handling, and how commands that use it differ from regular Drush commands.',
+  $items['docs-upgrading'] = array(
+    'description' => 'Upgrading Drupal using the drush site-upgrade command.',
     'hidden' => TRUE,
     'topic' => TRUE,
-    'bootstrap' => DRUSH_BOOTSTRAP_NONE,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
     'callback' => 'drush_print_file',
-    'callback arguments' => array($docs_dir . '/docs/strict-options.md'),
-    'aliases' => array('docs:strict-options'),
+    'callback arguments' => array($docs_dir . '/docs/upgrade.html'),
   );
   return $items;
 }
 
 /**
- * docs-errorcodes command.  Print a list of all error codes
+ * docs-error-codes command.  Print a list of all error codes
  * that can be found.
  */
 function drush_docs_errorcodes() {
@@ -246,7 +160,7 @@ Drush error codes are alphanumeric constants that represent an unrecoverable err
 
 In general, any drush command that calls drush_set_error is expected to also return FALSE as its function result.  The drush_set_error function returns FALSE to make it easy to exit with an error code.  Error codes are returned as part of the drush backend invoke process, which is used by drush API functions such as drush_invoke_process.  An example of how to test for a specific error code is shown below:
 
-  \$result = drush_invoke_process('@self', 'some-command');
+  \$result = drush_invoke_process('some-command');
   if (array_key_exists('DRUSH_ERROR_CODE', \$result['error_log'])) {
     // handle ocurrances of DRUSH_ERROR_CODE here
   }
@@ -261,8 +175,8 @@ EOD;
   $commandfiles = drush_commandfile_list();
   $files = array_flip($commandfiles);
   // In addition to the commandfiles, we will also look for files
-  // that drush will load when executing a command (e.g
-  // updatecode.pm.inc)
+  // that drush will load when executing a command; examples include
+  // updatecode.pm.inc and sync.sql.inc.
   $commands = drush_get_commands();
   foreach ($commands as $command_name => $command) {
     $files = array_merge($files, drush_command_get_includes($command_name));
@@ -289,9 +203,7 @@ EOD;
 
   $tmpfile = drush_tempnam('drush-errorcodes.');
   file_put_contents($tmpfile, $header);
-  $handle = fopen($tmpfile, 'a');
-  drush_print_table($data, FALSE, array(0 => 35), $handle);
-  fclose($handle);
+  drush_print_table($data, FALSE, array(0 => 35), $tmpfile);
   drush_print_file($tmpfile);
 }
 
@@ -316,15 +228,15 @@ function _drush_docs_find_set_error_calls(&$error_list, $filename, $shortname) {
 
       // Regex adapted from http://stackoverflow.com/questions/1824325/regex-expression-for-escaped-quoted-string-wont-work-in-phps-preg-match-allif ($quote_char == '"') {
       if ($quote_char == '"') {
-        $regex = '/"((?:[^\\\]*?(?:\\\")?)*?)"/';
+	$regex = '/"((?:[^\\\]*?(?:\\\")?)*?)"/';
       }
       else {
-        $regex = "/'((?:[^\\\]*?(?:\\\')?)*?)'/";
+	$regex = "/'((?:[^\\\]*?(?:\\\')?)*?)'/";
       }
       $match_result = preg_match($regex, $line, $matches, 0, $message_start);
 
       if ($match_result) {
-        $error_message = $matches[1];
+	$error_message = $matches[1];
       }
       $error_list[$error_code] = array_key_exists($error_code, $error_list) ? array_merge($error_list[$error_code], array($error_message)) : array($error_message);
     }
