@@ -829,34 +829,36 @@ function unl_form_node_admin_content_alter(&$form, &$form_state, $form_id) {
   // Load the nodes. This incurrs very little overhead as
   // "$nodes = node_load_multiple($nids);" has already been run on these
   // nids in node_admin_nodes(). The static cache will be used instead of
-  // another db query being invoked
-  $options = is_array($form['admin']['nodes']['#options'])
-    ? array_keys($form['admin']['nodes']['#options'])
-    : array_keys($form['admin']['nodes']['#rows']);
-  $nodes = node_load_multiple($options);
+  // another db query being invoked.
+  if (array_key_exists('admin', $form) && array_key_exists('nodes', $form['admin'])) {
+    $options = is_array($form['admin']['nodes']['#options'])
+      ? array_keys($form['admin']['nodes']['#options'])
+      : array_keys($form['admin']['nodes']['#rows']);
+    $nodes = node_load_multiple($options);
 
-  // Grab a list of all user ids that have been responsible for changing the node
-  $uids = array();
-  foreach ($nodes as $node) {
-    $uids[] = $node->revision_uid;
-  }
+    // Grab a list of all user ids that have been responsible for changing the node
+    $uids = array();
+    foreach ($nodes as $node) {
+      $uids[] = $node->revision_uid;
+    }
 
-  // Filter out duplicates (one user may have been the last to change more than one node)
-  $uids = array_unique($uids);
+    // Filter out duplicates (one user may have been the last to change more than one node)
+    $uids = array_unique($uids);
 
-  // Load a list of all involved users in one go. This is about as performant
-  // as this is going to get, as you're going to need the user objects one
-  // way or the other for the call to theme_username
-  $users = user_load_multiple($uids);
+    // Load a list of all involved users in one go. This is about as performant
+    // as this is going to get, as you're going to need the user objects one
+    // way or the other for the call to theme_username
+    $users = user_load_multiple($uids);
 
-  // Add another column to the table header by splicing/merging it into the position desired
-  $first_part = array_splice($form['admin']['nodes']['#header'], 0, 4);
-  $form['admin']['nodes']['#header'] = array_merge($first_part, array('changed_by' => array('data' => t('Last Edit'))), $form['admin']['nodes']['#header']);
+    // Add another column to the table header by splicing/merging it into the position desired
+    $first_part = array_splice($form['admin']['nodes']['#header'], 0, 4);
+    $form['admin']['nodes']['#header'] = array_merge($first_part, array('changed_by' => array('data' => t('Last Edit'))), $form['admin']['nodes']['#header']);
 
-  // Loop through the rows in the table and add the changed by column
-  foreach ($form['admin']['nodes']['#options'] as $nid => $row) {
-    $this_user = $users[$nodes[$nid]->revision_uid];
-    $form['admin']['nodes']['#options'][$nid]['changed_by'] = theme('username', array('account' => $this_user));
+    // Loop through the rows in the table and add the changed by column
+    foreach ($form['admin']['nodes']['#options'] as $nid => $row) {
+      $this_user = $users[$nodes[$nid]->revision_uid];
+      $form['admin']['nodes']['#options'][$nid]['changed_by'] = theme('username', array('account' => $this_user));
+    }
   }
 }
 
