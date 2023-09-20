@@ -159,9 +159,17 @@ function unl_site_list($form, &$form_state) {
       'data' => t('Site name'),
       'field' => 'name',
     ),
+    'nodes' => array(
+      'data' => t('# of nodes'),
+      'field' => 'nodes',
+    ),
     'access' =>  array(
       'data' => t('Last access'),
       'field' => 'access',
+    ),
+    'site_admin' => array(
+      'data' => t('Site admin'),
+      'field' => 'site_admin',
     ),
     'installed' => array(
       'data' => t('Status'),
@@ -183,7 +191,9 @@ function unl_site_list($form, &$form_state) {
     $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
       'name' => (isset($site->name) ? $site->name : ''),
+      'nodes' => (isset($site->nodes) ? $site->nodes : 0),
       'access' => (isset($site->access) ? $site->access : 0),
+      'site_admin' => (isset($site->site_admin) ? $site->site_admin : ''),
       'installed' => _unl_get_install_status_text($site->installed),
       'operations' => array(
         'data' => array(
@@ -266,6 +276,10 @@ function unl_add_extra_site_info($sites) {
     $table = $row->db_prefix.'_'.$master_prefix.'variable';
     $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
 
+    // Get number of published nodes
+    $table = $row->db_prefix.'_'.$master_prefix.'node';
+    $nodes = db_query("SELECT nid FROM ".$table." WHERE status != '0'")->fetchAll();
+
     // Get last access timestamp (by a non-administrator)
     $table_users = $row->db_prefix.'_'.$master_prefix.'users u';
     $table_users_roles = $row->db_prefix.'_'.$master_prefix.'users_roles r';
@@ -276,12 +290,21 @@ function unl_add_extra_site_info($sites) {
       $access = 0;
     }
 
+    // Get Site Admin (31 is hardcoded as the role ID)
+    $sa = '';
+    $site_admins = db_query('SELECT u.name FROM '.$table_users.', '.$table_users_roles.' WHERE u.uid = r.uid AND r.rid = 31 ORDER BY u.access DESC')->fetchAllAssoc('name');
+    foreach ($site_admins as $site_admin) {
+      $sa .= $site_admin->name.'<br>';
+    }
+
     // Restore default db connection
     db_set_active();
 
     // Update unl_sites table of the default site
     $row->name = @unserialize($name);
+    $row->nodes = count($nodes);
     $row->access = (int)$access;
+    $row->site_admin = $sa;
   }
 }
 
