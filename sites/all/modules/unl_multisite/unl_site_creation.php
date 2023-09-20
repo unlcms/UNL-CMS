@@ -159,6 +159,10 @@ function unl_site_list($form, &$form_state) {
       'data' => t('Site name'),
       'field' => 'name',
     ),
+    'maintenance_mode' => array(
+      'data' => t('Maintenance mode'),
+      'field' => 'maintenance_mode',
+    ),
     'nodes' => array(
       'data' => t('# of nodes'),
       'field' => 'nodes',
@@ -191,6 +195,7 @@ function unl_site_list($form, &$form_state) {
     $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
       'name' => (isset($site->name) ? $site->name : ''),
+      'maintenance_mode' => ($site->maintenance_mode==1 ? 'x' : ''),
       'nodes' => (isset($site->nodes) ? $site->nodes : 0),
       'access' => (isset($site->access) ? $site->access : 0),
       'site_admin' => (isset($site->site_admin) ? $site->site_admin : ''),
@@ -276,6 +281,11 @@ function unl_add_extra_site_info($sites) {
     $table = $row->db_prefix.'_'.$master_prefix.'variable';
     $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
 
+    // Get maintenance mode
+    $table = $row->db_prefix.'_'.$master_prefix.'variable';
+    $maintenance = db_query("SELECT value FROM ".$table." WHERE name = 'maintenance_mode'")->fetchColumn();
+    $maintenance_mode = @unserialize($maintenance);
+
     // Get number of published nodes
     $table = $row->db_prefix.'_'.$master_prefix.'node';
     $nodes = db_query("SELECT nid FROM ".$table." WHERE status != '0'")->fetchAll();
@@ -302,6 +312,7 @@ function unl_add_extra_site_info($sites) {
 
     // Update unl_sites table of the default site
     $row->name = @unserialize($name);
+    $row->maintenance_mode = $maintenance_mode;
     $row->nodes = count($nodes);
     $row->access = (int)$access;
     $row->site_admin = $sa;
