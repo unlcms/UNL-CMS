@@ -155,6 +155,10 @@ function unl_site_list($form, &$form_state) {
       'data' => t('Default path'),
       'field' => 'uri',
     ),
+    'site_id' => array(
+      'data' => t('Site ID'),
+      'field' => 'site_id',
+    ),
     'name' => array(
       'data' => t('Site name'),
       'field' => 'name',
@@ -179,6 +183,10 @@ function unl_site_list($form, &$form_state) {
       'data' => t('Status'),
       'field' => 'installed',
     ),
+    'updated' => array(
+      'data' => t('Record updated'),
+      'field' => 'updated',
+    ),
     'operations' => t('Operations'),
   );
 
@@ -194,12 +202,14 @@ function unl_site_list($form, &$form_state) {
   foreach ($sites as $site) {
     $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
+      'site_id' => $site->site_id,
       'name' => (isset($site->name) ? $site->name : ''),
       'maintenance_mode' => ($site->maintenance_mode==1 ? 'x' : ''),
       'nodes' => (isset($site->nodes) ? $site->nodes : 0),
       'access' => (isset($site->access) ? $site->access : 0),
       'site_admin' => (isset($site->site_admin) ? $site->site_admin : ''),
       'installed' => _unl_get_install_status_text($site->installed),
+      'updated' => date("Y-m-d"),
       'operations' => array(
         'data' => array(
           '#theme' => 'links__node_operations',
@@ -231,7 +241,7 @@ function unl_site_list($form, &$form_state) {
 
   // Now that the access timestamp has been used to sort, convert it to something readable
   foreach ($rows as $key=>$row) {
-    $rows[$key]['access'] = (isset($row['access']) && $row['access'] > 0) ? t('@time ago', array('@time' => format_interval(REQUEST_TIME - $row['access']))) : t('never');
+    $rows[$key]['access'] = (isset($row['access']) && $row['access'] > 0) ? date("Y-m-d", $row['access']) : t('never');
   }
 
   $form['unl_sites']['site_list'] = array(
