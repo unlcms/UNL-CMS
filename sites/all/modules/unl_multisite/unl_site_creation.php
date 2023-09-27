@@ -159,6 +159,10 @@ function unl_site_list($form, &$form_state) {
       'data' => t('Site ID'),
       'field' => 'site_id',
     ),
+    'unl_primary_base_url' => array(
+      'data' => t('Primary base URL'),
+      'field' => 'unl_primary_base_url',
+    ),
     'name' => array(
       'data' => t('Site name'),
       'field' => 'name',
@@ -203,6 +207,7 @@ function unl_site_list($form, &$form_state) {
     $rows[$site->site_id] = array(
       'uri' => theme('unl_site_details', array('site_path' => $site->site_path, 'uri' => $site->uri, 'db_prefix' => $site->db_prefix)),
       'site_id' => $site->site_id,
+      'unl_primary_base_url' => (isset($site->unl_primary_base_url) ? $site->unl_primary_base_url : ''),
       'name' => (isset($site->name) ? $site->name : ''),
       'maintenance_mode' => ($site->maintenance_mode==1 ? 'x' : ''),
       'nodes' => (isset($site->nodes) ? $site->nodes : 0),
@@ -287,6 +292,10 @@ function unl_add_extra_site_info($sites) {
     // Switch to alt db connection
     db_set_active('UNLNoPrefix');
 
+    // Get Primary Base URL
+    $table = $row->db_prefix.'_'.$master_prefix.'variable';
+    $unl_primary_base_url = db_query("SELECT value FROM ".$table." WHERE name = 'unl_primary_base_url'")->fetchField();
+
     // Get site name
     $table = $row->db_prefix.'_'.$master_prefix.'variable';
     $name = db_query("SELECT value FROM ".$table." WHERE name = 'site_name'")->fetchField();
@@ -321,6 +330,7 @@ function unl_add_extra_site_info($sites) {
     db_set_active();
 
     // Update unl_sites table of the default site
+    $row->unl_primary_base_url = @unserialize($unl_primary_base_url);
     $row->name = @unserialize($name);
     $row->maintenance_mode = $maintenance_mode;
     $row->nodes = count($nodes);
